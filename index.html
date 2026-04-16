@@ -1877,6 +1877,91 @@ function generaPiano(){
     +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
     +'<b>Budget:</b> '+dati.budget+'<br>'
     +'<b>Preferenza proteica:</b> '+dati.prefProteica;
+
+  // ── Costruzione struttura piano ──────────────────────────────────────────
+  const haSp = (p.spuntM==='si'||p.spuntP==='si');
+  const haPrenanna = p.prenanna==='si';
+  const isCetoOrenale = p.regime&&(p.regime.toLowerCase().includes('chetogen')||p.regime.toLowerCase().includes('cetogen')||p.regime.toLowerCase().includes('renale'));
+  const nGiorni = isCetoOrenale?7:6;
+  const nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+
+  // Olio: basato su grassiTarget
+  const olioG = grassiG!==null ? (grassiG<50?10:grassiG<=80?15:20) : 15;
+
+  // Grammatura carboidrati: basata su kcalTarget
+  const carbGr = kcalTarget!==null ? (kcalTarget<1400?60:kcalTarget<=1800?80:kcalTarget<=2200?100:120) : 80;
+
+  // Tabella pranzo: proteine per ogni giorno (indice 0-6)
+  const pranzoConf = [
+    {legumi:true,  prot:'Tonno al naturale'},
+    {legumi:false, prot:'Carne bianca'},
+    {legumi:true,  prot:'Gamberetti'},
+    {legumi:false, prot:'Pesce'},
+    {legumi:true,  prot:'Uova'},
+    {legumi:false, prot:'Carne rossa'},
+    {legumi:false, prot:'Carne bianca'}
+  ];
+
+  // Tabella cena: proteina principale per ogni giorno
+  const cenaProt = ['Carne bianca','Pesce','Carne rossa','Carne bianca','Pesce','Carne rossa','Carne bianca'];
+
+  const piano = [];
+  for(let i=0;i<nGiorni;i++){
+    const slots = [];
+
+    // COLAZIONE
+    slots.push({slot:'COLAZIONE', alimenti:'Da definire'});
+
+    // SPUNTINO MATTINA
+    if(haSp) slots.push({slot:'SPUNTINO MATTINA', alimenti:'Da definire'});
+
+    // PRANZO
+    const pc = pranzoConf[i];
+    let pranzoAlim = 'Verdura mista 200g, Olio EVO '+olioG+'g, Pasta/Riso '+carbGr+'g';
+    if(pc.legumi) pranzoAlim += ', Legumi (barattolo) 120g, '+pc.prot;
+    else pranzoAlim += ', '+pc.prot;
+    slots.push({slot:'PRANZO', alimenti:pranzoAlim});
+
+    // SPUNTINO POMERIGGIO
+    if(haSp) slots.push({slot:'SPUNTINO POMERIGGIO', alimenti:'Da definire'});
+
+    // CENA
+    const isSabato = (i===5);
+    let cenaAlim;
+    if(isSabato){
+      cenaAlim = (p.weekend&&p.weekend!=='')?p.weekend:'Libero (pizza / panino / sushi)';
+    } else {
+      cenaAlim = 'Verdura mista 200g, Olio EVO '+olioG+'g, '+cenaProt[i];
+    }
+    slots.push({slot:'CENA', alimenti:cenaAlim});
+
+    // PRE-NANNA
+    if(haPrenanna) slots.push({slot:'PRE-NANNA', alimenti:'Da definire'});
+
+    piano.push({giorno:nomiGiorni[i], slots:slots});
+  }
+
+  // ── Render piano in pagina ───────────────────────────────────────────────
+  let pianoEl = document.getElementById('piano-piano-box');
+  if(!pianoEl){
+    pianoEl = document.createElement('div');
+    pianoEl.id = 'piano-piano-box';
+    box.parentNode.appendChild(pianoEl);
+  }
+  let pianoHtml = '<div style="margin-top:1.5rem;">';
+  piano.forEach(function(g){
+    pianoHtml += '<div style="background:#fff;border-radius:10px;border:1.5px solid #e0e0e0;margin-bottom:1rem;overflow:hidden;">'
+      +'<div style="background:var(--green);color:#fff;font-weight:700;font-size:.9rem;padding:.55rem 1rem;">'+g.giorno+'</div>'
+      +'<div style="padding:.7rem 1rem;">';
+    g.slots.forEach(function(s){
+      pianoHtml += '<div style="margin-bottom:.45rem;font-size:.82rem;">'
+        +'<span style="font-weight:700;color:var(--text1);">'+s.slot+'</span>'
+        +' — '+s.alimenti+'</div>';
+    });
+    pianoHtml += '</div></div>';
+  });
+  pianoHtml += '</div>';
+  pianoEl.innerHTML = pianoHtml;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
