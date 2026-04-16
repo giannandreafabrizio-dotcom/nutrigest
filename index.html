@@ -1800,7 +1800,7 @@ function pianoPazSelezionato(id){
   info.style.display='block';
 }
 
-function generaPiano(){
+async function generaPiano(){
   const id=document.getElementById('piano-select-paz').value;
   if(!id){notif('⚠ Seleziona prima un paziente');return;}
 
@@ -1962,6 +1962,143 @@ function generaPiano(){
   });
   pianoHtml += '</div>';
   pianoEl.innerHTML = pianoHtml;
+
+  // ── Chiamata API Anthropic ────────────────────────────────────────────────
+  const apiKey = localStorage.getItem('nutrigest_api_key');
+  if(!apiKey){
+    notif('⚠ Chiave API non trovata. Salvala in localStorage con chiave "nutrigest_api_key".');
+    return;
+  }
+
+  // Messaggio di caricamento
+  let loadEl = document.getElementById('piano-load-msg');
+  if(!loadEl){
+    loadEl = document.createElement('div');
+    loadEl.id = 'piano-load-msg';
+    pianoEl.parentNode.insertBefore(loadEl, pianoEl);
+  }
+  loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:10px;font-size:.85rem;color:#e65100;text-align:center;';
+  loadEl.textContent = '⏳ Generazione piano in corso...';
+  pianoEl.style.opacity = '0.4';
+
+  const prompt = "Sei un nutrizionista esperto. Genera un piano alimentare settimanale personalizzato.\n\n"
+    +"DATI PAZIENTE:\n"
+    +"- Regime: "+(p.regime||'Normocalorico')+"\n"
+    +"- Kcal target: "+(kcalTarget!==null?kcalTarget:'N/D')+" kcal/giorno\n"
+    +"- Proteine target: "+(protG!==null?protG:'N/D')+"g\n"
+    +"- Carboidrati target: "+(carbG!==null?carbG:'N/D')+"g\n"
+    +"- Grassi target: "+(grassiG!==null?grassiG:'N/D')+"g\n"
+    +"- Allergie/intolleranze: "+(p.allergie||'nessuna')+"\n"
+    +"- Alimenti preferiti: "+(preferiti.length?preferiti.join(', '):'nessuno specificato')+"\n"
+    +"- Alimenti scartati: "+(scartati.length?scartati.join(', '):'nessuno specificato')+"\n"
+    +"- Preferenza proteica: "+(p.prefProteina||'indifferente')+"\n"
+    +"- Budget: "+(p.economica||'non specificato')+"\n\n"
+    +"REGOLE:\n"
+    +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
+    +"- Rispetta le kcal e i macronutrienti target\n"
+    +"- Usa alimenti italiani comuni e reperibili al supermercato\n"
+    +"- Rispetta allergie e alimenti scartati\n"
+    +"- Privilegia gli alimenti preferiti quando possibile\n"
+    +"- Grammature realistiche e pratiche\n"
+    +"- Giorni 1-3-5 al pranzo: aggiungi legumi (barattolo 120g) con proteina leggera\n"
+    +"- Giorni 2-4-6 al pranzo: proteina principale senza legumi\n"
+    +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g\n\n"
+    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo, con questa struttura esatta:\n"
+    +'[{"giorno":"Lunedì","colazione":{"descrizione":"testo breve","carboidrati":{"nome":"","grammi":0},"proteine":{"nome":"","grammi":0},"grassi":{"nome":"","grammi":0},"frutta":"(opzionale)"},'
+    +'"spuntino_mattina":"descrizione","pranzo":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"carboidrati":{"nome":"","grammi":'+carbGr+'},"proteina":{"nome":"","grammi":0},"legumi_g":0},'
+    +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        messages: [{role:'user', content: prompt}]
+      })
+    });
+
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      throw new Error((err.error&&err.error.message)||'Errore API ('+res.status+')');
+    }
+
+    const data = await res.json();
+    const raw = data.content[0].text.trim();
+    const jsonStr = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    const pianoAI = JSON.parse(jsonStr);
+
+    loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.85rem;color:#2e7d32;text-align:center;';
+    loadEl.textContent = '✓ Piano generato con AI';
+    pianoEl.style.opacity = '1';
+
+    let aiHtml = '<div style="margin-top:1.5rem;">';
+    pianoAI.forEach(function(g, gi){
+      const isSab = gi===5;
+      aiHtml += '<div style="background:#fff;border-radius:10px;border:1.5px solid #e0e0e0;margin-bottom:1rem;overflow:hidden;">'
+        +'<div style="background:var(--green);color:#fff;font-weight:700;font-size:.9rem;padding:.55rem 1rem;">'+g.giorno+'</div>'
+        +'<div style="padding:.7rem 1rem;">';
+
+      // COLAZIONE
+      const col = g.colazione||{};
+      aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">COLAZIONE</span>';
+      if(col.descrizione) aiHtml += ' — '+col.descrizione;
+      if(col.carboidrati&&col.carboidrati.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Carboidrati: '+col.carboidrati.nome+' '+col.carboidrati.grammi+'g</span>';
+      if(col.proteine&&col.proteine.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Proteine: '+col.proteine.nome+' '+col.proteine.grammi+'g</span>';
+      if(col.grassi&&col.grassi.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Grassi: '+col.grassi.nome+' '+col.grassi.grammi+'g</span>';
+      if(col.frutta&&col.frutta!=='(opzionale)') aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Frutta: '+col.frutta+'</span>';
+      aiHtml += '</div>';
+
+      // SPUNTINO MATTINA
+      if(haSp&&g.spuntino_mattina) aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">SPUNTINO MATTINA</span> — '+g.spuntino_mattina+'</div>';
+
+      // PRANZO
+      const pr = g.pranzo||{};
+      aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">PRANZO</span>';
+      if(pr.nota_descrittiva) aiHtml += ' — '+pr.nota_descrittiva;
+      if(pr.verdura) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Verdura: '+pr.verdura+'</span>';
+      if(pr.carboidrati&&pr.carboidrati.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Carboidrati: '+pr.carboidrati.nome+' '+pr.carboidrati.grammi+'g</span>';
+      if(pr.proteina&&pr.proteina.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Proteina: '+pr.proteina.nome+' '+pr.proteina.grammi+'g</span>';
+      if(pr.legumi_g&&pr.legumi_g>0) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Legumi: '+pr.legumi_g+'g</span>';
+      if(pr.olio_g) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Olio EVO: '+pr.olio_g+'g</span>';
+      aiHtml += '</div>';
+
+      // SPUNTINO POMERIGGIO
+      if(haSp&&g.spuntino_pomeriggio) aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">SPUNTINO POMERIGGIO</span> — '+g.spuntino_pomeriggio+'</div>';
+
+      // CENA
+      const ce = g.cena||{};
+      aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">CENA</span>';
+      if(isSab){
+        aiHtml += ' — '+((p.weekend&&p.weekend!=='')?p.weekend:'Libero (pizza / panino / sushi)');
+      } else {
+        if(ce.nota_descrittiva) aiHtml += ' — '+ce.nota_descrittiva;
+        if(ce.verdura) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Verdura: '+ce.verdura+'</span>';
+        if(ce.proteina&&ce.proteina.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Proteina: '+ce.proteina.nome+' '+ce.proteina.grammi+'g</span>';
+        if(ce.olio_g) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Olio EVO: '+ce.olio_g+'g</span>';
+      }
+      aiHtml += '</div>';
+
+      // PRE-NANNA
+      if(haPrenanna&&g.pre_nanna) aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">PRE-NANNA</span> — '+g.pre_nanna+'</div>';
+
+      aiHtml += '</div></div>';
+    });
+    aiHtml += '</div>';
+    pianoEl.innerHTML = aiHtml;
+
+  } catch(e) {
+    loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fdf3f2;border:1.5px solid #f5c6c2;border-radius:10px;font-size:.85rem;color:#c0392b;text-align:center;';
+    loadEl.textContent = '⚠ Errore generazione AI: '+e.message;
+    pianoEl.style.opacity = '1';
+    console.error('Errore API Anthropic:', e);
+  }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
