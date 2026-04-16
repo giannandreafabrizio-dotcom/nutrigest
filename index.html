@@ -1439,6 +1439,7 @@ function salvaPaz(){
     dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
+    regime:gs('p-regime'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
     weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
     fame:g('p-fame'),abit:gs('p-abit'),
     alimenti:window._alStato||{},
@@ -1450,6 +1451,7 @@ function salvaPaz(){
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.analisiSangue={};pd.creato=today();db.pazienti.push(pd);
   }
+  console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
