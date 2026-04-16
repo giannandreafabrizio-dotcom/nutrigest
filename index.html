@@ -2011,6 +2011,8 @@ async function generaPiano(){
   try {
     const res = await fetch(scriptUrl, {
       method: 'POST',
+      mode: 'cors',
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({action:'generatePiano', prompt: prompt})
     });
 
