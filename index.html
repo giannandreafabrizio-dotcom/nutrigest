@@ -1801,7 +1801,80 @@ function pianoPazSelezionato(id){
 function generaPiano(){
   const id=document.getElementById('piano-select-paz').value;
   if(!id){notif('⚠ Seleziona prima un paziente');return;}
-  notif('🚧 Generatore in arrivo — funzione in sviluppo!');
+
+  console.log('=== db.pazienti ===', db.pazienti);
+  console.log('=== id selezionato ===', id);
+
+  const p=db.pazienti.find(x=>x.id===id);
+  if(!p){notif('⚠ Paziente non trovato');return;}
+
+  // Calcolo TDEE e macros (stessa logica di pianoPazSelezionato)
+  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const mb=lastIb?lastIb.mb:null;
+  const peso=lastIb?lastIb.peso:(p.peso||null);
+  let tdee=null,kcalTarget=null,protG=null,carbG=null,grassiG=null;
+  if(mb&&peso){
+    const laf=1.375;
+    tdee=Math.round(mb*laf);
+    const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    const offset=regimeOffset[p.regime]||0;
+    kcalTarget=tdee+offset;
+    protG=Math.round(1.8*peso);
+    grassiG=Math.round(0.9*peso);
+    carbG=Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4));
+  }
+
+  // Alimenti preferiti (si) e scartati (no)
+  const al=p.alimenti||{};
+  const preferiti=Object.entries(al).filter(([k,v])=>v==='si').map(([k])=>k.split('__')[1]);
+  const scartati=Object.entries(al).filter(([k,v])=>v==='no').map(([k])=>k.split('__')[1]);
+
+  const dati={
+    nome: p.nome||'',
+    cognome: p.cognome||'',
+    regime: p.regime||'—',
+    tdee: tdee!==null?tdee+' kcal':'N/D',
+    kcalTarget: kcalTarget!==null?kcalTarget+' kcal':'N/D',
+    proteineTarget: protG!==null?protG+'g':'N/D',
+    carboidratiTarget: carbG!==null?carbG+'g':'N/D',
+    grassiTarget: grassiG!==null?grassiG+'g':'N/D',
+    allergie: p.allergie||'—',
+    alimentiPreferiti: preferiti.length?preferiti.join(', '):'—',
+    alimentiScartati: scartati.length?scartati.join(', '):'—',
+    spuntini: (p.spuntM==='si'||p.spuntP==='si')?'Sì':'No',
+    sabatosera: p.weekend||'—',
+    budget: p.economica||'—',
+    prefProteica: p.prefProteina||'—'
+  };
+
+  console.log('=== DATI PAZIENTE PER PIANO ===');
+  console.log(dati);
+
+  // Riquadro verde sotto il pulsante
+  let box=document.getElementById('piano-dati-box');
+  if(!box){
+    box=document.createElement('div');
+    box.id='piano-dati-box';
+    document.getElementById('piano-btn-genera').parentNode.appendChild(box);
+  }
+  box.style.cssText='margin-top:1rem;padding:1rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.82rem;color:#2e7d32;line-height:1.9;';
+  box.innerHTML='<strong style="font-size:.9rem;">✓ Dati paziente caricati correttamente</strong><br>'
+    +'<b>Nome:</b> '+dati.nome+' '+dati.cognome+'<br>'
+    +'<b>Regime:</b> '+dati.regime+'<br>'
+    +'<b>TDEE:</b> '+dati.tdee+'<br>'
+    +'<b>Kcal target:</b> '+dati.kcalTarget+'<br>'
+    +'<b>Proteine target:</b> '+dati.proteineTarget+'<br>'
+    +'<b>Carboidrati target:</b> '+dati.carboidratiTarget+'<br>'
+    +'<b>Grassi target:</b> '+dati.grassiTarget+'<br>'
+    +'<b>Allergie:</b> '+dati.allergie+'<br>'
+    +'<b>Alimenti preferiti:</b> '+dati.alimentiPreferiti+'<br>'
+    +'<b>Alimenti scartati:</b> '+dati.alimentiScartati+'<br>'
+    +'<b>Spuntini:</b> '+dati.spuntini+'<br>'
+    +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
+    +'<b>Budget:</b> '+dati.budget+'<br>'
+    +'<b>Preferenza proteica:</b> '+dati.prefProteica;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
