@@ -226,10 +226,14 @@ main{flex:1;overflow-y:auto;}
 <body>
 <div class="shell">
 <aside>
-  <div class="brand"><h1>NutriGest</h1><p>Studio Dott. Giannandrea</p></div>
+  <div class="brand"><h1>NutriGest</h1></div>
   <nav>
+    <div class="nav-s">Principale</div>
+    <button class="nav-item active" onclick="goTo('dashboard',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+    </button>
     <div class="nav-s">Pazienti</div>
-    <button class="nav-item active" onclick="goTo('pazienti',this)">
+    <button class="nav-item" onclick="goTo('pazienti',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Pazienti
     </button>
     <div class="nav-s">Agenda</div>
@@ -242,6 +246,9 @@ main{flex:1;overflow-y:auto;}
     </button>
     <button class="nav-item" onclick="goTo('entrate',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Entrate
+    </button>
+    <button class="nav-item" onclick="goTo('concetti',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Concetti
     </button>
     <div class="nav-s">Sistema</div>
     <button class="nav-item" onclick="goTo('impostazioni',this)">
@@ -336,6 +343,7 @@ main{flex:1;overflow-y:auto;}
       </div>
       <h3 id="cal-title"></h3>
       <div class="cal-view-tabs">
+        <button class="cvt" onclick="setCalView('anno',this)">Anno</button>
         <button class="cvt active" onclick="setCalView('month',this)">Mese</button>
         <button class="cvt" onclick="setCalView('week',this)">Settimana</button>
         <button class="cvt" onclick="setCalView('day',this)">Giorno</button>
@@ -399,6 +407,11 @@ main{flex:1;overflow-y:auto;}
   </div>
 </div>
 
+<!-- CONCETTI EDUCATIVI -->
+<div class="page" id="page-concetti">
+  <!-- Renderizzata dinamicamente da renderConcettiPage() -->
+</div>
+
 <!-- IMPOSTAZIONI -->
 <div class="page" id="page-impostazioni">
   <div class="page-hd"><div><h2>Impostazioni</h2><p>Configurazione e sincronizzazione</p></div></div>
@@ -445,9 +458,34 @@ main{flex:1;overflow-y:auto;}
     <div class="fr3">
       <div class="fg"><label>Peso (kg)</label><input type="number" id="p-peso" step="0.1"></div>
       <div class="fg"><label>Altezza (cm)</label><input type="number" id="p-altezza"></div>
-      <div class="fg"><label>BIA orario/condizione</label><input id="p-bia"></div>
+      <div class="fg"><label>BIA — Condizione</label>
+        <select id="p-bia">
+          <option value="Digiuno">Digiuno</option>
+          <option value="Post-spuntino">Post-spuntino</option>
+          <option value="Post-pranzo">Post-pranzo</option>
+        </select>
+      </div>
     </div>
-    <div class="fg"><label>Obiettivo della visita</label><textarea id="p-obiettivo"></textarea></div>
+    <div class="fr">
+      <div class="fg"><label>Tipo regime *</label>
+        <select id="p-regime">
+          <option value="">— Seleziona —</option>
+          <option value="Ipocalorico lento">Ipocalorico lento (−200/−300 kcal)</option>
+          <option value="Ipocalorico moderato">Ipocalorico moderato (−500 kcal)</option>
+          <option value="Ipocalorico aggressivo">Ipocalorico aggressivo (−700 kcal)</option>
+          <option value="Normocalorico">Normocalorico (mantenimento)</option>
+          <option value="Ipercalorico leggero">Ipercalorico leggero (+150/+200 kcal)</option>
+          <option value="Ipercalorico chiaro">Ipercalorico chiaro (+300/+500 kcal)</option>
+          <option value="Chetogenico WLKD">Chetogenico WLKD (aggressiva)</option>
+          <option value="Chetogenico moderato">Chetogenico moderato</option>
+        </select>
+      </div>
+      <div class="fg"><label>Obiettivo della visita</label><input id="p-obiettivo" placeholder="Dimagrimento, massa, benessere..."></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Prezzo prima visita (€)</label><input type="number" id="p-prezzo-visita" step="0.01" placeholder="0.00"></div>
+      <div class="fg"><label>Prezzo controllo (€)</label><input type="number" id="p-prezzo-controllo" step="0.01" placeholder="0.00"></div>
+    </div>
     <div class="fr">
       <div class="fg"><label>Data prima visita</label><input type="date" id="p-visita"></div>
       <div class="fg"><label>Data inizio alimentazione</label><input type="date" id="p-inizio" oninput="aggDateCal()"></div>
@@ -458,26 +496,80 @@ main{flex:1;overflow-y:auto;}
   <!-- CLINICA -->
   <div class="tab-panel" id="tp-clinica">
     <div class="sec-title">Stile di vita</div>
-    <div class="fr">
-      <div class="fg"><label>Fumo</label><input id="p-fumo" placeholder="nr. sigarette/giorno"></div>
-      <div class="fg"><label>Alcol</label><input id="p-alcol" placeholder="cosa e quanto"></div>
+    <div class="fr3">
+      <div class="fg"><label>Fumo</label>
+        <select id="p-fumo"><option value="No">No</option><option value="Sì">Sì</option></select>
+      </div>
+      <div class="fg"><label>Alcol</label>
+        <select id="p-alcol"><option value="No">No</option><option value="Solo birra">Solo birra</option><option value="Solo vino">Solo vino</option><option value="Birra e vino">Birra e vino</option></select>
+      </div>
+      <div class="fg"><label>Caffè</label>
+        <select id="p-caffe"><option value="No">No</option><option value="Senza zucchero">Senza zucchero</option><option value="Con zucchero">Con zucchero</option><option value="Fit (cacao amaro)">Fit (cacao amaro)</option></select>
+      </div>
+    </div>
+    <div class="fr3">
+      <div class="fg"><label>Acqua giornaliera</label>
+        <select id="p-acqua"><option value="Poca">Poca (&lt;1L)</option><option value="Normale" selected>Normale (1-1.5L)</option><option value="Molta">Molta (&gt;1.5L)</option></select>
+      </div>
+      <div class="fg"><label>Diuresi</label>
+        <select id="p-diuresi"><option value="Poco frequente">Poco frequente</option><option value="Regolare" selected>Regolare</option><option value="Molto frequente">Molto frequente</option></select>
+      </div>
+      <div class="fg"><label>Alvo</label>
+        <select id="p-alvo"><option value="Regolare" selected>Regolare</option><option value="Non regolare">Non regolare</option><option value="Liquida">Liquida</option><option value="Stitica">Stitica</option><option value="Molto stitica">Molto stitica</option></select>
+      </div>
     </div>
     <div class="fr">
-      <div class="fg"><label>Caffè / zucchero</label><input id="p-caffe"></div>
-      <div class="fg"><label>Acqua giornaliera</label><input id="p-acqua" placeholder="es. 1.5L"></div>
+      <div class="fg"><label>Ciclo mestruale</label>
+        <select id="p-ciclo">
+          <option value="">— N.A. —</option>
+          <option value="Regolare">Regolare</option>
+          <option value="Non regolare">Non regolare</option>
+          <option value="Menopausa">Menopausa</option>
+        </select>
+      </div>
+      <div class="fg"><label>Intensità flusso</label>
+        <select id="p-flusso">
+          <option value="">— N.A. —</option>
+          <option value="Normale">Normale</option>
+          <option value="Abbondante">Abbondante ⚠ +ferro</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gravidanza</label>
+        <select id="p-gravidanza">
+          <option value="No">No</option>
+          <option value="Prima gravidanza">Prima gravidanza</option>
+          <option value="Seconda gravidanza">Seconda gravidanza</option>
+          <option value="Terza gravidanza">Terza gravidanza</option>
+        </select>
+      </div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Diuresi</label><input id="p-diuresi"></div>
-      <div class="fg"><label>Alvo</label><input id="p-alvo"></div>
+    <div class="fg">
+      <label>Integratori che GIA' prende</label>
+      <div class="integratori-grid" style="margin-top:.3rem">
+        <div class="integr-item"><input type="checkbox" id="int-omega3"><label for="int-omega3">Omega-3</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-magpot"><label for="int-magpot">Magnesio + Potassio</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-mag"><label for="int-mag">Solo Magnesio</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-multi"><label for="int-multi">Multivitaminico</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-prob"><label for="int-prob">Probiotici</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-creat"><label for="int-creat">Creatina</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-ferro"><label for="int-ferro">Ferro</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-vitd"><label for="int-vitd">Vitamina D</label></div>
+      </div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Ciclo mestruale</label><input id="p-ciclo"></div>
-      <div class="fg"><label>Gravidanza</label><input id="p-gravidanza"></div>
+    <div class="fg">
+      <label style="color:var(--teal)">Integratori che VORREBBE prendere</label>
+      <div class="integratori-grid" style="margin-top:.3rem">
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-omega3"><label for="inw-omega3">Omega-3</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-magpot"><label for="inw-magpot">Magnesio + Potassio</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-mag"><label for="inw-mag">Solo Magnesio</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-multi"><label for="inw-multi">Multivitaminico</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-prob"><label for="inw-prob">Probiotici</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-creat"><label for="inw-creat">Creatina</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-ferro"><label for="inw-ferro">Ferro</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-vitd"><label for="inw-vitd">Vitamina D</label></div>
+      </div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Integratori attuali</label><input id="p-integratori"></div>
-      <div class="fg"><label>Integratori desiderati</label><input id="p-int-vuole"></div>
-    </div>
+    <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
     <div class="sec-title">Anamnesi patologica</div>
     <div class="fg"><label>Patologie</label><textarea id="p-patologie"></textarea></div>
     <div class="fg"><label>Farmaci</label><textarea id="p-farmaci"></textarea></div>
@@ -496,50 +588,75 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Spuntino mattina</label><select id="p-spunt-m"><option value="si">Sì</option><option value="no">No</option></select></div>
       <div class="fg"><label>Pranzo</label><select id="p-pranzo"><option value="si">Sì</option><option value="no">No</option></select></div>
     </div>
-    <div class="fr">
+    <div class="fr3">
       <div class="fg"><label>Spuntino pomeriggio</label><select id="p-spunt-p"><option value="si">Sì</option><option value="no">No</option></select></div>
       <div class="fg"><label>Cena</label><select id="p-cena"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Pre-nanna</label><select id="p-prenanna"><option value="no">No</option><option value="si">Sì</option></select></div>
     </div>
-    <div class="sec-title">Abitudini</div>
+    <div class="sec-title">Abitudini alimentari</div>
     <div class="fr">
-      <div class="fg"><label>Cucina tu o altri?</label><input id="p-cucina"></div>
-      <div class="fg"><label>Mangi a casa o fuori?</label><input id="p-dove"></div>
+      <div class="fg"><label>Cucina tu o altri?</label><input id="p-cucina" placeholder="Io / partner / entrambi..."></div>
+      <div class="fg"><label>Dove consumi i pasti?</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-casa" style="accent-color:var(--teal)"> A casa
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-lavoro" style="accent-color:var(--teal)"> Al lavoro
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-fuori" style="accent-color:var(--teal)"> Fuori (ristorante)
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-mensa" style="accent-color:var(--teal)"> Mensa
+          </label>
+        </div>
+      </div>
     </div>
     <div class="fr">
       <div class="fg"><label>Possibilità riscaldare al lavoro</label><select id="p-risc"><option value="si">Sì</option><option value="no">No</option></select></div>
-      <div class="fg"><label>Possibilità economica</label><input id="p-economica"></div>
+      <div class="fg"><label>Budget alimentare</label>
+        <select id="p-economica">
+          <option value="Economico">Economico</option>
+          <option value="Standard" selected>Standard</option>
+          <option value="Comfort">Comfort</option>
+          <option value="Premium">Premium</option>
+        </select>
+      </div>
     </div>
     <div class="fr">
-      <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7"></div>
+      <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
     </div>
     <div class="fr">
-      <div class="fg"><label>Momento più fame</label><input id="p-fame"></div>
-      <div class="fg"><label>Crisi di fame</label><input id="p-crisi"></div>
+      <div class="fg"><label>Momento più fame</label><input id="p-fame" placeholder="Sera, pomeriggio..."></div>
+      <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
     </div>
     <div class="fr">
       <div class="fg"><label>Alimentazione abitudinaria</label><select id="p-abit"><option value="si">Sì</option><option value="no">No</option><option value="mista">Mista</option></select></div>
-      <div class="fg"><label>Dieta specifica o varianti</label><select id="p-var"><option value="specifica">Specifica</option><option value="varianti">Molte varianti</option></select></div>
+      <div class="fg"><label>Preferisce</label>
+        <select id="p-pref-proteina">
+          <option value="">— Indifferente —</option>
+          <option value="più carne">Più carne</option>
+          <option value="più pesce">Più pesce</option>
+          <option value="entrambi">Entrambi uguale</option>
+        </select>
+      </div>
     </div>
-    <div class="fg"><label>Cibi preferiti</label><textarea id="p-cibi-pref"></textarea></div>
-    <div class="fg"><label>Di cosa non puoi fare a meno?</label><input id="p-no-rinuncia"></div>
-    <div class="fg"><label>Weekend — vuole qualcosa di particolare?</label><input id="p-weekend"></div>
-    <div class="sec-title">Attività fisica</div>
+    <div class="fg"><label>Cibi preferiti</label><textarea id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></textarea></div>
     <div class="fr">
-      <div class="fg"><label>Sport praticati</label><input id="p-sport"></div>
-      <div class="fg"><label>Da quanto tempo</label><input id="p-sport-t"></div>
+      <div class="fg"><label>Sabato sera</label>
+        <select id="p-weekend">
+          <option value="Pizza">Pizza</option>
+          <option value="Panino">Panino</option>
+          <option value="Carne rossa">Carne rossa</option>
+          <option value="Pesce">Pesce</option>
+          <option value="Sushi o Poke">Sushi o Poke</option>
+        </select>
+      </div>
+      <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Ore/settimana</label><input id="p-sport-ore"></div>
-      <div class="fg"><label>Attrezzi a casa</label><input id="p-attrezzi"></div>
-    </div>
-    <div class="fg"><label>Attività lavorativa</label><textarea id="p-lavoro"></textarea></div>
-    <div class="fg"><label>Umore</label><textarea id="p-umore"></textarea></div>
-    <div class="sec-title">Chetogenica</div>
-    <div class="fr">
-      <div class="fg"><label>Chetogenica indicata?</label><select id="p-cheto"><option value="no">No</option><option value="si">Sì</option><option value="valutare">Da valutare</option></select></div>
-      <div class="fg"><label>Note chetogenica</label><input id="p-cheto-note" placeholder="Indicazioni specifiche..."></div>
-    </div>
+    <div class="fg"><label>Attività lavorativa</label><input id="p-lavoro" placeholder="Sedentario, in piedi, turni..."></div>
   </div>
 
   <!-- PREFERENZE CIBI -->
@@ -568,6 +685,17 @@ main{flex:1;overflow-y:auto;}
 <div class="modal modal-sm">
   <h3>📊 Misurazione InBody</h3>
   <div class="fg"><label>Data</label><input type="date" id="ib-data"></div>
+  <div class="fg">
+    <label>Carica PDF InBody (opzionale)</label>
+    <div class="upload-area" onclick="document.getElementById('ib-pdf-input').click()">
+      <p>📄 Clicca per caricare il PDF della bilancia InBody 120</p>
+      <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
+    </div>
+    <input type="file" id="ib-pdf-input" accept=".pdf" style="display:none" onchange="loadInbodyPDF(event)">
+  </div>
+  <div id="ib-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">
+    ⏳ Estrazione dati dal PDF InBody in corso...
+  </div>
   <div class="fr">
     <div class="fg"><label>Peso totale (kg)</label><input type="number" id="ib-peso" step="0.1"></div>
     <div class="fg"><label>% Massa grassa</label><input type="number" id="ib-pg" step="0.1"></div>
@@ -642,8 +770,19 @@ main{flex:1;overflow-y:auto;}
 <div class="overlay" id="mo-ric">
 <div class="modal">
   <h3 id="mo-ric-t">Nuova Ricetta</h3>
+  <div class="fg">
+    <label>Nome ricetta *</label>
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <input id="r-nome" placeholder="es. Merluzzo con spinaci e patate" style="flex:1">
+      <button class="btn btn-g btn-sm" onclick="startVoiceRicetta()" id="btn-mic" title="Registra con voce" style="padding:.46rem .7rem;font-size:1rem">&#127908;</button>
+      <button class="btn btn-orange btn-sm" onclick="aiSuggerisciRicetta()" title="L'AI completa automaticamente ingredienti e macros" style="font-size:.72rem">&#10024; AI</button>
+    </div>
+    <div id="voice-status" style="font-size:.69rem;color:var(--text3);margin-top:.2rem"></div>
+  </div>
+  <div id="ai-ric-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.7rem 1rem;font-size:.78rem;color:var(--teal2);margin-bottom:.7rem">
+    &#9203; L'AI sta analizzando la ricetta e calcolando i valori nutrizionali...
+  </div>
   <div class="fr">
-    <div class="fg"><label>Nome *</label><input id="r-nome"></div>
     <div class="fg"><label>Categoria</label>
       <select id="r-cat">
         <option value="colazione">Colazione</option><option value="pranzo">Pranzo</option>
@@ -651,21 +790,22 @@ main{flex:1;overflow-y:auto;}
         <option value="post-workout">Post-workout</option>
       </select>
     </div>
+    <div class="fg"><label>Porzioni</label><input type="number" id="r-porzioni" value="1" min="1"></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Kcal</label><input type="number" id="r-kcal"></div>
-    <div class="fg"><label>Proteine (g)</label><input type="number" id="r-prot"></div>
+    <div class="fg"><label>Kcal (per porzione)</label><input type="number" id="r-kcal" placeholder="calcolate dall'AI"></div>
+    <div class="fg"><label>Proteine (g)</label><input type="number" id="r-prot" placeholder="calcolate dall'AI"></div>
   </div>
   <div class="fr">
-    <div class="fg"><label>Carboidrati (g)</label><input type="number" id="r-carb"></div>
-    <div class="fg"><label>Grassi (g)</label><input type="number" id="r-grassi"></div>
+    <div class="fg"><label>Carboidrati (g)</label><input type="number" id="r-carb" placeholder="calcolati dall'AI"></div>
+    <div class="fg"><label>Grassi (g)</label><input type="number" id="r-grassi" placeholder="calcolati dall'AI"></div>
   </div>
-  <div class="fg"><label>Ingredienti principali</label><input id="r-ing" placeholder="Pasta integrale, tonno, zucchine..."></div>
-  <div class="fg"><label>Preparazione / Note</label><textarea id="r-desc"></textarea></div>
+  <div class="fg"><label>Ingredienti con grammature</label><textarea id="r-ing" placeholder="Compilato automaticamente dall'AI — puoi modificare" style="min-height:80px"></textarea></div>
+  <div class="fg"><label>Preparazione / Note</label><textarea id="r-desc" placeholder="Note di preparazione..."></textarea></div>
   <div class="fg"><label>Tag (separati da virgola)</label><input id="r-tags" placeholder="proteica, vegetariana, senza glutine, chetogenica..."></div>
   <div class="mf">
     <button class="btn btn-g" onclick="closeM('mo-ric')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaRic()">Salva</button>
+    <button class="btn btn-p" onclick="salvaRic()">Salva ricetta</button>
   </div>
 </div>
 </div>
@@ -700,20 +840,140 @@ main{flex:1;overflow-y:auto;}
 // COSTANTI
 // ════════════════════════════════════════════════════════════════
 const ALIMENTI = {
-  'Prima Colazione':['Biscotti integrali','Muesli','Cornflakes','Cereali','Porridge','Latte vegetale','Fette biscottate int.','Weetabix','Burro di arachidi','Pane segale/integrale con ricotta e miele','Toast con affettato','Toast con avocado e fragole','Toast con uovo avocado e limone','Wasa con philadelphia e marmellata','Uova a colazione','Yogurt greco'],
-  'Cereali & Carboidrati':['Pasta','Pasta integrale','Riso','Riso basmati','Riso rosso','Riso nero','Riso integrale','Pane','Pane integrale','Pane di segale','Farro','Orzo','Quinoa','Grano','Patate','Patate dolci','Gnocchi di patate','Polenta','Mais','Popcorn','Gallette di mais','Wasa','Frisella','Tarallini','Cracker','Grissini','Panbauletto'],
-  'Carne':['Vitello','Maiale','Cavallo','Agnello','Pollo','Pollo pronto al forno','Tacchino'],
-  'Insaccati & Salumi':['Prosciutto crudo','Prosciutto cotto','Speck','Bresaola','Carpaccio','Fesa di tacchino','Petto di pollo','Salmone al naturale','Tonno in scatola','Tonno in vetro'],
-  'Pesce':['Merluzzo','Orata','Spigola','Persico','Trota','Sgombro','Salmone fresco','Salmone affumicato','Tonno','Pesce spada','Gamberetti','Polpo','Seppia','Cozze','Vongole'],
-  'Legumi':['Fagioli','Ceci','Lenticchie','Piselli','Fave','Lupini','Soia','In barattolo','Secchi','Surgelati'],
-  'Latte & Derivati':['Latte','Yogurt','Yogurt greco','Kefir','Philadelphia','Feta','Ricotta','Mozzarella','Skyrella','Fiocchi di latte','Stracchino','Robiola','Scamorza','Cacioricotta','Grana','Parmigiano','Pecorino','Tofu'],
-  'Uova':['Uova'],
-  'Frutta Secca':['Noci','Nocciole','Mandorle','Pistacchi','Anacardi','Pinoli','Arachidi','Prugne secche','Datteri','Semi di chia/zucca/lino'],
-  'Superfoods':['Bacche di goji','Gomasio','Berberina','Olio di cocco','Tahina','Cioccolato fondente','Alga spirulina','Miele crudo','Alghe marine'],
-  'Frutta':['Arance','Banana','Kiwi','Limone','Mandarino','Mela','Pera','Uva','Anguria','Albicocca','Ciliegia','Fragole','Fichi','Melograno','Melone','Pesca','Ananas','Avocado','Cocco','Mango','Papaya','Frutti rossi'],
-  'Verdura':['Asparagi','Bieta','Broccoli','Cavolfiore','Carciofi','Cime di rapa','Cicoria','Fagiolini','Melanzane','Peperoni','Spinaci','Funghi','Verza','Sedano','Zucca','Zucchine','Barbabietola','Carote','Cetriolo','Finocchio','Insalata','Pomodori','Radicchio','Rucola','Sugo','Brodo'],
-  'Spezie':['Pepe','Curcuma','Paprika','Peperoncino','Cumino','Zenzero','Cannella','Curry']
-};
+  'Prima Colazione': {items:[
+    {n:'Yogurt',g:125},{n:'Yogurt parz. scremato',g:125},{n:'Yogurt greco 0-2%',g:125},
+    {n:'Biscotti integrali',g:40},{n:'Muesli',g:40},{n:'Fiocchi avena',g:30},
+    {n:'Fette biscottate integrali',g:30},{n:'Pane comune',g:60},{n:'Pane integrale',g:60},
+    {n:'Ricotta di vacca',g:80},{n:'Pancake proteico',g:100},{n:'Wasa',g:20},
+    {n:'Philadelphia light',g:40},{n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},
+    {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
+    {n:'Uova di gallina intero',g:120},{n:'Bresaola',g:60}
+  ]},
+  'Cereali con Glutine': {items:[
+    {n:'Pasta',g:90,gl:true},{n:'Pasta integrale',g:90,gl:true},{n:'Pane comune',g:110,gl:true},{n:'Pane integrale',g:100,gl:true},
+    {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:90,gl:true},{n:'Orzo',g:90,gl:true},
+    {n:'Grano',g:90,gl:true},{n:'Frisella',g:40,gl:true},{n:'Tarallini',g:30,gl:true},
+    {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:50,gl:true},
+    {n:'Wasa (contiene glutine)',g:20,gl:true},{n:'Spaghetti Shirataki Konjac',g:200,gl:false},
+    {n:'Spätzle',g:80,gl:true}
+  ]},
+  'Cereali senza Glutine': {items:[
+    {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},
+    {n:'Riso rosso',g:90,gl:false},{n:'Riso nero',g:90,gl:false},{n:'Quinoa',g:90,gl:false},
+    {n:'Mais',g:90,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
+    {n:'Patate dolci',g:250,gl:false},{n:'Gnocchi di patate',g:200,gl:false},
+    {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:20,gl:false},
+    {n:'Fiocchi di mais',g:30,gl:false},{n:'Pasta di riso',g:90,gl:false},
+    {n:'Pasta di mais',g:90,gl:false},{n:'Grano saraceno',g:90,gl:false}
+  ]},
+  'Carne Bianca': {items:[
+    {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Ala di pollo',g:180},
+    {n:'Pollo intero con pelle',g:220},{n:'Pollo pronto al forno',g:200},
+    {n:'Petto di tacchino',g:200},{n:'Fesa di tacchino',g:100}
+  ]},
+  'Carne Rossa': {items:[
+    {n:'Vitellone tagli magri',g:240},{n:'Vitello carne semigrassa',g:220},
+    {n:'Cavallo magro',g:240},{n:'Maiale arista',g:220},{n:'Agnello',g:200},
+    {n:'Hamburger di manzo',g:180},{n:'Macinato di manzo',g:180},
+    {n:'Fegato',g:150},{n:'Cuore',g:150}
+  ]},
+  'Pesce (Pranzo)': {items:[
+    {n:'Tonno sottolio sgocciolato',g:120},{n:'Tonno al naturale',g:120},
+    {n:'Salmone affumicato',g:100},{n:'Salmone al naturale',g:120},
+    {n:'Gamberetti',g:150},{n:'Sgombro sottolio',g:120}
+  ]},
+  'Pesce (Cena)': {items:[
+    {n:'Merluzzo/nasello surgelato',g:250},{n:'Orata fresca',g:300},{n:'Sarago',g:280},
+    {n:'Spigola',g:300},{n:'Salmone fresco',g:200},{n:'Tonno fresco',g:200},
+    {n:'Tonno rosso',g:200},{n:'Pesce spada',g:250},{n:'Sgombro',g:200},
+    {n:'Polpo',g:350},{n:'Seppia',g:280},{n:'Cozze',g:300},{n:'Vongole',g:250},
+    {n:'Trota',g:250},{n:'Persico',g:250}
+  ]},
+  'Insaccati & Salumi': {items:[
+    {n:'Bresaola',g:80},{n:'Prosciutto crudo magro',g:80},{n:'Prosciutto cotto',g:80},
+    {n:'Carpaccio',g:80},{n:'Speck',g:60},{n:'Fesa di tacchino',g:100},
+    {n:'Mortadella',g:60},{n:'Salame',g:50},{n:'Nduja',g:30}
+  ]},
+  'Legumi': {items:[
+    {n:'Ceci (secchi)',g:80},{n:'Ceci (barattolo)',g:120},{n:'Ceci neri (barattolo)',g:120},
+    {n:'Fagioli borlotti (secchi)',g:80},{n:'Fagioli borlotti (barattolo)',g:120},
+    {n:'Fagioli neri (barattolo)',g:120},{n:'Fagioli rossi (barattolo)',g:120},
+    {n:'Lenticchie (secche)',g:80},{n:'Lenticchie (barattolo)',g:120},{n:'Lenticchie rosse (barattolo)',g:120},
+    {n:'Piselli (barattolo)',g:120},{n:'Piselli surgelati',g:150},
+    {n:'Soia (barattolo)',g:120},{n:'Soia surgelata (edamame)',g:150},
+    {n:'Lupini',g:80},{n:'Fave (barattolo)',g:120},
+    {n:'Tofu',g:120},{n:'Seitan',g:100}
+  ]},
+  'Uova': {items:[
+    {n:'Uovo intero',g:120},{n:'Albumi',g:100},{n:'Tuorlo',g:60}
+  ]},
+  'Latte & Derivati': {items:[
+    {n:'Yogurt',g:125},{n:'Yogurt parzialmente scremato',g:125},{n:'Yogurt greco 0-2%',g:125},
+    {n:'Ricotta di vacca',g:120},{n:'Ricotta di pecora',g:120},
+    {n:'Fiocchi di latte',g:150},{n:'Mozzarella di vacca',g:100},
+    {n:'Mozzarella Proteinella',g:100},{n:'Philadelphia light',g:80},
+    {n:'Feta',g:70},{n:'Stracchino',g:60},{n:'Scamorza',g:60},
+    {n:'Parmigiano',g:50},{n:'Grana padano',g:50},{n:'Pecorino',g:40},
+    {n:'Robiola',g:60},{n:'Cacioricotta',g:60},{n:'Burrata',g:100},
+    {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
+    {n:'Latte vaccino scremato',g:150},{n:'Kefir',g:150}
+  ]},
+  'Latte Vegetale': {items:[
+    {n:'Latte di mandorla',g:200},{n:'Latte di cocco',g:200},{n:'Latte di soia',g:200},
+    {n:'Latte di riso',g:200},{n:'Latte di nocciola',g:200},{n:'Latte di avena',g:200},
+    {n:'Latte di noci',g:200},{n:'Latte di farro',g:200},{n:'Latte di piselli',g:200}
+  ]},
+  'Frutta Secca & Semi': {items:[
+    {n:'Noci',g:20},{n:'Mandorle',g:20},{n:'Nocciole',g:20},{n:'Pistacchi',g:20},
+    {n:'Anacardi',g:20},{n:'Pinoli',g:15},{n:'Arachidi',g:20},{n:'Datteri',g:30},
+    {n:'Prugne secche',g:30},{n:'Burro arachidi',g:30},{n:'Burro mandorle',g:30},
+    {n:'Semi di chia',g:10},{n:'Semi di zucca',g:15},{n:'Semi di lino',g:10},
+    {n:'Semi di girasole',g:15},{n:'Semi di sesamo',g:10},{n:'Tahina',g:20}
+  ]},
+  'Superfoods': {items:[
+    {n:'Bacche di goji',g:15},{n:'Gomasio',g:10},{n:'Berberina',g:5},
+    {n:'Olio di cocco',g:10},{n:'Alga spirulina',g:5},{n:'Miele crudo',g:15},
+    {n:'Alghe marine',g:10},{n:'Curcuma in polvere',g:5},{n:'Cacao amaro',g:10},
+    {n:'Cioccolato fondente 85%',g:15},{n:'Acai in polvere',g:10},{n:'Moringa',g:5}
+  ]},
+  'Verdura': {items:[
+    {n:'Spinaci',g:200},{n:'Zucchine',g:200},{n:'Carote',g:200},{n:'Broccoli',g:200},
+    {n:'Finocchio',g:200},{n:'Insalata mista',g:200},{n:'Pomodori',g:200},
+    {n:'Melanzane',g:200},{n:'Peperoni rossi',g:200},{n:'Peperoni verdi',g:200},
+    {n:'Cavolfiore',g:200},{n:'Carciofi',g:200},{n:'Cime di rapa',g:200},
+    {n:'Fagiolini',g:200},{n:'Asparagi',g:200},{n:'Cetriolo',g:200},
+    {n:'Sedano',g:100},{n:'Cicoria',g:200},{n:'Radicchio',g:150},{n:'Rucola',g:80},
+    {n:'Zucca',g:200},{n:'Barbabietola',g:150},{n:'Verza',g:200},{n:'Cavolo cappuccio',g:200},
+    {n:'Cavolo nero',g:200},{n:'Bieta',g:200},{n:'Porro',g:100},{n:'Cipolla',g:80},
+    {n:'Funghi champignon',g:150},{n:'Funghi porcini',g:150},{n:'Piselli freschi',g:150},
+    {n:'Mais dolce in scatola',g:120},{n:'Germogli misti',g:80},{n:'Topinambur',g:150}
+  ]},
+  'Frutta': {items:[
+    {n:'Mela',g:150},{n:'Pera',g:150},{n:'Banana',g:150},{n:'Arancia',g:150},
+    {n:'Mandarino',g:150},{n:'Kiwi',g:150},{n:'Fragole',g:150},{n:'Uva',g:150},
+    {n:'Anguria',g:200},{n:'Melone',g:200},{n:'Albicocca',g:150},{n:'Pesca',g:150},
+    {n:'Ciliegia',g:150},{n:'Fichi',g:100},{n:'Melograno',g:150},{n:'Avocado',g:100},
+    {n:'Ananas',g:150},{n:'Mango',g:100},{n:'Papaya',g:150},{n:'Cocco fresco',g:80},
+    {n:'Limone',g:50},{n:'Lime',g:50},{n:'Pompelmo',g:150},{n:'Clementina',g:100},
+    {n:'Frutti rossi misti',g:150},{n:'Mirtilli',g:150},{n:'Lamponi',g:150},
+    {n:'More',g:150},{n:'Ribes',g:100},{n:'Susine',g:150},{n:'Prugne',g:150},
+    {n:'Kaki',g:150},{n:'Nespole',g:100},{n:'Maracuja',g:100},{n:'Litchi',g:100},
+    {n:'Guava',g:100},{n:'Carambola',g:100}
+  ]},
+  'Spezie': {items:[
+    {n:'Pepe nero',g:2},{n:'Curcuma',g:3},{n:'Paprika',g:3},{n:'Peperoncino',g:2},
+    {n:'Cumino',g:3},{n:'Zenzero fresco',g:10},{n:'Zenzero in polvere',g:3},
+    {n:'Cannella',g:3},{n:'Curry',g:3},{n:'Origano',g:2},{n:'Basilico',g:5},
+    {n:'Rosmarino',g:3},{n:'Timo',g:2},{n:'Salvia',g:2},{n:'Prezzemolo',g:5},
+    {n:'Chiodi di garofano',g:2},{n:'Noce moscata',g:2},{n:'Zafferano',g:1},
+    {n:'Cardamomo',g:2},{n:'Anice stellato',g:3},{n:'Aglio in polvere',g:3},
+    {n:'Cipolla in polvere',g:3}
+  ]},
+  'Olio & Condimenti': {items:[
+    {n:'Olio EVO',g:10},{n:'Aceto di vino',g:10},{n:'Salsa di soia',g:10},
+    {n:'Senape',g:10},{n:'Limone',g:20}
+  ]}
+};;
 
 const ANALISI = {
   'Base — Consigliate a tutti':[
@@ -771,6 +1031,72 @@ const MESSAGGI = {
   promemoria_controllo:'Ciao! Ti ricordo che domani hai il tuo controllo allo studio. A domani! 😊'
 };
 
+// ══════════════════════════════════════════════════════════════════
+// CONCETTI EDUCATIVI COMPLETI
+// ══════════════════════════════════════════════════════════════════
+const CONCETTI_EDUCATIVI = [
+  {
+    id:'concetti-fondamentali', titolo:'Concetti fondamentali', categoria:'Generale',
+    testo:`CONCETTI FONDAMENTALI\n\nCi tengo a trasmetterti tre pensieri per me fondamentali:\n\n1) Ogni piano alimentare che redigo è unico e creato su misura in base ai tuoi gusti personali, alla tua storia clinica e ai tuoi obiettivi. Per questo motivo è sconsigliato condividerlo con amici o parenti: potrebbe non essere adatto a loro e rischia di non darti i risultati che meriti.\n\n2) "Fa che il cibo sia la tua medicina e la medicina sia il tuo cibo." — Ippocrate\n\n3) Sii la versione migliore di te stesso. Nella vita non bisogna mai smettere di migliorarsi.\n\nBuona Alimentazione 🌱`
+  },
+  {
+    id:'frutta', titolo:'Il concetto di frutta', categoria:'Generale',
+    testo:`CONCETTO DI FRUTTA\n\nDue porzioni al giorno sono ideali per garantire un buon apporto di vitamine, minerali, acqua e fibre. Non è necessaria la bilancia: una porzione equivale a un frutto grande, due frutti medi o tre piccoli.\n\nScegli frutta di stagione: è più ricca di sapore, di principi attivi naturali e meno trattata.\n\nGioca con i colori della frutta per ottenere benefici diversi:\n• Rossa (fragole, ciliegie, melograno): antociani e licopene, supporta la circolazione\n• Arancione/gialla (arance, albicocche, mango): carotenoidi, pelle e sistema immunitario\n• Verde (kiwi, uva, mela verde): clorofilla, folati e magnesio per energia e detossificazione\n• Blu/viola (mirtilli, prugne): polifenoli antiossidanti, memoria e salute vascolare\n• Bianca (mele, pere, banane): flavoni e fibre per digestione e regolarità intestinale`
+  },
+  {
+    id:'verdura', titolo:'Il concetto di verdura', categoria:'Generale',
+    testo:`CONCETTO DI VERDURA\n\nLe verdure sono un pilastro della salute. Alternare crudo e cotto è la scelta migliore:\n• Cruda: fibre, vitamine termolabili ed enzimi utili all'intestino e alla pelle\n• Cotta: più digeribile, con nutrienti come licopene e betacarotene maggiormente biodisponibili\n\nCotture semplici e intelligenti:\n• Verdure sottoterra (carote, patate, sedano rapa): partono da acqua fredda\n• Verdure sopra terra (zucchine, broccoli, spinaci): in acqua già bollente, per preservare colore e clorofilla\n• Evita limone o aceto durante la cottura: alterano la clorofilla\n\nVerdura sempre presente a pranzo e a cena, variando tra crudo e cotto, giocando con i colori.`
+  },
+  {
+    id:'domenica', titolo:'Il concetto di domenica', categoria:'Generale',
+    testo:`LA DOMENICA: UN GIORNO DI CONSAPEVOLEZZA, NON DI SGARRO\n\nUn anno ha 52 domeniche. Se ogni domenica diventa un giorno di eccesso, hai 52 giornate fuori controllo — quasi due mesi interi.\n\nImmagina un deficit di 400 kcal al giorno per 6 giorni: hai costruito 2.400 kcal di "credito" settimanale. Se la domenica esageri, annulli tutto il lavoro fatto.\n\nIl punto non è rinunciare, ma ragionare con equilibrio:\n• Se c'è una pasta al forno, gustala — ma fermati lì\n• Se vuoi un dolce, sceglilo piccolo e solo se il resto del pasto è leggero\n• Usa le porzioni che hai imparato durante la settimana\n\nLa domenica non è un "premio" né una "punizione". È semplicemente parte del tuo percorso.`
+  },
+  {
+    id:'pizza', titolo:'Il concetto di pizza', categoria:'Generale',
+    testo:`PIZZA: COME GUSTARLA IN MODO INTELLIGENTE\n\nUna pizza intera può arrivare a 900-1200 kcal. In media una fetta: 270-300 kcal, 10-12 g grassi, 30-40 g carboidrati da farina bianca.\n\nCome comportarsi:\n1. Scegli impasti integrali o con farine miste: rallentano l'assorbimento glicemico\n2. Mangia prima una porzione di verdure: aumenta la sazietà\n3. Abbina una fonte proteica magra (bresaola, fesa, stracchino, uovo)\n4. Evita birra e dolce nello stesso pasto\n5. Mastica lentamente e scegli pizze con impasti ben lievitati\n\nLa pizza può restare un piacere — basta sceglierla e abbinarla con intelligenza.`
+  },
+  {
+    id:'idratazione', titolo:'Idratazione e doping pre-allenamento', categoria:'Sport',
+    testo:`L'IDRATAZIONE È LA PRIMA FORMA DI DOPING\n\nBevi 500 ml di acqua circa 30 minuti prima dell'allenamento — è l'ideale per mantenere la temperatura corporea, ridurre la fatica e migliorare la resistenza.\n\nUn buon livello di idratazione:\n• Aumenta la circolazione sanguigna\n• Migliora la trasmissione nervosa\n• Supporta la funzione muscolare\n• Aiuta a prevenire crampi\n\nAttenzione: anche una disidratazione del solo 2% del peso corporeo può compromettere significativamente le prestazioni.\n\nPrima di cercare integratori, inizia dall'acqua: è il miglior "doping" naturale per ogni atleta.`
+  },
+  {
+    id:'neat', titolo:'Il concetto NEAT — muoversi ogni giorno', categoria:'Sport',
+    testo:`IL CONCETTO NEAT — L'ATTIVITÀ FISICA INVISIBILE CHE CAMBIA TUTTO\n\nEsiste un movimento "invisibile" ma fondamentale: il NEAT (Non-Exercise Activity Thermogenesis), ovvero tutta l'attività fisica non sportiva quotidiana. Per esempio: camminare, salire le scale, portare la spesa, riordinare casa.\n\nL'obiettivo minimo: 8.000-12.000 passi al giorno.\n\nPensa a questo: 12.000 passi al giorno equivalgono a 42 maratone in un anno — come correre una maratona a settimana, semplicemente camminando un po' di più ogni giorno.\n\nControlla la media dei tuoi passi con il cellulare o uno smartwatch. Ti aiuterà a capire quanto ti muovi realmente e a migliorare nel tempo.\n\nRicorda: non serve fare sport estremo, serve muoversi ogni giorno. Ogni passo che fai è un passo verso la tua salute.`
+  },
+  {
+    id:'frutta-secca', titolo:'Frutta secca — guida e grammature', categoria:'Generale',
+    testo:`FRUTTA SECCA\n\nOgni giorno è prevista una dose di frutta secca tra anacardi, mandorle, noci, nocciole e pistacchi. Non importa quando o con cosa assumerla.\n\nGuida alle grammature per 20 g:\n• Anacardi → 12 pezzi\n• Mandorle → 17 pezzi\n• Nocciole → 15 pezzi\n• Noci → 5 pezzi\n• Pistacchi → 23 pezzi\n• Burro di arachidi → 2 cucchiaini\n\nGuida alle grammature per 10 g:\n• Anacardi → 6 pezzi\n• Mandorle → 8 pezzi\n• Nocciole → 7 pezzi\n• Noci → 3 pezzi\n• Pistacchi → 12 pezzi\n• Burro di arachidi → 1 cucchiaino`
+  },
+  {
+    id:'colazione-fermentata', titolo:'Colazione fermentata — prebiotica e probiotica', categoria:'Ricette',
+    testo:`COLAZIONE FERMENTATA — PREBIOTICA E PROBIOTICA\n\nIngredienti:\n• 80-100 g di yogurt bianco o greco 2%\n• 100 ml di kefir bianco\n• 30-60 g di fiocchi d'avena integrali\n• 15-20 g di frutta secca (mandorle, noci, burro di arachidi)\n• 1 frutto fresco (uva, mela, mirtilli, fragole)\n• Spezie: cannella, cardamomo, zenzero\n• Facoltativi: 10 g cioccolato fondente ≥85% o 5 g cacao amaro, datteri\n\nRazionale nutrizionale:\n1. Yogurt + Kefir: aumenta la varietà dei ceppi batterici per la salute intestinale\n2. Fiocchi d'avena: i β-glucani e l'amido resistente generano acidi grassi a corta catena (SCFA) come butirrato — fondamentali per la mucosa intestinale e la regolazione dell'insulina\n3. Grassi buoni + fibre solubili: riducono la risposta glicemica del pasto\n4. Cioccolato/cacao: flavanoli e triptofano influenzano positivamente il tono dell'umore\n\nConsiglio: per massimizzare la salute intestinale, lascia riposare la miscela 6 ore in frigo prima di consumarla.`
+  },
+  {
+    id:'spezie', titolo:'Le spezie — guida alle proprietà bioattive', categoria:'Generale',
+    testo:`LE SPEZIE — MOLTO PIÙ CHE SAPORE\n\nPer ridurre l'infiammazione:\n• Curcuma: antinfiammatoria, più efficace con pepe nero o olio EVO\n• Zenzero: riduce l'infiammazione intestinale e muscolare\n• Cannella: migliora la sensibilità insulinica\n• Chiodi di garofano: antinfiammatori e antibatterici naturali\n\nPer migliorare la digestione e ridurre il gonfiore:\n• Finocchio: rilassa la muscolatura intestinale\n• Cumino: facilita la digestione dei grassi\n• Cardamomo: digestivo dopo pasti grassi\n• Pepe nero: migliora l'assorbimento dei principi attivi\n\nPer il metabolismo:\n• Cannella: controlla la glicemia e riduce la fame nervosa\n• Peperoncino (capsaicina): accelera il metabolismo e favorisce la lipolisi\n• Aglio (allicina): abbassa colesterolo e pressione\n\nPer il sistema immunitario:\n• Origano: antibatterico naturale\n• Timo: antivirale\n• Zenzero + Cannella: sinergia antiossidante nei mesi freddi\n\nCome usarle: sempre abbinate a un grasso buono (olio EVO, yogurt, avocado) per migliorarne l'assorbimento.`
+  },
+  {
+    id:'motivazione', titolo:'Motivazione', categoria:'Generale',
+    testo:`MOTIVAZIONE\n\nPORSI UN OBIETTIVO È LA PIÙ POTENTE FORZA UMANA DI AUTO-MOTIVAZIONE\n\nSe vuoi realmente fare qualcosa, troverai il modo.\nSe non vuoi veramente, troverai una scusa.\n\nOgni obiettivo è come un sogno con le ali: è destinato a condurti da qualche parte.\n\nNon importa quanto sia difficile il percorso — importa che tu non smetta di camminare.`
+  },
+  {
+    id:'hashimoto', titolo:'Tiroidite di Hashimoto — indicazioni nutrizionali', categoria:'Patologie',
+    testo:`TIROIDITE DI HASHIMOTO — INDICAZIONI NUTRIZIONALI\n\nLa tiroidite di Hashimoto è una patologia autoimmune in cui il sistema immunitario attacca la tiroide, riducendo la produzione di ormoni tiroidei. I sintomi più comuni: stanchezza, aumento di peso, freddolosità, stipsi e pelle secca.\n\nAlimentazione anti-infiammatoria:\nPrivilegia omega-3 (pesce azzurro, frutta secca), olio EVO, verdure colorate e spezie come curcuma e zenzero. Limita zuccheri raffinati, prodotti industriali e grassi trans.\n\nMicronutrienti fondamentali:\n• Selenio: protegge la tiroide dallo stress ossidativo (noci brasiliane, pesce, semi)\n• Iodio: essenziale per la sintesi ormonale, ma senza eccedere\n• Vitamina D: spesso carente nelle malattie autoimmuni — valutare integrazione\n• Zinco: supporta la conversione degli ormoni tiroidei\n\nGlutine: in alcuni soggetti può aumentare la risposta autoimmune — valutare con il medico.\n\nSoia: da consumare con moderazione, può interferire con l'assorbimento degli ormoni tiroidei.\n\nSalute intestinale: alimenti fermentati (yogurt, kefir) supportano il sistema immunitario.\n\nStile di vita: gestione dello stress, sonno adeguato e attività fisica regolare sono fondamentali.`
+  },
+  {
+    id:'vitamina-d', titolo:'Vitamina D — importanza e integrazione', categoria:'Integratori',
+    testo:`VITAMINA D — PERCHÉ È FONDAMENTALE E COME ASSUMERLA CORRETTAMENTE\n\nLa vitamina D agisce come un vero ormone: rafforza il sistema immunitario, è fondamentale per ossa e muscoli, riduce l'infiammazione e aiuta a regolare la glicemia. Circa il 70% degli anziani e il 50% dei giovani presentano una carenza.\n\nFabbisogno giornaliero:\n• Bambini < 1 anno: 400 UI\n• Adulti 1-70 anni: 600 UI\n• Adulti > 70 anni: 800 UI\n\nFonti alimentari:\n• Trota iridea (100 g): ~635 UI\n• Salmone (100 g): ~526 UI\n• Sardine (100 g): ~480 UI\n• Olio di fegato di merluzzo (1 cucchiaino): ~450 UI\n• Latte (200 ml): ~115 UI\n• Yogurt (100 g): ~50 UI\n\nIntegrazione consigliata: 2.000 UI/giorno di vitamina D3, preferibilmente con vitamina K2 (MK7) — fondamentale per il corretto utilizzo del calcio.\n\nCome assumerla: essendo liposolubile, si assorbe meglio con un pasto contenente grassi sani (olio EVO, avocado, frutta secca, pesce grasso).`
+  },
+  {
+    id:'gravidanza', titolo:'Alimentazione in gravidanza', categoria:'Patologie',
+    testo:`ALIMENTAZIONE IN GRAVIDANZA\n\nFabbisogno calorico:\n• Primo trimestre: ~1.900 kcal/giorno\n• Secondo trimestre: ~2.250 kcal/giorno (+350 kcal)\n• Terzo trimestre: ~2.360 kcal/giorno (+460 kcal)\n\nFabbisogno proteico aggiuntivo:\n• 1° trimestre: +1 g/giorno · 2° trimestre: +9 g/giorno · 3° trimestre: +28 g/giorno · Allattamento: +9 g/giorno\n\nMicronutrienti chiave: Calcio 1.200 mg/giorno · Ferro 27 mg/giorno · Iodio 200 mcg/giorno\n\nIntegrazione:\n• Acido Folico (0,4 mg/giorno): da 3 mesi prima del concepimento — fondamentale per prevenire malformazioni\n• Omega-3 (450 mg/giorno): per lo sviluppo del sistema nervoso del bambino\n\nAlimenti da evitare: latte crudo, carni crude, uova crude, pesce crudo, pesce affumicato, formaggi molli non pastorizzati, alcol.\n\nL'obiettivo è un aumento di peso tra i 9 e i 12 kg durante tutta la gravidanza.\n\nRicorda: la donna in gravidanza è uno degli esseri umani più straordinari in natura. Con il giusto supporto nutrizionale affronterai ogni fase con energia e serenità.`
+  },
+  {
+    id:'chetogenica', titolo:'Regime alimentare chetogenico', categoria:'Profili dietetici',
+    testo:`REGIME ALIMENTARE CHETOGENICO\n\nPossibili effetti collaterali nei primi giorni (del tutto normali):\n• Cefalea: nei primi 3 giorni, scompare entro 72-96 ore\n• Alitosi: usa spray o gomme senza zucchero\n• Secchezza orale: bevi abbondante acqua\n• Disturbi gastrointestinali: 2 bicchieri d'acqua a pranzo, tisana al mattino, camomilla senza zucchero la sera\n• Keto-Flu: disagio generale durante l'adattamento metabolico\n\nDurata: almeno 2-3 mesi, con controlli ogni due settimane e test delle urine per i corpi chetonici.\n\nBenefici attesi: calo del peso rapido, miglioramento insulino-resistenza, riduzione marker infiammatori, diminuzione della fame.\n\nIntegrazione necessaria:\n• Magnesio + Potassio: 1 bustina/giorno · Omega-3: 1 g/giorno · Polivitaminico: 1/giorno\n\nConsigli pratici:\n• Bevi 1,5-2 litri al giorno\n• Non saltare i pasti — mangiare meno del prescritto compromette la chetosi\n• In caso di fame: cetrioli o finocchi come spuntino libero\n• Alimenti vietati: zuccheri, carboidrati, pasta, pane, frutta, dolci\n• I giorni del piano sono intercambiabili tra loro\n\nCene fuori: scegli carne o pesce con verdure, zero carboidrati. Al sushi, preferisci sashimi.`
+  }
+];
+
 // MACROS SCHEMA
 const MACRO_SCHEMA = [
   {cat:'Normopeso – sedentario, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,1.8],carb:[2.5,4.0],grassi:[0.8,1.0]},
@@ -797,7 +1123,7 @@ window._alStato={};
 function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch(e){return{};}}
 function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 function getUrl(){return getCfg().scriptUrl||'';}
-function saveLocal(){localStorage.setItem(DB_KEY,JSON.stringify(db));}
+function saveLocal(){localStorage.setItem(DB_KEY,JSON.stringify(db));if(document.getElementById('page-dashboard')?.classList.contains('active'))renderDashboard();}
 function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -849,12 +1175,14 @@ function importa(e){const file=e.target.files[0];if(!file)return;const r=new Fil
 function goTo(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
+  const pg=document.getElementById('page-'+name);if(pg)pg.classList.add('active');
   if(btn)btn.classList.add('active');
   if(name==='pazienti')renderPaz();
   if(name==='calendario')renderCal();
   if(name==='ricette')renderRic();
   if(name==='entrate')renderEntrate();
+  if(name==='dashboard')renderDashboard();
+  if(name==='concetti')renderConcettiPage();
   if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
@@ -885,12 +1213,13 @@ function renderPaz(){
       else statoTag=`<span class="tag tag-gray">Completato</span>`;
     }else statoTag=`<span class="tag tag-orange">Nessun piano</span>`;
     const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
+    const regimeTag=p.regime?`<span class="tag tag-purple">${p.regime}</span>`:'';
     return`<div class="paz-card" onclick="openPaz('${p.id}')">
       <div class="paz-card-top">
         <div class="avatar">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
         <div><div class="paz-nome">${p.nome} ${p.cognome}</div><div class="paz-meta">${eta}${eta&&p.tel?' · ':''}${p.tel||''}</div></div>
       </div>
-      <div class="paz-tags">${statoTag}${p.allergie?`<span class="tag tag-red">⚠ Allergie</span>`:''}</div>
+      <div class="paz-tags">${statoTag}${regimeTag}</div>
     </div>`;
   }).join('');
 }
@@ -927,6 +1256,11 @@ function editPaz(){
   s('p-lavoro',p.lavoro);s('p-umore',p.umore);s('p-crisi',p.crisi);s('p-fame',p.fame);
   s('p-cheto-note',p.chetoNote);
   const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+  ss('p-regime',p.regime);
+  const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
+  s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
+  setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);
+  ss('p-prenanna',p.prenanna);ss('p-pref-proteina',p.prefProteina);
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
   ss('p-abit',p.abit);ss('p-var',p.var);ss('p-cheto',p.cheto);
@@ -955,9 +1289,9 @@ function salvaPaz(){
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),cucina:g('p-cucina'),
     dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
-    weekend:g('p-weekend'),sport:g('p-sport'),sportT:g('p-sport-t'),sportOre:g('p-sport-ore'),
-    attrezzi:g('p-attrezzi'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
-    fame:g('p-fame'),abit:gs('p-abit'),var:gs('p-var'),cheto:gs('p-cheto'),chetoNote:g('p-cheto-note'),
+    dove:getDove(),flusso:gs('p-flusso'),
+    weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
+    fame:g('p-fame'),abit:gs('p-abit'),
     alimenti:window._alStato||{},
     dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||addDays(ini,28)}:null
   };
@@ -1029,16 +1363,19 @@ function renderPdAnamnesi(p){
 
 function renderPdAlimenti(p){
   const al=p.alimenti||{};let html='';
-  Object.entries(ALIMENTI).forEach(([cat,items])=>{
-    const si=items.filter(i=>al[i]==='si');const no=items.filter(i=>al[i]==='no');
+  Object.entries(ALIMENTI).forEach(([cat,data])=>{
+    const items=(data.items||[]);
+    const si=items.filter(i=>al[cat+'__'+i.n]==='si');
+    const no=items.filter(i=>al[cat+'__'+i.n]==='no');
     if(si.length||no.length){
       html+=`<div class="al-section"><h4>${cat}</h4><div class="al-grid">`;
-      si.forEach(i=>{html+=`<span class="al-tog si">✓ ${i}</span>`;});
-      no.forEach(i=>{html+=`<span class="al-tog no">✕ ${i}</span>`;});
+      si.forEach(i=>{html+=`<span class="al-tog si">✓ ${i.n}</span>`;});
+      no.forEach(i=>{html+=`<span class="al-tog no">✕ ${i.n}</span>`;});
       html+='</div></div>';
     }
   });
-  document.getElementById('pd-alimenti').innerHTML=html||'<div class="empty"><p>Nessuna preferenza registrata</p></div>';
+  const el=document.getElementById('pd-alimenti');
+  if(el)el.innerHTML=html||'<div class="empty"><p>Nessuna preferenza registrata</p></div>';
 }
 
 function renderPdAnalisi(p){
@@ -1241,21 +1578,40 @@ function delInbody(ibId){
 // ALIMENTI EDITOR
 // ════════════════════════════════════════════════════════════════
 function renderAlEditor(){
-  const c=document.getElementById('al-editor');let html='';
-  Object.entries(ALIMENTI).forEach(([cat,items])=>{
-    html+=`<div class="al-section"><h4>${cat}</h4><div class="al-grid">`;
+  const c=document.getElementById('al-editor');
+  if(!c)return;
+  let html='';
+  const selTutto=['Frutta','Verdura'];
+  Object.entries(ALIMENTI).forEach(([cat,data])=>{
+    const items=(data.items||[]);
+    const hasBtn=selTutto.includes(cat);
+    html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4>${hasBtn?`<button class="btn btn-g btn-sm" onclick="selTuttiAl('${cat}',this)" style="font-size:.63rem;padding:.17rem .48rem">Seleziona tutto</button>`:''}</div><div class="al-grid">`;
     items.forEach(item=>{
-      const s=window._alStato[item]||'';
-      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${item.replace(/'/g,"\\'")}')">${s==='si'?'✓ ':s==='no'?'✕ ':''}${item}</span>`;
+      const key=cat+'__'+item.n;
+      const s=window._alStato[key]||'';
+      const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
+      const sk=key.replace(/'/g,"\'");const sn=item.n.replace(/'/g,"\'");
+      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':''}${item.n}${gl}</span>`;
     });
     html+='</div></div>';
   });
   c.innerHTML=html;
 }
-function togAl(el,item){
-  const s=window._alStato[item]||'';const n=s===''?'si':s==='si'?'no':'';
-  if(n==='')delete window._alStato[item];else window._alStato[item]=n;
-  el.className='al-tog '+n;el.textContent=(n==='si'?'✓ ':n==='no'?'✕ ':'')+item;
+function togAl(el,key,nome){
+  const s=window._alStato[key]||'';
+  const n=s===''?'si':s==='si'?'no':'';
+  if(n==='')delete window._alStato[key];else window._alStato[key]=n;
+  el.className='al-tog '+n;
+  const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
+  el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':'')+nome+glH;
+}
+function selTuttiAl(cat,btn){
+  const data=ALIMENTI[cat];if(!data)return;
+  const items=(data.items||[]);
+  const allSi=items.every(i=>window._alStato[cat+'__'+i.n]==='si');
+  items.forEach(i=>{const k=cat+'__'+i.n;if(allSi)delete window._alStato[k];else window._alStato[k]='si';});
+  btn.textContent=allSi?'Seleziona tutto':'Deseleziona tutto';
+  renderAlEditor();
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1275,7 +1631,7 @@ function getEventi(){
   return all;
 }
 
-function setCalView(v,btn){calView=v;document.querySelectorAll('.cvt').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderCal();}
+function setCalView(v,btn){calView=v;document.querySelectorAll('.cvt').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderCal();}
 function calPrev(){if(calView==='month')calDate.setMonth(calDate.getMonth()-1);else calDate.setDate(calDate.getDate()-7);renderCal();}
 function calNext(){if(calView==='month')calDate.setMonth(calDate.getMonth()+1);else calDate.setDate(calDate.getDate()+7);renderCal();}
 function calToday(){calDate=new Date();renderCal();}
@@ -1288,7 +1644,8 @@ function renderCal(){
   const tutti=getEventi();
   const mesEv=tutti.filter(e=>{const d=new Date(e.data);return d.getFullYear()===anno&&d.getMonth()===mese;});
   document.getElementById('cal-ev-count').textContent=mesEv.length+' eventi questo mese';
-  if(calView==='month')renderCalMonth(anno,mese,tutti,giorni);
+  if(calView==='anno')renderCalAnno(tutti);
+  else if(calView==='month')renderCalMonth(anno,mese,tutti,giorni);
   else if(calView==='week')renderCalWeek(tutti,giorni);
   else renderCalDay(tutti);
 }
@@ -1584,13 +1941,495 @@ function salvaEntrata(){
 }
 function delEntrata(id){if(!confirm('Eliminare?'))return;db.entrate=db.entrate.filter(x=>x.id!==id);save();renderEntrate();notif('Eliminata');}
 
+
+// ═══════════════════════════════════════════
+// AI RICETTE + VOCE
+// ═══════════════════════════════════════════
+let voiceRecognition = null;
+
+function startVoiceRicetta() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition) { notif('⚠ Il tuo browser non supporta il riconoscimento vocale. Usa Chrome.'); return; }
+  const btn = document.getElementById('btn-mic');
+  const status = document.getElementById('voice-status');
+  if(voiceRecognition) { voiceRecognition.stop(); voiceRecognition=null; btn.textContent='🎤'; status.textContent=''; return; }
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'it-IT';
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = true;
+  btn.textContent='⏹'; btn.style.color='var(--red)';
+  status.textContent = '🔴 Registrazione in corso... parla ora';
+  voiceRecognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r=>r[0].transcript).join('');
+    document.getElementById('r-nome').value = transcript;
+    status.textContent = '✓ Riconosciuto: "' + transcript + '"';
+  };
+  voiceRecognition.onend = () => {
+    btn.textContent='🎤'; btn.style.color='';
+    voiceRecognition=null;
+    status.textContent = '✓ Registrazione completata. Clicca ✨ AI per completare automaticamente.';
+  };
+  voiceRecognition.onerror = (e) => {
+    btn.textContent='🎤'; btn.style.color='';
+    voiceRecognition=null;
+    status.textContent = '⚠ Errore: ' + e.error;
+  };
+  voiceRecognition.start();
+}
+
+async function aiSuggerisciRicetta() {
+  const nome = document.getElementById('r-nome').value.trim();
+  if(!nome) { notif('⚠ Inserisci prima il nome della ricetta'); return; }
+  const loading = document.getElementById('ai-ric-loading');
+  loading.style.display = 'block';
+  try {
+    const prompt = `Sei un nutrizionista italiano esperto. Per la ricetta "${nome}" fornisci in formato JSON:
+- categoria: una tra "colazione","pranzo","cena","spuntino","post-workout"
+- ingredienti: lista ingredienti con grammature standard per 1 porzione (formato italiano, es. "Pasta integrale 80g, Tonno al naturale 120g, Zucchine 150g, Olio EVO 10g")
+- kcal: calorie per porzione (numero intero)
+- proteine: grammi proteine per porzione (numero)
+- carboidrati: grammi carboidrati per porzione (numero)
+- grassi: grammi grassi per porzione (numero)
+- preparazione: breve nota di preparazione (max 2 righe)
+- tags: array di tag tra "proteica","vegetariana","vegana","senza glutine","light","chetogenica","antinfiammatoria","mediterranea"
+
+Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza markdown.`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{role:'user', content: prompt}]
+      })
+    });
+    const data = await resp.json();
+    const testo = data.content?.[0]?.text || '';
+    const clean = testo.replace(/```json|```/g,'').trim();
+    const ric = JSON.parse(clean);
+    // Compila i campi
+    if(ric.categoria) document.getElementById('r-cat').value = ric.categoria;
+    if(ric.kcal) document.getElementById('r-kcal').value = ric.kcal;
+    if(ric.proteine) document.getElementById('r-prot').value = ric.proteine;
+    if(ric.carboidrati) document.getElementById('r-carb').value = ric.carboidrati;
+    if(ric.grassi) document.getElementById('r-grassi').value = ric.grassi;
+    if(ric.ingredienti) document.getElementById('r-ing').value = ric.ingredienti;
+    if(ric.preparazione) document.getElementById('r-desc').value = ric.preparazione;
+    if(ric.tags) document.getElementById('r-tags').value = ric.tags.join(', ');
+    notif('✓ AI ha completato la ricetta! Controlla e modifica se necessario.');
+  } catch(e) {
+    notif('Errore AI: ' + e.message);
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════
+// CONCETTI EDUCATIVI nel modal ricette — da aggiungere alla sezione PDF paziente
+// ═══════════════════════════════════════════
+function renderConcettiModal() {
+  const cats = [...new Set(CONCETTI_EDUCATIVI.map(c=>c.categoria))];
+  let html = '<div style="max-height:350px;overflow-y:auto">';
+  cats.forEach(cat => {
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);font-weight:600;margin:.7rem 0 .3rem">${cat}</div>`;
+    CONCETTI_EDUCATIVI.filter(c=>c.categoria===cat).forEach(c => {
+      html += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
+        <input type="checkbox" id="conc-${c.id}" style="accent-color:var(--teal)">
+        <label for="conc-${c.id}" style="font-size:.78rem;cursor:pointer">${c.titolo}</label>
+      </div>`;
+    });
+  });
+  html += '</div>';
+  return html;
+}
+
+
+// ═══════════════════════════════════════
+// INBODY PDF UPLOAD
+// ═══════════════════════════════════════
+async function loadInbodyPDF(e) {
+  const file = e.target.files[0]; if(!file) return;
+  document.getElementById('ib-pdf-name').textContent = file.name;
+  document.getElementById('ib-pdf-loading').style.display = 'block';
+  try {
+    const reader = new FileReader();
+    reader.onload = async function(ev) {
+      const base64 = ev.target.result.split(',')[1];
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{role:'user', content:[
+            {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}},
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON: peso (kg), percentuale_grassa (%), massa_grassa (kg), massa_magra (kg), massa_muscolare (kg), acqua_totale (L), metabolismo_basale (kcal), grasso_viscerale (livello 1-20), bmi. Se un valore non è presente metti null. Rispondi SOLO con il JSON.'}
+          ]}]
+        })
+      });
+      const data = await resp.json();
+      const testo = data.content?.[0]?.text || '';
+      const clean = testo.replace(/```json|```/g,'').trim();
+      const ib = JSON.parse(clean);
+      const s=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null)el.value=v;};
+      s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
+      s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
+      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi);
+      notif('✓ Dati estratti dal PDF InBody!');
+    };
+    reader.readAsDataURL(file);
+  } catch(err) { notif('⚠ Errore estrazione PDF: ' + err.message); }
+  finally { document.getElementById('ib-pdf-loading').style.display = 'none'; }
+}
+
+// ═══════════════════════════════════════
+// INTEGRATORI — save/load
+// ═══════════════════════════════════════
+const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd'];
+const INTEGR_LABELS = {
+  'omega3':'Omega-3','magpot':'Magnesio + Potassio','mag':'Solo Magnesio',
+  'multi':'Multivitaminico','prob':'Probiotici','creat':'Creatina',
+  'ferro':'Ferro','vitd':'Vitamina D'
+};
+function getIntegratori() {
+  return INTEGR_KEYS.filter(k=>document.getElementById('int-'+k)?.checked).map(k=>INTEGR_LABELS[k]);
+}
+function getIntegraWant() {
+  return INTEGR_KEYS.filter(k=>document.getElementById('inw-'+k)?.checked).map(k=>INTEGR_LABELS[k]);
+}
+function setIntegratori(lista) {
+  INTEGR_KEYS.forEach(k=>{
+    const el=document.getElementById('int-'+k);
+    if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
+  });
+}
+function setIntegraWant(lista) {
+  INTEGR_KEYS.forEach(k=>{
+    const el=document.getElementById('inw-'+k);
+    if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
+  });
+}
+
+// ═══════════════════════════════════════
+// CALENDARIO ANNO
+// ═══════════════════════════════════════
+function renderCalAnno(tutti) {
+  const anno = calDate.getFullYear();
+  const mesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const oggi = new Date();
+  let html = '<div class="year-grid">';
+  for(let m=0; m<12; m++) {
+    const evMese = tutti.filter(e => { const d=new Date(e.data); return d.getFullYear()===anno&&d.getMonth()===m; });
+    const primoG = new Date(anno,m,1).getDay();
+    const ultimoG = new Date(anno,m+1,0).getDate();
+    const initDay = (primoG+6)%7;
+    html += `<div class="year-month" onclick="calDate=new Date(${anno},${m},1);setCalView('month',document.querySelector('.cvt.active'))">
+      <h4>${mesi[m]} <span style="font-size:.62rem;color:var(--text3)">(${evMese.length} ev.)</span></h4>
+      <div class="year-mini">`;
+    for(let i=0;i<initDay;i++) html+=`<div class="year-mini-day"></div>`;
+    for(let g=1;g<=ultimoG;g++) {
+      const ds=`${anno}-${String(m+1).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
+      const isT = oggi.getFullYear()===anno&&oggi.getMonth()===m&&oggi.getDate()===g;
+      const hasEv = evMese.some(e=>e.data===ds);
+      html+=`<div class="year-mini-day ${hasEv?'has-ev':''} ${isT?'today-dot':''}" title="${g}/${m+1}"></div>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+// PAGINA CONCETTI EDUCATIVI
+// ═══════════════════════════════════════
+function renderConcettiPage() {
+  const page = document.getElementById('page-concetti');
+  if(!page) return;
+  const cats = [...new Set(CONCETTI_EDUCATIVI.map(c=>c.categoria))];
+  let html = '';
+  cats.forEach(cat => {
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);font-weight:600;margin:.9rem 0 .4rem">${cat}</div>`;
+    CONCETTI_EDUCATIVI.filter(c=>c.categoria===cat).forEach(c => {
+      const custom = db.concetti?.find(x=>x.id===c.id);
+      const testo = custom?.testo || c.testo;
+      html += `<div class="card" style="margin-bottom:.6rem">
+        <div class="card-hd">
+          <h3>${c.titolo}</h3>
+          <div style="display:flex;gap:.3rem">
+            <button class="btn btn-g btn-sm" onclick="editConcetto('${c.id}')">✏ Modifica</button>
+            <button class="btn btn-g btn-sm" onclick="aiRiscriviConcetto('${c.id}')">✨ AI</button>
+          </div>
+        </div>
+        <div class="card-bd" style="font-size:.77rem;color:var(--text2);white-space:pre-line;line-height:1.55;max-height:120px;overflow:hidden" id="conc-preview-${c.id}">${testo.substring(0,300)}${testo.length>300?'...':''}</div>
+      </div>`;
+    });
+  });
+  // Aggiungi nuovo
+  html += `<div style="text-align:center;margin-top:1rem">
+    <button class="btn btn-p" onclick="openNuovoConcetto()">+ Aggiungi nuovo concetto</button>
+  </div>`;
+  page.innerHTML = `<div class="page-hd"><div><h2>Concetti Educativi</h2><p>${CONCETTI_EDUCATIVI.length + (db.concetti?.length||0)} concetti disponibili</p></div></div>` + html;
+}
+
+async function aiRiscriviConcetto(id) {
+  const c = CONCETTI_EDUCATIVI.find(x=>x.id===id);
+  if(!c) return;
+  notif('⏳ AI sta riscrivendo il concetto...');
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:800,
+        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${c.testo.substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]
+      })
+    });
+    const data = await resp.json();
+    const nuovoTesto = data.content?.[0]?.text || '';
+    if(!db.concetti) db.concetti=[];
+    const idx=db.concetti.findIndex(x=>x.id===id);
+    if(idx>=0) db.concetti[idx].testo=nuovoTesto;
+    else db.concetti.push({id,testo:nuovoTesto});
+    save(); renderConcettiPage(); notif('Concetto riscritto!');
+  } catch(e){ notif('⚠ Errore AI'); }
+}
+
+function editConcetto(id) {
+  const c = CONCETTI_EDUCATIVI.find(x=>x.id===id);
+  if(!c)return;
+  const custom=db.concetti?.find(x=>x.id===id);
+  const testo=custom?.testo||c.testo;
+  const ta=document.createElement('textarea');
+  ta.value=testo; ta.style.cssText='width:100%;min-height:300px;font-size:.8rem;font-family:DM Sans,sans-serif;padding:.5rem;border:1px solid var(--border);border-radius:8px;outline:none;resize:vertical';
+  const modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.innerHTML=`<div class="modal" style="width:600px"><h3>✏ ${c.titolo}</h3></div>`;
+  modal.querySelector('.modal').appendChild(ta);
+  const mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
+    <button class="btn btn-p" onclick="salvaConcetto('${id}',this)">Salva</button>`;
+  modal.querySelector('.modal').appendChild(mf);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+function salvaConcetto(id,btn) {
+  const ta=btn.closest('.overlay').querySelector('textarea');
+  const nuovoTesto=ta.value.trim();
+  if(!nuovoTesto)return;
+  if(!db.concetti)db.concetti=[];
+  const idx=db.concetti.findIndex(x=>x.id===id);
+  if(idx>=0)db.concetti[idx].testo=nuovoTesto;
+  else db.concetti.push({id,testo:nuovoTesto});
+  save(); btn.closest('.overlay').remove(); renderConcettiPage(); notif('Salvato!');
+}
+
+async function openNuovoConcetto() {
+  const titolo=prompt('Titolo del nuovo concetto:');if(!titolo)return;
+  const argomento=prompt('Di cosa vuole parlare? (es. "alimentazione per il sonno")');if(!argomento)return;
+  notif('AI in elaborazione...');
+  try {
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]})
+    });
+    const data=await resp.json();const testo=data.content?.[0]?.text||'';
+    const id='custom_'+Date.now();
+    if(!db.concetti)db.concetti=[];
+    db.concetti.push({id,titolo,categoria:'Personalizzato',testo});
+    // Aggiungi anche a CONCETTI_EDUCATIVI in memoria
+    CONCETTI_EDUCATIVI.push({id,titolo,categoria:'Personalizzato',testo});
+    save();renderConcettiPage();notif('Nuovo concetto creato!');
+  } catch(e){notif('⚠ Errore AI');}
+}
+
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function renderDashboard(){
+  const oggi = new Date();
+  const oggiStr = oggi.toISOString().split('T')[0];
+  const startSett = new Date(oggi); startSett.setDate(oggi.getDate()-oggi.getDay()+1);
+  const endSett = new Date(startSett); endSett.setDate(startSett.getDate()+6);
+  const startSettStr = startSett.toISOString().split('T')[0];
+  const endSettStr = endSett.toISOString().split('T')[0];
+  const mese = oggi.getMonth(); const anno = oggi.getFullYear();
+
+  // KPI
+  const totPaz = db.pazienti.filter(p=>p.stato!=='archiviato').length;
+  const pazRegimi = {};
+  db.pazienti.forEach(p=>{if(p.regime){pazRegimi[p.regime]=(pazRegimi[p.regime]||0)+1;}});
+  const topRegime = Object.entries(pazRegimi).sort((a,b)=>b[1]-a[1])[0];
+  const dtp=document.getElementById('dash-tot-paz');if(!dtp)return;
+  dtp.textContent = totPaz;
+  const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+  setEl('dash-sub-paz', topRegime ? `${topRegime[1]} in ${topRegime[0].toLowerCase()}` : '');
+
+  const visiteSett = db.eventi.filter(e=>e.tipo==='visita'&&e.data>=startSettStr&&e.data<=endSettStr).length;
+  const controlliSett = db.eventi.filter(e=>e.tipo==='controllo'&&e.data>=startSettStr&&e.data<=endSettStr).length;
+  setEl('dash-visite-sett', visiteSett);
+  setEl('dash-sub-visite', `${controlliSett} controlli`);
+  setEl('dash-controlli-sett', controlliSett);
+
+  const entrMese = db.entrate.filter(e=>{
+    const d=new Date(e.data); return d.getMonth()===mese&&d.getFullYear()===anno;
+  }).reduce((s,e)=>s+(parseFloat(e.importo)||0),0);
+  setEl('dash-entrate-mese', '€ '+entrMese.toFixed(0));
+
+  // Agenda di oggi
+  const evOggi = db.eventi.filter(e=>e.data===oggiStr).sort((a,b)=>((a.ora||'00:00')<(b.ora||'00:00')?-1:1));
+  const agendaEl = document.getElementById('dash-agenda');
+  if(!agendaEl)return;
+  if(evOggi.length===0){
+    agendaEl.innerHTML='<div class="empty" style="padding:1rem"><p>Nessun appuntamento oggi</p></div>';
+  } else {
+    const EV_LABELS = {visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3'};
+    agendaEl.innerHTML = evOggi.map(e=>{
+      const paz = db.pazienti.find(p=>p.id===e.pazId);
+      const nomePaz = paz ? paz.nome+' '+paz.cognome[0]+'.' : e.note||'';
+      const ora = e.ora || '—';
+      const durata = e.tipo==='visita'?'45-60 min':e.tipo==='controllo'?'20-30 min':'';
+      return `<div style="display:flex;align-items:center;gap:.7rem;padding:.45rem .6rem;border-radius:8px;background:var(--bg);margin-bottom:.3rem;font-size:.77rem">
+        <span style="font-weight:600;color:var(--teal);min-width:38px">${ora}</span>
+        <span style="flex:1">${EV_LABELS[e.tipo]||e.tipo} • <strong>${nomePaz}</strong></span>
+        ${durata?`<span style="font-size:.68rem;color:var(--text3)">${durata}</span>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  // Sintesi clinica
+  const alerts = [];
+  db.pazienti.forEach(p=>{
+    if(p.alvo==='Stitica'||p.alvo==='Molto stitica') alerts.push({paz:p.nome,tipo:'Stitichezza',tag:'tag-orange'});
+    if(p.flusso==='Abbondante') alerts.push({paz:p.nome,tipo:'+Ferro',tag:'tag-red'});
+    if(p.economica==='Economico') alerts.push({paz:p.nome,tipo:'Budget',tag:'tag-yellow'});
+  });
+  const sindEl = document.getElementById('dash-sintesi');
+  const tagsEl = document.getElementById('dash-alert-tags');
+  if(alerts.length===0){
+    sindEl.textContent = 'Tutto nella norma. Nessuna allerta clinica attiva.';
+    tagsEl.innerHTML='';
+  } else {
+    sindEl.textContent = `${alerts.length} allert${alerts.length===1?'a':'e'} clini${alerts.length===1?'ca':'che'} da tenere a mente.`;
+    tagsEl.innerHTML = alerts.slice(0,4).map(a=>
+      `<span class="tag ${a.tag}" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)">${a.paz} — ${a.tipo}</span>`
+    ).join('');
+  }
+
+  // Pazienti recenti
+  const recenti = [...db.pazienti].reverse().slice(0,4);
+  const prEl = document.getElementById('dash-pazienti-recenti');
+  if(recenti.length===0){
+    prEl.innerHTML='<div class="empty" style="padding:1rem"><p>Nessun paziente ancora</p></div>';
+  } else {
+    prEl.innerHTML = recenti.map(p=>`
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:8px;cursor:pointer;transition:background .12s" 
+           onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''" 
+           onclick="openPaz('${p.id}')">
+        <div class="avatar" style="width:32px;height:32px;font-size:.75rem">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
+        <div style="flex:1">
+          <div style="font-size:.8rem;font-weight:600">${p.nome} ${p.cognome}</div>
+          <div style="font-size:.68rem;color:var(--text3)">${p.regime||'Regime non impostato'}</div>
+        </div>
+        ${p.alvo==='Stitica'||p.alvo==='Molto stitica'?'<span class="tag tag-orange" style="font-size:.6rem">fibre</span>':''}
+        ${p.flusso==='Abbondante'?'<span class="tag tag-red" style="font-size:.6rem">+ferro</span>':''}
+      </div>`).join('');
+  }
+
+  // Spunti per il piano
+  const spunti = [];
+  db.pazienti.forEach(p=>{
+    if(p.economica==='Economico') spunti.push(`Budget economico (${p.nome}) → privilegia legumi, uova, merluzzo`);
+    if(p.alvo==='Stitica'||p.alvo==='Molto stitica') spunti.push(`Stitichezza (${p.nome}) → più ricette ricche di fibre e idratazione`);
+    if(p.flusso==='Abbondante') spunti.push(`Flusso abbondante (${p.nome}) → aumenta ferro nella dieta`);
+    if(p.weekend==='Pizza') spunti.push(`Sabato sera pizza (${p.nome}) → compensazione su pranzo e snack`);
+    if(p.weekend==='Sushi o Poke') spunti.push(`Sabato sera sushi (${p.nome}) → compensazione su pranzo e snack`);
+  });
+  const spuntiEl = document.getElementById('dash-spunti-list');
+  if(spunti.length===0){
+    spuntiEl.innerHTML='<div class="empty" style="padding:.5rem"><p>Aggiungi pazienti per vedere gli spunti</p></div>';
+  } else {
+    spuntiEl.innerHTML = spunti.slice(0,6).map(s=>
+      `<div style="padding:.32rem 0;border-bottom:1px solid var(--border);font-size:.77rem;color:var(--text2)">• ${s}</div>`
+    ).join('');
+  }
+}
+
+// ═══════════════════════════════════════
+// ELIMINA PAZIENTE
+// ═══════════════════════════════════════
+function eliminaPaz(id){
+  const p = db.pazienti.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Eliminare definitivamente il profilo di ${p.nome} ${p.cognome}?\nQuesta azione non può essere annullata.`)) return;
+  db.pazienti = db.pazienti.filter(x=>x.id!==id);
+  // Rimuovi anche eventi collegati
+  db.eventi = db.eventi.filter(e=>e.pazId!==id);
+  save();
+  goTo('pazienti', document.querySelector('.nav-item'));
+  renderPaz();
+  notif('Profilo eliminato');
+}
+
+// ═══════════════════════════════════════
+// getDove / setDove helper
+// ═══════════════════════════════════════
+function getDove(){
+  const opts = ['casa','lavoro','fuori','mensa'];
+  return opts.filter(o=>document.getElementById('dove-'+o)?.checked).join(', ');
+}
+function setDove(val){
+  const vals = (val||'').split(',').map(v=>v.trim().toLowerCase());
+  ['casa','lavoro','fuori','mensa'].forEach(o=>{
+    const el=document.getElementById('dove-'+o);
+    if(el) el.checked=vals.includes(o);
+  });
+}
+
 // ════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════
 window._alStato={};
 loadLocal();
+// Aggiungi ricette precaricate se non già presenti
+const RICETTE_DEFAULT = [
+  {id:'r_default_1',nome:'Pane di segale integrale con ricotta e miele',cat:'colazione',
+   kcal:280,prot:14,carb:35,grassi:8,
+   ing:'Pane di segale integrale 60g, Ricotta di vacca 80g, Miele 10g',
+   desc:'Spalmare la ricotta sul pane, aggiungere il miele a filo. Ottima fonte di proteine e carboidrati complessi.',
+   tags:['colazione','vegetariana']},
+  {id:'r_default_2',nome:'Toast con affettato',cat:'colazione',
+   kcal:260,prot:18,carb:28,grassi:8,
+   ing:'Pane integrale tostato 60g, Prosciutto crudo magro 50g o Bresaola 50g',
+   desc:'Tostare il pane, farcire con l\'affettato preferito. Veloce e bilanciato.',
+   tags:['colazione','proteica']},
+  {id:'r_default_3',nome:'Toast con avocado e fragole',cat:'colazione',
+   kcal:300,prot:8,carb:32,grassi:16,
+   ing:'Pane integrale tostato 60g, Avocado 80g, Fragole 80g, Limone q.b.',
+   desc:'Schiacciare l\'avocado sul pane con limone, aggiungere le fragole a fette.',
+   tags:['colazione','vegetariana','antiinfiammatoria']},
+  {id:'r_default_4',nome:'Toast con uovo avocado e limone',cat:'colazione',
+   kcal:340,prot:14,carb:28,grassi:18,
+   ing:'Pane integrale tostato 60g, Uovo intero 1 (60g), Avocado 60g, Limone q.b.',
+   desc:'Cuocere l\'uovo al tegamino o in camicia, appoggiarlo sul pane con avocado schiacciato e limone.',
+   tags:['colazione','proteica']},
+  {id:'r_default_5',nome:'Wasa con Philadelphia e marmellata',cat:'colazione',
+   kcal:220,prot:7,carb:30,grassi:8,
+   ing:'Wasa 3 fette (30g), Philadelphia light 40g, Marmellata ridotto zucchero 20g',
+   desc:'Spalmare la philadelphia sulle wasa, aggiungere la marmellata.',
+   tags:['colazione','vegetariana','light']},
+  {id:'r_default_6',nome:'Uova a colazione',cat:'colazione',
+   kcal:290,prot:18,carb:12,grassi:16,
+   ing:'Uova intere 2 (120g), Pane integrale 40g, Sale e pepe q.b., Olio EVO 5g',
+   desc:'Uova strapazzate, al tegamino o in camicia. Abbinare al pane integrale tostato.',
+   tags:['colazione','proteica','senza glutine']}
+];
+RICETTE_DEFAULT.forEach(r=>{if(!db.ricette.find(x=>x.id===r.id))db.ricette.push(r);});
 renderPaz();
 renderCal();
+renderDashboard();
 const savedUrl=getUrl();
 if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
 else setSyncStatus(false);
