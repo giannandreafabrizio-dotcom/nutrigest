@@ -263,8 +263,110 @@ main{flex:1;overflow-y:auto;}
 </aside>
 <main>
 
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="page-hd" style="margin-bottom:1.4rem">
+    <div>
+      <h2>Dashboard</h2>
+      <p id="dash-date" style="color:var(--text2);font-size:.82rem;margin-top:2px">—</p>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem;margin-bottom:1.3rem;">
+
+    <!-- Pazienti Attivi -->
+    <div style="background:linear-gradient(135deg,#2a7d6f,#1f5e53);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(42,125,111,.28);color:#fff;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Pazienti Attivi</span>
+        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+      </div>
+      <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-tot-paz">—</div>
+      <div style="font-size:.7rem;opacity:.72" id="dash-sub-paz">nel database</div>
+    </div>
+
+    <!-- Appuntamenti questa settimana -->
+    <div style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(124,58,237,.25);color:#fff;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Appuntamenti Settimana</span>
+        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+      </div>
+      <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-appuntamenti-sett">—</div>
+      <div style="font-size:.7rem;opacity:.72" id="dash-sub-appuntamenti">visite + controlli</div>
+    </div>
+
+    <!-- Prime visite settimana -->
+    <div style="background:linear-gradient(135deg,#e07840,#c96830);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(224,120,64,.28);color:#fff;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Prime Visite Settimana</span>
+        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        </div>
+      </div>
+      <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-visite-sett">—</div>
+      <div style="font-size:.7rem;opacity:.72" id="dash-sub-visite">nuovi pazienti</div>
+    </div>
+
+    <!-- Entrate mese -->
+    <div style="background:linear-gradient(135deg,#059669,#047857);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(5,150,105,.25);color:#fff;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Entrate Questo Mese</span>
+        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+      </div>
+      <div style="font-family:'DM Serif Display',serif;font-size:2.1rem;line-height:1;margin-bottom:.3rem" id="dash-entrate-mese">—</div>
+      <div style="font-size:.7rem;opacity:.72">incassi totali</div>
+    </div>
+  </div>
+
+  <!-- Agenda del giorno -->
+  <div class="card" style="margin-bottom:1.1rem;">
+    <div class="card-hd" style="background:linear-gradient(90deg,var(--teal-bg),transparent);">
+      <h3 style="display:flex;align-items:center;gap:.55rem;">
+        <span style="width:10px;height:10px;border-radius:50%;background:var(--teal);display:inline-block;flex-shrink:0"></span>
+        Agenda di Oggi
+      </h3>
+      <span id="dash-oggi-label" style="font-size:.74rem;color:var(--text3);"></span>
+    </div>
+    <div style="padding:.9rem 1.1rem" id="dash-agenda">
+      <div style="padding:.8rem;text-align:center;color:var(--text3);font-size:.79rem">Caricamento...</div>
+    </div>
+  </div>
+
+  <!-- Riga: allerte + pazienti recenti -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.1rem;">
+
+    <div class="card">
+      <div class="card-hd"><h3>⚕️ Allerte cliniche</h3></div>
+      <div class="card-bd">
+        <p id="dash-sintesi" style="font-size:.78rem;color:var(--text2);margin-bottom:.6rem"></p>
+        <div id="dash-alert-tags" style="display:flex;flex-wrap:wrap;gap:.35rem"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h3>👥 Ultimi pazienti</h3>
+        <button class="btn btn-g btn-sm" onclick="goTo('pazienti',document.querySelectorAll('.nav-item')[1])">Vedi tutti →</button>
+      </div>
+      <div class="card-bd" id="dash-pazienti-recenti"></div>
+    </div>
+  </div>
+
+  <!-- Spunti piani alimentari -->
+  <div class="card">
+    <div class="card-hd"><h3>💡 Spunti per i piani alimentari</h3></div>
+    <div class="card-bd" id="dash-spunti-list"></div>
+  </div>
+</div>
+
 <!-- PAZIENTI -->
-<div class="page active" id="page-pazienti">
+<div class="page" id="page-pazienti">
   <div class="page-hd">
     <div><h2>Pazienti</h2><p id="paz-count">—</p></div>
     <button class="btn btn-p" onclick="openNuovoPaz()">+ Nuovo paziente</button>
@@ -2257,45 +2359,57 @@ function renderDashboard(){
   const endSettStr = endSett.toISOString().split('T')[0];
   const mese = oggi.getMonth(); const anno = oggi.getFullYear();
 
-  // KPI
+  const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+
+  // Data in italiano
+  const GIORNI=['Domenica','Lunedi','Martedi','Mercoledi','Giovedi','Venerdi','Sabato'];
+  const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  setEl('dash-date', GIORNI[oggi.getDay()]+', '+oggi.getDate()+' '+MESI[mese]+' '+anno);
+
+  // KPI — pazienti attivi
   const totPaz = db.pazienti.filter(p=>p.stato!=='archiviato').length;
-  const pazRegimi = {};
-  db.pazienti.forEach(p=>{if(p.regime){pazRegimi[p.regime]=(pazRegimi[p.regime]||0)+1;}});
-  const topRegime = Object.entries(pazRegimi).sort((a,b)=>b[1]-a[1])[0];
   const dtp=document.getElementById('dash-tot-paz');if(!dtp)return;
   dtp.textContent = totPaz;
-  const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
-  setEl('dash-sub-paz', topRegime ? `${topRegime[1]} in ${topRegime[0].toLowerCase()}` : '');
+  setEl('dash-sub-paz', totPaz===1?'paziente nel database':'pazienti nel database');
 
+  // KPI — appuntamenti settimana
   const visiteSett = db.eventi.filter(e=>e.tipo==='visita'&&e.data>=startSettStr&&e.data<=endSettStr).length;
   const controlliSett = db.eventi.filter(e=>e.tipo==='controllo'&&e.data>=startSettStr&&e.data<=endSettStr).length;
+  const totSett = visiteSett + controlliSett;
+  setEl('dash-appuntamenti-sett', totSett);
+  setEl('dash-sub-appuntamenti', visiteSett+' prime visite, '+controlliSett+' controlli');
   setEl('dash-visite-sett', visiteSett);
-  setEl('dash-sub-visite', `${controlliSett} controlli`);
+  setEl('dash-sub-visite', visiteSett===1?'nuovo paziente':'nuovi pazienti');
   setEl('dash-controlli-sett', controlliSett);
 
+  // KPI — entrate mese
   const entrMese = db.entrate.filter(e=>{
     const d=new Date(e.data); return d.getMonth()===mese&&d.getFullYear()===anno;
   }).reduce((s,e)=>s+(parseFloat(e.importo)||0),0);
-  setEl('dash-entrate-mese', '€ '+entrMese.toFixed(0));
+  setEl('dash-entrate-mese', '\u20AC '+entrMese.toFixed(0));
 
   // Agenda di oggi
   const evOggi = db.eventi.filter(e=>e.data===oggiStr).sort((a,b)=>((a.ora||'00:00')<(b.ora||'00:00')?-1:1));
   const agendaEl = document.getElementById('dash-agenda');
   if(!agendaEl)return;
+  setEl('dash-oggi-label', evOggi.length===0?'Nessun appuntamento':evOggi.length+' appuntament'+(evOggi.length===1?'o':'i'));
   if(evOggi.length===0){
-    agendaEl.innerHTML='<div class="empty" style="padding:1rem"><p>Nessun appuntamento oggi</p></div>';
+    agendaEl.innerHTML='<div style="padding:1.2rem;text-align:center;color:var(--text3);font-size:.82rem;font-style:italic">Nessun appuntamento per oggi — giornata libera!</div>';
   } else {
-    const EV_LABELS = {visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3'};
+    const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3',meeting:'Meeting',altro:'Altro'};
+    const EV_COLORS={visita:'background:#ede9fe;color:#4c1d95',controllo:'background:#fce7e7;color:#991b1b',chiamata:'background:#dbeafe;color:#1e40af',sett2:'background:#fef3c7;color:#92400e',sett3:'background:#fed7aa;color:#9a3412',meeting:'background:#f0f9ff;color:#0369a1',altro:'background:#f1f5f9;color:#475569'};
     agendaEl.innerHTML = evOggi.map(e=>{
       const paz = db.pazienti.find(p=>p.id===e.pazId);
-      const nomePaz = paz ? paz.nome+' '+paz.cognome[0]+'.' : e.note||'';
+      const nomePaz = paz ? paz.nome+' '+paz.cognome : (e.note||'—');
       const ora = e.ora || '—';
       const durata = e.tipo==='visita'?'45-60 min':e.tipo==='controllo'?'20-30 min':'';
-      return `<div style="display:flex;align-items:center;gap:.7rem;padding:.45rem .6rem;border-radius:8px;background:var(--bg);margin-bottom:.3rem;font-size:.77rem">
-        <span style="font-weight:600;color:var(--teal);min-width:38px">${ora}</span>
-        <span style="flex:1">${EV_LABELS[e.tipo]||e.tipo} • <strong>${nomePaz}</strong></span>
-        ${durata?`<span style="font-size:.68rem;color:var(--text3)">${durata}</span>`:''}
-      </div>`;
+      const colore = EV_COLORS[e.tipo]||EV_COLORS.altro;
+      return "<div style=\"display:flex;align-items:center;gap:.8rem;padding:.65rem .9rem;border-radius:10px;border:1px solid var(--border);margin-bottom:.4rem;background:var(--s1);\">"
+        +"<div style=\"font-family:'DM Serif Display',serif;font-size:1rem;color:var(--teal);min-width:46px;font-weight:600\">"+ora+"</div>"
+        +"<span style=\"padding:2px 9px;border-radius:20px;font-size:.69rem;font-weight:600;flex-shrink:0;"+colore+"\">"+( EV_LABELS[e.tipo]||e.tipo)+"</span>"
+        +"<div style=\"flex:1;font-size:.82rem;font-weight:600;color:var(--text)\">"+nomePaz+"</div>"
+        +(durata?"<div style=\"font-size:.68rem;color:var(--text3);flex-shrink:0\">"+durata+"</div>":"")
+        +"</div>";
     }).join('');
   }
 
@@ -2312,9 +2426,9 @@ function renderDashboard(){
     sindEl.textContent = 'Tutto nella norma. Nessuna allerta clinica attiva.';
     tagsEl.innerHTML='';
   } else {
-    sindEl.textContent = `${alerts.length} allert${alerts.length===1?'a':'e'} clini${alerts.length===1?'ca':'che'} da tenere a mente.`;
+    sindEl.textContent = alerts.length+(alerts.length===1?' allerta clinica':' allerte cliniche')+' da tenere a mente.';
     tagsEl.innerHTML = alerts.slice(0,4).map(a=>
-      `<span class="tag ${a.tag}" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)">${a.paz} — ${a.tipo}</span>`
+      "<span class=\"tag "+a.tag+"\">"+a.paz+" \u2014 "+a.tipo+"</span>"
     ).join('');
   }
 
