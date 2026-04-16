@@ -522,15 +522,41 @@ main{flex:1;overflow-y:auto;}
   <div class="page-hd">
     <div><h2>Generatore Piani Alimentari</h2><p>Crea piani settimanali personalizzati nel tuo stile</p></div>
   </div>
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:1.5rem;text-align:center;">
-    <svg width="64" height="64" fill="none" stroke="var(--text3)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
-    <div>
-      <p style="font-size:1rem;color:var(--text2);margin-bottom:.4rem;">Seleziona un paziente e genera il suo piano settimanale</p>
-      <p style="font-size:.8rem;color:var(--text3);">Il piano viene creato in base a kcal, macros, preferenze e regime alimentare</p>
+  <div style="max-width:600px;margin:2rem auto;display:flex;flex-direction:column;gap:1.2rem;">
+
+    <!-- Selezione paziente -->
+    <div class="card" style="padding:1.2rem 1.4rem;">
+      <div style="font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Seleziona paziente</div>
+      <select id="piano-select-paz" onchange="pianoPazSelezionato(this.value)"
+        style="width:100%;padding:.55rem .75rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text1);background:var(--bg);font-family:'DM Sans',sans-serif;">
+        <option value="">— Scegli un paziente —</option>
+      </select>
     </div>
-    <button class="btn btn-p" style="background:var(--green);border-color:var(--green);padding:.7rem 2rem;font-size:.9rem;" onclick="">
-      ✦ Genera Piano
-    </button>
+
+    <!-- Riquadro dati paziente (nascosto finché non selezionato) -->
+    <div id="piano-paz-info" style="display:none;background:var(--green-bg);border:1.5px solid #a8ddb5;border-radius:10px;padding:1.1rem 1.4rem;">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;">
+        <div id="piano-paz-avatar" style="width:38px;height:38px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:.95rem;color:#fff;flex-shrink:0;"></div>
+        <div>
+          <div id="piano-paz-nome" style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--text1);"></div>
+          <div id="piano-paz-regime" style="font-size:.75rem;color:var(--green);font-weight:600;margin-top:1px;"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;" id="piano-paz-macros">
+        <!-- popolato da JS -->
+      </div>
+      <div id="piano-paz-warning" style="display:none;font-size:.75rem;color:#c0392b;margin-top:.7rem;padding:.5rem .7rem;background:#fdf3f2;border-radius:6px;border:1px solid #f5c6c2;"></div>
+    </div>
+
+    <!-- Pulsante Genera Piano -->
+    <div style="text-align:center;padding-top:.4rem;">
+      <button id="piano-btn-genera" class="btn" disabled
+        style="background:#b2dfbe;border:none;color:#fff;padding:.75rem 2.2rem;font-size:.9rem;border-radius:8px;cursor:not-allowed;transition:all .2s;"
+        onclick="generaPiano()">
+        ✦ Genera Piano
+      </button>
+    </div>
+
   </div>
 </div>
 
@@ -1305,6 +1331,7 @@ function goTo(name,btn){
   if(name==='entrate')renderEntrate();
   if(name==='dashboard')renderDashboard();
   if(name==='concetti')renderConcettiPage();
+  if(name==='piano')renderPianoPage();
   if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
@@ -1671,6 +1698,112 @@ function applicaSchema(laf,prot,grassi){
   if(el1)el1.value=laf;if(el2)el2.value=prot;if(el3)el3.value=grassi;
   notif('✓ Valori applicati — clicca Calcola');
 }
+
+// ── PIANO ALIMENTARE ──────────────────────────────────────────────────────────
+function renderPianoPage(){
+  const sel=document.getElementById('piano-select-paz');if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="">— Scegli un paziente —</option>';
+  (db.pazienti||[]).slice().sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.id;o.textContent=p.cognome+' '+p.nome;
+    sel.appendChild(o);
+  });
+  if(prev){sel.value=prev;pianoPazSelezionato(prev);}
+  else{
+    document.getElementById('piano-paz-info').style.display='none';
+    const btn=document.getElementById('piano-btn-genera');
+    btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+  }
+}
+
+function pianoPazSelezionato(id){
+  const info=document.getElementById('piano-paz-info');
+  const btn=document.getElementById('piano-btn-genera');
+  if(!id){
+    info.style.display='none';
+    btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+    return;
+  }
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+
+  // Dati InBody
+  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const mb=lastIb?lastIb.mb:null;
+  const peso=lastIb?lastIb.peso:(p.peso||null);
+
+  // Avatar e nome
+  document.getElementById('piano-paz-avatar').textContent=(p.nome[0]||'')+(p.cognome[0]||'');
+  document.getElementById('piano-paz-nome').textContent=p.nome+' '+p.cognome;
+  document.getElementById('piano-paz-regime').textContent=p.regime||'Nessun regime impostato';
+
+  const warning=document.getElementById('piano-paz-warning');
+  const macrosEl=document.getElementById('piano-paz-macros');
+
+  if(!mb||!peso){
+    warning.style.display='block';
+    warning.textContent="⚠ Dati InBody mancanti: inserisci una misurazione nel profilo paziente per calcolare TDEE e macros.";
+    macrosEl.innerHTML='';
+    btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+  } else {
+    warning.style.display='none';
+
+    // Calcolo TDEE (LAF default 1.375 — leggermente attivo)
+    const laf=1.375;
+    const tdee=Math.round(mb*laf);
+
+    // Mappa regime → offset kcal
+    const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    const offset=regimeOffset[p.regime]||0;
+    const kcalTarget=tdee+offset;
+
+    // Macros standard
+    const protG=Math.round(1.8*peso);
+    const grassiG=Math.round(0.9*peso);
+    const kcalProt=protG*4;const kcalGrassi=grassiG*9;
+    const carbG=Math.max(0,Math.round((kcalTarget-kcalProt-kcalGrassi)/4));
+
+    macrosEl.innerHTML=`
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">TDEE</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${tdee} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
+        <div style="font-size:.65rem;color:var(--text3);">MB ${mb} × LAF ${laf}</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Kcal target</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--green);">${kcalTarget} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
+        <div style="font-size:.65rem;color:var(--text3);">${offset===0?'Mantenimento':offset>0?'+'+offset:offset} kcal</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Proteine</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${protG}g</div>
+        <div style="font-size:.65rem;color:var(--text3);">1.8 g/kg · ${kcalProt} kcal</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Carboidrati</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${carbG}g</div>
+        <div style="font-size:.65rem;color:var(--text3);">${(carbG/peso).toFixed(1)} g/kg · ${carbG*4} kcal</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;grid-column:span 2;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Grassi</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
+        <div style="font-size:.65rem;color:var(--text3);">0.9 g/kg · ${kcalGrassi} kcal</div>
+      </div>`;
+
+    btn.disabled=false;btn.style.background='var(--green)';btn.style.cursor='pointer';
+  }
+
+  info.style.display='block';
+}
+
+function generaPiano(){
+  const id=document.getElementById('piano-select-paz').value;
+  if(!id){notif('⚠ Seleziona prima un paziente');return;}
+  notif('🚧 Generatore in arrivo — funzione in sviluppo!');
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
