@@ -1,0 +1,2438 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NutriGest — Studio Giannandrea</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f7f4ef;--s1:#ffffff;--s2:#f0ece4;--s3:#e8e2d8;
+  --border:#ddd8ce;--border2:#c8c0b4;
+  --text:#1a1814;--text2:#6b6560;--text3:#a09890;
+  --teal:#2a7d6f;--teal2:#1f5e53;--teal-bg:#eaf4f2;--teal-light:#d0ece8;
+  --orange:#e07840;--orange-bg:#fdf1ea;
+  --red:#c0392b;--red-bg:#fdecea;
+  --blue:#2980b9;--blue-bg:#eaf4fb;
+  --yellow:#d4a020;--yellow-bg:#fdf6e3;
+  --green:#27ae60;--green-bg:#eafaf1;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;
+  --shadow:0 2px 12px rgba(0,0,0,0.07);--shadow2:0 4px 24px rgba(0,0,0,0.10);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:14px;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+.shell{display:flex;height:100vh;overflow:hidden;}
+aside{width:220px;min-width:220px;background:var(--teal2);display:flex;flex-direction:column;}
+.brand{padding:1.6rem 1.4rem 1.2rem;border-bottom:1px solid rgba(255,255,255,0.1);}
+.brand h1{font-family:'DM Serif Display',serif;font-size:1.1rem;color:#fff;}
+.brand p{font-size:0.68rem;color:rgba(255,255,255,0.45);margin-top:3px;}
+nav{padding:.8rem .6rem;flex:1;overflow-y:auto;}
+.nav-s{font-size:.58rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.2px;padding:.5rem .75rem .25rem;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.5rem .75rem;border-radius:7px;cursor:pointer;font-size:.79rem;color:rgba(255,255,255,.6);transition:all .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;}
+.nav-item:hover{background:rgba(255,255,255,.1);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500;}
+.aside-foot{padding:.8rem 1.2rem;border-top:1px solid rgba(255,255,255,.1);}
+.sync-pill{display:flex;align-items:center;gap:5px;font-size:.68rem;color:rgba(255,255,255,.45);margin-bottom:.5rem;}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;}
+.sync-dot.err{background:#f87171;}
+.sync-dot.loading{background:#facc15;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.btn-aside{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:.35rem;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.6);font-size:.69rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;margin-bottom:.3rem;}
+.btn-aside:hover{background:rgba(255,255,255,.1);color:#fff;}
+main{flex:1;overflow-y:auto;}
+.page{display:none;padding:1.8rem 2rem;min-height:100%;}
+.page.active{display:block;}
+.page-hd{margin-bottom:1.4rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+.page-hd h2{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text);}
+.page-hd p{color:var(--text2);font-size:.79rem;margin-top:2px;}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:.4rem .95rem;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn-p{background:var(--teal);color:#fff;}.btn-p:hover{background:var(--teal2);}
+.btn-g{background:var(--s1);color:var(--text2);border:1px solid var(--border);}.btn-g:hover{border-color:var(--border2);color:var(--text);}
+.btn-d{background:transparent;color:var(--red);border:1px solid #f5c6c2;}.btn-d:hover{background:var(--red-bg);}
+.btn-sm{padding:.24rem .6rem;font-size:.71rem;}
+.btn-wa{background:#25d366;color:#fff;}.btn-wa:hover{background:#1da851;}
+.btn-orange{background:var(--orange);color:#fff;}.btn-orange:hover{background:#c96830;}
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1rem;box-shadow:var(--shadow);}
+.card-hd{padding:.8rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+.card-hd h3{font-family:'DM Serif Display',serif;font-size:.92rem;}
+.card-bd{padding:1rem 1.1rem;}
+/* GRID */
+.paz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:.9rem;margin-bottom:1rem;}
+.paz-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;cursor:pointer;transition:all .18s;box-shadow:var(--shadow);}
+.paz-card:hover{border-color:var(--teal);box-shadow:var(--shadow2);transform:translateY(-1px);}
+.paz-card-top{display:flex;align-items:center;gap:.7rem;margin-bottom:.65rem;}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--teal-bg);border:2px solid var(--teal-light);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--teal);flex-shrink:0;}
+.paz-nome{font-weight:600;font-size:.86rem;}
+.paz-meta{font-size:.71rem;color:var(--text2);margin-top:1px;}
+.paz-tags{display:flex;gap:.25rem;flex-wrap:wrap;}
+.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:.65rem;font-weight:500;}
+.tag-teal{background:var(--teal-bg);color:var(--teal);}
+.tag-orange{background:var(--orange-bg);color:var(--orange);}
+.tag-blue{background:var(--blue-bg);color:var(--blue);}
+.tag-red{background:var(--red-bg);color:var(--red);}
+.tag-green{background:var(--green-bg);color:var(--green);}
+.tag-gray{background:var(--s2);color:var(--text2);}
+.tag-purple{background:var(--purple-bg);color:var(--purple);}
+/* SEARCH */
+.sbar{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;}
+.sbar input,.sbar select{background:var(--s1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.79rem;padding:.38rem .75rem;outline:none;transition:border-color .15s;box-shadow:var(--shadow);}
+.sbar input:focus,.sbar select:focus{border-color:var(--teal);}
+.sbar input{flex:1;min-width:180px;}
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(26,24,20,.6);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+.overlay.open{display:flex;}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.6rem;width:720px;max-width:97vw;max-height:93vh;overflow-y:auto;box-shadow:var(--shadow2);}
+.modal-sm{width:480px;}
+.modal h3{font-family:'DM Serif Display',serif;font-size:1.05rem;margin-bottom:1.2rem;}
+.modal-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem;flex-wrap:wrap;}
+.mtab{padding:.5rem .9rem;font-size:.76rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;}
+.mtab.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:500;}
+.tab-panel{display:none;}.tab-panel.active{display:block;}
+/* FORM */
+.fg{margin-bottom:.8rem;}
+.fg label{display:block;font-size:.66rem;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.28rem;font-weight:600;}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.46rem .7rem;outline:none;transition:border-color .15s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal);background:var(--s1);}
+.fg textarea{resize:vertical;min-height:56px;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;}
+.mf{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.2rem;padding-top:.9rem;border-top:1px solid var(--border);}
+.sec-title{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--text);margin-bottom:.65rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);margin-top:.5rem;}
+/* ALIMENTI */
+.al-section{margin-bottom:1rem;}
+.al-section h4{font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);font-weight:600;margin-bottom:.45rem;}
+.al-grid{display:flex;flex-wrap:wrap;gap:.3rem;}
+.al-tog{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:var(--bg);font-size:.72rem;cursor:pointer;transition:all .15s;color:var(--text2);user-select:none;}
+.al-tog:hover{border-color:var(--teal);color:var(--teal);}
+.al-tog.si{background:var(--teal-bg);border-color:var(--teal-light);color:var(--teal);font-weight:500;}
+.al-tog.no{background:var(--red-bg);border-color:#f5c6c2;color:var(--red);text-decoration:line-through;}
+/* CALENDARIO */
+.cal-wrap{background:var(--s1);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;}
+.cal-hdr{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid var(--border);}
+.cal-hdr h3{font-family:'DM Serif Display',serif;font-size:1rem;}
+.cal-nav{display:flex;gap:.25rem;align-items:center;}
+.cal-nav button{height:28px;padding:0 .55rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer;font-size:.75rem;transition:all .15s;}
+.cal-nav button:hover{border-color:var(--teal);color:var(--teal);}
+.cal-view-tabs{display:flex;gap:.2rem;}
+.cvt{padding:.22rem .6rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:.67rem;cursor:pointer;transition:all .15s;}
+.cvt.active{background:var(--teal);color:#fff;border-color:var(--teal);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-dn{text-align:center;padding:.45rem .2rem;font-size:.63rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:600;border-bottom:1px solid var(--border);}
+.cal-day{min-height:78px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:.35rem;position:relative;cursor:pointer;transition:background .12s;}
+.cal-day:nth-child(7n){border-right:none;}
+.cal-day:hover{background:var(--s2);}
+.cal-day.other-month .cal-dn2{color:var(--text3);}
+.cal-day.today{background:var(--teal-bg);}
+.cal-day.today .cal-dn2{color:var(--teal);font-weight:600;}
+.cal-day.magic-am{background:linear-gradient(180deg,#e8f4f1 50%,transparent 50%);}
+.cal-day.magic-pm{background:linear-gradient(180deg,transparent 50%,#e8f4f1 50%);}
+.cal-day.magic-full{background:#e8f4f1;}
+.cal-day.curae-am{background:linear-gradient(180deg,#fdf6e3 50%,transparent 50%);}
+.cal-day.curae-pm{background:linear-gradient(180deg,transparent 50%,#fdf6e3 50%);}
+.cal-day.curae-full{background:#fdf6e3;}
+.cal-dn2{font-size:.73rem;color:var(--text2);margin-bottom:.25rem;font-weight:500;}
+.cal-evs{display:flex;flex-direction:column;gap:2px;}
+.cal-ev{font-size:.6rem;padding:2px 4px;border-radius:3px;font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ev-primo{background:#d4f4e8;color:#1a6b48;}
+.ev-chiamata{background:#dbeafe;color:#1e40af;}
+.ev-sett2{background:#fef3c7;color:#92400e;}
+.ev-sett3{background:#fed7aa;color:#9a3412;}
+.ev-controllo{background:#fce7e7;color:#991b1b;}
+.ev-visita{background:#ede9fe;color:#4c1d95;}
+.ev-meeting{background:#f0f9ff;color:#0369a1;}
+.ev-altro{background:#f1f5f9;color:#475569;}
+/* WEEK VIEW */
+.week-grid{display:grid;grid-template-columns:50px repeat(7,1fr);border:1px solid var(--border);border-radius:0 0 8px 8px;}
+.wg-hdr{font-size:.65rem;text-align:center;padding:.4rem .2rem;border-right:1px solid var(--border);border-bottom:1px solid var(--border);color:var(--text2);font-weight:600;}
+.wg-time{font-size:.63rem;color:var(--text3);padding:.2rem .3rem;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:right;}
+.wg-cell{border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-height:28px;padding:2px;cursor:pointer;transition:background .12s;}
+.wg-cell:hover{background:var(--s2);}
+.wg-cell:nth-child(7n+1){border-right:none;}
+/* LEGENDA */
+.legenda{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:.9rem;}
+.leg{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;color:var(--text2);}
+.leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+/* EVENTO MODAL */
+.ev-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.71rem;font-weight:600;margin-bottom:.75rem;}
+.msg-opt{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;position:relative;}
+.msg-opt p{font-size:.79rem;line-height:1.55;}
+.copy-btn{position:absolute;top:.5rem;right:.5rem;padding:.18rem .48rem;border-radius:5px;border:1px solid var(--border);background:var(--s1);font-size:.63rem;cursor:pointer;color:var(--text2);transition:all .15s;}
+.copy-btn:hover{background:var(--teal);color:#fff;border-color:var(--teal);}
+/* PAZIENTE DETAIL */
+.pd-hdr{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-bottom:.9rem;box-shadow:var(--shadow);display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap;}
+.pd-av{width:52px;height:52px;border-radius:50%;background:var(--teal-bg);border:3px solid var(--teal-light);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--teal);flex-shrink:0;}
+.pd-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin-bottom:.9rem;}
+.pd-stat{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;box-shadow:var(--shadow);}
+.pd-stat-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.18rem;}
+.pd-stat-val{font-family:'DM Serif Display',serif;font-size:1.05rem;}
+.pd-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;flex-wrap:wrap;}
+.pd-tab{padding:.5rem 1rem;font-size:.77rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;margin-bottom:-2px;}
+.pd-tab.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:500;}
+.pd-panel{display:none;}.pd-panel.active{display:block;}
+/* INBODY */
+.ib-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:.9rem;}
+.ib-item{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem;text-align:center;box-shadow:var(--shadow);}
+.ib-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.25rem;}
+.ib-val{font-family:'DM Serif Display',serif;font-size:1.1rem;}
+.ib-unit{font-size:.62rem;color:var(--text3);}
+/* MACROS CALC */
+.macro-result{background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:10px;padding:1rem 1.2rem;margin-top:.8rem;}
+.macro-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem;margin-top:.7rem;}
+.macro-item{background:var(--s1);border-radius:8px;padding:.6rem;text-align:center;border:1px solid var(--border);}
+.macro-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;margin-bottom:.2rem;}
+.macro-val{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--teal);}
+/* RICETTE */
+.ric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:.9rem;margin-bottom:1rem;}
+.ric-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem;box-shadow:var(--shadow);transition:all .18s;}
+.ric-card:hover{border-color:var(--teal);box-shadow:var(--shadow2);}
+/* ANALISI SANGUE */
+.analisi-section{margin-bottom:1rem;}
+.analisi-section h4{font-size:.75rem;font-weight:600;color:var(--text2);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.7px;}
+.analisi-item{display:flex;align-items:center;gap:.6rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.79rem;}
+.analisi-item:last-child{border-bottom:none;}
+.analisi-item input[type=checkbox]{accent-color:var(--teal);width:14px;height:14px;cursor:pointer;flex-shrink:0;}
+.analisi-val{margin-left:auto;width:100px;}
+.analisi-val input{padding:.2rem .4rem;font-size:.75rem;}
+/* DISPONIBILITA */
+.disp-bar{display:flex;gap:.4rem;margin-bottom:.6rem;flex-wrap:wrap;}
+.disp-btn{padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:.72rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.disp-btn.magic{border-color:#2a7d6f;color:#2a7d6f;}.disp-btn.magic.active{background:#2a7d6f;color:#fff;}
+.disp-btn.curae{border-color:#d4a020;color:#d4a020;}.disp-btn.curae.active{background:#d4a020;color:#fff;}
+/* NOTIF */
+.notif{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.65rem 1.1rem;border-radius:10px;font-size:.78rem;z-index:1000;animation:slideIn .3s ease;box-shadow:var(--shadow2);}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+/* EMPTY */
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text3);}
+.empty p{font-size:.83rem;}.empty span{font-size:.73rem;display:block;margin-top:.25rem;}
+/* UPLOAD */
+.upload-area{border:2px dashed var(--border);border-radius:10px;padding:1.2rem;text-align:center;cursor:pointer;transition:all .18s;background:var(--bg);}
+.upload-area:hover{border-color:var(--teal);background:var(--teal-bg);}
+@media(max-width:768px){
+  .shell{flex-direction:column;height:auto;}
+  aside{width:100%;min-width:unset;}
+  nav{display:flex;flex-wrap:wrap;gap:2px;padding:.4rem;}
+  .nav-s{display:none;}
+  .nav-item{width:auto;padding:.32rem .55rem;font-size:.72rem;}
+  main{overflow-y:unset;}
+  .page{padding:.8rem;}
+  .fr,.fr3{grid-template-columns:1fr;}
+  .aside-foot{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside>
+  <div class="brand"><h1>NutriGest</h1></div>
+  <nav>
+    <div class="nav-s">Principale</div>
+    <button class="nav-item active" onclick="goTo('dashboard',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+    </button>
+    <div class="nav-s">Pazienti</div>
+    <button class="nav-item" onclick="goTo('pazienti',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Pazienti
+    </button>
+    <div class="nav-s">Agenda</div>
+    <button class="nav-item" onclick="goTo('calendario',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendario
+    </button>
+    <div class="nav-s">Strumenti</div>
+    <button class="nav-item" onclick="goTo('ricette',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>Ricette
+    </button>
+    <button class="nav-item" onclick="goTo('entrate',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Entrate
+    </button>
+    <button class="nav-item" onclick="goTo('concetti',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Concetti
+    </button>
+    <div class="nav-s">Sistema</div>
+    <button class="nav-item" onclick="goTo('impostazioni',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Impostazioni
+    </button>
+  </nav>
+  <div class="aside-foot">
+    <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-txt">Sincronizzazione...</span></div>
+    <button class="btn-aside" onclick="syncNow()">↺ Sincronizza</button>
+    <button class="btn-aside" onclick="esporta()">⬇ Backup</button>
+  </div>
+</aside>
+<main>
+
+<!-- PAZIENTI -->
+<div class="page active" id="page-pazienti">
+  <div class="page-hd">
+    <div><h2>Pazienti</h2><p id="paz-count">—</p></div>
+    <button class="btn btn-p" onclick="openNuovoPaz()">+ Nuovo paziente</button>
+  </div>
+  <div class="sbar">
+    <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="renderPaz()">
+    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option></select>
+  </div>
+  <div class="paz-grid" id="paz-grid"></div>
+</div>
+
+<!-- PAZIENTE DETAIL -->
+<div class="page" id="page-pd">
+  <div class="page-hd">
+    <div>
+      <button class="btn btn-g btn-sm" onclick="goTo('pazienti',document.querySelector('.nav-item'))" style="margin-bottom:.4rem">← Pazienti</button>
+      <h2 id="pd-title">—</h2>
+    </div>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="btn btn-g" onclick="editPaz()">✏ Modifica</button>
+      <button class="btn btn-orange" onclick="openInbody()">📊 InBody</button>
+      <button class="btn btn-p" onclick="openAddEventoPaz()">📅 Aggiungi evento</button>
+    </div>
+  </div>
+  <div class="pd-hdr" id="pd-hdr"></div>
+  <div class="pd-stats" id="pd-stats"></div>
+  <div class="pd-tabs">
+    <button class="pd-tab active" onclick="pdTab('anamnesi',this)">Anamnesi</button>
+    <button class="pd-tab" onclick="pdTab('alimenti',this)">Preferenze cibi</button>
+    <button class="pd-tab" onclick="pdTab('analisi',this)">Analisi sangue</button>
+    <button class="pd-tab" onclick="pdTab('inbody',this)">InBody</button>
+    <button class="pd-tab" onclick="pdTab('macros',this)">Calcolo macros</button>
+    <button class="pd-tab" onclick="pdTab('note',this)">Note cliniche</button>
+  </div>
+  <div class="pd-panel active" id="pd-anamnesi"></div>
+  <div class="pd-panel" id="pd-alimenti"></div>
+  <div class="pd-panel" id="pd-analisi"></div>
+  <div class="pd-panel" id="pd-inbody"></div>
+  <div class="pd-panel" id="pd-macros"></div>
+  <div class="pd-panel" id="pd-note"></div>
+</div>
+
+<!-- CALENDARIO -->
+<div class="page" id="page-calendario">
+  <div class="page-hd">
+    <div><h2>Calendario</h2><p id="cal-ev-count">—</p></div>
+    <button class="btn btn-p" onclick="openAddEvento()">+ Aggiungi evento</button>
+  </div>
+  <!-- Disponibilità studi -->
+  <div class="card" style="margin-bottom:.8rem">
+    <div class="card-hd"><h3>🏥 Disponibilità studi — giorno selezionato</h3></div>
+    <div class="card-bd">
+      <div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem">Seleziona un giorno nel calendario e imposta la disponibilità:</div>
+      <div class="disp-bar" id="disp-bar">
+        <span style="font-size:.75rem;color:var(--text3)">Seleziona prima un giorno nel calendario</span>
+      </div>
+    </div>
+  </div>
+  <div class="legenda">
+    <span class="leg"><span class="leg-dot ev-visita" style="background:#ede9fe"></span>Prima visita</span>
+    <span class="leg"><span class="leg-dot ev-primo" style="background:#d4f4e8"></span>Inizio alim.</span>
+    <span class="leg"><span class="leg-dot ev-chiamata" style="background:#dbeafe"></span>Chiamata sett.1</span>
+    <span class="leg"><span class="leg-dot ev-sett2" style="background:#fef3c7"></span>Msg sett.2</span>
+    <span class="leg"><span class="leg-dot ev-sett3" style="background:#fed7aa"></span>Msg sett.3</span>
+    <span class="leg"><span class="leg-dot ev-controllo" style="background:#fce7e7"></span>Controllo</span>
+    <span class="leg"><span class="leg-dot ev-meeting" style="background:#f0f9ff"></span>Meeting</span>
+    <span class="leg"><span class="leg-dot" style="background:#e8f4f1;border:1px solid #ccc"></span>Magic</span>
+    <span class="leg"><span class="leg-dot" style="background:#fdf6e3;border:1px solid #ccc"></span>Centro Curae</span>
+  </div>
+  <div class="cal-wrap">
+    <div class="cal-hdr">
+      <div class="cal-nav">
+        <button onclick="calPrev()">‹</button>
+        <button onclick="calToday()">Oggi</button>
+        <button onclick="calNext()">›</button>
+      </div>
+      <h3 id="cal-title"></h3>
+      <div class="cal-view-tabs">
+        <button class="cvt" onclick="setCalView('anno',this)">Anno</button>
+        <button class="cvt active" onclick="setCalView('month',this)">Mese</button>
+        <button class="cvt" onclick="setCalView('week',this)">Settimana</button>
+        <button class="cvt" onclick="setCalView('day',this)">Giorno</button>
+      </div>
+    </div>
+    <div id="cal-body"></div>
+  </div>
+</div>
+
+<!-- RICETTE -->
+<div class="page" id="page-ricette">
+  <div class="page-hd">
+    <div><h2>Database Ricette</h2><p id="ric-count">—</p></div>
+    <button class="btn btn-p" onclick="openNuovaRic()">+ Aggiungi ricetta</button>
+  </div>
+  <div class="sbar">
+    <input type="text" id="s-ric" placeholder="🔍 Cerca ricetta o ingrediente..." oninput="renderRic()">
+    <select id="f-ric-cat" onchange="renderRic()">
+      <option value="">Tutte le categorie</option>
+      <option value="colazione">Colazione</option><option value="pranzo">Pranzo</option>
+      <option value="cena">Cena</option><option value="spuntino">Spuntino</option>
+      <option value="post-workout">Post-workout</option>
+    </select>
+    <select id="f-ric-tag" onchange="renderRic()">
+      <option value="">Tutti i tipi</option>
+      <option value="proteica">Proteica</option><option value="vegetariana">Vegetariana</option>
+      <option value="vegana">Vegana</option><option value="senza glutine">Senza glutine</option>
+      <option value="light">Light</option><option value="chetogenica">Chetogenica</option>
+    </select>
+  </div>
+  <div class="ric-grid" id="ric-grid"></div>
+</div>
+
+<!-- ENTRATE -->
+<div class="page" id="page-entrate">
+  <div class="page-hd">
+    <div><h2>Entrate</h2><p>Gestione economica dello studio</p></div>
+    <button class="btn btn-p" onclick="openNuovaEntrata()">+ Aggiungi entrata</button>
+  </div>
+  <div id="entrate-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem;margin-bottom:1rem;"></div>
+  <div class="sbar">
+    <select id="f-entr-periodo" onchange="renderEntrate()">
+      <option value="settimana">Questa settimana</option>
+      <option value="mese" selected>Questo mese</option>
+      <option value="anno">Quest'anno</option>
+      <option value="tutto">Tutto</option>
+    </select>
+    <input type="month" id="f-entr-mese" onchange="renderEntrate()">
+  </div>
+  <div class="card">
+    <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+      <thead><tr>
+        <th style="padding:.45rem .8rem;text-align:left;color:var(--text3);font-size:.65rem;text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);">Data</th>
+        <th style="padding:.45rem .8rem;text-align:left;color:var(--text3);font-size:.65rem;text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);">Paziente</th>
+        <th style="padding:.45rem .8rem;text-align:left;color:var(--text3);font-size:.65rem;text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);">Tipo</th>
+        <th style="padding:.45rem .8rem;text-align:right;color:var(--text3);font-size:.65rem;text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);">Importo</th>
+        <th style="padding:.45rem .8rem;border-bottom:1px solid var(--border);"></th>
+      </tr></thead>
+      <tbody id="entrate-tb"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CONCETTI EDUCATIVI -->
+<div class="page" id="page-concetti">
+  <!-- Renderizzata dinamicamente da renderConcettiPage() -->
+</div>
+
+<!-- IMPOSTAZIONI -->
+<div class="page" id="page-impostazioni">
+  <div class="page-hd"><div><h2>Impostazioni</h2><p>Configurazione e sincronizzazione</p></div></div>
+  <div class="card">
+    <div class="card-hd"><h3>🔗 Google Sheets</h3></div>
+    <div class="card-bd">
+      <div class="fg"><label>URL Apps Script</label><input id="cfg-url" placeholder="https://script.google.com/macros/s/..."></div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="salvaCfg()">Salva</button>
+        <button class="btn btn-g" onclick="testConn()">🔌 Testa</button>
+        <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
+        <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><h3>💾 Backup</h3></div>
+    <div class="card-bd" style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-g" onclick="esporta()">⬇ Esporta JSON</button>
+      <label class="btn btn-g" style="cursor:pointer">⬆ Importa JSON<input type="file" accept=".json" onchange="importa(event)" style="display:none"></label>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- ══════════════ MODAL PAZIENTE -->
+<div class="overlay" id="mo-paz">
+<div class="modal">
+  <h3 id="mo-paz-t">Nuovo Paziente</h3>
+  <div class="modal-tabs">
+    <button class="mtab active" onclick="mTab('dati',this)">Dati</button>
+    <button class="mtab" onclick="mTab('clinica',this)">Clinica</button>
+    <button class="mtab" onclick="mTab('alim',this)">Alimentazione</button>
+    <button class="mtab" onclick="mTab('cibi',this)">Preferenze cibi</button>
+    <button class="mtab" onclick="mTab('cal-paz',this)">Calendario</button>
+  </div>
+
+  <!-- DATI -->
+  <div class="tab-panel active" id="tp-dati">
+    <div class="fr"><div class="fg"><label>Nome *</label><input id="p-nome"></div><div class="fg"><label>Cognome *</label><input id="p-cognome"></div></div>
+    <div class="fr"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita"></div><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
+    <div class="fr3">
+      <div class="fg"><label>Peso (kg)</label><input type="number" id="p-peso" step="0.1"></div>
+      <div class="fg"><label>Altezza (cm)</label><input type="number" id="p-altezza"></div>
+      <div class="fg"><label>BIA — Condizione</label>
+        <select id="p-bia">
+          <option value="Digiuno">Digiuno</option>
+          <option value="Post-spuntino">Post-spuntino</option>
+          <option value="Post-pranzo">Post-pranzo</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Tipo regime *</label>
+        <select id="p-regime">
+          <option value="">— Seleziona —</option>
+          <option value="Ipocalorico lento">Ipocalorico lento (−200/−300 kcal)</option>
+          <option value="Ipocalorico moderato">Ipocalorico moderato (−500 kcal)</option>
+          <option value="Ipocalorico aggressivo">Ipocalorico aggressivo (−700 kcal)</option>
+          <option value="Normocalorico">Normocalorico (mantenimento)</option>
+          <option value="Ipercalorico leggero">Ipercalorico leggero (+150/+200 kcal)</option>
+          <option value="Ipercalorico chiaro">Ipercalorico chiaro (+300/+500 kcal)</option>
+          <option value="Chetogenico WLKD">Chetogenico WLKD (aggressiva)</option>
+          <option value="Chetogenico moderato">Chetogenico moderato</option>
+        </select>
+      </div>
+      <div class="fg"><label>Obiettivo della visita</label><input id="p-obiettivo" placeholder="Dimagrimento, massa, benessere..."></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Prezzo prima visita (€)</label><input type="number" id="p-prezzo-visita" step="0.01" placeholder="0.00"></div>
+      <div class="fg"><label>Prezzo controllo (€)</label><input type="number" id="p-prezzo-controllo" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Data prima visita</label><input type="date" id="p-visita"></div>
+      <div class="fg"><label>Data inizio alimentazione</label><input type="date" id="p-inizio" oninput="aggDateCal()"></div>
+    </div>
+    <div class="fg"><label>Data prossimo controllo</label><input type="date" id="p-controllo"></div>
+  </div>
+
+  <!-- CLINICA -->
+  <div class="tab-panel" id="tp-clinica">
+    <div class="sec-title">Stile di vita</div>
+    <div class="fr3">
+      <div class="fg"><label>Fumo</label>
+        <select id="p-fumo"><option value="No">No</option><option value="Sì">Sì</option></select>
+      </div>
+      <div class="fg"><label>Alcol</label>
+        <select id="p-alcol"><option value="No">No</option><option value="Solo birra">Solo birra</option><option value="Solo vino">Solo vino</option><option value="Birra e vino">Birra e vino</option></select>
+      </div>
+      <div class="fg"><label>Caffè</label>
+        <select id="p-caffe"><option value="No">No</option><option value="Senza zucchero">Senza zucchero</option><option value="Con zucchero">Con zucchero</option><option value="Fit (cacao amaro)">Fit (cacao amaro)</option></select>
+      </div>
+    </div>
+    <div class="fr3">
+      <div class="fg"><label>Acqua giornaliera</label>
+        <select id="p-acqua"><option value="Poca">Poca (&lt;1L)</option><option value="Normale" selected>Normale (1-1.5L)</option><option value="Molta">Molta (&gt;1.5L)</option></select>
+      </div>
+      <div class="fg"><label>Diuresi</label>
+        <select id="p-diuresi"><option value="Poco frequente">Poco frequente</option><option value="Regolare" selected>Regolare</option><option value="Molto frequente">Molto frequente</option></select>
+      </div>
+      <div class="fg"><label>Alvo</label>
+        <select id="p-alvo"><option value="Regolare" selected>Regolare</option><option value="Non regolare">Non regolare</option><option value="Liquida">Liquida</option><option value="Stitica">Stitica</option><option value="Molto stitica">Molto stitica</option></select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Ciclo mestruale</label>
+        <select id="p-ciclo">
+          <option value="">— N.A. —</option>
+          <option value="Regolare">Regolare</option>
+          <option value="Non regolare">Non regolare</option>
+          <option value="Menopausa">Menopausa</option>
+        </select>
+      </div>
+      <div class="fg"><label>Intensità flusso</label>
+        <select id="p-flusso">
+          <option value="">— N.A. —</option>
+          <option value="Normale">Normale</option>
+          <option value="Abbondante">Abbondante ⚠ +ferro</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gravidanza</label>
+        <select id="p-gravidanza">
+          <option value="No">No</option>
+          <option value="Prima gravidanza">Prima gravidanza</option>
+          <option value="Seconda gravidanza">Seconda gravidanza</option>
+          <option value="Terza gravidanza">Terza gravidanza</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Integratori che GIA' prende</label>
+      <div class="integratori-grid" style="margin-top:.3rem">
+        <div class="integr-item"><input type="checkbox" id="int-omega3"><label for="int-omega3">Omega-3</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-magpot"><label for="int-magpot">Magnesio + Potassio</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-mag"><label for="int-mag">Solo Magnesio</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-multi"><label for="int-multi">Multivitaminico</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-prob"><label for="int-prob">Probiotici</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-creat"><label for="int-creat">Creatina</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-ferro"><label for="int-ferro">Ferro</label></div>
+        <div class="integr-item"><input type="checkbox" id="int-vitd"><label for="int-vitd">Vitamina D</label></div>
+      </div>
+    </div>
+    <div class="fg">
+      <label style="color:var(--teal)">Integratori che VORREBBE prendere</label>
+      <div class="integratori-grid" style="margin-top:.3rem">
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-omega3"><label for="inw-omega3">Omega-3</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-magpot"><label for="inw-magpot">Magnesio + Potassio</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-mag"><label for="inw-mag">Solo Magnesio</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-multi"><label for="inw-multi">Multivitaminico</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-prob"><label for="inw-prob">Probiotici</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-creat"><label for="inw-creat">Creatina</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-ferro"><label for="inw-ferro">Ferro</label></div>
+        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-vitd"><label for="inw-vitd">Vitamina D</label></div>
+      </div>
+    </div>
+    <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
+    <div class="sec-title">Anamnesi patologica</div>
+    <div class="fg"><label>Patologie</label><textarea id="p-patologie"></textarea></div>
+    <div class="fg"><label>Farmaci</label><textarea id="p-farmaci"></textarea></div>
+    <div class="fg"><label>Allergie / Intolleranze</label><textarea id="p-allergie"></textarea></div>
+    <div class="fg"><label>Patologie in famiglia</label><textarea id="p-familiarita"></textarea></div>
+    <div class="fg"><label>Analisi recenti (note generali)</label><textarea id="p-analisi-note"></textarea></div>
+    <div class="fg"><label>Modificazioni peso negli anni</label><textarea id="p-peso-storia"></textarea></div>
+    <div class="fg"><label>Terapie alimentari precedenti</label><textarea id="p-diete-prec"></textarea></div>
+  </div>
+
+  <!-- ALIMENTAZIONE -->
+  <div class="tab-panel" id="tp-alim">
+    <div class="sec-title">Pasti giornalieri</div>
+    <div class="fr3">
+      <div class="fg"><label>Colazione</label><select id="p-colazione"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Spuntino mattina</label><select id="p-spunt-m"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Pranzo</label><select id="p-pranzo"><option value="si">Sì</option><option value="no">No</option></select></div>
+    </div>
+    <div class="fr3">
+      <div class="fg"><label>Spuntino pomeriggio</label><select id="p-spunt-p"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Cena</label><select id="p-cena"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Pre-nanna</label><select id="p-prenanna"><option value="no">No</option><option value="si">Sì</option></select></div>
+    </div>
+    <div class="sec-title">Abitudini alimentari</div>
+    <div class="fr">
+      <div class="fg"><label>Cucina tu o altri?</label><input id="p-cucina" placeholder="Io / partner / entrambi..."></div>
+      <div class="fg"><label>Dove consumi i pasti?</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-casa" style="accent-color:var(--teal)"> A casa
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-lavoro" style="accent-color:var(--teal)"> Al lavoro
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-fuori" style="accent-color:var(--teal)"> Fuori (ristorante)
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
+            <input type="checkbox" id="dove-mensa" style="accent-color:var(--teal)"> Mensa
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Possibilità riscaldare al lavoro</label><select id="p-risc"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Budget alimentare</label>
+        <select id="p-economica">
+          <option value="Economico">Economico</option>
+          <option value="Standard" selected>Standard</option>
+          <option value="Comfort">Comfort</option>
+          <option value="Premium">Premium</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
+      <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Momento più fame</label><input id="p-fame" placeholder="Sera, pomeriggio..."></div>
+      <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Alimentazione abitudinaria</label><select id="p-abit"><option value="si">Sì</option><option value="no">No</option><option value="mista">Mista</option></select></div>
+      <div class="fg"><label>Preferisce</label>
+        <select id="p-pref-proteina">
+          <option value="">— Indifferente —</option>
+          <option value="più carne">Più carne</option>
+          <option value="più pesce">Più pesce</option>
+          <option value="entrambi">Entrambi uguale</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>Cibi preferiti</label><textarea id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></textarea></div>
+    <div class="fr">
+      <div class="fg"><label>Sabato sera</label>
+        <select id="p-weekend">
+          <option value="Pizza">Pizza</option>
+          <option value="Panino">Panino</option>
+          <option value="Carne rossa">Carne rossa</option>
+          <option value="Pesce">Pesce</option>
+          <option value="Sushi o Poke">Sushi o Poke</option>
+        </select>
+      </div>
+      <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
+    </div>
+    <div class="fg"><label>Attività lavorativa</label><input id="p-lavoro" placeholder="Sedentario, in piedi, turni..."></div>
+  </div>
+
+  <!-- PREFERENZE CIBI -->
+  <div class="tab-panel" id="tp-cibi">
+    <p style="font-size:.77rem;color:var(--text2);margin-bottom:.9rem">Tocca per impostare: <strong style="color:var(--teal)">Verde = Sì</strong> · <strong style="color:var(--red)">Rosso = No</strong> · Grigio = non specificato</p>
+    <div id="al-editor"></div>
+  </div>
+
+  <!-- CALENDARIO PAZ -->
+  <div class="tab-panel" id="tp-cal-paz">
+    <p style="font-size:.77rem;color:var(--text2);margin-bottom:.8rem">Le date si calcolano automaticamente dall'inizio alimentazione.</p>
+    <div class="fg"><label>📅 Data inizio alimentazione</label><input type="date" id="p-inizio2" oninput="syncInizio()"></div>
+    <div id="cal-prev-box" style="margin-top:.7rem"></div>
+    <div class="fg" style="margin-top:.9rem"><label>📅 Controllo personalizzato</label><input type="date" id="p-controllo2" oninput="syncControllo()"></div>
+  </div>
+
+  <div class="mf">
+    <button class="btn btn-g" onclick="closeM('mo-paz')">Annulla</button>
+    <button class="btn btn-p" onclick="salvaPaz()">Salva paziente</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ MODAL INBODY -->
+<div class="overlay" id="mo-inbody">
+<div class="modal modal-sm">
+  <h3>📊 Misurazione InBody</h3>
+  <div class="fg"><label>Data</label><input type="date" id="ib-data"></div>
+  <div class="fg">
+    <label>Carica PDF InBody (opzionale)</label>
+    <div class="upload-area" onclick="document.getElementById('ib-pdf-input').click()">
+      <p>📄 Clicca per caricare il PDF della bilancia InBody 120</p>
+      <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
+    </div>
+    <input type="file" id="ib-pdf-input" accept=".pdf" style="display:none" onchange="loadInbodyPDF(event)">
+  </div>
+  <div id="ib-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">
+    ⏳ Estrazione dati dal PDF InBody in corso...
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Peso totale (kg)</label><input type="number" id="ib-peso" step="0.1"></div>
+    <div class="fg"><label>% Massa grassa</label><input type="number" id="ib-pg" step="0.1"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Massa grassa (kg)</label><input type="number" id="ib-g" step="0.1"></div>
+    <div class="fg"><label>Massa magra (kg)</label><input type="number" id="ib-m" step="0.1"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Massa muscolare (kg)</label><input type="number" id="ib-musc" step="0.1"></div>
+    <div class="fg"><label>Acqua totale (L)</label><input type="number" id="ib-acqua" step="0.1"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Metabolismo basale (kcal)</label><input type="number" id="ib-mb" step="1"></div>
+    <div class="fg"><label>Grasso viscerale (livello)</label><input type="number" id="ib-visc" step="1"></div>
+  </div>
+  <div class="fg"><label>BMI</label><input type="number" id="ib-bmi" step="0.1"></div>
+  <div class="fg"><label>Note cliniche</label><textarea id="ib-note"></textarea></div>
+  <div class="mf">
+    <button class="btn btn-g" onclick="closeM('mo-inbody')">Annulla</button>
+    <button class="btn btn-p" onclick="salvaInbody()">Salva</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ MODAL EVENTO CALENDARIO -->
+<div class="overlay" id="mo-evento">
+<div class="modal modal-sm">
+  <h3 id="mo-ev-t">Nuovo evento</h3>
+  <div class="fr">
+    <div class="fg"><label>Data *</label><input type="date" id="ev-data"></div>
+    <div class="fg"><label>Orario</label><input type="time" id="ev-ora"></div>
+  </div>
+  <div class="fg"><label>Tipo evento</label>
+    <select id="ev-tipo">
+      <option value="visita">🏥 Prima visita</option>
+      <option value="controllo">🔴 Controllo</option>
+      <option value="meeting">📋 Meeting</option>
+      <option value="altro">📌 Altro</option>
+    </select>
+  </div>
+  <div class="fg"><label>Paziente (opzionale)</label><select id="ev-paz"><option value="">— Nessuno —</option></select></div>
+  <div class="fg"><label>Descrizione / Note</label><textarea id="ev-note" placeholder="Note sull'evento..."></textarea></div>
+  <div class="fg"><label>Prezzo visita (€)</label><input type="number" id="ev-prezzo" step="0.01" placeholder="0.00" oninput="toggleEntrataCheck()"></div>
+  <div class="fg" id="ev-entrata-box" style="display:none">
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+      <input type="checkbox" id="ev-add-entrata" style="accent-color:var(--teal)">
+      Aggiungi automaticamente alle entrate
+    </label>
+  </div>
+  <div class="fg"><label>Promemoria paziente (giorno prima)</label>
+    <select id="ev-promemoria"><option value="no">No</option><option value="si">Sì — invia messaggio</option></select>
+  </div>
+  <div class="mf">
+    <button class="btn btn-g" onclick="closeM('mo-evento')">Annulla</button>
+    <button class="btn btn-p" onclick="salvaEvento()">Salva evento</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ MODAL DETTAGLIO EVENTO -->
+<div class="overlay" id="mo-ev-detail">
+<div class="modal modal-sm">
+  <div id="ev-detail-content"></div>
+  <div class="mf">
+    <button class="btn btn-g" onclick="closeM('mo-ev-detail')">Chiudi</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ MODAL RICETTA -->
+<div class="overlay" id="mo-ric">
+<div class="modal">
+  <h3 id="mo-ric-t">Nuova Ricetta</h3>
+  <div class="fg">
+    <label>Nome ricetta *</label>
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <input id="r-nome" placeholder="es. Merluzzo con spinaci e patate" style="flex:1">
+      <button class="btn btn-g btn-sm" onclick="startVoiceRicetta()" id="btn-mic" title="Registra con voce" style="padding:.46rem .7rem;font-size:1rem">&#127908;</button>
+      <button class="btn btn-orange btn-sm" onclick="aiSuggerisciRicetta()" title="L'AI completa automaticamente ingredienti e macros" style="font-size:.72rem">&#10024; AI</button>
+    </div>
+    <div id="voice-status" style="font-size:.69rem;color:var(--text3);margin-top:.2rem"></div>
+  </div>
+  <div id="ai-ric-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.7rem 1rem;font-size:.78rem;color:var(--teal2);margin-bottom:.7rem">
+    &#9203; L'AI sta analizzando la ricetta e calcolando i valori nutrizionali...
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Categoria</label>
+      <select id="r-cat">
+        <option value="colazione">Colazione</option><option value="pranzo">Pranzo</option>
+        <option value="cena">Cena</option><option value="spuntino">Spuntino</option>
+        <option value="post-workout">Post-workout</option>
+      </select>
+    </div>
+    <div class="fg"><label>Porzioni</label><input type="number" id="r-porzioni" value="1" min="1"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Kcal (per porzione)</label><input type="number" id="r-kcal" placeholder="calcolate dall'AI"></div>
+    <div class="fg"><label>Proteine (g)</label><input type="number" id="r-prot" placeholder="calcolate dall'AI"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Carboidrati (g)</label><input type="number" id="r-carb" placeholder="calcolati dall'AI"></div>
+    <div class="fg"><label>Grassi (g)</label><input type="number" id="r-grassi" placeholder="calcolati dall'AI"></div>
+  </div>
+  <div class="fg"><label>Ingredienti con grammature</label><textarea id="r-ing" placeholder="Compilato automaticamente dall'AI — puoi modificare" style="min-height:80px"></textarea></div>
+  <div class="fg"><label>Preparazione / Note</label><textarea id="r-desc" placeholder="Note di preparazione..."></textarea></div>
+  <div class="fg"><label>Tag (separati da virgola)</label><input id="r-tags" placeholder="proteica, vegetariana, senza glutine, chetogenica..."></div>
+  <div class="mf">
+    <button class="btn btn-g" onclick="closeM('mo-ric')">Annulla</button>
+    <button class="btn btn-p" onclick="salvaRic()">Salva ricetta</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════ MODAL ENTRATA -->
+<div class="overlay" id="mo-entrata">
+<div class="modal modal-sm">
+  <h3>Nuova Entrata</h3>
+  <div class="fr">
+    <div class="fg"><label>Data</label><input type="date" id="en-data"></div>
+    <div class="fg"><label>Importo (€)</label><input type="number" id="en-imp" step="0.01"></div>
+  </div>
+  <div class="fg"><label>Paziente</label><select id="en-paz"><option value="">— Nessuno —</option></select></div>
+  <div class="fg"><label>Tipo</label>
+    <select id="en-tipo">
+      <option value="Prima visita">Prima visita</option>
+      <option value="Controllo">Controllo</option>
+      <option value="Consulenza">Consulenza</option>
+      <option value="Altro">Altro</option>
+    </select>
+  </div>
+  <div class="fg"><label>Note</label><input id="en-note"></div>
+  <div class="mf">
+    <button class="btn btn-g" onclick="closeM('mo-entrata')">Annulla</button>
+    <button class="btn btn-p" onclick="salvaEntrata()">Salva</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// COSTANTI
+// ════════════════════════════════════════════════════════════════
+const ALIMENTI = {
+  'Prima Colazione': {items:[
+    {n:'Yogurt',g:125},{n:'Yogurt parz. scremato',g:125},{n:'Yogurt greco 0-2%',g:125},
+    {n:'Biscotti integrali',g:40},{n:'Muesli',g:40},{n:'Fiocchi avena',g:30},
+    {n:'Fette biscottate integrali',g:30},{n:'Pane comune',g:60},{n:'Pane integrale',g:60},
+    {n:'Ricotta di vacca',g:80},{n:'Pancake proteico',g:100},{n:'Wasa',g:20},
+    {n:'Philadelphia light',g:40},{n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},
+    {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
+    {n:'Uova di gallina intero',g:120},{n:'Bresaola',g:60}
+  ]},
+  'Cereali con Glutine': {items:[
+    {n:'Pasta',g:90,gl:true},{n:'Pasta integrale',g:90,gl:true},{n:'Pane comune',g:110,gl:true},{n:'Pane integrale',g:100,gl:true},
+    {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:90,gl:true},{n:'Orzo',g:90,gl:true},
+    {n:'Grano',g:90,gl:true},{n:'Frisella',g:40,gl:true},{n:'Tarallini',g:30,gl:true},
+    {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:50,gl:true},
+    {n:'Wasa (contiene glutine)',g:20,gl:true},{n:'Spaghetti Shirataki Konjac',g:200,gl:false},
+    {n:'Spätzle',g:80,gl:true}
+  ]},
+  'Cereali senza Glutine': {items:[
+    {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},
+    {n:'Riso rosso',g:90,gl:false},{n:'Riso nero',g:90,gl:false},{n:'Quinoa',g:90,gl:false},
+    {n:'Mais',g:90,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
+    {n:'Patate dolci',g:250,gl:false},{n:'Gnocchi di patate',g:200,gl:false},
+    {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:20,gl:false},
+    {n:'Fiocchi di mais',g:30,gl:false},{n:'Pasta di riso',g:90,gl:false},
+    {n:'Pasta di mais',g:90,gl:false},{n:'Grano saraceno',g:90,gl:false}
+  ]},
+  'Carne Bianca': {items:[
+    {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Ala di pollo',g:180},
+    {n:'Pollo intero con pelle',g:220},{n:'Pollo pronto al forno',g:200},
+    {n:'Petto di tacchino',g:200},{n:'Fesa di tacchino',g:100}
+  ]},
+  'Carne Rossa': {items:[
+    {n:'Vitellone tagli magri',g:240},{n:'Vitello carne semigrassa',g:220},
+    {n:'Cavallo magro',g:240},{n:'Maiale arista',g:220},{n:'Agnello',g:200},
+    {n:'Hamburger di manzo',g:180},{n:'Macinato di manzo',g:180},
+    {n:'Fegato',g:150},{n:'Cuore',g:150}
+  ]},
+  'Pesce (Pranzo)': {items:[
+    {n:'Tonno sottolio sgocciolato',g:120},{n:'Tonno al naturale',g:120},
+    {n:'Salmone affumicato',g:100},{n:'Salmone al naturale',g:120},
+    {n:'Gamberetti',g:150},{n:'Sgombro sottolio',g:120}
+  ]},
+  'Pesce (Cena)': {items:[
+    {n:'Merluzzo/nasello surgelato',g:250},{n:'Orata fresca',g:300},{n:'Sarago',g:280},
+    {n:'Spigola',g:300},{n:'Salmone fresco',g:200},{n:'Tonno fresco',g:200},
+    {n:'Tonno rosso',g:200},{n:'Pesce spada',g:250},{n:'Sgombro',g:200},
+    {n:'Polpo',g:350},{n:'Seppia',g:280},{n:'Cozze',g:300},{n:'Vongole',g:250},
+    {n:'Trota',g:250},{n:'Persico',g:250}
+  ]},
+  'Insaccati & Salumi': {items:[
+    {n:'Bresaola',g:80},{n:'Prosciutto crudo magro',g:80},{n:'Prosciutto cotto',g:80},
+    {n:'Carpaccio',g:80},{n:'Speck',g:60},{n:'Fesa di tacchino',g:100},
+    {n:'Mortadella',g:60},{n:'Salame',g:50},{n:'Nduja',g:30}
+  ]},
+  'Legumi': {items:[
+    {n:'Ceci (secchi)',g:80},{n:'Ceci (barattolo)',g:120},{n:'Ceci neri (barattolo)',g:120},
+    {n:'Fagioli borlotti (secchi)',g:80},{n:'Fagioli borlotti (barattolo)',g:120},
+    {n:'Fagioli neri (barattolo)',g:120},{n:'Fagioli rossi (barattolo)',g:120},
+    {n:'Lenticchie (secche)',g:80},{n:'Lenticchie (barattolo)',g:120},{n:'Lenticchie rosse (barattolo)',g:120},
+    {n:'Piselli (barattolo)',g:120},{n:'Piselli surgelati',g:150},
+    {n:'Soia (barattolo)',g:120},{n:'Soia surgelata (edamame)',g:150},
+    {n:'Lupini',g:80},{n:'Fave (barattolo)',g:120},
+    {n:'Tofu',g:120},{n:'Seitan',g:100}
+  ]},
+  'Uova': {items:[
+    {n:'Uovo intero',g:120},{n:'Albumi',g:100},{n:'Tuorlo',g:60}
+  ]},
+  'Latte & Derivati': {items:[
+    {n:'Yogurt',g:125},{n:'Yogurt parzialmente scremato',g:125},{n:'Yogurt greco 0-2%',g:125},
+    {n:'Ricotta di vacca',g:120},{n:'Ricotta di pecora',g:120},
+    {n:'Fiocchi di latte',g:150},{n:'Mozzarella di vacca',g:100},
+    {n:'Mozzarella Proteinella',g:100},{n:'Philadelphia light',g:80},
+    {n:'Feta',g:70},{n:'Stracchino',g:60},{n:'Scamorza',g:60},
+    {n:'Parmigiano',g:50},{n:'Grana padano',g:50},{n:'Pecorino',g:40},
+    {n:'Robiola',g:60},{n:'Cacioricotta',g:60},{n:'Burrata',g:100},
+    {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
+    {n:'Latte vaccino scremato',g:150},{n:'Kefir',g:150}
+  ]},
+  'Latte Vegetale': {items:[
+    {n:'Latte di mandorla',g:200},{n:'Latte di cocco',g:200},{n:'Latte di soia',g:200},
+    {n:'Latte di riso',g:200},{n:'Latte di nocciola',g:200},{n:'Latte di avena',g:200},
+    {n:'Latte di noci',g:200},{n:'Latte di farro',g:200},{n:'Latte di piselli',g:200}
+  ]},
+  'Frutta Secca & Semi': {items:[
+    {n:'Noci',g:20},{n:'Mandorle',g:20},{n:'Nocciole',g:20},{n:'Pistacchi',g:20},
+    {n:'Anacardi',g:20},{n:'Pinoli',g:15},{n:'Arachidi',g:20},{n:'Datteri',g:30},
+    {n:'Prugne secche',g:30},{n:'Burro arachidi',g:30},{n:'Burro mandorle',g:30},
+    {n:'Semi di chia',g:10},{n:'Semi di zucca',g:15},{n:'Semi di lino',g:10},
+    {n:'Semi di girasole',g:15},{n:'Semi di sesamo',g:10},{n:'Tahina',g:20}
+  ]},
+  'Superfoods': {items:[
+    {n:'Bacche di goji',g:15},{n:'Gomasio',g:10},{n:'Berberina',g:5},
+    {n:'Olio di cocco',g:10},{n:'Alga spirulina',g:5},{n:'Miele crudo',g:15},
+    {n:'Alghe marine',g:10},{n:'Curcuma in polvere',g:5},{n:'Cacao amaro',g:10},
+    {n:'Cioccolato fondente 85%',g:15},{n:'Acai in polvere',g:10},{n:'Moringa',g:5}
+  ]},
+  'Verdura': {items:[
+    {n:'Spinaci',g:200},{n:'Zucchine',g:200},{n:'Carote',g:200},{n:'Broccoli',g:200},
+    {n:'Finocchio',g:200},{n:'Insalata mista',g:200},{n:'Pomodori',g:200},
+    {n:'Melanzane',g:200},{n:'Peperoni rossi',g:200},{n:'Peperoni verdi',g:200},
+    {n:'Cavolfiore',g:200},{n:'Carciofi',g:200},{n:'Cime di rapa',g:200},
+    {n:'Fagiolini',g:200},{n:'Asparagi',g:200},{n:'Cetriolo',g:200},
+    {n:'Sedano',g:100},{n:'Cicoria',g:200},{n:'Radicchio',g:150},{n:'Rucola',g:80},
+    {n:'Zucca',g:200},{n:'Barbabietola',g:150},{n:'Verza',g:200},{n:'Cavolo cappuccio',g:200},
+    {n:'Cavolo nero',g:200},{n:'Bieta',g:200},{n:'Porro',g:100},{n:'Cipolla',g:80},
+    {n:'Funghi champignon',g:150},{n:'Funghi porcini',g:150},{n:'Piselli freschi',g:150},
+    {n:'Mais dolce in scatola',g:120},{n:'Germogli misti',g:80},{n:'Topinambur',g:150}
+  ]},
+  'Frutta': {items:[
+    {n:'Mela',g:150},{n:'Pera',g:150},{n:'Banana',g:150},{n:'Arancia',g:150},
+    {n:'Mandarino',g:150},{n:'Kiwi',g:150},{n:'Fragole',g:150},{n:'Uva',g:150},
+    {n:'Anguria',g:200},{n:'Melone',g:200},{n:'Albicocca',g:150},{n:'Pesca',g:150},
+    {n:'Ciliegia',g:150},{n:'Fichi',g:100},{n:'Melograno',g:150},{n:'Avocado',g:100},
+    {n:'Ananas',g:150},{n:'Mango',g:100},{n:'Papaya',g:150},{n:'Cocco fresco',g:80},
+    {n:'Limone',g:50},{n:'Lime',g:50},{n:'Pompelmo',g:150},{n:'Clementina',g:100},
+    {n:'Frutti rossi misti',g:150},{n:'Mirtilli',g:150},{n:'Lamponi',g:150},
+    {n:'More',g:150},{n:'Ribes',g:100},{n:'Susine',g:150},{n:'Prugne',g:150},
+    {n:'Kaki',g:150},{n:'Nespole',g:100},{n:'Maracuja',g:100},{n:'Litchi',g:100},
+    {n:'Guava',g:100},{n:'Carambola',g:100}
+  ]},
+  'Spezie': {items:[
+    {n:'Pepe nero',g:2},{n:'Curcuma',g:3},{n:'Paprika',g:3},{n:'Peperoncino',g:2},
+    {n:'Cumino',g:3},{n:'Zenzero fresco',g:10},{n:'Zenzero in polvere',g:3},
+    {n:'Cannella',g:3},{n:'Curry',g:3},{n:'Origano',g:2},{n:'Basilico',g:5},
+    {n:'Rosmarino',g:3},{n:'Timo',g:2},{n:'Salvia',g:2},{n:'Prezzemolo',g:5},
+    {n:'Chiodi di garofano',g:2},{n:'Noce moscata',g:2},{n:'Zafferano',g:1},
+    {n:'Cardamomo',g:2},{n:'Anice stellato',g:3},{n:'Aglio in polvere',g:3},
+    {n:'Cipolla in polvere',g:3}
+  ]},
+  'Olio & Condimenti': {items:[
+    {n:'Olio EVO',g:10},{n:'Aceto di vino',g:10},{n:'Salsa di soia',g:10},
+    {n:'Senape',g:10},{n:'Limone',g:20}
+  ]}
+};;
+
+const ANALISI = {
+  'Base — Consigliate a tutti':[
+    'Emocromo','Glicemia a digiuno','Insulina a digiuno',
+    'Colesterolo totale','HDL','LDL','Trigliceridi',
+    'Creatinina + eGFR','Sodio','Potassio',
+    'AST (transaminasi)','ALT (transaminasi)','Azotemia','Acido urico',
+    'Ferritina','Sideremia','TSH','FT3','FT4',
+    'Vitamina B12','Folati','Vitamina D (25-OH)','Omocisteina'
+  ],
+  'Insulino-Resistenza — Se necessario':[
+    'OGTT 75g (glicemia + insulina 0-30-60-90-120 min)','Indice HOMA-IR',
+    'Emoglobina glicata (HbA1c)','C-peptide','Matsuda Index','QUICKI'
+  ],
+  'Profilo cardiovascolare alterato':[
+    'ApoB (Apolipoproteina B)','Lipoproteina(a) [Lp(a)]',
+    'hsCRP (PCR alta sensibilità)','Omocisteina'
+  ],
+  'Funzionalità epatica alterata':[
+    'γ-GT','Bilirubina totale','Bilirubina diretta','Bilirubina indiretta','Fosfatasi alcalina (ALP)'
+  ],
+  'Funzionalità tiroidea alterata':[
+    'Anti-TPO','Anti-TG'
+  ],
+  'Metabolismo del ferro alterato':[
+    'Transferrina','Saturazione transferrina','PCR'
+  ],
+  'Vitamine — Su sospetto clinico':[
+    'Vitamina B6 (piridossina)','Vitamina A (retinolo)','Vitamina E','Vitamina K'
+  ],
+  'Micronutrienti — Su indicazione':[
+    'Zinco sierico','Rame sierico','Selenio sierico','Magnesio sierico','8-OHdG urinario'
+  ]
+};
+
+const EV_TYPES = {
+  visita:   {label:'🏥 Prima visita',   cls:'ev-visita',   color:'#4c1d95'},
+  primo:    {label:'🟢 Inizio alim.',   cls:'ev-primo',    color:'#1a6b48'},
+  chiamata: {label:'📞 Chiamata sett.1',cls:'ev-chiamata', color:'#1e40af'},
+  sett2:    {label:'💬 Msg sett.2',     cls:'ev-sett2',    color:'#92400e'},
+  sett3:    {label:'💬 Msg sett.3',     cls:'ev-sett3',    color:'#9a3412'},
+  controllo:{label:'🔴 Controllo',      cls:'ev-controllo',color:'#991b1b'},
+  meeting:  {label:'📋 Meeting',        cls:'ev-meeting',  color:'#0369a1'},
+  altro:    {label:'📌 Altro',          cls:'ev-altro',    color:'#475569'}
+};
+
+const MESSAGGI = {
+  primo:[{tipo:'foto+testo',testo:'Oggi inizia il tuo percorso! Sono qui con te, un passo alla volta 💪',nota:'📸 Invia con foto motivazionale'}],
+  sett2:[{tipo:'testo',testo:"Siamo già alla seconda settimana, il tempo vola! Come ti stai trovando con l'alimentazione? Sono qui per qualsiasi cosa 😊"}],
+  sett3:[{tipo:'testo',testo:"Eccoci alla terza settimana insieme! Ormai stai costruendo nuove abitudini — questo è il momento più importante. Come stai andando? 🌱"}],
+  chiamata:[{tipo:'promemoria',testo:'Chiama il paziente per vedere come sta andando la prima settimana di alimentazione.'}],
+  controllo:[{tipo:'promemoria',testo:'Controllo con misurazione InBody previsto per oggi.'}],
+  visita:[{tipo:'promemoria',testo:'Prima visita prevista oggi.'}],
+  promemoria_visita:'Ciao! Ti ricordo che domani abbiamo il tuo appuntamento allo studio. A domani! 😊',
+  promemoria_controllo:'Ciao! Ti ricordo che domani hai il tuo controllo allo studio. A domani! 😊'
+};
+
+// ══════════════════════════════════════════════════════════════════
+// CONCETTI EDUCATIVI COMPLETI
+// ══════════════════════════════════════════════════════════════════
+const CONCETTI_EDUCATIVI = [
+  {
+    id:'concetti-fondamentali', titolo:'Concetti fondamentali', categoria:'Generale',
+    testo:`CONCETTI FONDAMENTALI\n\nCi tengo a trasmetterti tre pensieri per me fondamentali:\n\n1) Ogni piano alimentare che redigo è unico e creato su misura in base ai tuoi gusti personali, alla tua storia clinica e ai tuoi obiettivi. Per questo motivo è sconsigliato condividerlo con amici o parenti: potrebbe non essere adatto a loro e rischia di non darti i risultati che meriti.\n\n2) "Fa che il cibo sia la tua medicina e la medicina sia il tuo cibo." — Ippocrate\n\n3) Sii la versione migliore di te stesso. Nella vita non bisogna mai smettere di migliorarsi.\n\nBuona Alimentazione 🌱`
+  },
+  {
+    id:'frutta', titolo:'Il concetto di frutta', categoria:'Generale',
+    testo:`CONCETTO DI FRUTTA\n\nDue porzioni al giorno sono ideali per garantire un buon apporto di vitamine, minerali, acqua e fibre. Non è necessaria la bilancia: una porzione equivale a un frutto grande, due frutti medi o tre piccoli.\n\nScegli frutta di stagione: è più ricca di sapore, di principi attivi naturali e meno trattata.\n\nGioca con i colori della frutta per ottenere benefici diversi:\n• Rossa (fragole, ciliegie, melograno): antociani e licopene, supporta la circolazione\n• Arancione/gialla (arance, albicocche, mango): carotenoidi, pelle e sistema immunitario\n• Verde (kiwi, uva, mela verde): clorofilla, folati e magnesio per energia e detossificazione\n• Blu/viola (mirtilli, prugne): polifenoli antiossidanti, memoria e salute vascolare\n• Bianca (mele, pere, banane): flavoni e fibre per digestione e regolarità intestinale`
+  },
+  {
+    id:'verdura', titolo:'Il concetto di verdura', categoria:'Generale',
+    testo:`CONCETTO DI VERDURA\n\nLe verdure sono un pilastro della salute. Alternare crudo e cotto è la scelta migliore:\n• Cruda: fibre, vitamine termolabili ed enzimi utili all'intestino e alla pelle\n• Cotta: più digeribile, con nutrienti come licopene e betacarotene maggiormente biodisponibili\n\nCotture semplici e intelligenti:\n• Verdure sottoterra (carote, patate, sedano rapa): partono da acqua fredda\n• Verdure sopra terra (zucchine, broccoli, spinaci): in acqua già bollente, per preservare colore e clorofilla\n• Evita limone o aceto durante la cottura: alterano la clorofilla\n\nVerdura sempre presente a pranzo e a cena, variando tra crudo e cotto, giocando con i colori.`
+  },
+  {
+    id:'domenica', titolo:'Il concetto di domenica', categoria:'Generale',
+    testo:`LA DOMENICA: UN GIORNO DI CONSAPEVOLEZZA, NON DI SGARRO\n\nUn anno ha 52 domeniche. Se ogni domenica diventa un giorno di eccesso, hai 52 giornate fuori controllo — quasi due mesi interi.\n\nImmagina un deficit di 400 kcal al giorno per 6 giorni: hai costruito 2.400 kcal di "credito" settimanale. Se la domenica esageri, annulli tutto il lavoro fatto.\n\nIl punto non è rinunciare, ma ragionare con equilibrio:\n• Se c'è una pasta al forno, gustala — ma fermati lì\n• Se vuoi un dolce, sceglilo piccolo e solo se il resto del pasto è leggero\n• Usa le porzioni che hai imparato durante la settimana\n\nLa domenica non è un "premio" né una "punizione". È semplicemente parte del tuo percorso.`
+  },
+  {
+    id:'pizza', titolo:'Il concetto di pizza', categoria:'Generale',
+    testo:`PIZZA: COME GUSTARLA IN MODO INTELLIGENTE\n\nUna pizza intera può arrivare a 900-1200 kcal. In media una fetta: 270-300 kcal, 10-12 g grassi, 30-40 g carboidrati da farina bianca.\n\nCome comportarsi:\n1. Scegli impasti integrali o con farine miste: rallentano l'assorbimento glicemico\n2. Mangia prima una porzione di verdure: aumenta la sazietà\n3. Abbina una fonte proteica magra (bresaola, fesa, stracchino, uovo)\n4. Evita birra e dolce nello stesso pasto\n5. Mastica lentamente e scegli pizze con impasti ben lievitati\n\nLa pizza può restare un piacere — basta sceglierla e abbinarla con intelligenza.`
+  },
+  {
+    id:'idratazione', titolo:'Idratazione e doping pre-allenamento', categoria:'Sport',
+    testo:`L'IDRATAZIONE È LA PRIMA FORMA DI DOPING\n\nBevi 500 ml di acqua circa 30 minuti prima dell'allenamento — è l'ideale per mantenere la temperatura corporea, ridurre la fatica e migliorare la resistenza.\n\nUn buon livello di idratazione:\n• Aumenta la circolazione sanguigna\n• Migliora la trasmissione nervosa\n• Supporta la funzione muscolare\n• Aiuta a prevenire crampi\n\nAttenzione: anche una disidratazione del solo 2% del peso corporeo può compromettere significativamente le prestazioni.\n\nPrima di cercare integratori, inizia dall'acqua: è il miglior "doping" naturale per ogni atleta.`
+  },
+  {
+    id:'neat', titolo:'Il concetto NEAT — muoversi ogni giorno', categoria:'Sport',
+    testo:`IL CONCETTO NEAT — L'ATTIVITÀ FISICA INVISIBILE CHE CAMBIA TUTTO\n\nEsiste un movimento "invisibile" ma fondamentale: il NEAT (Non-Exercise Activity Thermogenesis), ovvero tutta l'attività fisica non sportiva quotidiana. Per esempio: camminare, salire le scale, portare la spesa, riordinare casa.\n\nL'obiettivo minimo: 8.000-12.000 passi al giorno.\n\nPensa a questo: 12.000 passi al giorno equivalgono a 42 maratone in un anno — come correre una maratona a settimana, semplicemente camminando un po' di più ogni giorno.\n\nControlla la media dei tuoi passi con il cellulare o uno smartwatch. Ti aiuterà a capire quanto ti muovi realmente e a migliorare nel tempo.\n\nRicorda: non serve fare sport estremo, serve muoversi ogni giorno. Ogni passo che fai è un passo verso la tua salute.`
+  },
+  {
+    id:'frutta-secca', titolo:'Frutta secca — guida e grammature', categoria:'Generale',
+    testo:`FRUTTA SECCA\n\nOgni giorno è prevista una dose di frutta secca tra anacardi, mandorle, noci, nocciole e pistacchi. Non importa quando o con cosa assumerla.\n\nGuida alle grammature per 20 g:\n• Anacardi → 12 pezzi\n• Mandorle → 17 pezzi\n• Nocciole → 15 pezzi\n• Noci → 5 pezzi\n• Pistacchi → 23 pezzi\n• Burro di arachidi → 2 cucchiaini\n\nGuida alle grammature per 10 g:\n• Anacardi → 6 pezzi\n• Mandorle → 8 pezzi\n• Nocciole → 7 pezzi\n• Noci → 3 pezzi\n• Pistacchi → 12 pezzi\n• Burro di arachidi → 1 cucchiaino`
+  },
+  {
+    id:'colazione-fermentata', titolo:'Colazione fermentata — prebiotica e probiotica', categoria:'Ricette',
+    testo:`COLAZIONE FERMENTATA — PREBIOTICA E PROBIOTICA\n\nIngredienti:\n• 80-100 g di yogurt bianco o greco 2%\n• 100 ml di kefir bianco\n• 30-60 g di fiocchi d'avena integrali\n• 15-20 g di frutta secca (mandorle, noci, burro di arachidi)\n• 1 frutto fresco (uva, mela, mirtilli, fragole)\n• Spezie: cannella, cardamomo, zenzero\n• Facoltativi: 10 g cioccolato fondente ≥85% o 5 g cacao amaro, datteri\n\nRazionale nutrizionale:\n1. Yogurt + Kefir: aumenta la varietà dei ceppi batterici per la salute intestinale\n2. Fiocchi d'avena: i β-glucani e l'amido resistente generano acidi grassi a corta catena (SCFA) come butirrato — fondamentali per la mucosa intestinale e la regolazione dell'insulina\n3. Grassi buoni + fibre solubili: riducono la risposta glicemica del pasto\n4. Cioccolato/cacao: flavanoli e triptofano influenzano positivamente il tono dell'umore\n\nConsiglio: per massimizzare la salute intestinale, lascia riposare la miscela 6 ore in frigo prima di consumarla.`
+  },
+  {
+    id:'spezie', titolo:'Le spezie — guida alle proprietà bioattive', categoria:'Generale',
+    testo:`LE SPEZIE — MOLTO PIÙ CHE SAPORE\n\nPer ridurre l'infiammazione:\n• Curcuma: antinfiammatoria, più efficace con pepe nero o olio EVO\n• Zenzero: riduce l'infiammazione intestinale e muscolare\n• Cannella: migliora la sensibilità insulinica\n• Chiodi di garofano: antinfiammatori e antibatterici naturali\n\nPer migliorare la digestione e ridurre il gonfiore:\n• Finocchio: rilassa la muscolatura intestinale\n• Cumino: facilita la digestione dei grassi\n• Cardamomo: digestivo dopo pasti grassi\n• Pepe nero: migliora l'assorbimento dei principi attivi\n\nPer il metabolismo:\n• Cannella: controlla la glicemia e riduce la fame nervosa\n• Peperoncino (capsaicina): accelera il metabolismo e favorisce la lipolisi\n• Aglio (allicina): abbassa colesterolo e pressione\n\nPer il sistema immunitario:\n• Origano: antibatterico naturale\n• Timo: antivirale\n• Zenzero + Cannella: sinergia antiossidante nei mesi freddi\n\nCome usarle: sempre abbinate a un grasso buono (olio EVO, yogurt, avocado) per migliorarne l'assorbimento.`
+  },
+  {
+    id:'motivazione', titolo:'Motivazione', categoria:'Generale',
+    testo:`MOTIVAZIONE\n\nPORSI UN OBIETTIVO È LA PIÙ POTENTE FORZA UMANA DI AUTO-MOTIVAZIONE\n\nSe vuoi realmente fare qualcosa, troverai il modo.\nSe non vuoi veramente, troverai una scusa.\n\nOgni obiettivo è come un sogno con le ali: è destinato a condurti da qualche parte.\n\nNon importa quanto sia difficile il percorso — importa che tu non smetta di camminare.`
+  },
+  {
+    id:'hashimoto', titolo:'Tiroidite di Hashimoto — indicazioni nutrizionali', categoria:'Patologie',
+    testo:`TIROIDITE DI HASHIMOTO — INDICAZIONI NUTRIZIONALI\n\nLa tiroidite di Hashimoto è una patologia autoimmune in cui il sistema immunitario attacca la tiroide, riducendo la produzione di ormoni tiroidei. I sintomi più comuni: stanchezza, aumento di peso, freddolosità, stipsi e pelle secca.\n\nAlimentazione anti-infiammatoria:\nPrivilegia omega-3 (pesce azzurro, frutta secca), olio EVO, verdure colorate e spezie come curcuma e zenzero. Limita zuccheri raffinati, prodotti industriali e grassi trans.\n\nMicronutrienti fondamentali:\n• Selenio: protegge la tiroide dallo stress ossidativo (noci brasiliane, pesce, semi)\n• Iodio: essenziale per la sintesi ormonale, ma senza eccedere\n• Vitamina D: spesso carente nelle malattie autoimmuni — valutare integrazione\n• Zinco: supporta la conversione degli ormoni tiroidei\n\nGlutine: in alcuni soggetti può aumentare la risposta autoimmune — valutare con il medico.\n\nSoia: da consumare con moderazione, può interferire con l'assorbimento degli ormoni tiroidei.\n\nSalute intestinale: alimenti fermentati (yogurt, kefir) supportano il sistema immunitario.\n\nStile di vita: gestione dello stress, sonno adeguato e attività fisica regolare sono fondamentali.`
+  },
+  {
+    id:'vitamina-d', titolo:'Vitamina D — importanza e integrazione', categoria:'Integratori',
+    testo:`VITAMINA D — PERCHÉ È FONDAMENTALE E COME ASSUMERLA CORRETTAMENTE\n\nLa vitamina D agisce come un vero ormone: rafforza il sistema immunitario, è fondamentale per ossa e muscoli, riduce l'infiammazione e aiuta a regolare la glicemia. Circa il 70% degli anziani e il 50% dei giovani presentano una carenza.\n\nFabbisogno giornaliero:\n• Bambini < 1 anno: 400 UI\n• Adulti 1-70 anni: 600 UI\n• Adulti > 70 anni: 800 UI\n\nFonti alimentari:\n• Trota iridea (100 g): ~635 UI\n• Salmone (100 g): ~526 UI\n• Sardine (100 g): ~480 UI\n• Olio di fegato di merluzzo (1 cucchiaino): ~450 UI\n• Latte (200 ml): ~115 UI\n• Yogurt (100 g): ~50 UI\n\nIntegrazione consigliata: 2.000 UI/giorno di vitamina D3, preferibilmente con vitamina K2 (MK7) — fondamentale per il corretto utilizzo del calcio.\n\nCome assumerla: essendo liposolubile, si assorbe meglio con un pasto contenente grassi sani (olio EVO, avocado, frutta secca, pesce grasso).`
+  },
+  {
+    id:'gravidanza', titolo:'Alimentazione in gravidanza', categoria:'Patologie',
+    testo:`ALIMENTAZIONE IN GRAVIDANZA\n\nFabbisogno calorico:\n• Primo trimestre: ~1.900 kcal/giorno\n• Secondo trimestre: ~2.250 kcal/giorno (+350 kcal)\n• Terzo trimestre: ~2.360 kcal/giorno (+460 kcal)\n\nFabbisogno proteico aggiuntivo:\n• 1° trimestre: +1 g/giorno · 2° trimestre: +9 g/giorno · 3° trimestre: +28 g/giorno · Allattamento: +9 g/giorno\n\nMicronutrienti chiave: Calcio 1.200 mg/giorno · Ferro 27 mg/giorno · Iodio 200 mcg/giorno\n\nIntegrazione:\n• Acido Folico (0,4 mg/giorno): da 3 mesi prima del concepimento — fondamentale per prevenire malformazioni\n• Omega-3 (450 mg/giorno): per lo sviluppo del sistema nervoso del bambino\n\nAlimenti da evitare: latte crudo, carni crude, uova crude, pesce crudo, pesce affumicato, formaggi molli non pastorizzati, alcol.\n\nL'obiettivo è un aumento di peso tra i 9 e i 12 kg durante tutta la gravidanza.\n\nRicorda: la donna in gravidanza è uno degli esseri umani più straordinari in natura. Con il giusto supporto nutrizionale affronterai ogni fase con energia e serenità.`
+  },
+  {
+    id:'chetogenica', titolo:'Regime alimentare chetogenico', categoria:'Profili dietetici',
+    testo:`REGIME ALIMENTARE CHETOGENICO\n\nPossibili effetti collaterali nei primi giorni (del tutto normali):\n• Cefalea: nei primi 3 giorni, scompare entro 72-96 ore\n• Alitosi: usa spray o gomme senza zucchero\n• Secchezza orale: bevi abbondante acqua\n• Disturbi gastrointestinali: 2 bicchieri d'acqua a pranzo, tisana al mattino, camomilla senza zucchero la sera\n• Keto-Flu: disagio generale durante l'adattamento metabolico\n\nDurata: almeno 2-3 mesi, con controlli ogni due settimane e test delle urine per i corpi chetonici.\n\nBenefici attesi: calo del peso rapido, miglioramento insulino-resistenza, riduzione marker infiammatori, diminuzione della fame.\n\nIntegrazione necessaria:\n• Magnesio + Potassio: 1 bustina/giorno · Omega-3: 1 g/giorno · Polivitaminico: 1/giorno\n\nConsigli pratici:\n• Bevi 1,5-2 litri al giorno\n• Non saltare i pasti — mangiare meno del prescritto compromette la chetosi\n• In caso di fame: cetrioli o finocchi come spuntino libero\n• Alimenti vietati: zuccheri, carboidrati, pasta, pane, frutta, dolci\n• I giorni del piano sono intercambiabili tra loro\n\nCene fuori: scegli carne o pesce con verdure, zero carboidrati. Al sushi, preferisci sashimi.`
+  }
+];
+
+// MACROS SCHEMA
+const MACRO_SCHEMA = [
+  {cat:'Normopeso – sedentario, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,1.8],carb:[2.5,4.0],grassi:[0.8,1.0]},
+  {cat:'Normopeso – sportivo 3-5, tono/dimagrimento',laf:[1.55,1.55],kcal:'-200/-400',prot:[1.6,2.0],carb:[3.5,5.5],grassi:[0.7,0.9]},
+  {cat:'Normopeso – sportivo intenso, aumento massa',laf:[1.725,1.725],kcal:'+200/+500',prot:[1.6,2.2],carb:[4.5,8.0],grassi:[0.6,0.9]},
+  {cat:'Sovrappeso – sedentario, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.6,2.2],carb:[2.0,3.5],grassi:[0.8,1.0]},
+  {cat:'Sovrappeso – sportivo 2-4, definizione',laf:[1.55,1.55],kcal:'-300/-500',prot:[1.8,2.4],carb:[3.0,5.0],grassi:[0.7,0.9]},
+  {cat:'Obesità I – bassa attività, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,2.0],carb:[2.0,3.5],grassi:[0.9,1.1]},
+  {cat:'Obesità II – bassa attività, dimagrimento',laf:[1.20,1.30],kcal:'-500',prot:[1.4,2.0],carb:[1.8,3.0],grassi:[0.9,1.1]},
+  {cat:'Obesità III – bassa attività, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,1.8],carb:[1.5,3.0],grassi:[0.9,1.1]}
+];
+
+const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spuntino:'tag-green','post-workout':'tag-red'};
+
+// ════════════════════════════════════════════════════════════════
+// STORAGE & SYNC
+// ════════════════════════════════════════════════════════════════
+const DB_KEY='ng_db', CFG_KEY='ng_cfg';
+let db={pazienti:[],ricette:[],eventi:[],entrate:[],disponibilita:{}};
+let currentPazId=null, editPazId=null, editRicId=null;
+let calDate=new Date(), calView='month', selCalDay=null;
+window._alStato={};
+
+function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch(e){return{};}}
+function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
+function getUrl(){return getCfg().scriptUrl||'';}
+function saveLocal(){localStorage.setItem(DB_KEY,JSON.stringify(db));if(document.getElementById('page-dashboard')?.classList.contains('active'))renderDashboard();}
+function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};}}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function today(){return new Date().toISOString().slice(0,10);}
+function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
+function fData(s){if(!s)return'—';return new Date(s).toLocaleDateString('it-IT');}
+function fEur(n){return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n||0);}
+
+function setSyncStatus(ok){
+  const d=document.getElementById('sync-dot'),t=document.getElementById('sync-txt');
+  if(d)d.className='sync-dot'+(ok?'':' err');
+  if(t)t.textContent=ok?'Sincronizzato':'Solo locale';
+}
+async function pushToSheets(){
+  const url=getUrl();if(!url)return false;
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});setSyncStatus(true);return true;}
+  catch(e){setSyncStatus(false);return false;}
+}
+async function pullFromSheets(){
+  const url=getUrl();if(!url)return false;
+  try{
+    const r=await fetch(url+'?action=get',{method:'GET',mode:'cors'});
+    if(!r.ok)throw new Error();
+    const data=await r.json();
+    if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();return true;}
+    return false;
+  }catch(e){return false;}
+}
+async function syncNow(){
+  const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
+  const p=await pullFromSheets();
+  if(!p)await pushToSheets();
+  else{renderPaz();renderRic();renderCal();renderEntrate();}
+}
+async function save(){saveLocal();await pushToSheets();}
+
+function salvaCfg(){const u=document.getElementById('cfg-url').value.trim();if(!u){alert('Inserisci URL');return;}const c=getCfg();c.scriptUrl=u;saveCfgL(c);notif('✓ Configurazione salvata!');}
+async function testConn(){
+  const url=document.getElementById('cfg-url').value.trim();const res=document.getElementById('cfg-res');
+  if(!url){res.textContent='⚠ Inserisci URL';return;}res.textContent='⏳ Test...';
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});res.style.color='var(--teal)';res.textContent='✓ Connessione riuscita!';}
+  catch(e){res.style.color='var(--red)';res.textContent='✗ Errore';}
+}
+function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
+function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
+
+// ════════════════════════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════════════════════════
+function goTo(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=document.getElementById('page-'+name);if(pg)pg.classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(name==='pazienti')renderPaz();
+  if(name==='calendario')renderCal();
+  if(name==='ricette')renderRic();
+  if(name==='entrate')renderEntrate();
+  if(name==='dashboard')renderDashboard();
+  if(name==='concetti')renderConcettiPage();
+  if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();}
+}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
+function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));document.getElementById('tp-'+name).classList.add('active');btn.classList.add('active');}
+function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');}
+function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),dur);}
+
+// ════════════════════════════════════════════════════════════════
+// PAZIENTI
+// ════════════════════════════════════════════════════════════════
+function renderPaz(){
+  const q=(document.getElementById('s-paz').value||'').toLowerCase();
+  const f=document.getElementById('f-paz').value;
+  let list=[...db.pazienti].sort((a,b)=>a.cognome.localeCompare(b.cognome));
+  if(q)list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
+  if(f==='attivo')list=list.filter(p=>p.inizioAlim);
+  document.getElementById('paz-count').textContent=db.pazienti.length+' pazienti';
+  const grid=document.getElementById('paz-grid');
+  if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessun paziente</p><span>Clicca "+ Nuovo paziente" per iniziare</span></div>';return;}
+  grid.innerHTML=list.map(p=>{
+    const ini=p.inizioAlim;const oggi=today();
+    let statoTag='';
+    if(ini){
+      const diff=Math.round((new Date(oggi)-new Date(ini))/(864e5));
+      if(diff<0)statoTag=`<span class="tag tag-blue">Inizia tra ${Math.abs(diff)}gg</span>`;
+      else if(diff<28)statoTag=`<span class="tag tag-teal">Sett. ${Math.floor(diff/7)+1}</span>`;
+      else statoTag=`<span class="tag tag-gray">Completato</span>`;
+    }else statoTag=`<span class="tag tag-orange">Nessun piano</span>`;
+    const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
+    const regimeTag=p.regime?`<span class="tag tag-purple">${p.regime}</span>`:'';
+    return`<div class="paz-card" onclick="openPaz('${p.id}')">
+      <div class="paz-card-top">
+        <div class="avatar">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
+        <div><div class="paz-nome">${p.nome} ${p.cognome}</div><div class="paz-meta">${eta}${eta&&p.tel?' · ':''}${p.tel||''}</div></div>
+      </div>
+      <div class="paz-tags">${statoTag}${regimeTag}</div>
+    </div>`;
+  }).join('');
+}
+
+function openNuovoPaz(){
+  editPazId=null;
+  document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-peso','p-altezza'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nascita','p-visita','p-inizio','p-controllo','p-inizio2','p-controllo2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('p-visita').value=today();
+  document.getElementById('p-inizio').value=today();
+  window._alStato={};renderAlEditor();aggDateCal();
+  document.querySelectorAll('.mtab')[0].click();
+  document.getElementById('mo-paz').classList.add('open');
+}
+
+function editPaz(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  editPazId=currentPazId;
+  document.getElementById('mo-paz-t').textContent='Modifica Paziente';
+  const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
+  s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);
+  s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
+  s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
+  s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
+  s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
+  s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
+  s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);s('p-familiarita',p.familiarita);
+  s('p-analisi-note',p.analisiNote);s('p-peso-storia',p.pesoStoria);s('p-diete-prec',p.dietePrec);
+  s('p-cucina',p.cucina);s('p-dove',p.dove);s('p-economica',p.economica);s('p-veg',p.veg);
+  s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
+  s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
+  s('p-lavoro',p.lavoro);s('p-umore',p.umore);s('p-crisi',p.crisi);s('p-fame',p.fame);
+  s('p-cheto-note',p.chetoNote);
+  const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+  ss('p-regime',p.regime);
+  const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
+  s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
+  setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);
+  ss('p-prenanna',p.prenanna);ss('p-pref-proteina',p.prefProteina);
+  ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
+  ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
+  ss('p-abit',p.abit);ss('p-var',p.var);ss('p-cheto',p.cheto);
+  window._alStato=p.alimenti||{};renderAlEditor();aggDateCal();
+  document.querySelectorAll('.mtab')[0].click();
+  document.getElementById('mo-paz').classList.add('open');
+}
+
+function salvaPaz(){
+  const nome=document.getElementById('p-nome').value.trim();
+  const cognome=document.getElementById('p-cognome').value.trim();
+  if(!nome||!cognome){alert('Inserisci nome e cognome.');return;}
+  const g=(id)=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  const gs=(id)=>{const el=document.getElementById(id);return el?el.value:'';};
+  const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
+  const ini=g('p-inizio');
+  const pd={
+    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),peso:gn('p-peso'),altezza:gn('p-altezza'),
+    bia:g('p-bia'),obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
+    controlloData:g('p-controllo'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
+    acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
+    gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
+    patologie:g('p-patologie'),farmaci:g('p-farmaci'),allergie:g('p-allergie'),
+    familiarita:g('p-familiarita'),analisiNote:g('p-analisi-note'),pesoStoria:g('p-peso-storia'),
+    dietePrec:g('p-diete-prec'),colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
+    pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),cucina:g('p-cucina'),
+    dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
+    giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
+    dove:getDove(),flusso:gs('p-flusso'),
+    weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
+    fame:g('p-fame'),abit:gs('p-abit'),
+    alimenti:window._alStato||{},
+    dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||addDays(ini,28)}:null
+  };
+  if(editPazId){
+    const idx=db.pazienti.findIndex(x=>x.id===editPazId);
+    if(idx>=0){pd.id=editPazId;pd.inbody=db.pazienti[idx].inbody||[];pd.note=db.pazienti[idx].note||'';pd.analisiSangue=db.pazienti[idx].analisiSangue||{};db.pazienti[idx]=pd;}
+  }else{
+    pd.id=uid();pd.inbody=[];pd.note='';pd.analisiSangue={};pd.creato=today();db.pazienti.push(pd);
+  }
+  save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');
+  if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
+}
+
+function openPaz(id){
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+  currentPazId=id;
+  document.getElementById('pd-title').textContent=p.nome+' '+p.cognome;
+  const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000):null;
+  document.getElementById('pd-hdr').innerHTML=`
+    <div class="pd-av">${p.nome[0]}${p.cognome[0]}</div>
+    <div style="flex:1"><div style="font-family:'DM Serif Display',serif;font-size:1.1rem">${p.nome} ${p.cognome}</div>
+    <div style="font-size:.77rem;color:var(--text2)">${eta?eta+' anni · ':''}${p.tel||''}${p.obiettivo?' · '+p.obiettivo:''}</div></div>
+    <div style="display:flex;gap:.3rem;flex-wrap:wrap">
+      ${p.allergie?`<span class="tag tag-red">⚠ ${p.allergie.substring(0,25)}</span>`:''}
+      ${p.inizioAlim?`<span class="tag tag-teal">Inizio: ${fData(p.inizioAlim)}</span>`:'<span class="tag tag-orange">Nessun piano</span>'}
+      ${p.cheto==='si'?'<span class="tag tag-purple">🥑 Chetogenica</span>':''}
+    </div>`;
+  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  document.getElementById('pd-stats').innerHTML=`
+    <div class="pd-stat"><div class="pd-stat-lbl">Peso</div><div class="pd-stat-val">${lastIb?lastIb.peso+'kg':p.peso?p.peso+'kg':'—'}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">% Grassa</div><div class="pd-stat-val">${lastIb?lastIb.pg+'%':'—'}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">Massa magra</div><div class="pd-stat-val">${lastIb?lastIb.m+'kg':'—'}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
+  renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);renderPdMacros(p);
+  document.getElementById('pd-note').innerHTML=`
+    <div class="card"><div class="card-hd"><h3>Note cliniche</h3></div><div class="card-bd">
+      <textarea style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.5rem .7rem;outline:none;min-height:180px;resize:vertical" oninput="saveNote(this.value)">${p.note||''}</textarea>
+    </div></div>`;
+  document.querySelectorAll('.pd-tab')[0].click();
+  goTo('pd',null);
+  document.querySelectorAll('.nav-item')[0].classList.add('active');
+}
+
+function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save();}
+
+function renderPdAnamnesi(p){
+  const r=(lbl,v)=>v?`<div style="margin-bottom:.5rem"><span style="font-size:.64rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:600">${lbl}</span><div style="font-size:.8rem;margin-top:2px">${v}</div></div>`:'';
+  document.getElementById('pd-anamnesi').innerHTML=`
+    <div class="card"><div class="card-hd"><h3>Dati personali</h3></div><div class="card-bd">
+      <div class="fr">${r('Data nascita',p.nascita?fData(p.nascita):'')+''+r('Cellulare',p.tel)}</div>
+      <div class="fr">${r('Peso',p.peso?p.peso+' kg':'')+''+r('Altezza',p.altezza?p.altezza+' cm':'')}</div>
+      ${r('BIA',p.bia)}${r('Obiettivo',p.obiettivo)}
+    </div></div>
+    <div class="card"><div class="card-hd"><h3>Stile di vita</h3></div><div class="card-bd">
+      <div class="fr">${r('Fumo',p.fumo)+''+r('Alcol',p.alcol)}</div>
+      <div class="fr">${r('Caffè',p.caffe)+''+r('Acqua',p.acqua)}</div>
+      ${r('Integratori',p.integratori)}${r('Allergie/Intolleranze',p.allergie)}
+    </div></div>
+    <div class="card"><div class="card-hd"><h3>Anamnesi patologica</h3></div><div class="card-bd">
+      ${r('Patologie',p.patologie)}${r('Farmaci',p.farmaci)}${r('Familiarità',p.familiarita)}
+    </div></div>
+    <div class="card"><div class="card-hd"><h3>Alimentazione & sport</h3></div><div class="card-bd">
+      ${r('Sport',p.sport)}${r('Ore/sett.',p.sportOre)}${r('Cibi preferiti',p.cibiPref)}
+      ${r('Non rinuncia a',p.noRinuncia)}${r('Chetogenica',p.cheto==='si'?'Sì — '+p.chetoNote:p.cheto==='valutare'?'Da valutare':'')}
+    </div></div>`;
+}
+
+function renderPdAlimenti(p){
+  const al=p.alimenti||{};let html='';
+  Object.entries(ALIMENTI).forEach(([cat,data])=>{
+    const items=(data.items||[]);
+    const si=items.filter(i=>al[cat+'__'+i.n]==='si');
+    const no=items.filter(i=>al[cat+'__'+i.n]==='no');
+    if(si.length||no.length){
+      html+=`<div class="al-section"><h4>${cat}</h4><div class="al-grid">`;
+      si.forEach(i=>{html+=`<span class="al-tog si">✓ ${i.n}</span>`;});
+      no.forEach(i=>{html+=`<span class="al-tog no">✕ ${i.n}</span>`;});
+      html+='</div></div>';
+    }
+  });
+  const el=document.getElementById('pd-alimenti');
+  if(el)el.innerHTML=html||'<div class="empty"><p>Nessuna preferenza registrata</p></div>';
+}
+
+function renderPdAnalisi(p){
+  const as=p.analisiSangue||{};
+  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div><div class="card-bd">';
+  Object.entries(ANALISI).forEach(([sez,items])=>{
+    html+=`<div class="analisi-section"><h4>${sez}</h4>`;
+    items.forEach(item=>{
+      const key=item.replace(/[^a-z0-9]/gi,'_');
+      const checked=as[key+'_check']?'checked':'';
+      const val=as[key+'_val']||'';
+      html+=`<div class="analisi-item">
+        <input type="checkbox" id="an-${key}" ${checked} onchange="updateAnalisi()">
+        <label for="an-${key}" style="cursor:pointer;flex:1">${item}</label>
+        <div class="analisi-val"><input class="fg input" type="text" id="an-val-${key}" value="${val}" placeholder="Valore" style="width:100%;padding:.18rem .4rem;font-size:.73rem;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);outline:none;" oninput="updateAnalisi()"></div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  html+='</div></div>';
+  document.getElementById('pd-analisi').innerHTML=html;
+}
+
+function updateAnalisi(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  if(!p.analisiSangue)p.analisiSangue={};
+  Object.entries(ANALISI).forEach(([,items])=>{
+    items.forEach(item=>{
+      const key=item.replace(/[^a-z0-9]/gi,'_');
+      const cb=document.getElementById('an-'+key);const vi=document.getElementById('an-val-'+key);
+      if(cb)p.analisiSangue[key+'_check']=cb.checked;
+      if(vi)p.analisiSangue[key+'_val']=vi.value;
+    });
+  });
+}
+function salvaAnalisi(){updateAnalisi();save();notif('✓ Analisi salvate!');}
+
+function renderPdInbody(p){
+  const list=p.inbody||[];
+  if(!list.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
+  const sorted=[...list].sort((a,b)=>b.data.localeCompare(a.data));
+  document.getElementById('pd-inbody').innerHTML=sorted.map((ib,i)=>`
+    <div class="card" style="margin-bottom:.7rem">
+      <div class="card-hd"><h3>📊 ${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</h3>
+        <button class="btn btn-d btn-sm" onclick="delInbody('${ib.id}')">✕</button></div>
+      <div class="card-bd">
+        <div class="ib-grid">
+          ${ib.peso?`<div class="ib-item"><div class="ib-lbl">Peso</div><div class="ib-val">${ib.peso}<span class="ib-unit"> kg</span></div></div>`:''}
+          ${ib.pg?`<div class="ib-item"><div class="ib-lbl">% Grassa</div><div class="ib-val">${ib.pg}<span class="ib-unit"> %</span></div></div>`:''}
+          ${ib.g?`<div class="ib-item"><div class="ib-lbl">Massa grassa</div><div class="ib-val">${ib.g}<span class="ib-unit"> kg</span></div></div>`:''}
+          ${ib.m?`<div class="ib-item"><div class="ib-lbl">Massa magra</div><div class="ib-val">${ib.m}<span class="ib-unit"> kg</span></div></div>`:''}
+          ${ib.musc?`<div class="ib-item"><div class="ib-lbl">Massa musc.</div><div class="ib-val">${ib.musc}<span class="ib-unit"> kg</span></div></div>`:''}
+          ${ib.acqua?`<div class="ib-item"><div class="ib-lbl">Acqua</div><div class="ib-val">${ib.acqua}<span class="ib-unit"> L</span></div></div>`:''}
+          ${ib.mb?`<div class="ib-item"><div class="ib-lbl">Metabolismo</div><div class="ib-val">${ib.mb}<span class="ib-unit"> kcal</span></div></div>`:''}
+          ${ib.visc?`<div class="ib-item"><div class="ib-lbl">Grasso viscerale</div><div class="ib-val">${ib.visc}</div></div>`:''}
+          ${ib.bmi?`<div class="ib-item"><div class="ib-lbl">BMI</div><div class="ib-val">${ib.bmi}</div></div>`:''}
+        </div>
+        ${ib.note?`<div style="font-size:.77rem;color:var(--text2);margin-top:.4rem;padding:.5rem;background:var(--bg);border-radius:6px">${ib.note}</div>`:''}
+      </div></div>`).join('');
+}
+
+function renderPdMacros(p){
+  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const mb=lastIb?lastIb.mb:null;
+  const peso=lastIb?lastIb.peso:(p.peso||null);
+  const ffm=lastIb&&lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null;
+
+  let html=`<div class="card"><div class="card-hd"><h3>Calcolo macros e TDEE</h3></div><div class="card-bd">`;
+
+  if(!mb){
+    html+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:.8rem">⚠️ Nessuna misurazione InBody presente. Inserisci i dati InBody per il calcolo automatico del metabolismo basale.</div>`;
+  } else {
+    html+=`<div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.75rem 1rem;margin-bottom:.9rem;font-size:.8rem">
+      <strong>MB da InBody:</strong> ${mb} kcal · <strong>Peso:</strong> ${peso} kg ${ffm?`· <strong>FFM:</strong> ${ffm} kg`:''}
+    </div>`;
+  }
+
+  html+=`<div class="fr" style="margin-bottom:.8rem">
+    <div class="fg"><label>Fattore attività (LAF)</label>
+      <select id="mac-laf">
+        <option value="1.20">1.20 — Sedentario</option>
+        <option value="1.375">1.375 — Leggermente attivo</option>
+        <option value="1.55">1.55 — Moderatamente attivo (palestra 3-5/sett.)</option>
+        <option value="1.725">1.725 — Molto attivo</option>
+        <option value="1.90">1.90 — Estremamente attivo</option>
+      </select>
+    </div>
+    <div class="fg"><label>Obiettivo</label>
+      <select id="mac-obj">
+        <option value="0">Mantenimento (TDEE)</option>
+        <option value="-200">Dimagrimento lento (−200 kcal)</option>
+        <option value="-300">Dimagrimento lento (−300 kcal)</option>
+        <option value="-500">Dimagrimento moderato (−500 kcal)</option>
+        <option value="-700">Dimagrimento aggressivo (−700 kcal)</option>
+        <option value="150">Aumento massa leggero (+150 kcal)</option>
+        <option value="400">Aumento massa chiaro (+400 kcal)</option>
+      </select>
+    </div>
+  </div>
+  <div class="fr" style="margin-bottom:.8rem">
+    <div class="fg"><label>Metabolismo basale (kcal) — modifica se necessario</label><input type="number" id="mac-mb" value="${mb||''}" placeholder="es. 1650"></div>
+    <div class="fg"><label>Peso di riferimento (kg)</label><input type="number" id="mac-peso" value="${peso||''}" placeholder="es. 75" step="0.1"></div>
+  </div>
+  <div class="fr" style="margin-bottom:.8rem">
+    <div class="fg"><label>Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
+    <div class="fg"><label>Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
+  </div>
+  <button class="btn btn-p" onclick="calcolaMacros()">Calcola</button>
+
+  <div id="mac-result" style="margin-top:1rem"></div>
+
+  <div style="margin-top:1.2rem"><div class="sec-title">Tabella di riferimento per categoria paziente</div>
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.73rem">
+    <thead><tr>
+      <th style="padding:.35rem .5rem;text-align:left;color:var(--text3);border-bottom:1px solid var(--border)">Categoria</th>
+      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">LAF</th>
+      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Kcal</th>
+      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Prot g/kg</th>
+      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Carb g/kg</th>
+      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Grassi g/kg</th>
+    </tr></thead>
+    <tbody>
+    ${MACRO_SCHEMA.map(s=>`<tr style="cursor:pointer" onclick="applicaSchema(${s.laf[0]},${s.prot[0]},${s.grassi[0]})" title="Clicca per applicare valori minimi">
+      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border)">${s.cat}</td>
+      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.laf[0]}${s.laf[1]!==s.laf[0]?'–'+s.laf[1]:''}</td>
+      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.kcal}</td>
+      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.prot[0]}–${s.prot[1]}</td>
+      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.carb[0]}–${s.carb[1]}</td>
+      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.grassi[0]}–${s.grassi[1]}</td>
+    </tr>`).join('')}
+    </tbody>
+  </table></div>
+  <div style="font-size:.68rem;color:var(--text3);margin-top:.4rem">💡 Clicca su una riga per applicare i valori minimi della categoria</div>
+  </div>`;
+
+  html+=`</div></div>`;
+  document.getElementById('pd-macros').innerHTML=html;
+}
+
+function calcolaMacros(){
+  const mb=parseFloat(document.getElementById('mac-mb').value)||0;
+  const laf=parseFloat(document.getElementById('mac-laf').value)||1.20;
+  const obj=parseFloat(document.getElementById('mac-obj').value)||0;
+  const peso=parseFloat(document.getElementById('mac-peso').value)||0;
+  const prot=parseFloat(document.getElementById('mac-prot').value)||1.8;
+  const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
+  if(!mb||!peso){notif('⚠ Inserisci metabolismo basale e peso');return;}
+  const tdee=+(mb*laf).toFixed(0);
+  const kcalObj=tdee+obj;
+  const protG=+(prot*peso).toFixed(0);
+  const grassiG=+(grassi*peso).toFixed(0);
+  const kcalProt=protG*4;const kcalGrassi=grassiG*9;
+  const kcalCarb=Math.max(0,kcalObj-kcalProt-kcalGrassi);
+  const carbG=+(kcalCarb/4).toFixed(0);
+  document.getElementById('mac-result').innerHTML=`
+    <div class="macro-result">
+      <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
+        MB: ${mb} kcal × LAF ${laf} = TDEE <strong>${tdee} kcal</strong> → Obiettivo: <strong>${kcalObj} kcal</strong>
+      </div>
+      <div class="macro-grid">
+        <div class="macro-item"><div class="macro-lbl">Proteine</div><div class="macro-val">${protG}g</div><div style="font-size:.62rem;color:var(--text3)">${prot} g/kg · ${kcalProt} kcal</div></div>
+        <div class="macro-item"><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${(carbG/peso).toFixed(1)} g/kg · ${kcalCarb} kcal</div></div>
+        <div class="macro-item"><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:var(--text3)">${grassi} g/kg · ${kcalGrassi} kcal</div></div>
+        <div class="macro-item"><div class="macro-lbl">Totale kcal</div><div class="macro-val" style="font-size:.9rem">${kcalObj}</div><div style="font-size:.62rem;color:var(--text3)">Obiettivo giornaliero</div></div>
+      </div>
+    </div>`;
+}
+
+function applicaSchema(laf,prot,grassi){
+  const el1=document.getElementById('mac-laf');const el2=document.getElementById('mac-prot');const el3=document.getElementById('mac-grassi');
+  if(el1)el1.value=laf;if(el2)el2.value=prot;if(el3)el3.value=grassi;
+  notif('✓ Valori applicati — clicca Calcola');
+}
+
+function openInbody(){
+  document.getElementById('ib-data').value=today();
+  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('mo-inbody').classList.add('open');
+}
+
+function salvaInbody(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
+  const ib={id:uid(),data:document.getElementById('ib-data').value||today(),
+    peso:gn('ib-peso'),pg:gn('ib-pg'),g:gn('ib-g'),m:gn('ib-m'),
+    musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
+    visc:gn('ib-visc'),bmi:gn('ib-bmi'),note:document.getElementById('ib-note').value.trim()};
+  if(!p.inbody)p.inbody=[];p.inbody.push(ib);
+  save();closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
+}
+
+function delInbody(ibId){
+  if(!confirm('Eliminare misurazione?'))return;
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  p.inbody=p.inbody.filter(x=>x.id!==ibId);
+  save();renderPdInbody(p);notif('Eliminata');
+}
+
+// ════════════════════════════════════════════════════════════════
+// ALIMENTI EDITOR
+// ════════════════════════════════════════════════════════════════
+function renderAlEditor(){
+  const c=document.getElementById('al-editor');
+  if(!c)return;
+  let html='';
+  const selTutto=['Frutta','Verdura'];
+  Object.entries(ALIMENTI).forEach(([cat,data])=>{
+    const items=(data.items||[]);
+    const hasBtn=selTutto.includes(cat);
+    html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4>${hasBtn?`<button class="btn btn-g btn-sm" onclick="selTuttiAl('${cat}',this)" style="font-size:.63rem;padding:.17rem .48rem">Seleziona tutto</button>`:''}</div><div class="al-grid">`;
+    items.forEach(item=>{
+      const key=cat+'__'+item.n;
+      const s=window._alStato[key]||'';
+      const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
+      const sk=key.replace(/'/g,"\'");const sn=item.n.replace(/'/g,"\'");
+      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':''}${item.n}${gl}</span>`;
+    });
+    html+='</div></div>';
+  });
+  c.innerHTML=html;
+}
+function togAl(el,key,nome){
+  const s=window._alStato[key]||'';
+  const n=s===''?'si':s==='si'?'no':'';
+  if(n==='')delete window._alStato[key];else window._alStato[key]=n;
+  el.className='al-tog '+n;
+  const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
+  el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':'')+nome+glH;
+}
+function selTuttiAl(cat,btn){
+  const data=ALIMENTI[cat];if(!data)return;
+  const items=(data.items||[]);
+  const allSi=items.every(i=>window._alStato[cat+'__'+i.n]==='si');
+  items.forEach(i=>{const k=cat+'__'+i.n;if(allSi)delete window._alStato[k];else window._alStato[k]='si';});
+  btn.textContent=allSi?'Seleziona tutto':'Deseleziona tutto';
+  renderAlEditor();
+}
+
+// ════════════════════════════════════════════════════════════════
+// CALENDARIO
+// ════════════════════════════════════════════════════════════════
+function getEventi(){
+  const all=[];
+  db.pazienti.forEach(p=>{
+    if(p.visitaData)all.push({data:p.visitaData,tipo:'visita',pazId:p.id,pazNome:p.nome+' '+p.cognome,tel:p.tel});
+    if(p.dateCalendario){
+      ['primo','chiamata','sett2','sett3','controllo'].forEach(t=>{
+        if(p.dateCalendario[t])all.push({data:p.dateCalendario[t],tipo:t,pazId:p.id,pazNome:p.nome+' '+p.cognome,tel:p.tel});
+      });
+    }
+  });
+  db.eventi.forEach(e=>all.push(e));
+  return all;
+}
+
+function setCalView(v,btn){calView=v;document.querySelectorAll('.cvt').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderCal();}
+function calPrev(){if(calView==='month')calDate.setMonth(calDate.getMonth()-1);else calDate.setDate(calDate.getDate()-7);renderCal();}
+function calNext(){if(calView==='month')calDate.setMonth(calDate.getMonth()+1);else calDate.setDate(calDate.getDate()+7);renderCal();}
+function calToday(){calDate=new Date();renderCal();}
+
+function renderCal(){
+  const mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const giorni=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const anno=calDate.getFullYear();const mese=calDate.getMonth();
+  document.getElementById('cal-title').textContent=mesi[mese]+' '+anno;
+  const tutti=getEventi();
+  const mesEv=tutti.filter(e=>{const d=new Date(e.data);return d.getFullYear()===anno&&d.getMonth()===mese;});
+  document.getElementById('cal-ev-count').textContent=mesEv.length+' eventi questo mese';
+  if(calView==='anno')renderCalAnno(tutti);
+  else if(calView==='month')renderCalMonth(anno,mese,tutti,giorni);
+  else if(calView==='week')renderCalWeek(tutti,giorni);
+  else renderCalDay(tutti);
+}
+
+function renderCalMonth(anno,mese,tutti,giorni){
+  const primo=new Date(anno,mese,1);const ultimo=new Date(anno,mese+1,0);
+  const inizioG=(primo.getDay()+6)%7;const oggi=today();
+  let daysHtml='';
+  giorni.forEach(g=>{daysHtml+=`<div class="cal-dn">${g}</div>`;});
+  for(let i=0;i<inizioG;i++){const d=new Date(anno,mese,-(inizioG-1-i));daysHtml+=`<div class="cal-day other-month"><div class="cal-dn2">${d.getDate()}</div></div>`;}
+  for(let g=1;g<=ultimo.getDate();g++){
+    const ds=`${anno}-${String(mese+1).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
+    const isT=ds===oggi;
+    const disp=db.disponibilita[ds]||'';
+    const evG=tutti.filter(e=>e.data===ds);
+    const dispCls=disp?` ${disp}`:''  ;
+    daysHtml+=`<div class="cal-day${isT?' today':''}${dispCls}" onclick="selGiorno('${ds}')">
+      <div class="cal-dn2">${g}</div>
+      <div class="cal-evs">${evG.map(e=>`<div class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" onclick="event.stopPropagation();openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')" title="${e.pazNome||e.note||''}">${e.pazNome?e.pazNome.split(' ')[0]:e.note||e.tipo}</div>`).join('')}</div>
+    </div>`;
+  }
+  const tot=Math.ceil((inizioG+ultimo.getDate())/7)*7;
+  for(let i=1;i<=tot-(inizioG+ultimo.getDate());i++){daysHtml+=`<div class="cal-day other-month"><div class="cal-dn2">${i}</div></div>`;}
+  document.getElementById('cal-body').innerHTML=`<div class="cal-grid" id="cal-days-names"></div><div class="cal-grid">${daysHtml}</div>`;
+  // inject day names
+  document.getElementById('cal-days-names').innerHTML=giorni.map(g=>`<div class="cal-dn">${g}</div>`).join('');
+}
+
+function renderCalWeek(tutti,giorni){
+  const d=new Date(calDate);d.setDate(d.getDate()-((d.getDay()+6)%7));
+  let html='<div class="week-grid">';
+  html+='<div class="wg-hdr">Ora</div>';
+  for(let i=0;i<7;i++){const dd=new Date(d);dd.setDate(d.getDate()+i);html+=`<div class="wg-hdr">${giorni[i]}<br><strong>${dd.getDate()}</strong></div>`;}
+  for(let h=7;h<=22;h++){
+    html+=`<div class="wg-time">${h}:00</div>`;
+    for(let i=0;i<7;i++){
+      const dd=new Date(d);dd.setDate(d.getDate()+i);
+      const ds=dd.toISOString().slice(0,10);
+      const evH=tutti.filter(e=>e.data===ds&&(e.ora||'').startsWith(String(h).padStart(2,'0')));
+      html+=`<div class="wg-cell">${evH.map(e=>`<div class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.58rem" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">${e.pazNome?e.pazNome.split(' ')[0]:e.tipo}</div>`).join('')}</div>`;
+    }
+  }
+  html+='</div>';
+  document.getElementById('cal-body').innerHTML=html;
+}
+
+function renderCalDay(tutti){
+  const ds=calDate.toISOString().slice(0,10);
+  const evD=tutti.filter(e=>e.data===ds);
+  let html=`<div style="padding:1rem">`;
+  if(!evD.length){html+='<div class="empty"><p>Nessun evento oggi</p></div>';}
+  else{
+    html+=evD.map(e=>`<div style="display:flex;align-items:center;gap:.7rem;padding:.6rem .9rem;background:var(--bg);border-radius:8px;border:1px solid var(--border);margin-bottom:.4rem;cursor:pointer" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">
+      <span class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.72rem;padding:3px 8px">${EV_TYPES[e.tipo]?.label||e.tipo}</span>
+      <span style="font-weight:500">${e.pazNome||e.note||''}</span>
+      ${e.ora?`<span style="margin-left:auto;font-size:.75rem;color:var(--text2)">${e.ora}</span>`:''}
+    </div>`).join('');
+  }
+  html+='</div>';
+  document.getElementById('cal-body').innerHTML=html;
+}
+
+function selGiorno(ds){
+  selCalDay=ds;
+  const disp=db.disponibilita[ds]||'';
+  document.getElementById('disp-bar').innerHTML=`
+    <span style="font-size:.75rem;color:var(--text2);margin-right:.3rem">${ds} —</span>
+    <button class="disp-btn magic ${disp==='magic-am'?'active':''}" onclick="setDisp('${ds}','magic-am')">Magic mattina</button>
+    <button class="disp-btn magic ${disp==='magic-pm'?'active':''}" onclick="setDisp('${ds}','magic-pm')">Magic pomeriggio</button>
+    <button class="disp-btn magic ${disp==='magic-full'?'active':''}" onclick="setDisp('${ds}','magic-full')">Magic tutto il giorno</button>
+    <button class="disp-btn curae ${disp==='curae-am'?'active':''}" onclick="setDisp('${ds}','curae-am')">Curae mattina</button>
+    <button class="disp-btn curae ${disp==='curae-pm'?'active':''}" onclick="setDisp('${ds}','curae-pm')">Curae pomeriggio</button>
+    <button class="disp-btn curae ${disp==='curae-full'?'active':''}" onclick="setDisp('${ds}','curae-full')">Curae tutto il giorno</button>
+    <button class="disp-btn" style="border-color:var(--red);color:var(--red)" onclick="setDisp('${ds}','')">✕ Rimuovi</button>`;
+}
+
+function setDisp(ds,val){
+  if(val)db.disponibilita[ds]=val;else delete db.disponibilita[ds];
+  save();renderCal();selGiorno(ds);
+}
+
+function openAddEvento(ds){
+  document.getElementById('ev-data').value=ds||today();
+  document.getElementById('ev-ora').value='';
+  document.getElementById('ev-note').value='';
+  document.getElementById('ev-prezzo').value='';
+  document.getElementById('ev-entrata-box').style.display='none';
+  document.getElementById('ev-promemoria').value='no';
+  // popola pazienti
+  document.getElementById('ev-paz').innerHTML='<option value="">— Nessuno —</option>'+db.pazienti.map(p=>`<option value="${p.id}">${p.nome} ${p.cognome}</option>`).join('');
+  document.getElementById('mo-ev-t').textContent='Nuovo evento';
+  document.getElementById('mo-evento').classList.add('open');
+}
+
+function openAddEventoPaz(){
+  openAddEvento(today());
+  const el=document.getElementById('ev-paz');
+  if(el&&currentPazId)el.value=currentPazId;
+}
+
+function toggleEntrataCheck(){
+  const v=parseFloat(document.getElementById('ev-prezzo').value)||0;
+  document.getElementById('ev-entrata-box').style.display=v>0?'block':'none';
+}
+
+function salvaEvento(){
+  const data=document.getElementById('ev-data').value;
+  if(!data){alert('Inserisci una data.');return;}
+  const pazId=document.getElementById('ev-paz').value;
+  const paz=pazId?db.pazienti.find(x=>x.id===pazId):null;
+  const prezzo=parseFloat(document.getElementById('ev-prezzo').value)||0;
+  const tipo=document.getElementById('ev-tipo').value;
+  const ev={id:uid(),data,ora:document.getElementById('ev-ora').value,tipo,
+    pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tel:paz?.tel||'',
+    note:document.getElementById('ev-note').value.trim(),prezzo,
+    promemoria:document.getElementById('ev-promemoria').value};
+  db.eventi.push(ev);
+  // Aggiungi entrata se richiesto
+  if(prezzo>0&&document.getElementById('ev-add-entrata')?.checked){
+    db.entrate.push({id:uid(),data,importo:prezzo,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:tipo==='visita'?'Prima visita':'Controllo',note:'Da evento calendario'});
+  }
+  save();closeM('mo-evento');renderCal();notif('✓ Evento salvato!');
+}
+
+function openEvDetail(pazId,tipo,evId){
+  const p=pazId?db.pazienti.find(x=>x.id===pazId):null;
+  const ev=evId?db.eventi.find(x=>x.id===evId):null;
+  const et=EV_TYPES[tipo]||{label:tipo,color:'#475569'};
+  const msgs=MESSAGGI[tipo]||[];
+  let html=`<div class="evento-detail">
+    <span class="ev-badge" style="background:${et.color}22;color:${et.color}">${et.label}</span>`;
+  if(p){
+    html+=`<div style="font-size:.95rem;font-weight:600;margin-bottom:.2rem">${p.nome} ${p.cognome}</div>`;
+    if(p.tel){
+      html+=`<div style="display:flex;gap:.4rem;margin-bottom:.8rem">
+        <a href="tel:${p.tel}" class="btn btn-g btn-sm">📞 Chiama</a>
+        <a href="https://wa.me/39${p.tel.replace(/\s/g,'')}" target="_blank" class="btn btn-wa btn-sm">WhatsApp</a>
+      </div>`;
+    }
+  } else if(ev){
+    html+=`<div style="font-weight:600;margin-bottom:.5rem">${ev.note||ev.tipo}</div>`;
+    if(ev.ora)html+=`<div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem">🕐 ${ev.ora}</div>`;
+    if(ev.prezzo)html+=`<div style="font-size:.75rem;color:var(--teal);margin-bottom:.8rem">💶 ${fEur(ev.prezzo)}</div>`;
+  }
+  if(msgs.length){
+    html+=`<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:.4rem;font-weight:600">Messaggi</div>`;
+    msgs.forEach(m=>{
+      if(m.tipo==='foto+testo'){
+        html+=`<div class="msg-opt"><div style="font-size:.68rem;color:var(--orange);font-weight:600;margin-bottom:.25rem">📸 ${m.nota}</div><p>${m.testo}</p>
+          <button class="copy-btn" onclick="copyMsg('${m.testo.replace(/'/g,"\\'")}')">Copia</button>`;
+        if(p?.tel)html+=`<a href="https://wa.me/39${(p.tel||'').replace(/\s/g,'')}?text=${encodeURIComponent(m.testo)}" target="_blank" class="btn btn-wa btn-sm" style="margin-top:.4rem">📲 Apri in WhatsApp</a>`;
+        html+='</div>';
+      }else if(m.tipo==='promemoria'){
+        html+=`<div style="background:var(--yellow-bg);border:1px solid #f0d080;border-radius:8px;padding:.7rem 1rem;font-size:.79rem">⏰ ${m.testo}</div>`;
+      }else{
+        html+=`<div class="msg-opt"><p>${m.testo}</p><button class="copy-btn" onclick="copyMsg('${m.testo.replace(/'/g,"\\'")}')">Copia</button>`;
+        if(p?.tel)html+=`<a href="https://wa.me/39${(p.tel||'').replace(/\s/g,'')}?text=${encodeURIComponent(m.testo)}" target="_blank" class="btn btn-wa btn-sm" style="margin-top:.4rem">📲 Apri in WhatsApp</a>`;
+        html+='</div>';
+      }
+    });
+  }
+  // Promemoria
+  if((tipo==='visita'||tipo==='controllo')&&p?.tel){
+    const msgProm=tipo==='visita'?MESSAGGI.promemoria_visita:MESSAGGI.promemoria_controllo;
+    html+=`<div style="margin-top:.8rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:600;margin-bottom:.4rem">Promemoria (da mandare ieri)</div>
+      <div class="msg-opt"><p>${msgProm}</p>
+        <button class="copy-btn" onclick="copyMsg('${msgProm.replace(/'/g,"\\'")}')">Copia</button>
+        <a href="https://wa.me/39${(p.tel||'').replace(/\s/g,'')}?text=${encodeURIComponent(msgProm)}" target="_blank" class="btn btn-wa btn-sm" style="margin-top:.4rem">📲 Apri in WhatsApp</a>
+      </div>`;
+  }
+  if(evId){html+=`<div style="margin-top:.8rem"><button class="btn btn-d btn-sm" onclick="delEvento('${evId}')">✕ Elimina evento</button></div>`;}
+  html+='</div>';
+  document.getElementById('ev-detail-content').innerHTML=html;
+  document.getElementById('mo-ev-detail').classList.add('open');
+}
+
+function delEvento(id){
+  if(!confirm('Eliminare evento?'))return;
+  db.eventi=db.eventi.filter(x=>x.id!==id);
+  save();closeM('mo-ev-detail');renderCal();notif('Evento eliminato');
+}
+
+function copyMsg(txt){
+  navigator.clipboard.writeText(txt).then(()=>notif('✓ Copiato!')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);notif('✓ Copiato!');
+  });
+}
+
+// Date calendario modal
+function aggDateCal(){
+  const ini=document.getElementById('p-inizio').value;
+  document.getElementById('p-inizio2').value=ini;
+  aggiornaPrev(ini);
+}
+function syncInizio(){const ini=document.getElementById('p-inizio2').value;document.getElementById('p-inizio').value=ini;aggiornaPrev(ini);}
+function syncControllo(){document.getElementById('p-controllo').value=document.getElementById('p-controllo2').value;}
+function aggiornaPrev(ini){
+  const box=document.getElementById('cal-prev-box');
+  if(!ini){box.innerHTML='';return;}
+  box.innerHTML=`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);font-weight:600;margin-bottom:.5rem">Date automatiche</div>
+    <div style="display:flex;flex-direction:column;gap:.3rem;font-size:.77rem">
+      <div><span class="cal-ev ev-primo" style="padding:1px 5px;border-radius:3px;font-size:.62rem">G.1</span> ${fData(ini)} — Messaggio inizio</div>
+      <div><span class="cal-ev ev-chiamata" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.1</span> ${fData(addDays(ini,7))} — Chiamata</div>
+      <div><span class="cal-ev ev-sett2" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.2</span> ${fData(addDays(ini,14))} — Messaggio</div>
+      <div><span class="cal-ev ev-sett3" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.3</span> ${fData(addDays(ini,21))} — Messaggio</div>
+      <div><span class="cal-ev ev-controllo" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.4</span> ${fData(addDays(ini,28))} — Controllo</div>
+    </div></div>`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// RICETTE
+// ════════════════════════════════════════════════════════════════
+function renderRic(){
+  const q=(document.getElementById('s-ric').value||'').toLowerCase();
+  const cat=document.getElementById('f-ric-cat').value;
+  const tag=document.getElementById('f-ric-tag').value;
+  let list=[...db.ricette];
+  if(q)list=list.filter(r=>r.nome.toLowerCase().includes(q)||(r.ing||'').toLowerCase().includes(q));
+  if(cat)list=list.filter(r=>r.cat===cat);
+  if(tag)list=list.filter(r=>(r.tags||[]).includes(tag));
+  document.getElementById('ric-count').textContent=db.ricette.length+' ricette';
+  const catL={colazione:'Colazione',pranzo:'Pranzo',cena:'Cena',spuntino:'Spuntino','post-workout':'Post-workout'};
+  const grid=document.getElementById('ric-grid');
+  if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessuna ricetta</p><span>Clicca "+ Aggiungi ricetta" per iniziare</span></div>';return;}
+  grid.innerHTML=list.map(r=>`
+    <div class="ric-card">
+      <span class="tag ${CAT_COLORS[r.cat]||'tag-gray'}" style="margin-bottom:.4rem">${catL[r.cat]||r.cat}</span>
+      <div style="font-weight:600;font-size:.86rem;margin-bottom:.25rem">${r.nome}</div>
+      ${r.kcal?`<div style="font-size:.71rem;color:var(--text2);margin-bottom:.25rem">~${r.kcal} kcal · P:${r.prot||'?'}g · C:${r.carb||'?'}g · G:${r.grassi||'?'}g</div>`:''}
+      ${r.ing?`<div style="font-size:.74rem;color:var(--text2)">${r.ing}</div>`:''}
+      ${r.desc?`<div style="font-size:.72rem;color:var(--text3);margin-top:.25rem">${r.desc}</div>`:''}
+      <div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.4rem">${(r.tags||[]).map(t=>`<span class="tag tag-gray">${t}</span>`).join('')}</div>
+      <div style="margin-top:.6rem;display:flex;gap:.3rem">
+        <button class="btn btn-g btn-sm" onclick="editRic('${r.id}')">✏</button>
+        <button class="btn btn-d btn-sm" onclick="delRic('${r.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('mo-ric').classList.add('open');}
+function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';document.getElementById('r-cat').value=r.cat||'pranzo';document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');document.getElementById('mo-ric').classList.add('open');}
+function salvaRic(){
+  const nome=document.getElementById('r-nome').value.trim();if(!nome){alert('Inserisci nome');return;}
+  const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
+  const r={nome,cat:document.getElementById('r-cat').value,kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:document.getElementById('r-tags').value.split(',').map(t=>t.trim()).filter(Boolean)};
+  if(editRicId){const idx=db.ricette.findIndex(x=>x.id===editRicId);if(idx>=0){r.id=editRicId;db.ricette[idx]=r;}}else{r.id=uid();db.ricette.push(r);}
+  save();closeM('mo-ric');renderRic();notif('✓ Ricetta salvata!');
+}
+function delRic(id){if(!confirm('Eliminare?'))return;db.ricette=db.ricette.filter(x=>x.id!==id);save();renderRic();notif('Eliminata');}
+
+// ════════════════════════════════════════════════════════════════
+// ENTRATE
+// ════════════════════════════════════════════════════════════════
+function renderEntrate(){
+  const periodo=document.getElementById('f-entr-periodo').value;
+  const oggi=new Date();let list=[...db.entrate].sort((a,b)=>b.data.localeCompare(a.data));
+  if(periodo==='settimana'){const d=new Date();d.setDate(d.getDate()-7);list=list.filter(e=>e.data>=d.toISOString().slice(0,10));}
+  else if(periodo==='mese'){const m=oggi.toISOString().slice(0,7);list=list.filter(e=>e.data.startsWith(m));}
+  else if(periodo==='anno'){list=list.filter(e=>e.data.startsWith(String(oggi.getFullYear())));}
+  const tot=list.reduce((s,e)=>s+(e.importo||0),0);
+  const settTot=db.entrate.filter(e=>{const d=new Date();d.setDate(d.getDate()-7);return e.data>=d.toISOString().slice(0,10);}).reduce((s,e)=>s+(e.importo||0),0);
+  const mesTot=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))).reduce((s,e)=>s+(e.importo||0),0);
+  const annoTot=db.entrate.filter(e=>e.data.startsWith(String(oggi.getFullYear()))).reduce((s,e)=>s+(e.importo||0),0);
+  document.getElementById('entrate-kpi').innerHTML=`
+    <div class="pd-stat"><div class="pd-stat-lbl">Settimana</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(settTot)}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">Mese corrente</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(mesTot)}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">Anno ${oggi.getFullYear()}</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(annoTot)}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">Periodo selezionato</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(tot)}</div></div>`;
+  const tb=document.getElementById('entrate-tb');
+  if(!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text3)">Nessuna entrata nel periodo</td></tr>';return;}
+  tb.innerHTML=list.map(e=>`<tr>
+    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)">${fData(e.data)}</td>
+    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)">${e.pazNome||'—'}</td>
+    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)">${e.tipo||'—'}</td>
+    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:var(--teal)">${fEur(e.importo)}</td>
+    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)"><button class="btn btn-d btn-sm" onclick="delEntrata('${e.id}')">✕</button></td>
+  </tr>`).join('');
+}
+
+function openNuovaEntrata(){
+  document.getElementById('en-data').value=today();
+  ['en-imp','en-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('en-paz').innerHTML='<option value="">— Nessuno —</option>'+db.pazienti.map(p=>`<option value="${p.id}">${p.nome} ${p.cognome}</option>`).join('');
+  document.getElementById('mo-entrata').classList.add('open');
+}
+function salvaEntrata(){
+  const imp=parseFloat(document.getElementById('en-imp').value)||0;
+  if(!imp){alert('Inserisci importo');return;}
+  const pazId=document.getElementById('en-paz').value;const paz=pazId?db.pazienti.find(x=>x.id===pazId):null;
+  db.entrate.push({id:uid(),data:document.getElementById('en-data').value||today(),importo:imp,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:document.getElementById('en-tipo').value,note:document.getElementById('en-note').value.trim()});
+  save();closeM('mo-entrata');renderEntrate();notif('✓ Entrata salvata!');
+}
+function delEntrata(id){if(!confirm('Eliminare?'))return;db.entrate=db.entrate.filter(x=>x.id!==id);save();renderEntrate();notif('Eliminata');}
+
+
+// ═══════════════════════════════════════════
+// AI RICETTE + VOCE
+// ═══════════════════════════════════════════
+let voiceRecognition = null;
+
+function startVoiceRicetta() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition) { notif('⚠ Il tuo browser non supporta il riconoscimento vocale. Usa Chrome.'); return; }
+  const btn = document.getElementById('btn-mic');
+  const status = document.getElementById('voice-status');
+  if(voiceRecognition) { voiceRecognition.stop(); voiceRecognition=null; btn.textContent='🎤'; status.textContent=''; return; }
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'it-IT';
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = true;
+  btn.textContent='⏹'; btn.style.color='var(--red)';
+  status.textContent = '🔴 Registrazione in corso... parla ora';
+  voiceRecognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r=>r[0].transcript).join('');
+    document.getElementById('r-nome').value = transcript;
+    status.textContent = '✓ Riconosciuto: "' + transcript + '"';
+  };
+  voiceRecognition.onend = () => {
+    btn.textContent='🎤'; btn.style.color='';
+    voiceRecognition=null;
+    status.textContent = '✓ Registrazione completata. Clicca ✨ AI per completare automaticamente.';
+  };
+  voiceRecognition.onerror = (e) => {
+    btn.textContent='🎤'; btn.style.color='';
+    voiceRecognition=null;
+    status.textContent = '⚠ Errore: ' + e.error;
+  };
+  voiceRecognition.start();
+}
+
+async function aiSuggerisciRicetta() {
+  const nome = document.getElementById('r-nome').value.trim();
+  if(!nome) { notif('⚠ Inserisci prima il nome della ricetta'); return; }
+  const loading = document.getElementById('ai-ric-loading');
+  loading.style.display = 'block';
+  try {
+    const prompt = `Sei un nutrizionista italiano esperto. Per la ricetta "${nome}" fornisci in formato JSON:
+- categoria: una tra "colazione","pranzo","cena","spuntino","post-workout"
+- ingredienti: lista ingredienti con grammature standard per 1 porzione (formato italiano, es. "Pasta integrale 80g, Tonno al naturale 120g, Zucchine 150g, Olio EVO 10g")
+- kcal: calorie per porzione (numero intero)
+- proteine: grammi proteine per porzione (numero)
+- carboidrati: grammi carboidrati per porzione (numero)
+- grassi: grammi grassi per porzione (numero)
+- preparazione: breve nota di preparazione (max 2 righe)
+- tags: array di tag tra "proteica","vegetariana","vegana","senza glutine","light","chetogenica","antinfiammatoria","mediterranea"
+
+Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza markdown.`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{role:'user', content: prompt}]
+      })
+    });
+    const data = await resp.json();
+    const testo = data.content?.[0]?.text || '';
+    const clean = testo.replace(/```json|```/g,'').trim();
+    const ric = JSON.parse(clean);
+    // Compila i campi
+    if(ric.categoria) document.getElementById('r-cat').value = ric.categoria;
+    if(ric.kcal) document.getElementById('r-kcal').value = ric.kcal;
+    if(ric.proteine) document.getElementById('r-prot').value = ric.proteine;
+    if(ric.carboidrati) document.getElementById('r-carb').value = ric.carboidrati;
+    if(ric.grassi) document.getElementById('r-grassi').value = ric.grassi;
+    if(ric.ingredienti) document.getElementById('r-ing').value = ric.ingredienti;
+    if(ric.preparazione) document.getElementById('r-desc').value = ric.preparazione;
+    if(ric.tags) document.getElementById('r-tags').value = ric.tags.join(', ');
+    notif('✓ AI ha completato la ricetta! Controlla e modifica se necessario.');
+  } catch(e) {
+    notif('Errore AI: ' + e.message);
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════
+// CONCETTI EDUCATIVI nel modal ricette — da aggiungere alla sezione PDF paziente
+// ═══════════════════════════════════════════
+function renderConcettiModal() {
+  const cats = [...new Set(CONCETTI_EDUCATIVI.map(c=>c.categoria))];
+  let html = '<div style="max-height:350px;overflow-y:auto">';
+  cats.forEach(cat => {
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);font-weight:600;margin:.7rem 0 .3rem">${cat}</div>`;
+    CONCETTI_EDUCATIVI.filter(c=>c.categoria===cat).forEach(c => {
+      html += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
+        <input type="checkbox" id="conc-${c.id}" style="accent-color:var(--teal)">
+        <label for="conc-${c.id}" style="font-size:.78rem;cursor:pointer">${c.titolo}</label>
+      </div>`;
+    });
+  });
+  html += '</div>';
+  return html;
+}
+
+
+// ═══════════════════════════════════════
+// INBODY PDF UPLOAD
+// ═══════════════════════════════════════
+async function loadInbodyPDF(e) {
+  const file = e.target.files[0]; if(!file) return;
+  document.getElementById('ib-pdf-name').textContent = file.name;
+  document.getElementById('ib-pdf-loading').style.display = 'block';
+  try {
+    const reader = new FileReader();
+    reader.onload = async function(ev) {
+      const base64 = ev.target.result.split(',')[1];
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{role:'user', content:[
+            {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}},
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON: peso (kg), percentuale_grassa (%), massa_grassa (kg), massa_magra (kg), massa_muscolare (kg), acqua_totale (L), metabolismo_basale (kcal), grasso_viscerale (livello 1-20), bmi. Se un valore non è presente metti null. Rispondi SOLO con il JSON.'}
+          ]}]
+        })
+      });
+      const data = await resp.json();
+      const testo = data.content?.[0]?.text || '';
+      const clean = testo.replace(/```json|```/g,'').trim();
+      const ib = JSON.parse(clean);
+      const s=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null)el.value=v;};
+      s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
+      s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
+      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi);
+      notif('✓ Dati estratti dal PDF InBody!');
+    };
+    reader.readAsDataURL(file);
+  } catch(err) { notif('⚠ Errore estrazione PDF: ' + err.message); }
+  finally { document.getElementById('ib-pdf-loading').style.display = 'none'; }
+}
+
+// ═══════════════════════════════════════
+// INTEGRATORI — save/load
+// ═══════════════════════════════════════
+const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd'];
+const INTEGR_LABELS = {
+  'omega3':'Omega-3','magpot':'Magnesio + Potassio','mag':'Solo Magnesio',
+  'multi':'Multivitaminico','prob':'Probiotici','creat':'Creatina',
+  'ferro':'Ferro','vitd':'Vitamina D'
+};
+function getIntegratori() {
+  return INTEGR_KEYS.filter(k=>document.getElementById('int-'+k)?.checked).map(k=>INTEGR_LABELS[k]);
+}
+function getIntegraWant() {
+  return INTEGR_KEYS.filter(k=>document.getElementById('inw-'+k)?.checked).map(k=>INTEGR_LABELS[k]);
+}
+function setIntegratori(lista) {
+  INTEGR_KEYS.forEach(k=>{
+    const el=document.getElementById('int-'+k);
+    if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
+  });
+}
+function setIntegraWant(lista) {
+  INTEGR_KEYS.forEach(k=>{
+    const el=document.getElementById('inw-'+k);
+    if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
+  });
+}
+
+// ═══════════════════════════════════════
+// CALENDARIO ANNO
+// ═══════════════════════════════════════
+function renderCalAnno(tutti) {
+  const anno = calDate.getFullYear();
+  const mesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const oggi = new Date();
+  let html = '<div class="year-grid">';
+  for(let m=0; m<12; m++) {
+    const evMese = tutti.filter(e => { const d=new Date(e.data); return d.getFullYear()===anno&&d.getMonth()===m; });
+    const primoG = new Date(anno,m,1).getDay();
+    const ultimoG = new Date(anno,m+1,0).getDate();
+    const initDay = (primoG+6)%7;
+    html += `<div class="year-month" onclick="calDate=new Date(${anno},${m},1);setCalView('month',document.querySelector('.cvt.active'))">
+      <h4>${mesi[m]} <span style="font-size:.62rem;color:var(--text3)">(${evMese.length} ev.)</span></h4>
+      <div class="year-mini">`;
+    for(let i=0;i<initDay;i++) html+=`<div class="year-mini-day"></div>`;
+    for(let g=1;g<=ultimoG;g++) {
+      const ds=`${anno}-${String(m+1).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
+      const isT = oggi.getFullYear()===anno&&oggi.getMonth()===m&&oggi.getDate()===g;
+      const hasEv = evMese.some(e=>e.data===ds);
+      html+=`<div class="year-mini-day ${hasEv?'has-ev':''} ${isT?'today-dot':''}" title="${g}/${m+1}"></div>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+// PAGINA CONCETTI EDUCATIVI
+// ═══════════════════════════════════════
+function renderConcettiPage() {
+  const page = document.getElementById('page-concetti');
+  if(!page) return;
+  const cats = [...new Set(CONCETTI_EDUCATIVI.map(c=>c.categoria))];
+  let html = '';
+  cats.forEach(cat => {
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);font-weight:600;margin:.9rem 0 .4rem">${cat}</div>`;
+    CONCETTI_EDUCATIVI.filter(c=>c.categoria===cat).forEach(c => {
+      const custom = db.concetti?.find(x=>x.id===c.id);
+      const testo = custom?.testo || c.testo;
+      html += `<div class="card" style="margin-bottom:.6rem">
+        <div class="card-hd">
+          <h3>${c.titolo}</h3>
+          <div style="display:flex;gap:.3rem">
+            <button class="btn btn-g btn-sm" onclick="editConcetto('${c.id}')">✏ Modifica</button>
+            <button class="btn btn-g btn-sm" onclick="aiRiscriviConcetto('${c.id}')">✨ AI</button>
+          </div>
+        </div>
+        <div class="card-bd" style="font-size:.77rem;color:var(--text2);white-space:pre-line;line-height:1.55;max-height:120px;overflow:hidden" id="conc-preview-${c.id}">${testo.substring(0,300)}${testo.length>300?'...':''}</div>
+      </div>`;
+    });
+  });
+  // Aggiungi nuovo
+  html += `<div style="text-align:center;margin-top:1rem">
+    <button class="btn btn-p" onclick="openNuovoConcetto()">+ Aggiungi nuovo concetto</button>
+  </div>`;
+  page.innerHTML = `<div class="page-hd"><div><h2>Concetti Educativi</h2><p>${CONCETTI_EDUCATIVI.length + (db.concetti?.length||0)} concetti disponibili</p></div></div>` + html;
+}
+
+async function aiRiscriviConcetto(id) {
+  const c = CONCETTI_EDUCATIVI.find(x=>x.id===id);
+  if(!c) return;
+  notif('⏳ AI sta riscrivendo il concetto...');
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:800,
+        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${c.testo.substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]
+      })
+    });
+    const data = await resp.json();
+    const nuovoTesto = data.content?.[0]?.text || '';
+    if(!db.concetti) db.concetti=[];
+    const idx=db.concetti.findIndex(x=>x.id===id);
+    if(idx>=0) db.concetti[idx].testo=nuovoTesto;
+    else db.concetti.push({id,testo:nuovoTesto});
+    save(); renderConcettiPage(); notif('Concetto riscritto!');
+  } catch(e){ notif('⚠ Errore AI'); }
+}
+
+function editConcetto(id) {
+  const c = CONCETTI_EDUCATIVI.find(x=>x.id===id);
+  if(!c)return;
+  const custom=db.concetti?.find(x=>x.id===id);
+  const testo=custom?.testo||c.testo;
+  const ta=document.createElement('textarea');
+  ta.value=testo; ta.style.cssText='width:100%;min-height:300px;font-size:.8rem;font-family:DM Sans,sans-serif;padding:.5rem;border:1px solid var(--border);border-radius:8px;outline:none;resize:vertical';
+  const modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.innerHTML=`<div class="modal" style="width:600px"><h3>✏ ${c.titolo}</h3></div>`;
+  modal.querySelector('.modal').appendChild(ta);
+  const mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
+    <button class="btn btn-p" onclick="salvaConcetto('${id}',this)">Salva</button>`;
+  modal.querySelector('.modal').appendChild(mf);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+function salvaConcetto(id,btn) {
+  const ta=btn.closest('.overlay').querySelector('textarea');
+  const nuovoTesto=ta.value.trim();
+  if(!nuovoTesto)return;
+  if(!db.concetti)db.concetti=[];
+  const idx=db.concetti.findIndex(x=>x.id===id);
+  if(idx>=0)db.concetti[idx].testo=nuovoTesto;
+  else db.concetti.push({id,testo:nuovoTesto});
+  save(); btn.closest('.overlay').remove(); renderConcettiPage(); notif('Salvato!');
+}
+
+async function openNuovoConcetto() {
+  const titolo=prompt('Titolo del nuovo concetto:');if(!titolo)return;
+  const argomento=prompt('Di cosa vuole parlare? (es. "alimentazione per il sonno")');if(!argomento)return;
+  notif('AI in elaborazione...');
+  try {
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]})
+    });
+    const data=await resp.json();const testo=data.content?.[0]?.text||'';
+    const id='custom_'+Date.now();
+    if(!db.concetti)db.concetti=[];
+    db.concetti.push({id,titolo,categoria:'Personalizzato',testo});
+    // Aggiungi anche a CONCETTI_EDUCATIVI in memoria
+    CONCETTI_EDUCATIVI.push({id,titolo,categoria:'Personalizzato',testo});
+    save();renderConcettiPage();notif('Nuovo concetto creato!');
+  } catch(e){notif('⚠ Errore AI');}
+}
+
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function renderDashboard(){
+  const oggi = new Date();
+  const oggiStr = oggi.toISOString().split('T')[0];
+  const startSett = new Date(oggi); startSett.setDate(oggi.getDate()-oggi.getDay()+1);
+  const endSett = new Date(startSett); endSett.setDate(startSett.getDate()+6);
+  const startSettStr = startSett.toISOString().split('T')[0];
+  const endSettStr = endSett.toISOString().split('T')[0];
+  const mese = oggi.getMonth(); const anno = oggi.getFullYear();
+
+  // KPI
+  const totPaz = db.pazienti.filter(p=>p.stato!=='archiviato').length;
+  const pazRegimi = {};
+  db.pazienti.forEach(p=>{if(p.regime){pazRegimi[p.regime]=(pazRegimi[p.regime]||0)+1;}});
+  const topRegime = Object.entries(pazRegimi).sort((a,b)=>b[1]-a[1])[0];
+  const dtp=document.getElementById('dash-tot-paz');if(!dtp)return;
+  dtp.textContent = totPaz;
+  const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+  setEl('dash-sub-paz', topRegime ? `${topRegime[1]} in ${topRegime[0].toLowerCase()}` : '');
+
+  const visiteSett = db.eventi.filter(e=>e.tipo==='visita'&&e.data>=startSettStr&&e.data<=endSettStr).length;
+  const controlliSett = db.eventi.filter(e=>e.tipo==='controllo'&&e.data>=startSettStr&&e.data<=endSettStr).length;
+  setEl('dash-visite-sett', visiteSett);
+  setEl('dash-sub-visite', `${controlliSett} controlli`);
+  setEl('dash-controlli-sett', controlliSett);
+
+  const entrMese = db.entrate.filter(e=>{
+    const d=new Date(e.data); return d.getMonth()===mese&&d.getFullYear()===anno;
+  }).reduce((s,e)=>s+(parseFloat(e.importo)||0),0);
+  setEl('dash-entrate-mese', '€ '+entrMese.toFixed(0));
+
+  // Agenda di oggi
+  const evOggi = db.eventi.filter(e=>e.data===oggiStr).sort((a,b)=>((a.ora||'00:00')<(b.ora||'00:00')?-1:1));
+  const agendaEl = document.getElementById('dash-agenda');
+  if(!agendaEl)return;
+  if(evOggi.length===0){
+    agendaEl.innerHTML='<div class="empty" style="padding:1rem"><p>Nessun appuntamento oggi</p></div>';
+  } else {
+    const EV_LABELS = {visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3'};
+    agendaEl.innerHTML = evOggi.map(e=>{
+      const paz = db.pazienti.find(p=>p.id===e.pazId);
+      const nomePaz = paz ? paz.nome+' '+paz.cognome[0]+'.' : e.note||'';
+      const ora = e.ora || '—';
+      const durata = e.tipo==='visita'?'45-60 min':e.tipo==='controllo'?'20-30 min':'';
+      return `<div style="display:flex;align-items:center;gap:.7rem;padding:.45rem .6rem;border-radius:8px;background:var(--bg);margin-bottom:.3rem;font-size:.77rem">
+        <span style="font-weight:600;color:var(--teal);min-width:38px">${ora}</span>
+        <span style="flex:1">${EV_LABELS[e.tipo]||e.tipo} • <strong>${nomePaz}</strong></span>
+        ${durata?`<span style="font-size:.68rem;color:var(--text3)">${durata}</span>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  // Sintesi clinica
+  const alerts = [];
+  db.pazienti.forEach(p=>{
+    if(p.alvo==='Stitica'||p.alvo==='Molto stitica') alerts.push({paz:p.nome,tipo:'Stitichezza',tag:'tag-orange'});
+    if(p.flusso==='Abbondante') alerts.push({paz:p.nome,tipo:'+Ferro',tag:'tag-red'});
+    if(p.economica==='Economico') alerts.push({paz:p.nome,tipo:'Budget',tag:'tag-yellow'});
+  });
+  const sindEl = document.getElementById('dash-sintesi');
+  const tagsEl = document.getElementById('dash-alert-tags');
+  if(alerts.length===0){
+    sindEl.textContent = 'Tutto nella norma. Nessuna allerta clinica attiva.';
+    tagsEl.innerHTML='';
+  } else {
+    sindEl.textContent = `${alerts.length} allert${alerts.length===1?'a':'e'} clini${alerts.length===1?'ca':'che'} da tenere a mente.`;
+    tagsEl.innerHTML = alerts.slice(0,4).map(a=>
+      `<span class="tag ${a.tag}" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)">${a.paz} — ${a.tipo}</span>`
+    ).join('');
+  }
+
+  // Pazienti recenti
+  const recenti = [...db.pazienti].reverse().slice(0,4);
+  const prEl = document.getElementById('dash-pazienti-recenti');
+  if(recenti.length===0){
+    prEl.innerHTML='<div class="empty" style="padding:1rem"><p>Nessun paziente ancora</p></div>';
+  } else {
+    prEl.innerHTML = recenti.map(p=>`
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:8px;cursor:pointer;transition:background .12s" 
+           onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''" 
+           onclick="openPaz('${p.id}')">
+        <div class="avatar" style="width:32px;height:32px;font-size:.75rem">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
+        <div style="flex:1">
+          <div style="font-size:.8rem;font-weight:600">${p.nome} ${p.cognome}</div>
+          <div style="font-size:.68rem;color:var(--text3)">${p.regime||'Regime non impostato'}</div>
+        </div>
+        ${p.alvo==='Stitica'||p.alvo==='Molto stitica'?'<span class="tag tag-orange" style="font-size:.6rem">fibre</span>':''}
+        ${p.flusso==='Abbondante'?'<span class="tag tag-red" style="font-size:.6rem">+ferro</span>':''}
+      </div>`).join('');
+  }
+
+  // Spunti per il piano
+  const spunti = [];
+  db.pazienti.forEach(p=>{
+    if(p.economica==='Economico') spunti.push(`Budget economico (${p.nome}) → privilegia legumi, uova, merluzzo`);
+    if(p.alvo==='Stitica'||p.alvo==='Molto stitica') spunti.push(`Stitichezza (${p.nome}) → più ricette ricche di fibre e idratazione`);
+    if(p.flusso==='Abbondante') spunti.push(`Flusso abbondante (${p.nome}) → aumenta ferro nella dieta`);
+    if(p.weekend==='Pizza') spunti.push(`Sabato sera pizza (${p.nome}) → compensazione su pranzo e snack`);
+    if(p.weekend==='Sushi o Poke') spunti.push(`Sabato sera sushi (${p.nome}) → compensazione su pranzo e snack`);
+  });
+  const spuntiEl = document.getElementById('dash-spunti-list');
+  if(spunti.length===0){
+    spuntiEl.innerHTML='<div class="empty" style="padding:.5rem"><p>Aggiungi pazienti per vedere gli spunti</p></div>';
+  } else {
+    spuntiEl.innerHTML = spunti.slice(0,6).map(s=>
+      `<div style="padding:.32rem 0;border-bottom:1px solid var(--border);font-size:.77rem;color:var(--text2)">• ${s}</div>`
+    ).join('');
+  }
+}
+
+// ═══════════════════════════════════════
+// ELIMINA PAZIENTE
+// ═══════════════════════════════════════
+function eliminaPaz(id){
+  const p = db.pazienti.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Eliminare definitivamente il profilo di ${p.nome} ${p.cognome}?\nQuesta azione non può essere annullata.`)) return;
+  db.pazienti = db.pazienti.filter(x=>x.id!==id);
+  // Rimuovi anche eventi collegati
+  db.eventi = db.eventi.filter(e=>e.pazId!==id);
+  save();
+  goTo('pazienti', document.querySelector('.nav-item'));
+  renderPaz();
+  notif('Profilo eliminato');
+}
+
+// ═══════════════════════════════════════
+// getDove / setDove helper
+// ═══════════════════════════════════════
+function getDove(){
+  const opts = ['casa','lavoro','fuori','mensa'];
+  return opts.filter(o=>document.getElementById('dove-'+o)?.checked).join(', ');
+}
+function setDove(val){
+  const vals = (val||'').split(',').map(v=>v.trim().toLowerCase());
+  ['casa','lavoro','fuori','mensa'].forEach(o=>{
+    const el=document.getElementById('dove-'+o);
+    if(el) el.checked=vals.includes(o);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════
+window._alStato={};
+loadLocal();
+// Aggiungi ricette precaricate se non già presenti
+const RICETTE_DEFAULT = [
+  {id:'r_default_1',nome:'Pane di segale integrale con ricotta e miele',cat:'colazione',
+   kcal:280,prot:14,carb:35,grassi:8,
+   ing:'Pane di segale integrale 60g, Ricotta di vacca 80g, Miele 10g',
+   desc:'Spalmare la ricotta sul pane, aggiungere il miele a filo. Ottima fonte di proteine e carboidrati complessi.',
+   tags:['colazione','vegetariana']},
+  {id:'r_default_2',nome:'Toast con affettato',cat:'colazione',
+   kcal:260,prot:18,carb:28,grassi:8,
+   ing:'Pane integrale tostato 60g, Prosciutto crudo magro 50g o Bresaola 50g',
+   desc:'Tostare il pane, farcire con l\'affettato preferito. Veloce e bilanciato.',
+   tags:['colazione','proteica']},
+  {id:'r_default_3',nome:'Toast con avocado e fragole',cat:'colazione',
+   kcal:300,prot:8,carb:32,grassi:16,
+   ing:'Pane integrale tostato 60g, Avocado 80g, Fragole 80g, Limone q.b.',
+   desc:'Schiacciare l\'avocado sul pane con limone, aggiungere le fragole a fette.',
+   tags:['colazione','vegetariana','antiinfiammatoria']},
+  {id:'r_default_4',nome:'Toast con uovo avocado e limone',cat:'colazione',
+   kcal:340,prot:14,carb:28,grassi:18,
+   ing:'Pane integrale tostato 60g, Uovo intero 1 (60g), Avocado 60g, Limone q.b.',
+   desc:'Cuocere l\'uovo al tegamino o in camicia, appoggiarlo sul pane con avocado schiacciato e limone.',
+   tags:['colazione','proteica']},
+  {id:'r_default_5',nome:'Wasa con Philadelphia e marmellata',cat:'colazione',
+   kcal:220,prot:7,carb:30,grassi:8,
+   ing:'Wasa 3 fette (30g), Philadelphia light 40g, Marmellata ridotto zucchero 20g',
+   desc:'Spalmare la philadelphia sulle wasa, aggiungere la marmellata.',
+   tags:['colazione','vegetariana','light']},
+  {id:'r_default_6',nome:'Uova a colazione',cat:'colazione',
+   kcal:290,prot:18,carb:12,grassi:16,
+   ing:'Uova intere 2 (120g), Pane integrale 40g, Sale e pepe q.b., Olio EVO 5g',
+   desc:'Uova strapazzate, al tegamino o in camicia. Abbinare al pane integrale tostato.',
+   tags:['colazione','proteica','senza glutine']}
+];
+RICETTE_DEFAULT.forEach(r=>{if(!db.ricette.find(x=>x.id===r.id))db.ricette.push(r);});
+renderPaz();
+renderCal();
+renderDashboard();
+const savedUrl=getUrl();
+if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
+else setSyncStatus(false);
+</script>
+</body>
+</html>
