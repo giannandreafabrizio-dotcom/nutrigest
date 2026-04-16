@@ -1963,10 +1963,10 @@ async function generaPiano(){
   pianoHtml += '</div>';
   pianoEl.innerHTML = pianoHtml;
 
-  // ── Chiamata API Anthropic ────────────────────────────────────────────────
-  const apiKey = localStorage.getItem('nutrigest_api_key');
-  if(!apiKey){
-    notif('⚠ Chiave API non trovata. Salvala in localStorage con chiave "nutrigest_api_key".');
+  // ── Chiamata Google Apps Script → Anthropic ──────────────────────────────
+  const scriptUrl = getUrl();
+  if(!scriptUrl){
+    notif('⚠ URL Apps Script non configurato. Vai in Impostazioni e salvalo.');
     return;
   }
 
@@ -2009,28 +2009,14 @@ async function generaPiano(){
     +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(scriptUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        messages: [{role:'user', content: prompt}]
-      })
+      body: JSON.stringify({action:'generatePiano', prompt: prompt})
     });
 
-    if(!res.ok){
-      const err = await res.json().catch(()=>({}));
-      throw new Error((err.error&&err.error.message)||'Errore API ('+res.status+')');
-    }
+    if(!res.ok) throw new Error('Errore risposta script ('+res.status+')');
 
-    const data = await res.json();
-    const raw = data.content[0].text.trim();
+    const raw = (await res.text()).trim();
     const jsonStr = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
     const pianoAI = JSON.parse(jsonStr);
 
