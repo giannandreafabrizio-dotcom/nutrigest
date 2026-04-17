@@ -1803,7 +1803,28 @@ function pianoPazSelezionato(id){
 function costruisciPrompt(pazienteId) {
   var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
   if (!p) return '';
-  return 'Sei un nutrizionista esperto italiano. Genera un piano alimentare settimanale (Lunedì-Sabato) personalizzato per questo paziente. Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo.\n\nDATI PAZIENTE:\nNome: ' + (p.nome||'') + ' ' + (p.cognome||'') + '\nRegime: ' + (p.regime||'') + '\nKcal target: ' + (p.kcalTarget||p.tdee||'') + '\nProteine: ' + (p.proteineTarget||'') + 'g\nCarboidrati: ' + (p.carboidratiTarget||'') + 'g\nGrassi: ' + (p.grassiTarget||'') + 'g\nAllergie: ' + (p.allergie||'Nessuna') + '\nAlimenti preferiti: ' + ((p.alimentiPreferiti||[]).join(', ')) + '\n\nStruttura JSON richiesta:\n{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione con grammature"}}]}';
+  return 'Sei un nutrizionista esperto italiano. Genera un piano alimentare settimanale personalizzato per questo paziente.\n\n' +
+    'DATI PAZIENTE:\n' +
+    'Nome: ' + (p.nome||'') + ' ' + (p.cognome||'') + '\n' +
+    'Regime: ' + (p.regime||'') + '\n' +
+    'Kcal target: ' + (p.kcalTarget||p.tdee||'') + '\n' +
+    'Proteine: ' + (p.proteineTarget||'') + 'g\n' +
+    'Carboidrati: ' + (p.carboidratiTarget||'') + 'g\n' +
+    'Grassi: ' + (p.grassiTarget||'') + 'g\n' +
+    'Allergie: ' + (p.allergie||'Nessuna') + '\n' +
+    'Alimenti preferiti: ' + ((p.alimentiPreferiti||[]).join(', ')) + '\n' +
+    'Spuntini: ' + (p.spuntini||'Si') + '\n' +
+    'Note speciali: sabato sera pizza se il paziente lo gradisce\n\n' +
+    'REGOLE:\n' +
+    '- Pasta o riso a pranzo: 80g per kcal target sotto 1800, 100g sopra\n' +
+    '- Verdure miste: 200g a pranzo e cena\n' +
+    '- Olio EVO: 10-15g a pasto\n' +
+    '- Proteine cena: alterna carne bianca, pesce, carne rossa, uova\n' +
+    '- Legumi nei giorni 1, 3, 5 a pranzo con proteina leggera\n' +
+    '- Colazione: yogurt greco / fiocchi di latte / uova / affettato magro con frutta\n' +
+    '- Spuntini: frutta / yogurt / frutta secca / wasa con ricotta\n\n' +
+    'Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza markdown, con questa struttura esatta:\n' +
+    '{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione dettagliata con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione dettagliata con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione dettagliata con grammature"}},{"giorno":"Martedì","pasti":{...}},{"giorno":"Mercoledì","pasti":{...}},{"giorno":"Giovedì","pasti":{...}},{"giorno":"Venerdì","pasti":{...}},{"giorno":"Sabato","pasti":{...}}]}';
 }
 
 function getAnthropicKey() {
