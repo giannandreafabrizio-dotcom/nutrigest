@@ -2358,17 +2358,20 @@ async function generaPiano(){
     pianoAI.forEach(function(g, idx) {
       var tgts = window._pianoTargets || {};
       var mac = g.macros || {};
-      var hasMac = (mac.kcal > 0 || mac.proteine > 0);
+      var hasMac = mac.kcal > 0 && mac.proteine > 0 && mac.carboidrati > 0 && mac.grassi > 0;
+      var hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
+      console.log('[MacroCheck] '+g.giorno+' | macros dal piano:', JSON.stringify(mac), '| targets:', JSON.stringify(tgts), '| hasMac:', hasMac, '| hasTgts:', hasTgts);
       var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
-      if (hasMac && tgts.kcal) {
+      if (hasMac && hasTgts) {
         var rows = [
-          {lbl:'Kcal', a:Math.round(mac.kcal||0), t:tgts.kcal, u:'kcal'},
-          {lbl:'Proteine', a:Math.round(mac.proteine||0), t:tgts.p, u:'g'},
-          {lbl:'Carboidrati', a:Math.round(mac.carboidrati||0), t:tgts.c, u:'g'},
-          {lbl:'Grassi', a:Math.round(mac.grassi||0), t:tgts.g, u:'g'}
+          {lbl:'Kcal', a:Math.round(mac.kcal), t:tgts.kcal, u:'kcal'},
+          {lbl:'Proteine', a:Math.round(mac.proteine), t:tgts.p, u:'g'},
+          {lbl:'Carboidrati', a:Math.round(mac.carboidrati), t:tgts.c, u:'g'},
+          {lbl:'Grassi', a:Math.round(mac.grassi), t:tgts.g, u:'g'}
         ];
-        var deltas = rows.map(function(r){return r.t?Math.abs(r.a-r.t)/r.t*100:0;});
+        var deltas = rows.map(function(r){return Math.abs(r.a-r.t)/r.t*100;});
         var maxD = Math.max.apply(null, deltas);
+        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| maxD:', maxD.toFixed(1)+'%');
         semColor = maxD>15?'#c0392b':maxD>5?'#e07840':'#1D9E75';
         semIcon = maxD>15?'✗':maxD>5?'!':'✓';
         macroPanel = rows.map(function(r,i){
@@ -2380,7 +2383,7 @@ async function generaPiano(){
             +'</div>';
         }).join('');
       }
-      var panBg = semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':'#fdf2f2';
+      var panBg = semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
       var tid = 'mtp'+idx;
       aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
       aiHtml += '<div onclick="var d=document.getElementById(\''+tid+'\');d.style.display=d.style.display===\'block\'?\'none\':\'block\';"'
