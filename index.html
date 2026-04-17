@@ -1348,7 +1348,7 @@ async function testaAntKey(){
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1,messages:[{role:'user',content:'Hi'}]})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1,messages:[{role:'user',content:'Hi'}]})
     });
     if(r.ok){res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';}
     else{res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
@@ -1644,7 +1644,7 @@ async function inviaMessaggioRag(){
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1024,system:costruisciContestoPaziente(p),messages:_ragMessages.map(m=>({role:m.role,content:m.content}))})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:costruisciContestoPaziente(p),messages:_ragMessages.map(m=>({role:m.role,content:m.content}))})
     });
     if(!r.ok)throw new Error('Errore API '+r.status);
     const data=await r.json();
@@ -1664,7 +1664,7 @@ async function concludiERiassumi(){
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:promptRiass}]})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,messages:[{role:'user',content:promptRiass}]})
     });
     if(!r.ok)throw new Error('Errore API '+r.status);
     const data=await r.json();
@@ -2057,7 +2057,7 @@ async function chiamaGeneraPiano(pazienteId) {
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-5',
       max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -2894,7 +2894,7 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
       method: 'POST',
       headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         messages: [{role:'user', content: prompt}]
       })
@@ -2955,7 +2955,7 @@ async function loadInbodyPDF(e) {
         method: 'POST',
         headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-5',
           max_tokens: 1000,
           messages: [{role:'user', content:[
             {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}},
@@ -3075,7 +3075,7 @@ async function aiRiscriviConcetto(id) {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST', headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:800,
+        model:'claude-sonnet-4-5', max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${c.testo.substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]
       })
     });
@@ -3126,7 +3126,7 @@ async function openNuovoConcetto() {
   try {
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]})
     });
     const data=await resp.json();const testo=data.content?.[0]?.text||'';
