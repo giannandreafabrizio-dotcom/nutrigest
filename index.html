@@ -2733,7 +2733,7 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -2794,7 +2794,7 @@ async function loadInbodyPDF(e) {
       const base64 = ev.target.result.split(',')[1];
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+        headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
@@ -2914,7 +2914,7 @@ async function aiRiscriviConcetto(id) {
   notif('⏳ AI sta riscrivendo il concetto...');
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      method:'POST', headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({
         model:'claude-sonnet-4-20250514', max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${c.testo.substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]
@@ -2966,7 +2966,7 @@ async function openNuovoConcetto() {
   notif('AI in elaborazione...');
   try {
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]})
     });
