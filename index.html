@@ -2097,55 +2097,27 @@ async function generaPiano(){
     pianoEl.style.opacity = '1';
 
     let aiHtml = '<div style="margin-top:1.5rem;">';
-    pianoAI.forEach(function(g, gi){
-      const isSab = gi===5;
-      aiHtml += '<div style="background:#fff;border-radius:10px;border:1.5px solid #e0e0e0;margin-bottom:1rem;overflow:hidden;">'
-        +'<div style="background:var(--green);color:#fff;font-weight:700;font-size:.9rem;padding:.55rem 1rem;">'+g.giorno+'</div>'
-        +'<div style="padding:.7rem 1rem;">';
-
-      // COLAZIONE
-      const col = g.colazione||{};
-      aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">COLAZIONE</span>';
-      if(col.descrizione) aiHtml += ' — '+col.descrizione;
-      if(col.carboidrati&&col.carboidrati.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Carboidrati: '+col.carboidrati.nome+' '+col.carboidrati.grammi+'g</span>';
-      if(col.proteine&&col.proteine.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Proteine: '+col.proteine.nome+' '+col.proteine.grammi+'g</span>';
-      if(col.grassi&&col.grassi.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Grassi: '+col.grassi.nome+' '+col.grassi.grammi+'g</span>';
-      if(col.frutta&&col.frutta!=='(opzionale)') aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Frutta: '+col.frutta+'</span>';
-      aiHtml += '</div>';
-
-      // SPUNTINO MATTINA
-      if(haSp&&g.spuntino_mattina) aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">SPUNTINO MATTINA</span> — '+g.spuntino_mattina+'</div>';
-
-      // PRANZO
-      const pr = g.pranzo||{};
-      aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">PRANZO</span>';
-      if(pr.nota_descrittiva) aiHtml += ' — '+pr.nota_descrittiva;
-      if(pr.verdura) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Verdura: '+pr.verdura+'</span>';
-      if(pr.carboidrati&&pr.carboidrati.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Carboidrati: '+pr.carboidrati.nome+' '+pr.carboidrati.grammi+'g</span>';
-      if(pr.proteina&&pr.proteina.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Proteina: '+pr.proteina.nome+' '+pr.proteina.grammi+'g</span>';
-      if(pr.legumi_g&&pr.legumi_g>0) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Legumi: '+pr.legumi_g+'g</span>';
-      if(pr.olio_g) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Olio EVO: '+pr.olio_g+'g</span>';
-      aiHtml += '</div>';
-
-      // SPUNTINO POMERIGGIO
-      if(haSp&&g.spuntino_pomeriggio) aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">SPUNTINO POMERIGGIO</span> — '+g.spuntino_pomeriggio+'</div>';
-
-      // CENA
-      const ce = g.cena||{};
-      aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">CENA</span>';
-      if(isSab){
-        aiHtml += ' — '+((p.weekend&&p.weekend!=='')?p.weekend:'Libero (pizza / panino / sushi)');
-      } else {
-        if(ce.nota_descrittiva) aiHtml += ' — '+ce.nota_descrittiva;
-        if(ce.verdura) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Verdura: '+ce.verdura+'</span>';
-        if(ce.proteina&&ce.proteina.nome) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Proteina: '+ce.proteina.nome+' '+ce.proteina.grammi+'g</span>';
-        if(ce.olio_g) aiHtml += '<br><span style="color:var(--text3);padding-left:.8rem;">Olio EVO: '+ce.olio_g+'g</span>';
-      }
-      aiHtml += '</div>';
-
-      // PRE-NANNA
-      if(haPrenanna&&g.pre_nanna) aiHtml += '<div style="margin-bottom:.6rem;font-size:.82rem;"><span style="font-weight:700;color:var(--text1);">PRE-NANNA</span> — '+g.pre_nanna+'</div>';
-
+    pianoAI.forEach(function(g) {
+      aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
+      aiHtml += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;">' + g.giorno + '</div>';
+      aiHtml += '<div style="padding:.8rem 1rem;">';
+      var pasti = g.pasti || {};
+      var slots = [
+        { label: 'COLAZIONE', key: 'colazione' },
+        { label: 'SPUNTINO MATTINA', key: 'spuntino_mattina' },
+        { label: 'PRANZO', key: 'pranzo' },
+        { label: 'SPUNTINO POMERIGGIO', key: 'spuntino_pomeriggio' },
+        { label: 'CENA', key: 'cena' },
+        { label: 'PRE-NANNA', key: 'pre_nanna' }
+      ];
+      slots.forEach(function(s) {
+        if (pasti[s.key]) {
+          aiHtml += '<div style="margin-bottom:.5rem;font-size:.85rem;">';
+          aiHtml += '<span style="font-weight:700;color:var(--green);">' + s.label + '</span>';
+          aiHtml += ' — ' + pasti[s.key];
+          aiHtml += '</div>';
+        }
+      });
       aiHtml += '</div></div>';
     });
     aiHtml += '</div>';
