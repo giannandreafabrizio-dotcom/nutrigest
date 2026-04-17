@@ -2379,10 +2379,10 @@ async function generaPiano(){
           {lbl:'Grassi', a:Math.round(mac.grassi), t:tgts.g, u:'g'}
         ];
         var deltas = rows.map(function(r){return Math.abs(r.a-r.t)/r.t*100;});
-        var maxD = Math.max.apply(null, deltas);
-        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| maxD:', maxD.toFixed(1)+'%');
-        semColor = maxD>15?'#c0392b':maxD>5?'#e07840':'#1D9E75';
-        semIcon = maxD>15?'✗':maxD>5?'!':'✓';
+        var deltaKcal = deltas[0];
+        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| deltaKcal:', deltaKcal.toFixed(1)+'%');
+        semColor = deltaKcal>15?'#c0392b':deltaKcal>5?'#e07840':'#1D9E75';
+        semIcon = deltaKcal>15?'✗':deltaKcal>5?'!':'✓';
         macroPanel = rows.map(function(r,i){
           var d=deltas[i], diff=r.a-r.t, dStr=(diff>=0?'+':'')+Math.round(diff);
           var dc=d<=5?'#1D9E75':d<=15?'#e07840':'#c0392b';
