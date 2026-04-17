@@ -1806,40 +1806,47 @@ function costruisciPrompt(pazienteId) {
   return 'Sei un nutrizionista esperto italiano. Genera un piano alimentare settimanale (Lunedì-Sabato) personalizzato per questo paziente. Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo.\n\nDATI PAZIENTE:\nNome: ' + (p.nome||'') + ' ' + (p.cognome||'') + '\nRegime: ' + (p.regime||'') + '\nKcal target: ' + (p.kcalTarget||p.tdee||'') + '\nProteine: ' + (p.proteineTarget||'') + 'g\nCarboidrati: ' + (p.carboidratiTarget||'') + 'g\nGrassi: ' + (p.grassiTarget||'') + 'g\nAllergie: ' + (p.allergie||'Nessuna') + '\nAlimenti preferiti: ' + ((p.alimentiPreferiti||[]).join(', ')) + '\n\nStruttura JSON richiesta:\n{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione con grammature"}}]}';
 }
 
+function getAnthropicKey() {
+  let key = localStorage.getItem('anthropic_api_key');
+  if (!key) {
+    key = window.prompt('Inserisci la tua chiave API Anthropic (verrà salvata in questo browser):');
+    if (!key) throw new Error('Chiave API non inserita');
+    localStorage.setItem('anthropic_api_key', key.trim());
+  }
+  return key.trim();
+}
+
 async function chiamaGeneraPiano(pazienteId) {
-  return new Promise((resolve) => {
-    const iframeId = 'hidden-frame-' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = iframeId;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
+  const prompt = costruisciPrompt(pazienteId);
+  if (!prompt) throw new Error('Paziente non trovato');
 
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = getUrl();
-    form.target = iframeId;
-    form.style.display = 'none';
+  const apiKey = getAnthropicKey();
 
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'payload';
-    input.value = JSON.stringify({
-      action: 'generatePiano',
-      pazienteId: pazienteId,
-      prompt: costruisciPrompt(pazienteId)
-    });
-    form.appendChild(input);
-    document.body.appendChild(form);
-    form.submit();
-
-    // Non leggiamo la risposta dell'iframe (bloccata dal browser per sicurezza)
-    // Aspettiamo 25 secondi che lo script finisca e salvi il piano
-    setTimeout(() => {
-      try { document.body.removeChild(form); } catch(e) {}
-      try { document.body.removeChild(iframe); } catch(e) {}
-      resolve({ ok: true });
-    }, 25000);
+  const risposta = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }]
+    })
   });
+
+  if (!risposta.ok) throw new Error('Errore API: ' + risposta.status);
+
+  const data = await risposta.json();
+  const testo = data.content[0].text.trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  return { ok: true, piano: JSON.parse(testo) };
 }
 
 async function generaPiano(){
@@ -2062,18 +2069,7 @@ async function generaPiano(){
     }
 
     // Attendo 3 secondi che lo script finisca di salvare
-    await new Promise(r => setTimeout(r, 3000));
-
-    // Leggo il piano salvato tramite GET
-    const urlPiano = getUrl() + '?action=getPiano&pazienteId=' + encodeURIComponent(p.id);
-    const respPiano = await fetch(urlPiano);
-    const dataPiano = await respPiano.json();
-
-    if (!dataPiano.piano || !dataPiano.piano.giorni) {
-      throw new Error('Piano non ricevuto correttamente dallo script');
-    }
-
-    const pianoAI = dataPiano.piano.giorni;
+    const pianoAI = risultato.piano.giorni || risultato.piano;
 
     loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.85rem;color:#2e7d32;text-align:center;';
     loadEl.textContent = '✓ Piano generato con AI';
