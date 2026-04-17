@@ -1800,6 +1800,60 @@ function pianoPazSelezionato(id){
   info.style.display='block';
 }
 
+function costruisciPrompt(pazienteId) {
+  var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
+  if (!p) return '';
+  return 'Sei un nutrizionista esperto italiano. Genera un piano alimentare settimanale (Lunedì-Sabato) personalizzato per questo paziente. Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo.\n\nDATI PAZIENTE:\nNome: ' + (p.nome||'') + ' ' + (p.cognome||'') + '\nRegime: ' + (p.regime||'') + '\nKcal target: ' + (p.kcalTarget||p.tdee||'') + '\nProteine: ' + (p.proteineTarget||'') + 'g\nCarboidrati: ' + (p.carboidratiTarget||'') + 'g\nGrassi: ' + (p.grassiTarget||'') + 'g\nAllergie: ' + (p.allergie||'Nessuna') + '\nAlimenti preferiti: ' + ((p.alimentiPreferiti||[]).join(', ')) + '\n\nStruttura JSON richiesta:\n{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione con grammature"}}]}';
+}
+
+async function chiamaGeneraPiano(pazienteId) {
+  return new Promise((resolve, reject) => {
+    const iframeId = 'hidden-frame-' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeId;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = getUrl();
+    form.target = iframeId;
+    form.style.display = 'none';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify({
+      action: 'generatePiano',
+      pazienteId: pazienteId,
+      prompt: costruisciPrompt(pazienteId)
+    });
+    form.appendChild(input);
+    document.body.appendChild(form);
+
+    iframe.onload = () => {
+      try {
+        const text = iframe.contentDocument.body.innerText;
+        const data = JSON.parse(text);
+        resolve(data);
+      } catch(e) {
+        reject(new Error('Errore lettura risposta: ' + e.message));
+      } finally {
+        document.body.removeChild(form);
+        document.body.removeChild(iframe);
+      }
+    };
+
+    iframe.onerror = () => {
+      reject(new Error('Errore form submission'));
+      document.body.removeChild(form);
+      document.body.removeChild(iframe);
+    };
+
+    form.submit();
+  });
+}
+
 async function generaPiano(){
   const id=document.getElementById('piano-select-paz').value;
   if(!id){notif('⚠ Seleziona prima un paziente');return;}
@@ -2009,18 +2063,29 @@ async function generaPiano(){
     +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
 
   try {
-    const res = await fetch(scriptUrl, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action:'generatePiano', prompt: prompt})
-    });
+    loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:10px;font-size:.85rem;color:#e65100;text-align:center;';
+    loadEl.textContent = '⏳ Piano in generazione... attendere 15 secondi';
 
-    if(!res.ok) throw new Error('Errore risposta script ('+res.status+')');
+    const risultato = await chiamaGeneraPiano(p.id);
+    if (risultato && risultato.ok) {
+      console.log('Piano generato con successo');
+    } else {
+      throw new Error(risultato ? risultato.error : 'Errore sconosciuto');
+    }
 
-    const raw = (await res.text()).trim();
-    const jsonStr = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-    const pianoAI = JSON.parse(jsonStr);
+    // Attendo 3 secondi che lo script finisca di salvare
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Leggo il piano salvato tramite GET
+    const urlPiano = getUrl() + '?action=getPiano&pazienteId=' + encodeURIComponent(p.id);
+    const respPiano = await fetch(urlPiano);
+    const dataPiano = await respPiano.json();
+
+    if (!dataPiano.piano || !dataPiano.piano.giorni) {
+      throw new Error('Piano non ricevuto correttamente dallo script');
+    }
+
+    const pianoAI = dataPiano.piano.giorni;
 
     loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.85rem;color:#2e7d32;text-align:center;';
     loadEl.textContent = '✓ Piano generato con AI';
