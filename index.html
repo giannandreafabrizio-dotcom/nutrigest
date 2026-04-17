@@ -2350,6 +2350,15 @@ async function generaPiano(){
     // Attendo 3 secondi che lo script finisca di salvare
     const pianoAI = risultato.piano.giorni || risultato.piano;
 
+    console.log('[RAW] risultato.piano (grezzo):', JSON.stringify(risultato.piano).substring(0, 500));
+    console.log('[RAW] pianoAI tipo:', Array.isArray(pianoAI)?'array':'altro', '| lunghezza:', pianoAI&&pianoAI.length);
+    if (pianoAI && pianoAI[0]) {
+      var g0 = pianoAI[0];
+      console.log('[RAW] Primo giorno — chiavi:', Object.keys(g0));
+      console.log('[RAW] Primo giorno — g.macros:', JSON.stringify(g0.macros));
+      console.log('[RAW] Primo giorno — g.pasti:', JSON.stringify(g0.pasti));
+    }
+
     clearInterval(_pianoLoaderIv);
     loadEl.style.display='none';
     pianoEl.style.opacity = '1';
