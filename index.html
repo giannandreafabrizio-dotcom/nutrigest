@@ -222,6 +222,7 @@ main{flex:1;overflow-y:auto;}
   .aside-foot{display:none;}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -2123,6 +2124,13 @@ async function generaPiano(){
     aiHtml += '</div>';
     pianoEl.innerHTML = aiHtml;
 
+    // Aggiungo pulsante Genera PDF
+    var btnPdf = document.createElement('button');
+    btnPdf.textContent = '📄 Scarica Piano PDF';
+    btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btnPdf.onclick = function() { generaPDF(p, pianoAI); };
+    pianoEl.appendChild(btnPdf);
+
   } catch(e) {
     loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fdf3f2;border:1.5px solid #f5c6c2;border-radius:10px;font-size:.85rem;color:#c0392b;text-align:center;';
     loadEl.textContent = '⚠ Errore generazione AI: '+e.message;
@@ -2131,6 +2139,107 @@ async function generaPiano(){
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
+
+function generaPDF(paziente, giorni) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const verde = [46, 125, 50];
+  const grigio = [100, 100, 100];
+  const nero = [30, 30, 30];
+  const largPagina = 210;
+  const margine = 15;
+  let y = 20;
+
+  // Intestazione
+  doc.setFillColor(...verde);
+  doc.rect(0, 0, largPagina, 30, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('NutriGest', margine, 13);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Piano Alimentare Personalizzato', margine, 21);
+  doc.setFontSize(10);
+  doc.text('Dott. Fabrizio Giannandrea — Nutrizionista', largPagina - margine, 21, { align: 'right' });
+
+  y = 40;
+
+  // Dati paziente
+  doc.setTextColor(...nero);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Paziente: ' + (paziente.nome || '') + ' ' + (paziente.cognome || ''), margine, y);
+  y += 7;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...grigio);
+  doc.text('Regime: ' + (paziente.regime || '') + '   |   Kcal target: ' + (paziente.kcalTarget || '') + '   |   P: ' + (paziente.proteineTarget || '') + 'g   C: ' + (paziente.carboidratiTarget || '') + 'g   G: ' + (paziente.grassiTarget || '') + 'g', margine, y);
+  y += 5;
+
+  // Linea separatore
+  doc.setDrawColor(...verde);
+  doc.setLineWidth(0.5);
+  doc.line(margine, y, largPagina - margine, y);
+  y += 8;
+
+  var slotLabels = {
+    colazione: 'Colazione',
+    spuntino_mattina: 'Spuntino mattina',
+    pranzo: 'Pranzo',
+    spuntino_pomeriggio: 'Spuntino pomeriggio',
+    cena: 'Cena',
+    pre_nanna: 'Pre-nanna'
+  };
+
+  giorni.forEach(function(g) {
+    // Controllo spazio pagina
+    if (y > 260) { doc.addPage(); y = 20; }
+
+    // Header giorno
+    doc.setFillColor(...verde);
+    doc.roundedRect(margine, y, largPagina - margine * 2, 8, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(g.giorno.toUpperCase(), margine + 4, y + 5.5);
+    y += 12;
+
+    // Pasti
+    var pasti = g.pasti || {};
+    Object.keys(slotLabels).forEach(function(key) {
+      if (pasti[key]) {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setTextColor(...verde);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(slotLabels[key].toUpperCase(), margine + 2, y);
+        doc.setTextColor(...nero);
+        doc.setFont('helvetica', 'normal');
+        var testo = doc.splitTextToSize(pasti[key], largPagina - margine * 2 - 10);
+        testo.forEach(function(riga) {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.text(riga, margine + 2, y + 4);
+          y += 4.5;
+        });
+        y += 2;
+      }
+    });
+    y += 6;
+  });
+
+  // Footer
+  var totPagine = doc.internal.getNumberOfPages();
+  for (var i = 1; i <= totPagine; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(...grigio);
+    doc.text('Pagina ' + i + ' di ' + totPagine + '  —  NutriGest © Dott. Fabrizio Giannandrea', largPagina / 2, 290, { align: 'center' });
+  }
+
+  var nomefile = 'Piano_' + (paziente.cognome || 'paziente') + '_' + (paziente.nome || '') + '.pdf';
+  doc.save(nomefile);
+}
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
