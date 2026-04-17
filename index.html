@@ -2074,8 +2074,14 @@ function getAnthropicKey() {
 }
 
 async function chiamaGeneraPiano(pazienteId) {
+  const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
+  console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
+  console.log('[Piano] _ragContextForPiano:', JSON.stringify(window._ragContextForPiano));
+
   const prompt = costruisciPrompt(pazienteId);
   if (!prompt) throw new Error('Paziente non trovato');
+
+  console.log('[Piano] PROMPT COMPLETO:\n', prompt);
 
   const apiKey = getAnthropicKey();
 
