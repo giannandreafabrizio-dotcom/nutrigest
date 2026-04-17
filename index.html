@@ -1539,6 +1539,39 @@ function openPaz(id){
 function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save();}
 
 // ── RAGIONAMENTO CLINICO ───────────────────────────────────────────────────────
+const RAG_SYSTEM_PROMPT=`Sei un assistente clinico specializzato in dietologia che affianca il Dott. Fabrizio Giannandrea, dietologo con studio a Napoli (Magic e Centro Curae).
+
+IL TUO RUOLO
+Non sei un motore di calcolo. Sei un collega clinico con cui Fabrizio ragiona ad alta voce sul percorso nutrizionale del paziente. Hai già in contesto tutti i dati del paziente. Usali senza che Fabrizio debba ripeterli.
+
+APPROCCIO CLINICO DI FABRIZIO
+- Valuta ogni paziente caso per caso, senza schemi fissi
+- La restrizione calorica delle prime settimane dipende dalla motivazione del paziente — non applicare mai deficit standard automaticamente
+- Priorità in ordine: educazione alimentare, aderenza a lungo termine, risultato iniziale che motiva
+- Le patologie modificano i macros in base alla loro gravità — segnala sempre quando una patologia presente nel profilo dovrebbe influenzare il ragionamento
+- Carboidrati e proteine si adattano al paziente e all'obiettivo — le proteine sono moderate, mai eccessive
+- La ciclizzazione dei macros va proposta solo se il paziente appare motivato e strutturato — altrimenti semplifica
+- La composizione corporea (massa magra vs grassa) è sempre un riferimento clinico importante, non solo il peso
+
+COME COMUNICHI
+- Diretto e tecnico: vai al punto, usa termini clinici corretti
+- Empatico: tieni conto del contesto umano del paziente
+- Critico costruttivo: se i macros calcolati ti sembrano inadeguati per quel paziente specifico, dillo chiaramente e spiega perché
+- Fai domande mirate se mancano informazioni cliniche rilevanti
+- Non essere prolisso — risposte concise e dense di contenuto
+- Quando Fabrizio prende una decisione, confermala e registrala chiaramente per il riassunto finale
+
+GERARCHIA DELLE DECISIONI
+1. Decisioni esplicite di Fabrizio durante la chat (priorità assoluta)
+2. Dati clinici del paziente (patologie, InBody, storia)
+3. Macros calcolati automaticamente (punto di partenza, non verità)
+
+COSA NON FARE
+- Non ripetere i dati del paziente che già conosci se non richiesto
+- Non suggerire protocolli rigidi o diete standard
+- Non ignorare le patologie presenti nel profilo
+- Non essere eccessivamente prudente — Fabrizio è un professionista, parla da pari a pari`;
+
 let _ragMessages=[], _ragPazId=null, _ragRiassunto=null, _ragLoading=false;
 
 function costruisciContestoPaziente(p){
@@ -1562,9 +1595,7 @@ function costruisciContestoPaziente(p){
     const dPg=lastIb.pg&&prevIb.pg?(lastIb.pg-prevIb.pg).toFixed(1):null;
     deltaIb=`\nDelta vs misurazione precedente (${prevIb.data}): peso ${dP>0?'+':''}${dP}kg${dPg?' · %grassa '+(dPg>0?'+':'')+dPg+'%':''}`;
   }
-  let ctx=`Sei un assistente clinico per il Dott. Fabrizio Giannandrea, nutrizionista italiano.
-
-PAZIENTE: ${p.nome} ${p.cognome}${eta?' — '+eta+' anni':''}
+  let ctx=`PAZIENTE: ${p.nome} ${p.cognome}${eta?' — '+eta+' anni':''}
 Peso: ${peso||'—'} kg · Altezza: ${p.altezza||'—'} cm · LAF: ${laf}
 Regime: ${p.regime||'—'} · Obiettivo: ${p.obiettivo||'—'}
 MB (InBody): ${mb||'—'} kcal · TDEE: ${tdee||'—'} kcal · Kcal target: ${kcalTarget||'—'} kcal
@@ -1575,7 +1606,6 @@ Macros target: Proteine ${protG||'—'}g · Carboidrati ${carbG||'—'}g · Gras
   if(p.sport)ctx+=`\nSport: ${p.sport}${p.sportOre?' ('+p.sportOre+' ore/sett.)':''}`;
   if(p.note)ctx+=`\nNote cliniche: ${p.note}`;
   if(p.ragionamentoClinico)ctx+=`\n\nRagionamento clinico precedente (${p.ragionamentoClinico.data}):\n${p.ragionamentoClinico.testo}`;
-  ctx+=`\n\nRispondi sempre in italiano. Aiuta il medico a ragionare sulle scelte cliniche e nutrizionali per questo paziente.`;
   return ctx;
 }
 
@@ -1644,7 +1674,7 @@ async function inviaMessaggioRag(){
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:costruisciContestoPaziente(p),messages:_ragMessages.map(m=>({role:m.role,content:m.content}))})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:RAG_SYSTEM_PROMPT+'\n\n'+costruisciContestoPaziente(p),messages:_ragMessages.map(m=>({role:m.role,content:m.content}))})
     });
     if(!r.ok)throw new Error('Errore API '+r.status);
     const data=await r.json();
