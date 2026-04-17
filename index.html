@@ -577,6 +577,20 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
   <div class="card">
+    <div class="card-hd"><h3>🤖 API Anthropic</h3></div>
+    <div class="card-bd">
+      <div class="fg">
+        <label>Chiave API <span id="ant-hint" style="font-size:.75rem;color:var(--text3)"></span></label>
+        <input type="password" id="ant-key" placeholder="sk-ant-...">
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="salvaAntKey()">Salva</button>
+        <button class="btn btn-g" onclick="testaAntKey()">🔌 Testa connessione</button>
+        <span id="ant-res" style="font-size:.75rem;color:var(--text3)"></span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
     <div class="card-hd"><h3>💾 Backup</h3></div>
     <div class="card-bd" style="display:flex;gap:.5rem;flex-wrap:wrap">
       <button class="btn btn-g" onclick="esporta()">⬇ Esporta JSON</button>
@@ -1315,6 +1329,37 @@ async function testConn(){
   try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});res.style.color='var(--teal)';res.textContent='✓ Connessione riuscita!';}
   catch(e){res.style.color='var(--red)';res.textContent='✗ Errore';}
 }
+function salvaAntKey(){
+  const v=document.getElementById('ant-key').value.trim();
+  if(!v){alert('Inserisci la chiave API');return;}
+  localStorage.setItem('anthropicApiKey',v);
+  const hint=document.getElementById('ant-hint');
+  if(hint)hint.textContent='•••• '+v.slice(-4);
+  notif('✓ Chiave API Anthropic salvata!');
+}
+async function testaAntKey(){
+  const key=document.getElementById('ant-key').value.trim()||localStorage.getItem('anthropicApiKey')||'';
+  const res=document.getElementById('ant-res');
+  if(!key){res.style.color='var(--red)';res.textContent='⚠ Inserisci la chiave';return;}
+  res.style.color='var(--text3)';res.textContent='⏳ Test in corso...';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1,messages:[{role:'user',content:'Hi'}]})
+    });
+    if(r.ok){res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';}
+    else{res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
+  }catch(e){res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
+}
+function initAntCard(){
+  const k=localStorage.getItem('anthropicApiKey');
+  if(!k)return;
+  const el=document.getElementById('ant-key');
+  if(el)el.value=k;
+  const hint=document.getElementById('ant-hint');
+  if(hint)hint.textContent='•••• '+k.slice(-4);
+}
 function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
 function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
 
@@ -1333,7 +1378,7 @@ function goTo(name,btn){
   if(name==='dashboard')renderDashboard();
   if(name==='concetti')renderConcettiPage();
   if(name==='piano')renderPianoPage();
-  if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();}
+  if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();initAntCard();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
@@ -1829,11 +1874,11 @@ function costruisciPrompt(pazienteId) {
 }
 
 function getAnthropicKey() {
-  let key = localStorage.getItem('anthropic_api_key');
+  let key = localStorage.getItem('anthropicApiKey') || localStorage.getItem('anthropic_api_key');
   if (!key) {
     key = window.prompt('Inserisci la tua chiave API Anthropic (verrà salvata in questo browser):');
     if (!key) throw new Error('Chiave API non inserita');
-    localStorage.setItem('anthropic_api_key', key.trim());
+    localStorage.setItem('anthropicApiKey', key.trim());
   }
   return key.trim();
 }
@@ -3136,6 +3181,7 @@ renderDashboard();
 const savedUrl=getUrl();
 if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
 else setSyncStatus(false);
+initAntCard();
 </script>
 </body>
 </html>
