@@ -1705,7 +1705,12 @@ async function concludiERiassumi(){
 
 function salvaRagionamento(){
   const p=db.pazienti.find(x=>x.id===_ragPazId);if(!p||!_ragRiassunto)return;
-  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto};
+  const mKcal=_ragRiassunto.match(/(\d{3,4})\s*kcal/i);
+  const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
+  const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
+  const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
+  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1]}:null;
+  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi};
   save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
 
@@ -2343,7 +2348,15 @@ async function generaPiano(){
     +'"spuntino_mattina":"descrizione","pranzo":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"carboidrati":{"nome":"","grammi":'+carbGr+'},"proteina":{"nome":"","grammi":0},"legumi_g":0},'
     +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
 
-  window._pianoTargets = {kcal: kcalTarget, p: protG, c: carbG, g: grassiG};
+  var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
+  if (!_md && window._ragContextForPiano && window._ragContextForPiano.pazId === p.id) {
+    var _rt = window._ragContextForPiano.riassunto || '';
+    var _mk=_rt.match(/(\d{3,4})\s*kcal/i), _mp=_rt.match(/[Pp]roteine[^\d]*(\d+)/), _mc=_rt.match(/[Cc]arboidrati[^\d]*(\d+)/), _mg=_rt.match(/[Gg]rassi[^\d]*(\d+)/);
+    if (_mk&&_mp&&_mc&&_mg) _md={kcal:+_mk[1],P:+_mp[1],C:+_mc[1],G:+_mg[1]};
+  }
+  window._pianoTargets = _md
+    ? {kcal:_md.kcal, p:_md.P, c:_md.C, g:_md.G, source:'ragionamento'}
+    : {kcal:kcalTarget, p:protG, c:carbG, g:grassiG, source:'calcolo'};
 
   try {
     const risultato = await chiamaGeneraPiano(p.id);
@@ -2376,8 +2389,12 @@ async function generaPiano(){
       var hasMac = mac.kcal > 0 && mac.proteine > 0 && mac.carboidrati > 0 && mac.grassi > 0;
       var hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
       console.log('[MacroCheck] '+g.giorno+' | macros dal piano:', JSON.stringify(mac), '| targets:', JSON.stringify(tgts), '| hasMac:', hasMac, '| hasTgts:', hasTgts);
+      var isCiclizzato = /\b(ON|OFF)\b/i.test(g.giorno) || g.ciclizzato === true;
+      var tgtSource = tgts.source === 'ragionamento' ? ' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da ragionamento clinico)</span>' : '';
       var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
-      if (hasMac && hasTgts) {
+      if (isCiclizzato) {
+        semColor = '#aaa'; semIcon = '↕'; macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Piano ciclizzato — verifica non applicabile</div>';
+      } else if (hasMac && hasTgts) {
         var rows = [
           {lbl:'Kcal', a:Math.round(mac.kcal), t:tgts.kcal, u:'kcal'},
           {lbl:'Proteine', a:Math.round(mac.proteine), t:tgts.p, u:'g'},
@@ -2386,17 +2403,18 @@ async function generaPiano(){
         ];
         var deltas = rows.map(function(r){return Math.abs(r.a-r.t)/r.t*100;});
         var deltaKcal = deltas[0];
-        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| deltaKcal:', deltaKcal.toFixed(1)+'%');
-        semColor = deltaKcal>15?'#c0392b':deltaKcal>5?'#e07840':'#1D9E75';
-        semIcon = deltaKcal>15?'✗':deltaKcal>5?'!':'✓';
-        macroPanel = rows.map(function(r,i){
-          var d=deltas[i], diff=r.a-r.t, dStr=(diff>=0?'+':'')+Math.round(diff);
-          var dc=d<=5?'#1D9E75':d<=15?'#e07840':'#c0392b';
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;">'
-            +'<span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span>'
-            +'<span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'"> '+dStr+r.u+'</strong></span>'
-            +'</div>';
-        }).join('');
+        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| deltaKcal:', deltaKcal.toFixed(1)+'% | source:', tgts.source);
+        semColor = deltaKcal>30?'#c0392b':deltaKcal>15?'#e07840':'#1D9E75';
+        semIcon = deltaKcal>30?'✗':deltaKcal>15?'!':'✓';
+        macroPanel = '<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem;">Target'+tgtSource+'</div>'
+          +rows.map(function(r,i){
+            var d=deltas[i], diff=r.a-r.t, dStr=(diff>=0?'+':'')+Math.round(diff);
+            var dc=d<=15?'#1D9E75':d<=30?'#e07840':'#c0392b';
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;">'
+              +'<span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span>'
+              +'<span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'"> '+dStr+r.u+'</strong></span>'
+              +'</div>';
+          }).join('');
       }
       var panBg = semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
       var tid = 'mtp'+idx;
