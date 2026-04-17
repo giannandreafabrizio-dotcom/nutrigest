@@ -2105,6 +2105,30 @@ async function chiamaGeneraPiano(pazienteId) {
   return { ok: true, piano: JSON.parse(testo) };
 }
 
+function mostraLoadingSteps(loadEl){
+  const steps=['Analisi macros paziente','Costruzione rotazione proteica','Bilanciamento giorni','Selezione ricette'];
+  let cur=0;
+  function render(){
+    loadEl.style.cssText='margin-top:1rem;padding:1.2rem 1.5rem;background:#f0fbf7;border:1.5px solid #1D9E75;border-radius:12px;';
+    loadEl.innerHTML='<div style="font-size:.79rem;font-weight:600;color:#1D9E75;margin-bottom:.95rem;text-align:center;letter-spacing:.3px;">Generazione piano in corso…</div>'
+      +steps.map((s,i)=>{
+        const done=i<cur, active=i===cur, grey=i>cur;
+        return`<div style="display:flex;align-items:center;gap:.7rem;${i<steps.length-1?'margin-bottom:.6rem':''}opacity:${grey?.38:1}">
+          <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;
+            background:${done?'#1D9E75':active?'#e6f7f2':'#e8e8e8'};
+            color:${done?'#fff':active?'#1D9E75':'#aaa'};
+            border:2px solid ${done?'#1D9E75':active?'#1D9E75':'#d0d0d0'};">${done?'✓':i+1}</div>
+          <div style="font-size:.81rem;font-weight:${active?700:400};color:${done?'#1D9E75':active?'#1a1814':'#aaa'};">
+            ${s}${active?'<span style="animation:blink 1s infinite;display:inline-block;margin-left:2px">…</span>':''}
+          </div>
+        </div>`;
+      }).join('');
+  }
+  render();
+  const iv=setInterval(()=>{if(cur<steps.length-1){cur++;render();}},5000);
+  return iv;
+}
+
 async function generaPiano(){
   const id=document.getElementById('piano-select-paz').value;
   if(!id){notif('⚠ Seleziona prima un paziente');return;}
@@ -2282,8 +2306,7 @@ async function generaPiano(){
     loadEl.id = 'piano-load-msg';
     pianoEl.parentNode.insertBefore(loadEl, pianoEl);
   }
-  loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:10px;font-size:.85rem;color:#e65100;text-align:center;';
-  loadEl.textContent = '⏳ Generazione piano in corso...';
+  let _pianoLoaderIv = mostraLoadingSteps(loadEl);
   pianoEl.style.opacity = '0.4';
 
   const prompt = "Sei un nutrizionista esperto. Genera un piano alimentare settimanale personalizzato.\n\n"
@@ -2314,9 +2337,6 @@ async function generaPiano(){
     +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
 
   try {
-    loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fff3e0;border:1.5px solid #ffb74d;border-radius:10px;font-size:.85rem;color:#e65100;text-align:center;';
-    loadEl.textContent = '⏳ Piano in generazione... attendere 15 secondi';
-
     const risultato = await chiamaGeneraPiano(p.id);
     if (risultato && risultato.ok) {
       console.log('Piano generato con successo');
@@ -2327,8 +2347,8 @@ async function generaPiano(){
     // Attendo 3 secondi che lo script finisca di salvare
     const pianoAI = risultato.piano.giorni || risultato.piano;
 
-    loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.85rem;color:#2e7d32;text-align:center;';
-    loadEl.textContent = '✓ Piano generato con AI';
+    clearInterval(_pianoLoaderIv);
+    loadEl.style.display='none';
     pianoEl.style.opacity = '1';
 
     let aiHtml = '<div style="margin-top:1.5rem;">';
@@ -2366,8 +2386,9 @@ async function generaPiano(){
     pianoEl.appendChild(btnPdf);
 
   } catch(e) {
-    loadEl.style.cssText = 'margin-top:1rem;padding:.8rem 1.2rem;background:#fdf3f2;border:1.5px solid #f5c6c2;border-radius:10px;font-size:.85rem;color:#c0392b;text-align:center;';
-    loadEl.textContent = '⚠ Errore generazione AI: '+e.message;
+    clearInterval(_pianoLoaderIv);
+    loadEl.style.cssText='margin-top:1rem;padding:.8rem 1.2rem;background:#fdf3f2;border:1.5px solid #f5c6c2;border-radius:10px;font-size:.85rem;color:#c0392b;text-align:center;';
+    loadEl.textContent='⚠ Errore generazione AI: '+e.message;
     pianoEl.style.opacity = '1';
     console.error('Errore API Anthropic:', e);
   }
