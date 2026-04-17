@@ -1302,21 +1302,29 @@ function setSyncStatus(ok){
   if(t)t.textContent=ok?'Sincronizzato':'Solo locale';
 }
 async function pushToSheets(){
-  const url=getUrl();if(!url)return false;
-  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});setSyncStatus(true);return true;}
-  catch(e){setSyncStatus(false);return false;}
+  const url=getUrl();
+  console.log('[Sync] pushToSheets — URL:', url||'⚠ MANCANTE');
+  if(!url)return false;
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});setSyncStatus(true);console.log('[Sync] push OK');return true;}
+  catch(e){setSyncStatus(false);console.error('[Sync] push ERRORE:',e);return false;}
 }
 async function pullFromSheets(){
-  const url=getUrl();if(!url)return false;
+  const url=getUrl();
+  console.log('[Sync] pullFromSheets — URL:', url||'⚠ MANCANTE');
+  if(!url)return false;
   try{
     const r=await fetch(url+'?action=get',{method:'GET',mode:'cors'});
-    if(!r.ok)throw new Error();
+    console.log('[Sync] pull risposta status:', r.status, r.ok?'OK':'NON OK');
+    if(!r.ok)throw new Error('status '+r.status);
     const data=await r.json();
+    console.log('[Sync] pull data.pazienti:', data&&data.pazienti?data.pazienti.length+' pazienti':'campo pazienti assente');
     if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();return true;}
     return false;
-  }catch(e){return false;}
+  }catch(e){console.error('[Sync] pull ERRORE:',e);return false;}
 }
 async function syncNow(){
+  console.log('sync avviata');
+  console.log('[Sync] URL configurato:', getUrl()||'⚠ MANCANTE — vai in Impostazioni e salva l\'URL');
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
   const p=await pullFromSheets();
   if(!p)await pushToSheets();
