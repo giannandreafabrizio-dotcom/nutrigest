@@ -2059,7 +2059,8 @@ function costruisciPrompt(pazienteId) {
     '- Colazione: yogurt greco / fiocchi di latte / uova / affettato magro con frutta\n' +
     '- Spuntini: frutta / yogurt / frutta secca / wasa con ricotta\n\n' +
     'Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza markdown, con questa struttura esatta:\n' +
-    '{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione dettagliata con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione dettagliata con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione dettagliata con grammature"}},{"giorno":"Martedì","pasti":{...}},{"giorno":"Mercoledì","pasti":{...}},{"giorno":"Giovedì","pasti":{...}},{"giorno":"Venerdì","pasti":{...}},{"giorno":"Sabato","pasti":{...}}]}';
+    '{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione dettagliata con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione dettagliata con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione dettagliata con grammature"},"macros":{"kcal":1400,"proteine":110,"carboidrati":150,"grassi":45}},{"giorno":"Martedì","pasti":{...},"macros":{...}},...]}\n' +
+    'Il campo macros di ogni giorno deve contenere una stima realistica di kcal, proteine (g), carboidrati (g) e grassi (g) totali calcolata sugli alimenti e le grammature descritte nei pasti di quel giorno.';
 }
 
 function getAnthropicKey() {
@@ -2336,6 +2337,8 @@ async function generaPiano(){
     +'"spuntino_mattina":"descrizione","pranzo":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"carboidrati":{"nome":"","grammi":'+carbGr+'},"proteina":{"nome":"","grammi":0},"legumi_g":0},'
     +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
 
+  window._pianoTargets = {kcal: kcalTarget, p: protG, c: carbG, g: grassiG};
+
   try {
     const risultato = await chiamaGeneraPiano(p.id);
     if (risultato && risultato.ok) {
@@ -2352,9 +2355,43 @@ async function generaPiano(){
     pianoEl.style.opacity = '1';
 
     let aiHtml = '<div style="margin-top:1.5rem;">';
-    pianoAI.forEach(function(g) {
+    pianoAI.forEach(function(g, idx) {
+      var tgts = window._pianoTargets || {};
+      var mac = g.macros || {};
+      var hasMac = (mac.kcal > 0 || mac.proteine > 0);
+      var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
+      if (hasMac && tgts.kcal) {
+        var rows = [
+          {lbl:'Kcal', a:Math.round(mac.kcal||0), t:tgts.kcal, u:'kcal'},
+          {lbl:'Proteine', a:Math.round(mac.proteine||0), t:tgts.p, u:'g'},
+          {lbl:'Carboidrati', a:Math.round(mac.carboidrati||0), t:tgts.c, u:'g'},
+          {lbl:'Grassi', a:Math.round(mac.grassi||0), t:tgts.g, u:'g'}
+        ];
+        var deltas = rows.map(function(r){return r.t?Math.abs(r.a-r.t)/r.t*100:0;});
+        var maxD = Math.max.apply(null, deltas);
+        semColor = maxD>15?'#c0392b':maxD>5?'#e07840':'#1D9E75';
+        semIcon = maxD>15?'✗':maxD>5?'!':'✓';
+        macroPanel = rows.map(function(r,i){
+          var d=deltas[i], diff=r.a-r.t, dStr=(diff>=0?'+':'')+Math.round(diff);
+          var dc=d<=5?'#1D9E75':d<=15?'#e07840':'#c0392b';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;">'
+            +'<span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span>'
+            +'<span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'"> '+dStr+r.u+'</strong></span>'
+            +'</div>';
+        }).join('');
+      }
+      var panBg = semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':'#fdf2f2';
+      var tid = 'mtp'+idx;
       aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
-      aiHtml += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;">' + g.giorno + '</div>';
+      aiHtml += '<div onclick="var d=document.getElementById(\''+tid+'\');d.style.display=d.style.display===\'block\'?\'none\':\'block\';"'
+        +' style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">'
+        +'<span>'+g.giorno+'</span>'
+        +'<span title="Clicca per verifica macros" style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.25);">'+semIcon+'</span>'
+        +'</div>';
+      aiHtml += '<div id="'+tid+'" style="display:none;padding:.65rem 1rem;background:'+panBg+';border-bottom:2px solid '+semColor+';">'
+        +'<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:'+semColor+';font-weight:700;margin-bottom:.45rem;">Verifica macros giornalieri</div>'
+        +macroPanel
+        +'</div>';
       aiHtml += '<div style="padding:.8rem 1rem;">';
       var pasti = g.pasti || {};
       var slots = [
