@@ -2051,7 +2051,7 @@ function costruisciPrompt(pazienteId) {
       'DECISIONI CLINICHE DEL MEDICO — rispetta queste indicazioni con priorità assoluta su qualsiasi altro calcolo:\n'+
       window._ragContextForPiano.riassunto+'\n\n':'')+
     'REGOLE:\n' +
-    '- Pasta o riso a pranzo: 60g se kcal target < 1400, 80g se kcal target >= 1400 e < 1800, 100g se kcal target >= 1800 e < 2200, 120g se kcal target >= 2200\n' +
+    '- Pasta o riso a pranzo (grammatura in base alle kcal target): < 1200 kcal → 60g | 1200-1399 → 70g | 1400-1599 → 80g | 1600-1799 → 90g | 1800-1999 → 100g | 2000-2199 → 110g | 2200-2499 → 120g | >= 2500 → 150g\n' +
     '- Verdure miste: 200g a pranzo e cena\n' +
     '- Olio EVO: 10-15g a pasto\n' +
     '- Proteine cena: alterna carne bianca, pesce, carne rossa, uova\n' +
@@ -2194,7 +2194,7 @@ async function generaPiano(){
   const olioG = grassiG!==null ? (grassiG<50?10:grassiG<=80?15:20) : 15;
 
   // Grammatura carboidrati: basata su kcalTarget
-  const carbGr = kcalTarget!==null ? (kcalTarget<1400?60:kcalTarget<=1800?80:kcalTarget<=2200?100:120) : 80;
+  const carbGr = kcalTarget!==null ? (kcalTarget<1200?60:kcalTarget<1400?70:kcalTarget<1600?80:kcalTarget<1800?90:kcalTarget<2000?100:kcalTarget<2200?110:kcalTarget<2500?120:150) : 80;
 
   // Tabella pranzo: proteine per ogni giorno (indice 0-6)
   const pranzoConf = [
