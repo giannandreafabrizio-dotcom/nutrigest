@@ -2213,9 +2213,9 @@ Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): 
 Colazione, spuntini, pre-nanna: formato unico, nessuna alternativa.
 
 OUTPUT: SOLO JSON valido, nessun testo prima o dopo.
-[{"giorno":"Lunedì","colazione":{"nd":"breve descrizione","p1":{"n":"","g":0},"p2":null},"spuntino_mattina":{"nd":"","p1":{"n":"","g":0},"p2":null},"pranzo":{"nd":"desc","p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[{"pos":1,"col":"verde","nt":"titolo ricetta es: Riso con pollo","al":[{"n":"","g":0}]},{"pos":2,"col":"arancione","nt":"titolo","al":[{"n":"","g":0}]},{"pos":3,"col":"rosso","nt":"titolo","al":[{"n":"","g":0}]}]},"spuntino_pomeriggio":{"nd":"","p1":{"n":"","g":0},"p2":null},"cena":{"nd":"desc","p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[{"pos":1,"col":"verde","nt":"titolo","al":[{"n":"","g":0}]},{"pos":2,"col":"arancione","nt":"titolo","al":[{"n":"","g":0}]},{"pos":3,"col":"rosso","nt":"titolo","al":[{"n":"","g":0}]}]},"pre_nanna":{"nd":"","p1":{"n":"","g":0},"p2":null}}]
+[{"g":"Lunedì","col":{"p1":{"n":"","g":0},"p2":{"n":"","g":0}},"sm":{"p1":{"n":"","g":0}},"pr":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"sp":{"p1":{"n":"","g":0}},"ce":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"pn":{"p1":{"n":"","g":0}}}]
 
-Includi pre_nanna solo se previsto. Includi spuntini solo se previsti. p2 null se non esiste.`;
+Prima ricetta alt = verde, seconda = arancione. Includi pn solo se previsto. Includi sm/sp solo se previsti. p2 null se non esiste.`;
 }
 
 function getAnthropicKey() {
@@ -2233,21 +2233,20 @@ function espandiPiano(piano) {
   function espPasto(pasto) {
     if (!pasto || typeof pasto !== 'object') return pasto;
     var r = {};
-    Object.keys(pasto).forEach(function(k){ r[k]=pasto[k]; });
-    if ('nd' in pasto) { r.nota_descrittiva=pasto.nd; delete r.nd; }
-    if ('p1' in pasto) { r.principale1=al2(pasto.p1); delete r.p1; }
-    if ('p2' in pasto) { r.principale2=al2(pasto.p2); delete r.p2; }
+    if ('p1' in pasto) r.principale1 = al2(pasto.p1);
+    if ('p2' in pasto) r.principale2 = pasto.p2 ? al2(pasto.p2) : null;
     if ('alt' in pasto) {
-      r.alternative=(pasto.alt||[]).map(function(a){
-        return {posizione:a.pos, colore:a.col, nota:a.nt, alimenti:(a.al||[]).map(al2)};
-      }); delete r.alt;
+      var colori = ['verde','arancione','rosso'];
+      r.alternative = (pasto.alt||[]).map(function(ricetta,i){
+        return { posizione:i+1, colore:colori[i]||'verde', alimenti:(ricetta||[]).map(al2) };
+      });
     }
     return r;
   }
-  var ks=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  var keyMap = {col:'colazione',sm:'spuntino_mattina',pr:'pranzo',sp:'spuntino_pomeriggio',ce:'cena',pn:'pre_nanna'};
   return (piano||[]).map(function(g){
-    var eg={giorno:g.giorno};
-    ks.forEach(function(k){ if(k in g) eg[k]=espPasto(g[k]); });
+    var eg = { giorno: g.g || g.giorno };
+    Object.keys(keyMap).forEach(function(k){ if(k in g) eg[keyMap[k]]=espPasto(g[k]); });
     if(g.macros) eg.macros=g.macros;
     return eg;
   });
@@ -2305,7 +2304,7 @@ async function chiamaGeneraPiano(pazienteId) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 6000,
+      max_tokens: 5000,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -2319,7 +2318,39 @@ async function chiamaGeneraPiano(pazienteId) {
     .replace(/\s*```$/, '')
     .trim();
 
-  return { ok: true, piano: espandiPiano(parseJSONSicuro(testo)) };
+  const pianoEspanso = espandiPiano(parseJSONSicuro(testo));
+
+  // Seconda chiamata: genera note descrittive per pranzo e cena
+  const promptNote = 'Dato questo piano alimentare: ' + JSON.stringify(pianoEspanso)
+    + '\nGenera SOLO le note descrittive brevi (max 80 caratteri ciascuna)'
+    + ' per pranzo e cena di ogni giorno nel formato:\n'
+    + '[{"giorno":"Lunedì","pranzo_nota":"...","cena_nota":"..."},...]\nNessun testo, solo JSON.';
+  try {
+    const rispostaNote = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] })
+    });
+    if (rispostaNote.ok) {
+      const dataNote = await rispostaNote.json();
+      const testoNote = dataNote.content[0].text.trim()
+        .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+      parseJSONSicuro(testoNote).forEach(function(item) {
+        var g = pianoEspanso.find(function(x){ return x.giorno === item.giorno; });
+        if (g) {
+          if (g.pranzo && item.pranzo_nota) g.pranzo.nota_descrittiva = item.pranzo_nota;
+          if (g.cena && item.cena_nota) g.cena.nota_descrittiva = item.cena_nota;
+        }
+      });
+    }
+  } catch(e) { console.warn('Note descrittive non generate:', e); }
+
+  return { ok: true, piano: pianoEspanso };
 }
 
 function mostraLoadingSteps(loadEl){
