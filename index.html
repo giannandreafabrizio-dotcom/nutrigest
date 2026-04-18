@@ -109,6 +109,7 @@ main{flex:1;overflow-y:auto;}
 .al-tog:hover{border-color:var(--teal);color:var(--teal);}
 .al-tog.si{background:var(--teal-bg);border-color:var(--teal-light);color:var(--teal);font-weight:500;}
 .al-tog.no{background:var(--red-bg);border-color:#f5c6c2;color:var(--red);text-decoration:line-through;}
+.al-tog.arancione{background:#fff3e0;border-color:#e08000;color:#a04a00;}
 /* CALENDARIO */
 .cal-wrap{background:var(--s1);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;}
 .cal-hdr{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid var(--border);}
@@ -2102,6 +2103,10 @@ function pianoPazSelezionato(id){
 function costruisciPrompt(pazienteId) {
   var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
   if (!p) return '';
+  var al = p.alimenti || {};
+  var verdi    = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
+  var arancioni= Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
+  var rossi    = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
   return 'Sei un nutrizionista esperto italiano. Genera un piano alimentare settimanale personalizzato per questo paziente.\n\n' +
     'DATI PAZIENTE:\n' +
     'Nome: ' + (p.nome||'') + ' ' + (p.cognome||'') + '\n' +
@@ -2111,7 +2116,9 @@ function costruisciPrompt(pazienteId) {
     'Carboidrati: ' + (p.carboidratiTarget||'') + 'g\n' +
     'Grassi: ' + (p.grassiTarget||'') + 'g\n' +
     'Allergie: ' + (p.allergie||'Nessuna') + '\n' +
-    'Alimenti preferiti: ' + ((p.alimentiPreferiti||[]).join(', ')) + '\n' +
+    'Alimenti verdi (usa spesso come alternative): ' + (verdi.length?verdi.join(', '):'nessuno') + '\n' +
+    'Alimenti arancioni (usa raramente come alternative, max 1-2 volte a settimana): ' + (arancioni.length?arancioni.join(', '):'nessuno') + '\n' +
+    'Alimenti rossi (NON usare mai, né come alimento principale né come alternativa): ' + (rossi.length?rossi.join(', '):'nessuno') + '\n' +
     'Spuntini: ' + (p.spuntini||'Si') + '\n' +
     'Note speciali: sabato sera pizza se il paziente lo gradisce\n\n' +
     (window._ragContextForPiano&&window._ragContextForPiano.pazId===pazienteId?
@@ -2124,10 +2131,11 @@ function costruisciPrompt(pazienteId) {
     '- Proteine cena: alterna carne bianca, pesce, carne rossa, uova\n' +
     '- Legumi nei giorni 1, 3, 5 a pranzo con proteina leggera\n' +
     '- Colazione: yogurt greco / fiocchi di latte / uova / affettato magro con frutta\n' +
-    '- Spuntini: frutta / yogurt / frutta secca / wasa con ricotta\n\n' +
+    '- Spuntini: frutta / yogurt / frutta secca / wasa con ricotta\n' +
+    '- Le alternative devono privilegiare gli alimenti verdi; usare arancioni solo se i verdi disponibili sono pochi; non inserire mai rossi\n\n' +
     'Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza markdown, con questa struttura esatta:\n' +
-    '{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":"descrizione dettagliata con grammature","spuntino_mattina":"descrizione","pranzo":"descrizione dettagliata con grammature","spuntino_pomeriggio":"descrizione","cena":"descrizione dettagliata con grammature"},"macros":{"kcal":1400,"proteine":110,"carboidrati":150,"grassi":45}},{"giorno":"Martedì","pasti":{...},"macros":{...}},...]}\n' +
-    'Il campo macros di ogni giorno deve contenere una stima realistica di kcal, proteine (g), carboidrati (g) e grassi (g) totali calcolata sugli alimenti e le grammature descritte nei pasti di quel giorno.';
+    '{"giorni":[{"giorno":"Lunedì","pasti":{"colazione":{"nota":"breve testo descrittivo","principale1":{"nome":"Yogurt greco","grammi":150},"principale2":{"nome":"Fette biscottate integrali","grammi":20},"alternative":[{"nome":"Fiocchi di latte","grammi":150}]},"spuntino_mattina":{"nota":"","principale1":{"nome":"Frutta","grammi":150},"principale2":null,"alternative":[]},"pranzo":{"nota":"","principale1":{"nome":"Pasta integrale","grammi":80},"principale2":{"nome":"Petto di pollo","grammi":150},"alternative":[{"nome":"Riso basmati","grammi":80}]},"spuntino_pomeriggio":{"nota":"","principale1":{"nome":"Yogurt magro","grammi":125},"principale2":null,"alternative":[]},"cena":{"nota":"","principale1":{"nome":"Petto di pollo","grammi":150},"principale2":{"nome":"Verdure miste","grammi":200},"alternative":[{"nome":"Tacchino","grammi":150}]}},"macros":{"kcal":1400,"proteine":110,"carboidrati":150,"grassi":45}}]}\n' +
+    'Il campo macros deve contenere una stima realistica. Il campo principale2 può essere null se il pasto ha un solo alimento principale. Le alternative devono rispettare le priorità verde/arancione/rosso.';
 }
 
 function getAnthropicKey() {
@@ -2231,10 +2239,13 @@ async function generaPiano(){
     carbG=Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4));
   }
 
-  // Alimenti preferiti (si) e scartati (no)
+  // Tre liste alimenti
   const al=p.alimenti||{};
-  const preferiti=Object.entries(al).filter(([k,v])=>v==='si').map(([k])=>k.split('__')[1]);
-  const scartati=Object.entries(al).filter(([k,v])=>v==='no').map(([k])=>k.split('__')[1]);
+  const alimentiVerdi=Object.entries(al).filter(([k,v])=>v==='si').map(([k])=>k.split('__')[1]);
+  const alimentiArancioni=Object.entries(al).filter(([k,v])=>v==='arancione').map(([k])=>k.split('__')[1]);
+  const alimentiRossi=Object.entries(al).filter(([k,v])=>v==='no').map(([k])=>k.split('__')[1]);
+  const preferiti=alimentiVerdi;
+  const scartati=alimentiRossi;
 
   const dati={
     nome: p.nome||'',
@@ -2246,8 +2257,9 @@ async function generaPiano(){
     carboidratiTarget: carbG!==null?carbG+'g':'N/D',
     grassiTarget: grassiG!==null?grassiG+'g':'N/D',
     allergie: p.allergie||'—',
-    alimentiPreferiti: preferiti.length?preferiti.join(', '):'—',
-    alimentiScartati: scartati.length?scartati.join(', '):'—',
+    alimentiVerdi: alimentiVerdi.length?alimentiVerdi.join(', '):'—',
+    alimentiArancioni: alimentiArancioni.length?alimentiArancioni.join(', '):'—',
+    alimentiRossi: alimentiRossi.length?alimentiRossi.join(', '):'—',
     spuntini: (p.spuntM==='si'||p.spuntP==='si')?'Sì':'No',
     sabatosera: p.weekend||'—',
     budget: p.economica||'—',
@@ -2274,8 +2286,9 @@ async function generaPiano(){
     +'<b>Carboidrati target:</b> '+dati.carboidratiTarget+'<br>'
     +'<b>Grassi target:</b> '+dati.grassiTarget+'<br>'
     +'<b>Allergie:</b> '+dati.allergie+'<br>'
-    +'<b>Alimenti preferiti:</b> '+dati.alimentiPreferiti+'<br>'
-    +'<b>Alimenti scartati:</b> '+dati.alimentiScartati+'<br>'
+    +'<b>✅ Alimenti verdi:</b> '+dati.alimentiVerdi+'<br>'
+    +'<b>🟠 Alimenti arancioni:</b> '+dati.alimentiArancioni+'<br>'
+    +'<b>❌ Alimenti rossi:</b> '+dati.alimentiRossi+'<br>'
     +'<b>Spuntini:</b> '+dati.spuntini+'<br>'
     +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
     +'<b>Budget:</b> '+dati.budget+'<br>'
@@ -2501,12 +2514,22 @@ async function generaPiano(){
         { label: 'PRE-NANNA', key: 'pre_nanna' }
       ];
       slots.forEach(function(s) {
-        if (pasti[s.key]) {
-          aiHtml += '<div style="margin-bottom:.5rem;font-size:.85rem;">';
-          aiHtml += '<span style="font-weight:700;color:var(--green);">' + s.label + '</span>';
-          aiHtml += ' — ' + pasti[s.key];
-          aiHtml += '</div>';
+        var pasto = pasti[s.key];
+        if (!pasto) return;
+        aiHtml += '<div style="margin-bottom:.5rem;font-size:.85rem;">';
+        aiHtml += '<span style="font-weight:700;color:var(--green);">' + s.label + '</span>';
+        if (typeof pasto === 'string') {
+          aiHtml += ' — ' + pasto;
+        } else {
+          if (pasto.nota) aiHtml += '<br><em style="color:var(--text2);font-size:.8rem;">' + pasto.nota + '</em>';
+          var p1 = pasto.principale1, p2 = pasto.principale2;
+          if (p1) aiHtml += '<br><strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
+          if (p2) aiHtml += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
+          if (pasto.alternative && pasto.alternative.length) {
+            aiHtml += '<br><span style="color:var(--text3);font-size:.75rem;font-style:italic;">Alt: ' + pasto.alternative.map(function(a){return a.nome+' '+a.grammi+'g';}).join(' / ') + '</span>';
+          }
         }
+        aiHtml += '</div>';
       });
       aiHtml += '</div></div>';
     });
@@ -2534,100 +2557,163 @@ function generaPDF(paziente, giorni) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const verde = [46, 125, 50];
-  const grigio = [100, 100, 100];
+  const grigio = [130, 130, 130];
   const nero = [30, 30, 30];
   const largPagina = 210;
   const margine = 15;
+  const colW = (largPagina - margine * 2) / 2 - 3;
   let y = 20;
 
-  // Intestazione
+  function checkPage(needed) {
+    if (y + needed > 272) { doc.addPage(); y = 20; }
+  }
+
+  // ── Intestazione verde ────────────────────────────────────────────────
   doc.setFillColor(...verde);
-  doc.rect(0, 0, largPagina, 30, 'F');
+  doc.rect(0, 0, largPagina, 32, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('NutriGest', margine, 13);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Piano Alimentare Personalizzato', margine, 21);
-  doc.setFontSize(10);
-  doc.text('Dott. Fabrizio Giannandrea — Nutrizionista', largPagina - margine, 21, { align: 'right' });
-
-  y = 40;
-
-  // Dati paziente
-  doc.setTextColor(...nero);
+  doc.text('Regime alimentare', margine, 13);
   doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Paziente: ' + (paziente.nome || '') + ' ' + (paziente.cognome || ''), margine, y);
-  y += 7;
-  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...grigio);
-  doc.text('Regime: ' + (paziente.regime || '') + '   |   Kcal target: ' + (paziente.kcalTarget || '') + '   |   P: ' + (paziente.proteineTarget || '') + 'g   C: ' + (paziente.carboidratiTarget || '') + 'g   G: ' + (paziente.grassiTarget || '') + 'g', margine, y);
-  y += 5;
+  doc.text((paziente.nome || '') + ' ' + (paziente.cognome || ''), margine, 21);
+  doc.setFontSize(9);
+  doc.text('Dott. Fabrizio Giannandrea — Nutrizionista', largPagina - margine, 21, { align: 'right' });
+  doc.setFontSize(8);
+  doc.text('Regime: ' + (paziente.regime || '—'), largPagina - margine, 28, { align: 'right' });
 
-  // Linea separatore
+  y = 42;
+
+  // ── Linea separatore ─────────────────────────────────────────────────
   doc.setDrawColor(...verde);
-  doc.setLineWidth(0.5);
-  doc.line(margine, y, largPagina - margine, y);
-  y += 8;
+  doc.setLineWidth(0.4);
+  doc.line(margine, y - 4, largPagina - margine, y - 4);
 
   var slotLabels = {
-    colazione: 'Colazione',
-    spuntino_mattina: 'Spuntino mattina',
-    pranzo: 'Pranzo',
-    spuntino_pomeriggio: 'Spuntino pomeriggio',
-    cena: 'Cena',
-    pre_nanna: 'Pre-nanna'
+    colazione: 'COLAZIONE',
+    spuntino_mattina: 'SPUNTINO MATTINA',
+    pranzo: 'PRANZO',
+    spuntino_pomeriggio: 'SPUNTINO POMERIGGIO',
+    cena: 'CENA',
+    pre_nanna: 'PRE-NANNA'
   };
 
   giorni.forEach(function(g) {
-    // Controllo spazio pagina
-    if (y > 260) { doc.addPage(); y = 20; }
+    checkPage(16);
 
     // Header giorno
     doc.setFillColor(...verde);
-    doc.roundedRect(margine, y, largPagina - margine * 2, 8, 2, 2, 'F');
+    doc.roundedRect(margine, y, largPagina - margine * 2, 7.5, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(g.giorno.toUpperCase(), margine + 4, y + 5.5);
-    y += 12;
+    doc.text(g.giorno.toUpperCase(), margine + 4, y + 5.2);
+    y += 11;
 
-    // Pasti
     var pasti = g.pasti || {};
     Object.keys(slotLabels).forEach(function(key) {
-      if (pasti[key]) {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.setTextColor(...verde);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(slotLabels[key].toUpperCase(), margine + 2, y);
+      var pasto = pasti[key];
+      if (!pasto) return;
+
+      checkPage(10);
+
+      // Titolo slot in grassetto verde
+      doc.setTextColor(...verde);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(slotLabels[key], margine + 2, y);
+      y += 4.5;
+
+      if (typeof pasto === 'string') {
+        // Compatibilità con vecchio formato stringa
+        checkPage(6);
         doc.setTextColor(...nero);
         doc.setFont('helvetica', 'normal');
-        var testo = doc.splitTextToSize(pasti[key], largPagina - margine * 2 - 10);
-        testo.forEach(function(riga) {
-          if (y > 270) { doc.addPage(); y = 20; }
-          doc.text(riga, margine + 2, y + 4);
-          y += 4.5;
-        });
-        y += 2;
+        doc.setFontSize(8.5);
+        var righe = doc.splitTextToSize(pasto, largPagina - margine * 2 - 4);
+        righe.forEach(function(r) { checkPage(4.5); doc.text(r, margine + 2, y); y += 4.5; });
+      } else {
+        // Nota descrittiva in corsivo
+        if (pasto.nota) {
+          checkPage(5);
+          doc.setTextColor(...grigio);
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          var noteRighe = doc.splitTextToSize(pasto.nota, largPagina - margine * 2 - 4);
+          noteRighe.forEach(function(r) { checkPage(4); doc.text(r, margine + 2, y); y += 4; });
+        }
+
+        // Due colonne: principale1 | principale2
+        var p1 = pasto.principale1, p2 = pasto.principale2;
+        if (p1 || p2) {
+          checkPage(5.5);
+          doc.setTextColor(...nero);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          if (p1) {
+            var t1 = p1.nome + (p1.grammi ? ' ' + p1.grammi + 'g' : '');
+            doc.text(t1, margine + 2, y);
+          }
+          if (p2) {
+            var t2 = p2.nome + (p2.grammi ? ' ' + p2.grammi + 'g' : '');
+            doc.text(t2, margine + colW + 6, y);
+          }
+          y += 5;
+        }
+
+        // Alternative in corsivo grigio
+        if (pasto.alternative && pasto.alternative.length) {
+          checkPage(4.5);
+          doc.setTextColor(...grigio);
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(7.5);
+          var altTesto = 'Alt: ' + pasto.alternative.map(function(a){ return a.nome + (a.grammi?' '+a.grammi+'g':''); }).join(' / ');
+          var altRighe = doc.splitTextToSize(altTesto, largPagina - margine * 2 - 4);
+          altRighe.forEach(function(r) { checkPage(4); doc.text(r, margine + 2, y); y += 4; });
+        }
       }
+      y += 3;
     });
-    y += 6;
+    y += 5;
   });
 
-  // Footer
+  // ── Concetti educativi ───────────────────────────────────────────────
+  var concetti = paziente.concetti || [];
+  if (concetti.length) {
+    checkPage(14);
+    doc.setFillColor(240, 250, 242);
+    doc.roundedRect(margine, y, largPagina - margine * 2, 8, 2, 2, 'F');
+    doc.setTextColor(...verde);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Consigli per te', margine + 4, y + 5.5);
+    y += 12;
+
+    concetti.forEach(function(c) {
+      var testo = (typeof c === 'string') ? c : (c.testo || c.titolo || JSON.stringify(c));
+      checkPage(8);
+      doc.setTextColor(...nero);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setFillColor(...verde);
+      doc.circle(margine + 3, y - 1, 1, 'F');
+      var righe = doc.splitTextToSize(testo, largPagina - margine * 2 - 8);
+      righe.forEach(function(r) { checkPage(4.5); doc.text(r, margine + 7, y); y += 4.5; });
+      y += 2;
+    });
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────
   var totPagine = doc.internal.getNumberOfPages();
   for (var i = 1; i <= totPagine; i++) {
     doc.setPage(i);
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...grigio);
     doc.text('Pagina ' + i + ' di ' + totPagine + '  —  NutriGest © Dott. Fabrizio Giannandrea', largPagina / 2, 290, { align: 'center' });
   }
 
-  var nomefile = 'Piano_' + (paziente.cognome || 'paziente') + '_' + (paziente.nome || '') + '.pdf';
+  var nomefile = 'Regime alimentare — ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
   doc.save(nomefile);
 }
 
@@ -2774,7 +2860,7 @@ function renderAlEditor(){
       const s=window._alStato[key]||'';
       const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
       const sk=key.replace(/'/g,"\'");const sn=item.n.replace(/'/g,"\'");
-      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':''}${item.n}${gl}</span>`;
+      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':s==='arancione'?'◐ ':''}${item.n}${gl}</span>`;
     });
     html+='</div></div>';
   });
@@ -2782,11 +2868,11 @@ function renderAlEditor(){
 }
 function togAl(el,key,nome){
   const s=window._alStato[key]||'';
-  const n=s===''?'si':s==='si'?'no':'';
+  const n=s===''?'si':s==='si'?'arancione':s==='arancione'?'no':'';
   if(n==='')delete window._alStato[key];else window._alStato[key]=n;
   el.className='al-tog '+n;
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
-  el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':'')+nome+glH;
+  el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':n==='arancione'?'◐ ':'')+nome+glH;
 }
 function selTuttiAl(cat,btn){
   const data=ALIMENTI[cat];if(!data)return;
