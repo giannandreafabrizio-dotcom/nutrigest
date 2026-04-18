@@ -2149,101 +2149,37 @@ function costruisciPrompt(pazienteId) {
 
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato e realistico.
 
-Per ispirazione alle ricette attingi a:
-1. Questo database di ricette già usate dallo studio: ${ricetteDB.length ? ricetteDB.join(', ') : 'nessuna ancora'}
-2. La cucina italiana tradizionale e mediterranea (ricette comuni, reperibili, pratiche per un paziente che cucina a casa)
-
+Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
 Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
 
-═══════════════════════════════════════
-DATI PAZIENTE
-═══════════════════════════════════════
+PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
-Regime: ${p.regime||'Normocalorico'}
-Kcal target: ${kcalTarget !== null ? kcalTarget : 'N/D'} kcal/giorno
-Proteine target: ${protG !== null ? protG : 'N/D'}g
-Carboidrati target: ${carbG !== null ? carbG : 'N/D'}g
-Grassi target: ${grassiG !== null ? grassiG : 'N/D'}g
-Allergie/intolleranze: ${p.allergie||'nessuna'}
-Preferenza proteica: ${p.prefProteina||'indifferente'}
-Budget alimentare: ${p.economica||'non specificato'}
-Spuntini previsti: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'}
-Pre-nanna previsto: ${p.prenanna==='si'?'Sì':'No'}
+Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
+Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'} | Budget: ${p.economica||'N/D'}
+Spuntini: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'} | Pre-nanna: ${p.prenanna==='si'?'Sì':'No'}
 
-═══════════════════════════════════════
-GRAMMATURE FISSE (rispetta sempre)
-═══════════════════════════════════════
-- Verdura: 200g a pranzo + 200g a cena (sempre)
-- Olio EVO: ${olioG}g per pasto (calcolato su kcal target)
-- Carboidrati principali (pasta/riso/farro/pane): ${carbGr}g
-- Legumi barattolo: 120g (giorni 1-3-5 al pranzo)
-- Frutta secca: 20g (se presente)
-- Frutta: decidi tu la grammatura in base al profilo (riferimento: 150g porzione grande, 50g porzione piccola)
+GRAMMATURE FISSE
+Verdura: 200g/pasto | Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo (gg 1-3-5 pranzo): 120g | Frutta secca: 20g
 
-═══════════════════════════════════════
-ALIMENTI AUTORIZZATI — PRIORITÀ COLORE
-═══════════════════════════════════════
-Usa SOLO gli alimenti di queste tre liste.
-Qualsiasi alimento non presente in queste liste NON deve mai comparire nel piano, né come principale né come alternativa.
+ALIMENTI (usa SOLO questi)
+Verdi: ${alimentiVerdi.length ? alimentiVerdi.join(', ') : 'nessuno specificato'}
+Arancioni: ${alimentiArancioni.length ? alimentiArancioni.join(', ') : 'nessuno'}
+Rossi: ${alimentiRossi.length ? alimentiRossi.join(', ') : 'nessuno'}
+Se verdi insufficienti per un pasto completo usa arancioni; se ancora insufficienti usa rossi con moderazione.
 
-VERDI — usa come base di quasi tutti i pasti:
-${alimentiVerdi.length ? alimentiVerdi.join(', ') : 'nessuno specificato'}
-
-ARANCIONI — usa occasionalmente (non in tutti i pasti):
-${alimentiArancioni.length ? alimentiArancioni.join(', ') : 'nessuno'}
-
-ROSSI — usa raramente (max 2-3 volte in tutto il piano):
-${alimentiRossi.length ? alimentiRossi.join(', ') : 'nessuno'}
-
-FALLBACK: se gli alimenti verdi disponibili non sono sufficienti per costruire un pasto completo e coerente, puoi usare arancioni anche in posizione 1. Se neanche gli arancioni bastano, usa i rossi con moderazione. Priorità assoluta: il pasto deve essere nutrizionalmente sensato.
-
-═══════════════════════════════════════
-STRUTTURA SETTIMANALE
-═══════════════════════════════════════
-Genera ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).join(', ')}
-
+STRUTTURA
+${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
+Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
 
-Giorni 1-3-5 pranzo: aggiungi legumi 120g con proteina leggera
-Giorni 2-4-6 pranzo: proteina principale senza legumi
+3 ALTERNATIVE PRANZO E CENA
+Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
+Colazione, spuntini, pre-nanna: formato unico, nessuna alternativa.
 
-═══════════════════════════════════════
-REGOLE 3 RICETTE (SOLO PRANZO E CENA)
-═══════════════════════════════════════
-SOLO per pranzo e cena di ogni giorno genera 3 ricette alternative ordinate:
+OUTPUT: SOLO JSON valido, nessun testo prima o dopo.
+[{"giorno":"Lunedì","colazione":{"nd":"breve descrizione","p1":{"n":"","g":0},"p2":null},"spuntino_mattina":{"nd":"","p1":{"n":"","g":0},"p2":null},"pranzo":{"nd":"desc","p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[{"pos":1,"col":"verde","nt":"titolo ricetta es: Riso con pollo","al":[{"n":"","g":0}]},{"pos":2,"col":"arancione","nt":"titolo","al":[{"n":"","g":0}]},{"pos":3,"col":"rosso","nt":"titolo","al":[{"n":"","g":0}]}]},"spuntino_pomeriggio":{"nd":"","p1":{"n":"","g":0},"p2":null},"cena":{"nd":"desc","p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[{"pos":1,"col":"verde","nt":"titolo","al":[{"n":"","g":0}]},{"pos":2,"col":"arancione","nt":"titolo","al":[{"n":"","g":0}]},{"pos":3,"col":"rosso","nt":"titolo","al":[{"n":"","g":0}]}]},"pre_nanna":{"nd":"","p1":{"n":"","g":0},"p2":null}}]
 
-Ricetta 1 — usa prevalentemente alimenti VERDI
-  È la scelta principale consigliata al paziente
-
-Ricetta 2 — usa prevalentemente alimenti ARANCIONI supportati da VERDI
-  È la variante occasionale
-
-Ricetta 3 — può contenere max 1-2 alimenti ROSSI supportati da VERDI
-  È la variante rara
-
-Colazione, spuntini e pre-nanna: UN SOLO formato, nessuna alternativa.
-
-═══════════════════════════════════════
-FORMATO JSON OUTPUT (obbligatorio)
-═══════════════════════════════════════
-Restituisci SOLO JSON valido, nessun testo prima o dopo.
-
-[{"giorno":"Lunedì","colazione":{"nota_descrittiva":"breve descrizione","principale1":{"nome":"","grammi":0},"principale2":{"nome":"","grammi":0}},"spuntino_mattina":{"nota_descrittiva":"","principale1":{"nome":"","grammi":0},"principale2":null},"pranzo":{"nota_descrittiva":"breve descrizione combinazioni","principale1":{"nome":"","grammi":0},"principale2":{"nome":"","grammi":0},"alternative":[{"posizione":1,"colore":"verde","nota":"breve titolo ricetta es: Riso con pollo e zucchine","alimenti":[{"nome":"","grammi":0}]},{"posizione":2,"colore":"arancione","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]},{"posizione":3,"colore":"rosso","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]}]},"spuntino_pomeriggio":{"nota_descrittiva":"","principale1":{"nome":"","grammi":0},"principale2":null},"cena":{"nota_descrittiva":"breve descrizione combinazioni","principale1":{"nome":"","grammi":0},"principale2":{"nome":"","grammi":0},"alternative":[{"posizione":1,"colore":"verde","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]},{"posizione":2,"colore":"arancione","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]},{"posizione":3,"colore":"rosso","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]}]},"pre_nanna":{"nota_descrittiva":"","principale1":{"nome":"","grammi":0},"principale2":null}}]
-
-Includi pre_nanna solo se previsto dal profilo paziente.
-Includi spuntini solo se previsti dal profilo paziente.
-Se principale2 non esiste per un pasto, metti null.
-
-═══════════════════════════════════════
-AUTO-VERIFICA PRIMA DI RISPONDERE
-═══════════════════════════════════════
-Controlla:
-- Nessun alimento fuori dalle liste verdi/arancioni/rossi
-- Grammature fisse rispettate (verdura 200g, olio ${olioG}g, carbo ${carbGr}g)
-- Ricette 1 prevalentemente verdi, ricetta 2 arancioni, ricetta 3 con rossi
-- JSON valido e completo
-- Varietà tra i giorni (no giorni identici)
-- Pasti nutrizionalmente coerenti`;
+Includi pre_nanna solo se previsto. Includi spuntini solo se previsti. p2 null se non esiste.`;
 }
 
 function getAnthropicKey() {
@@ -2254,6 +2190,31 @@ function getAnthropicKey() {
     localStorage.setItem('anthropicApiKey', key.trim());
   }
   return key.trim();
+}
+
+function espandiPiano(piano) {
+  function al2(a) { return a ? {nome:a.n, grammi:a.g} : null; }
+  function espPasto(pasto) {
+    if (!pasto || typeof pasto !== 'object') return pasto;
+    var r = {};
+    Object.keys(pasto).forEach(function(k){ r[k]=pasto[k]; });
+    if ('nd' in pasto) { r.nota_descrittiva=pasto.nd; delete r.nd; }
+    if ('p1' in pasto) { r.principale1=al2(pasto.p1); delete r.p1; }
+    if ('p2' in pasto) { r.principale2=al2(pasto.p2); delete r.p2; }
+    if ('alt' in pasto) {
+      r.alternative=(pasto.alt||[]).map(function(a){
+        return {posizione:a.pos, colore:a.col, nota:a.nt, alimenti:(a.al||[]).map(al2)};
+      }); delete r.alt;
+    }
+    return r;
+  }
+  var ks=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  return (piano||[]).map(function(g){
+    var eg={giorno:g.giorno};
+    ks.forEach(function(k){ if(k in g) eg[k]=espPasto(g[k]); });
+    if(g.macros) eg.macros=g.macros;
+    return eg;
+  });
 }
 
 function parseJSONSicuro(testo) {
@@ -2308,7 +2269,7 @@ async function chiamaGeneraPiano(pazienteId) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 8000,
+      max_tokens: 6000,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -2322,7 +2283,7 @@ async function chiamaGeneraPiano(pazienteId) {
     .replace(/\s*```$/, '')
     .trim();
 
-  return { ok: true, piano: parseJSONSicuro(testo) };
+  return { ok: true, piano: espandiPiano(parseJSONSicuro(testo)) };
 }
 
 function mostraLoadingSteps(loadEl){
