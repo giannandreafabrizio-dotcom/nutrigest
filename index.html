@@ -2103,46 +2103,147 @@ function pianoPazSelezionato(id){
 function costruisciPrompt(pazienteId) {
   var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
   if (!p) return '';
+
+  // Calcolo targets nutrizionali dal profilo paziente
+  var lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+  var mb = lastIb ? lastIb.mb : null;
+  var peso = lastIb ? lastIb.peso : (p.peso || null);
+  var kcalTarget = null, protG = null, carbG = null, grassiG = null;
+  if (mb && peso) {
+    var laf = 1.375;
+    var tdee = Math.round(mb * laf);
+    var regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    kcalTarget = tdee + (regOff[p.regime] || 0);
+    protG = Math.round(1.8 * peso);
+    grassiG = Math.round(0.9 * peso);
+    carbG = Math.max(0, Math.round((kcalTarget - protG*4 - grassiG*9) / 4));
+  }
+  // Override con ragionamento clinico se presente
+  var ragCtx = '';
+  if (window._ragContextForPiano && window._ragContextForPiano.pazId === pazienteId) {
+    var rt = window._ragContextForPiano.riassunto || '';
+    var mk=rt.match(/(\d{3,4})\s*kcal/i), mp=rt.match(/[Pp]roteine[^\d]*(\d+)/), mc=rt.match(/[Cc]arboidrati[^\d]*(\d+)/), mg=rt.match(/[Gg]rassi[^\d]*(\d+)/);
+    if (mk&&mp&&mc&&mg) { kcalTarget=+mk[1]; protG=+mp[1]; carbG=+mc[1]; grassiG=+mg[1]; }
+    ragCtx = '\n\nDECISIONI CLINICHE DEL MEDICO — rispetta con priorità assoluta:\n' + rt;
+  }
+
+  var olioG = kcalTarget !== null ? (kcalTarget < 1600 ? 10 : 20) : 15;
+  var carbGr = kcalTarget !== null ? (
+    kcalTarget < 1200 ? 60 : kcalTarget < 1400 ? 70 :
+    kcalTarget < 1600 ? 80 : kcalTarget < 1800 ? 90 :
+    kcalTarget < 2000 ? 100 : kcalTarget < 2200 ? 110 :
+    kcalTarget < 2500 ? 120 : 150) : 80;
+
   var al = p.alimenti || {};
-  var verdi    = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
-  var arancioni= Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
-  var rossi    = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
-  var jsonEsempio = '{"giorni":[{"giorno":"Lunedì","colazione":{"nota_descrittiva":"Colazione proteica con frutta fresca","principale1":{"nome":"Yogurt greco","grammi":150},"principale2":{"nome":"Fette biscottate integrali","grammi":20},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"Fiocchi di latte","grammi":150},{"nome":"Gallette di riso","grammi":20}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"Ricotta","grammi":100},{"nome":"Pane integrale","grammi":30}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"Prosciutto cotto","grammi":50},{"nome":"Pane bianco","grammi":30}]}]},"spuntino_mattina":{"nota_descrittiva":"Spuntino leggero","principale1":{"nome":"Mela","grammi":150},"principale2":null,"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"Pera","grammi":150}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"Banana","grammi":100}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"Datteri","grammi":30}]}]},"pranzo":{"nota_descrittiva":"Pranzo bilanciato con legumi","principale1":{"nome":"Pasta integrale","grammi":80},"principale2":{"nome":"Petto di pollo","grammi":150},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"Riso basmati","grammi":80},{"nome":"Tacchino","grammi":150}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"Pasta","grammi":80},{"nome":"Salmone","grammi":120}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"Riso bianco","grammi":80},{"nome":"Bistecca","grammi":150}]}]},"spuntino_pomeriggio":{"nota_descrittiva":"Merenda proteica","principale1":{"nome":"Yogurt magro","grammi":125},"principale2":null,"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"Fiocchi di latte","grammi":100}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"Wasa con ricotta","grammi":50}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"Crackers","grammi":30}]}]},"cena":{"nota_descrittiva":"Cena leggera","principale1":{"nome":"Petto di pollo","grammi":150},"principale2":{"nome":"Verdure miste","grammi":200},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"Tacchino","grammi":150},{"nome":"Zucchine","grammi":200}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"Salmone","grammi":120},{"nome":"Fagiolini","grammi":200}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"Carne rossa","grammi":150},{"nome":"Patate","grammi":100}]}]},"macros":{"kcal":1400,"proteine":110,"carboidrati":150,"grassi":45}}]}';
-  return 'Sei un nutrizionista esperto italiano. Genera un piano alimentare settimanale personalizzato per questo paziente.\n\n' +
-    'DATI PAZIENTE:\n' +
-    'Nome: ' + (p.nome||'') + ' ' + (p.cognome||'') + '\n' +
-    'Regime: ' + (p.regime||'') + '\n' +
-    'Kcal target: ' + (p.kcalTarget||p.tdee||'') + '\n' +
-    'Proteine: ' + (p.proteineTarget||'') + 'g\n' +
-    'Carboidrati: ' + (p.carboidratiTarget||'') + 'g\n' +
-    'Grassi: ' + (p.grassiTarget||'') + 'g\n' +
-    'Allergie: ' + (p.allergie||'Nessuna') + '\n' +
-    'Spuntini: ' + (p.spuntini||'Si') + '\n' +
-    'Note speciali: sabato sera pizza se il paziente lo gradisce\n\n' +
-    (window._ragContextForPiano&&window._ragContextForPiano.pazId===pazienteId?
-      'DECISIONI CLINICHE DEL MEDICO — rispetta queste indicazioni con priorità assoluta su qualsiasi altro calcolo:\n'+
-      window._ragContextForPiano.riassunto+'\n\n':'')+
-    'REGOLE ALIMENTI — frequenza pesata su 33 slot totali (11 pasti × 3 ricette):\n' +
-    '- VERDI (usa 20-23 volte su 33): ' + (verdi.length?verdi.join(', '):'nessuno') + '\n' +
-    '- ARANCIONI (usa 5-8 volte su 33): ' + (arancioni.length?arancioni.join(', '):'nessuno') + '\n' +
-    '- ROSSI (usa max 3 volte su 33, solo se non ci sono alternative migliori): ' + (rossi.length?rossi.join(', '):'nessuno') + '\n' +
-    '- Alimenti NON in lista: NON usare mai in nessuno slot, né come principale né come alternativa\n\n' +
-    'ORDINE OBBLIGATORIO DELLE 3 RICETTE per ogni pasto:\n' +
-    '- Ricetta 1 (posizione 1, colore "verde"): usa SOLO alimenti verdi. È la ricetta principale consigliata.\n' +
-    '- Ricetta 2 (posizione 2, colore "arancione"): usa prevalentemente alimenti arancioni supportati da verdi. È la variante occasionale.\n' +
-    '- Ricetta 3 (posizione 3, colore "rosso"): unica ricetta dove possono comparire alimenti rossi (max 1-2 ingredienti rossi), supportati da verdi.\n' +
-    '- Gli alimenti grigi/non selezionati NON compaiono in nessuna delle 3 ricette.\n\n' +
-    'REGOLE NUTRIZIONALI:\n' +
-    '- Pasta o riso a pranzo: < 1200 kcal → 60g | 1200-1399 → 70g | 1400-1599 → 80g | 1600-1799 → 90g | 1800-1999 → 100g | 2000-2199 → 110g | 2200-2499 → 120g | >= 2500 → 150g\n' +
-    '- Verdure miste: 200g a pranzo e cena\n' +
-    '- Olio EVO: 10-15g a pasto\n' +
-    '- Proteine cena: alterna carne bianca, pesce, carne rossa, uova\n' +
-    '- Legumi nei giorni 1, 3, 5 a pranzo con proteina leggera\n' +
-    '- Colazione: yogurt greco / fiocchi di latte / uova / affettato magro con frutta\n' +
-    '- Spuntini: frutta / yogurt / frutta secca / wasa con ricotta\n\n' +
-    'Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza markdown, con questa struttura esatta (i pasti sono chiavi dirette sul giorno, NON dentro una chiave "pasti"):\n' +
-    jsonEsempio + '\n' +
-    'Il campo macros deve contenere una stima realistica per quel giorno. Il campo principale2 può essere null per pasti semplici. Ogni pasto deve avere sempre tutte e 3 le alternative (posizione 1 verde, 2 arancione, 3 rosso).';
+  var alimentiVerdi    = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
+  var alimentiArancioni= Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
+  var alimentiRossi    = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
+
+  var ricetteDB = (db.ricette||[]).map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
+
+  var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
+  var nGiorni = isCeto ? 7 : 6;
+  var nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+
+  return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato e realistico.
+
+Per ispirazione alle ricette attingi a:
+1. Questo database di ricette già usate dallo studio: ${ricetteDB.length ? ricetteDB.join(', ') : 'nessuna ancora'}
+2. La cucina italiana tradizionale e mediterranea (ricette comuni, reperibili, pratiche per un paziente che cucina a casa)
+
+Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
+
+═══════════════════════════════════════
+DATI PAZIENTE
+═══════════════════════════════════════
+Nome: ${p.nome||''} ${p.cognome||''}
+Regime: ${p.regime||'Normocalorico'}
+Kcal target: ${kcalTarget !== null ? kcalTarget : 'N/D'} kcal/giorno
+Proteine target: ${protG !== null ? protG : 'N/D'}g
+Carboidrati target: ${carbG !== null ? carbG : 'N/D'}g
+Grassi target: ${grassiG !== null ? grassiG : 'N/D'}g
+Allergie/intolleranze: ${p.allergie||'nessuna'}
+Preferenza proteica: ${p.prefProteina||'indifferente'}
+Budget alimentare: ${p.economica||'non specificato'}
+Spuntini previsti: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'}
+Pre-nanna previsto: ${p.prenanna==='si'?'Sì':'No'}
+
+═══════════════════════════════════════
+GRAMMATURE FISSE (rispetta sempre)
+═══════════════════════════════════════
+- Verdura: 200g a pranzo + 200g a cena (sempre)
+- Olio EVO: ${olioG}g per pasto (calcolato su kcal target)
+- Carboidrati principali (pasta/riso/farro/pane): ${carbGr}g
+- Legumi barattolo: 120g (giorni 1-3-5 al pranzo)
+- Frutta secca: 20g (se presente)
+- Frutta: decidi tu la grammatura in base al profilo (riferimento: 150g porzione grande, 50g porzione piccola)
+
+═══════════════════════════════════════
+ALIMENTI AUTORIZZATI — PRIORITÀ COLORE
+═══════════════════════════════════════
+Usa SOLO gli alimenti di queste tre liste.
+Qualsiasi alimento non presente in queste liste NON deve mai comparire nel piano, né come principale né come alternativa.
+
+VERDI — usa come base di quasi tutti i pasti:
+${alimentiVerdi.length ? alimentiVerdi.join(', ') : 'nessuno specificato'}
+
+ARANCIONI — usa occasionalmente (non in tutti i pasti):
+${alimentiArancioni.length ? alimentiArancioni.join(', ') : 'nessuno'}
+
+ROSSI — usa raramente (max 2-3 volte in tutto il piano):
+${alimentiRossi.length ? alimentiRossi.join(', ') : 'nessuno'}
+
+FALLBACK: se gli alimenti verdi disponibili non sono sufficienti per costruire un pasto completo e coerente, puoi usare arancioni anche in posizione 1. Se neanche gli arancioni bastano, usa i rossi con moderazione. Priorità assoluta: il pasto deve essere nutrizionalmente sensato.
+
+═══════════════════════════════════════
+STRUTTURA SETTIMANALE
+═══════════════════════════════════════
+Genera ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).join(', ')}
+
+Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
+
+Giorni 1-3-5 pranzo: aggiungi legumi 120g con proteina leggera
+Giorni 2-4-6 pranzo: proteina principale senza legumi
+
+═══════════════════════════════════════
+REGOLE 3 RICETTE (SOLO PRANZO E CENA)
+═══════════════════════════════════════
+SOLO per pranzo e cena di ogni giorno genera 3 ricette alternative ordinate:
+
+Ricetta 1 — usa prevalentemente alimenti VERDI
+  È la scelta principale consigliata al paziente
+
+Ricetta 2 — usa prevalentemente alimenti ARANCIONI supportati da VERDI
+  È la variante occasionale
+
+Ricetta 3 — può contenere max 1-2 alimenti ROSSI supportati da VERDI
+  È la variante rara
+
+Colazione, spuntini e pre-nanna: UN SOLO formato, nessuna alternativa.
+
+═══════════════════════════════════════
+FORMATO JSON OUTPUT (obbligatorio)
+═══════════════════════════════════════
+Restituisci SOLO JSON valido, nessun testo prima o dopo.
+
+[{"giorno":"Lunedì","colazione":{"nota_descrittiva":"breve descrizione","principale1":{"nome":"","grammi":0},"principale2":{"nome":"","grammi":0}},"spuntino_mattina":{"nota_descrittiva":"","principale1":{"nome":"","grammi":0},"principale2":null},"pranzo":{"nota_descrittiva":"breve descrizione combinazioni","principale1":{"nome":"","grammi":0},"principale2":{"nome":"","grammi":0},"alternative":[{"posizione":1,"colore":"verde","nota":"breve titolo ricetta es: Riso con pollo e zucchine","alimenti":[{"nome":"","grammi":0}]},{"posizione":2,"colore":"arancione","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]},{"posizione":3,"colore":"rosso","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]}]},"spuntino_pomeriggio":{"nota_descrittiva":"","principale1":{"nome":"","grammi":0},"principale2":null},"cena":{"nota_descrittiva":"breve descrizione combinazioni","principale1":{"nome":"","grammi":0},"principale2":{"nome":"","grammi":0},"alternative":[{"posizione":1,"colore":"verde","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]},{"posizione":2,"colore":"arancione","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]},{"posizione":3,"colore":"rosso","nota":"breve titolo ricetta","alimenti":[{"nome":"","grammi":0}]}]},"pre_nanna":{"nota_descrittiva":"","principale1":{"nome":"","grammi":0},"principale2":null}}]
+
+Includi pre_nanna solo se previsto dal profilo paziente.
+Includi spuntini solo se previsti dal profilo paziente.
+Se principale2 non esiste per un pasto, metti null.
+
+═══════════════════════════════════════
+AUTO-VERIFICA PRIMA DI RISPONDERE
+═══════════════════════════════════════
+Controlla:
+- Nessun alimento fuori dalle liste verdi/arancioni/rossi
+- Grammature fisse rispettate (verdura 200g, olio ${olioG}g, carbo ${carbGr}g)
+- Ricette 1 prevalentemente verdi, ricetta 2 arancioni, ricetta 3 con rossi
+- JSON valido e completo
+- Varietà tra i giorni (no giorni identici)
+- Pasti nutrizionalmente coerenti`;
 }
 
 function getAnthropicKey() {
@@ -2650,24 +2751,26 @@ function generaPDF(paziente, giorni) {
         doc.splitTextToSize(nota, W - M * 2).forEach(function(r) { chk(4); doc.text(r, M, y); y += 4; });
       }
 
-      // Due colonne con linea verticale centrale
+      // Principale1 e principale2 — full width se p2 è null, due colonne altrimenti
       var p1 = pasto.principale1, p2 = pasto.principale2;
       if (p1 || p2) {
         chk(7);
         doc.setTextColor(...nero);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9.5);
-        if (p1) doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
-        if (p2) doc.text(p2.nome + ' ' + (p2.grammi||'') + 'g', M + colW + 4, y);
         if (p1 && p2) {
+          doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
+          doc.text(p2.nome + ' ' + (p2.grammi||'') + 'g', M + colW + 4, y);
           doc.setDrawColor(...grigio);
           doc.setLineWidth(0.2);
           doc.line(M + colW + 2, y - 5, M + colW + 2, y + 1);
+        } else if (p1) {
+          doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
         }
         y += 5.5;
       }
 
-      // Alternative: 3 ricette ordinate 1→2→3
+      // Alternative: 3 ricette ordinate 1→2→3 con titolo (nota) + lista alimenti
       var alts = pasto.alternative;
       if (alts && alts.length) {
         chk(5);
@@ -2677,14 +2780,23 @@ function generaPDF(paziente, giorni) {
         doc.text('Alternative:', M, y);
         y += 4;
         alts.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
-          var alis = (alt.alimenti||[]).map(function(a){return a.nome+(a.grammi?' '+a.grammi+'g':'');}).join(', ');
-          if (!alis) return;
-          chk(4.5);
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(7.5);
-          doc.setTextColor(...grigio);
-          var righe = doc.splitTextToSize(alt.posizione + '. ' + alis, W - M * 2 - 4);
-          righe.forEach(function(r) { chk(4); doc.text(r, M + 2, y); y += 4; });
+          var alimTesto = (alt.alimenti||[]).map(function(a){return a.nome+(a.grammi?' '+a.grammi+'g':'');}).join(', ');
+          if (!alt.nota && !alimTesto) return;
+          chk(8);
+          // Titolo ricetta in corsivo
+          if (alt.nota) {
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(...grigio);
+            doc.splitTextToSize(alt.posizione + '. ' + alt.nota, W - M * 2 - 4).forEach(function(r){ chk(4); doc.text(r, M + 2, y); y += 4; });
+          }
+          // Lista alimenti indentata
+          if (alimTesto) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...grigio);
+            doc.splitTextToSize(alimTesto, W - M * 2 - 8).forEach(function(r){ chk(4); doc.text(r, M + 5, y); y += 4; });
+          }
         });
       }
       y += 4;
