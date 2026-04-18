@@ -1809,11 +1809,63 @@ function updateAnalisi(){
 }
 function salvaAnalisi(){updateAnalisi();save();notif('✓ Analisi salvate!');}
 
+function renderMemoriaInbody(p,sorted){
+  if(!sorted||!sorted.length)return'';
+  const ibDelta=(c,o)=>{if(c==null||o==null||c===''||o==='')return null;return +(parseFloat(c)-parseFloat(o)).toFixed(2);};
+  const ibColor=(d,inv)=>{if(d===null||Math.abs(d)<0.05)return '#a09890';return (inv?d<0:d>0)?'#16a34a':'#dc2626';};
+  const ibSign=(d,unit)=>{if(d===null)return'—';return(d>0?'+':'')+d+unit;};
+  const ibArrow=(d)=>{if(d===null||Math.abs(d)<0.05)return'';return d>0?' ▲':' ▼';};
+  const ibCard=(label,d,unit,inv)=>{
+    const col=ibColor(d,inv);
+    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.65rem .8rem;text-align:center;box-shadow:var(--shadow)"><div style="font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.3rem">'+label+'</div><div style="font-family:\'DM Serif Display\',serif;font-size:1.05rem;color:'+col+';font-weight:600">'+ibSign(d,unit)+ibArrow(d)+'</div></div>';
+  };
+  if(sorted.length>=2){
+    const last=sorted[0],prev=sorted[1];
+    const dPeso=ibDelta(last.peso,prev.peso);
+    const dG=ibDelta(last.g,prev.g);
+    const dPg=ibDelta(last.pg,prev.pg);
+    const dM=ibDelta(last.m,prev.m);
+    const dAcqua=ibDelta(last.acqua,prev.acqua);
+    const dMb=ibDelta(last.mb,prev.mb);
+    let settLabel='—';
+    try{const diff=Math.round((new Date(last.data)-new Date(prev.data))/(7*24*3600*1000));if(diff>0)settLabel=diff+' settimane';}catch(e){}
+    const pid=p.id;
+    return '<div class="card" style="margin-bottom:.7rem;border:1.5px solid #16a34a">'
+      +'<div class="card-hd" style="background:#f0fdf4">'
+      +'<h3 style="color:#16a34a">📈 Memoria paziente tra visite</h3>'
+      +'<span style="font-size:.71rem;color:var(--text2)">'+fData(prev.data)+' → '+fData(last.data)+' · '+settLabel+'</span>'
+      +'</div>'
+      +'<div class="card-bd">'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;margin-bottom:1rem">'
+      +ibCard('Peso',dPeso,' kg',false)
+      +(dG!==null?ibCard('Massa grassa',dG,' kg',true):'')
+      +(dPg!==null?ibCard('% Grassa',dPg,'%',true):'')
+      +(dM!==null?ibCard('Massa magra',dM,' kg',false):'')
+      +(dAcqua!==null?ibCard('Acqua totale',dAcqua,' L',false):'')
+      +(dMb!==null?ibCard('Metabolismo basale',dMb,' kcal',false):'')
+      +'</div>'
+      +'<button id="btn-ascolto-'+pid+'" class="btn" style="background:#16a34a;color:#fff;width:100%;justify-content:center;font-size:.85rem;padding:.6rem 1rem" onclick="ascoltaProgresso(\''+pid+'\')">▶ Ascolta il tuo progresso</button>'
+      +'<div id="box-ascolto-'+pid+'" style="display:none;margin-top:.75rem;padding:.9rem 1.1rem;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;font-size:.84rem;color:var(--text);line-height:1.65"></div>'
+      +'</div></div>';
+  }
+  return '<div class="card" style="margin-bottom:.7rem;border:1.5px solid #86efac">'
+    +'<div class="card-hd" style="background:#f0fdf4">'
+    +'<h3 style="color:#16a34a">📈 Memoria paziente tra visite</h3>'
+    +'</div>'
+    +'<div class="card-bd">'
+    +'<p style="font-size:.85rem;color:var(--text2)">Prima misurazione registrata il <strong>'+fData(sorted[0].data)+'</strong>. Inserisci una seconda misurazione per visualizzare i progressi tra le visite.</p>'
+    +'</div></div>';
+}
+
 function renderPdInbody(p){
   const list=p.inbody||[];
   if(!list.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
-  const sorted=[...list].sort((a,b)=>b.data.localeCompare(a.data));
-  document.getElementById('pd-inbody').innerHTML=sorted.map((ib,i)=>`
+  const sorted=[...list].filter(x=>x&&x.data).sort((a,b)=>b.data.localeCompare(a.data));
+  if(!sorted.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody valida</p></div>';return;}
+
+  let html=renderMemoriaInbody(p,sorted);
+
+  html+=sorted.map((ib,i)=>`
     <div class="card" style="margin-bottom:.7rem">
       <div class="card-hd"><h3>📊 ${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</h3>
         <button class="btn btn-d btn-sm" onclick="delInbody('${ib.id}')">✕</button></div>
@@ -1831,6 +1883,8 @@ function renderPdInbody(p){
         </div>
         ${ib.note?`<div style="font-size:.77rem;color:var(--text2);margin-top:.4rem;padding:.5rem;background:var(--bg);border-radius:6px">${ib.note}</div>`:''}
       </div></div>`).join('');
+
+  document.getElementById('pd-inbody').innerHTML=html;
 }
 
 function renderPdMacros(p){
@@ -2599,6 +2653,108 @@ function delInbody(ibId){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   p.inbody=p.inbody.filter(x=>x.id!==ibId);
   save();renderPdInbody(p);notif('Eliminata');
+}
+
+async function ascoltaProgresso(pazId){
+  const p=db.pazienti.find(x=>x.id===pazId);if(!p)return;
+  const btn=document.getElementById('btn-ascolto-'+pazId);
+  const box=document.getElementById('box-ascolto-'+pazId);
+  if(!btn||!box)return;
+
+  if(btn.dataset.playing==='true'){
+    speechSynthesis.cancel();
+    btn.innerHTML='▶ Ascolta il tuo progresso';
+    btn.style.background='#16a34a';
+    btn.dataset.playing='false';
+    return;
+  }
+
+  const sorted=[...(p.inbody||[])].sort((a,b)=>b.data.localeCompare(a.data));
+  if(sorted.length<2)return;
+  const last=sorted[0],prev=sorted[1];
+
+  function d(c,o){if(c==null||o==null||c===''||o==='')return null;return +(parseFloat(c)-parseFloat(o)).toFixed(2);}
+  function fD(v,unit){if(v===null)return'non disponibile';return(v>0?'+':'')+v+unit;}
+
+  const dPeso=d(last.peso,prev.peso);
+  const dG=d(last.g,prev.g);
+  const dPg=d(last.pg,prev.pg);
+  const dM=d(last.m,prev.m);
+  const dAcqua=d(last.acqua,prev.acqua);
+  const dMb=d(last.mb,prev.mb);
+
+  let settimane='—';
+  try{const diff=Math.round((new Date(last.data)-new Date(prev.data))/(7*24*3600*1000));if(diff>0)settimane=diff;}catch(e){}
+
+  const prompt=`Sei un nutrizionista empatico che parla direttamente al paziente in seconda persona.
+
+Dati del paziente:
+- Nome: ${p.nome}
+- Obiettivo: ${p.obiettivo||'non specificato'}
+- Regime alimentare: ${p.regime||'non specificato'}
+- Attività fisica: ${p.sport||'non specificata'}${p.sportOre?' ('+p.sportOre+' ore/settimana)':''}
+- Settimane tra le due visite: ${settimane}
+
+Variazioni misurate rispetto alla visita precedente:
+- Peso totale: ${fD(dPeso,' kg')}
+- Massa grassa (kg): ${fD(dG,' kg')}
+- Massa grassa (%): ${fD(dPg,'%')}
+- Massa magra: ${fD(dM,' kg')}
+- Acqua totale: ${fD(dAcqua,' L')}
+- Metabolismo basale: ${fD(dMb,' kcal')}
+
+Genera un commento vocale seguendo questa struttura obbligatoria nell'ordine indicato:
+1. Saluto caldo con il nome del paziente
+2. Commento sui dati reali — cita SOLO le variazioni superiori a 0.3 kg o 1%, in modo positivo e motivante
+3. Frase di transizione verso i prossimi obiettivi
+4. Incoraggiamento personalizzato sui prossimi mesi, basato sull'obiettivo e il regime
+5. Chiusura motivante e specifica
+
+Regole:
+- Parla in seconda persona, usa sempre il nome ${p.nome}
+- Tono caldo, empatico, come un alleato — mai freddo o clinico
+- Lunghezza: 5-7 frasi parlate, fluisce come un discorso naturale, non un elenco
+- Lingua: italiano
+- Descrivi i numeri a parole senza simboli matematici
+- Scrivi solo il testo da leggere ad alta voce, senza titoli o intestazioni`;
+
+  try{
+    const apiKey=getAnthropicKey();
+    btn.innerHTML='⏳ Elaborazione...';
+    btn.disabled=true;
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:600,messages:[{role:'user',content:prompt}]})
+    });
+    if(!resp.ok)throw new Error('Errore API: '+resp.status);
+    const data=await resp.json();
+    const testo=data.content[0].text.trim();
+
+    box.textContent=testo;
+    box.style.display='block';
+
+    speechSynthesis.cancel();
+    const utt=new SpeechSynthesisUtterance(testo);
+    utt.lang='it-IT';utt.rate=0.9;utt.pitch=1.0;
+
+    btn.innerHTML='⏹ Stop';
+    btn.style.background='#dc2626';
+    btn.disabled=false;
+    btn.dataset.playing='true';
+
+    utt.onend=()=>{btn.innerHTML='▶ Ascolta il tuo progresso';btn.style.background='#16a34a';btn.dataset.playing='false';};
+    utt.onerror=()=>{btn.innerHTML='▶ Ascolta il tuo progresso';btn.style.background='#16a34a';btn.dataset.playing='false';};
+    speechSynthesis.speak(utt);
+
+  }catch(err){
+    btn.innerHTML='▶ Ascolta il tuo progresso';
+    btn.style.background='#16a34a';
+    btn.disabled=false;
+    btn.dataset.playing='false';
+    notif('❌ '+err.message);
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
