@@ -2256,6 +2256,36 @@ function getAnthropicKey() {
   return key.trim();
 }
 
+function parseJSONSicuro(testo) {
+  try {
+    return JSON.parse(testo);
+  } catch(e) {
+    try {
+      var start = -1;
+      for (var i = 0; i < testo.length; i++) {
+        if (testo[i] === '[' || testo[i] === '{') { start = i; break; }
+      }
+      if (start === -1) throw new Error('Nessun JSON trovato');
+      var t = testo.slice(start);
+      var stack = [], inStr = false, escape = false;
+      for (var j = 0; j < t.length; j++) {
+        var c = t[j];
+        if (escape) { escape = false; continue; }
+        if (c === '\\' && inStr) { escape = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (c === '{') stack.push('}');
+        else if (c === '[') stack.push(']');
+        else if (c === '}' || c === ']') stack.pop();
+      }
+      while (stack.length > 0) t += stack.pop();
+      return JSON.parse(t);
+    } catch(e) {
+      throw new Error('JSON non riparabile: ' + e.message);
+    }
+  }
+}
+
 async function chiamaGeneraPiano(pazienteId) {
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
   console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
@@ -2292,7 +2322,7 @@ async function chiamaGeneraPiano(pazienteId) {
     .replace(/\s*```$/, '')
     .trim();
 
-  return { ok: true, piano: JSON.parse(testo) };
+  return { ok: true, piano: parseJSONSicuro(testo) };
 }
 
 function mostraLoadingSteps(loadEl){
