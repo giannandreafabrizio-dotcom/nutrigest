@@ -3973,12 +3973,12 @@ function toggleTodoFatto(id){
   renderAgendaDx();
 }
 
-const CAT_COLORS={
+const AGENDA_CAT={
   'Nutrizionista':{dot:'#1D9E75',bg:'#E1F5EE',border:'#1D9E75'},
   'Personale':{dot:'#378ADD',bg:'#E6F1FB',border:'#378ADD'},
   'Vigile del fuoco':{dot:'#E24B4A',bg:'#FCEBEB',border:'#E24B4A'}
 };
-function _catCol(cat){return CAT_COLORS[cat]||{dot:'#94a3b8',bg:'#f1f5f9',border:'#94a3b8'};}
+function _catCol(cat){return AGENDA_CAT[cat]||{dot:'#94a3b8',bg:'#f1f5f9',border:'#94a3b8'};}
 
 function renderAgendaDx(){
   const og=today();
@@ -4009,7 +4009,7 @@ function renderAgendaDx(){
   if(orarioEl){
     // Legenda
     const legenda=`<div style="display:flex;gap:.7rem;margin-bottom:.6rem;flex-wrap:wrap">
-      ${Object.entries(CAT_COLORS).map(([k,v])=>`<span style="font-size:.68rem;color:${v.dot};display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.dot};display:inline-block"></span>${k}</span>`).join('')}
+      ${Object.entries(AGENDA_CAT).map(([k,v])=>`<span style="font-size:.68rem;color:${v.dot};display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.dot};display:inline-block"></span>${k}</span>`).join('')}
     </div>`;
 
     const timelineHtml=slots.map(slot=>{
