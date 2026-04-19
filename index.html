@@ -3108,8 +3108,7 @@ function renderAlEditor(){
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
     const sc=cat.replace(/'/g,"\\'");
-    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✓ Tutti</button>`
-              +` <button onclick="selCatAl('${sc}','no')" style="font-size:11px;padding:2px 8px;border:1px solid #f87171;color:#f87171;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✕ Nessuno</button>`;
+    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✓ Tutti</button>`;
     html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4><div style="display:flex;gap:4px;align-items:center">${btns}</div></div><div class="al-grid">`;
     items.forEach(item=>{
       const key=cat+'__'+item.n;
