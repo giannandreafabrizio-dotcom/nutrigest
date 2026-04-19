@@ -379,7 +379,7 @@ main{flex:1;overflow-y:auto;}
   </div>
   <div class="sbar">
     <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="renderPaz()">
-    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option></select>
+    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select>
   </div>
   <div class="paz-grid" id="paz-grid"></div>
 </div>
@@ -395,6 +395,8 @@ main{flex:1;overflow-y:auto;}
       <button class="btn btn-g" onclick="editPaz()">✏ Modifica</button>
       <button class="btn btn-orange" onclick="openInbody()">📊 InBody</button>
       <button class="btn btn-p" onclick="openAddEventoPaz()">📅 Aggiungi evento</button>
+      <button class="btn btn-g" onclick="archiviaPaz(currentPazId)" style="background:transparent;border:1px solid #aaa;color:#666">📦 Archivia</button>
+      <button class="btn btn-d" onclick="eliminaPaz(currentPazId)">🗑 Elimina</button>
     </div>
   </div>
   <div class="pd-hdr" id="pd-hdr"></div>
@@ -1497,9 +1499,12 @@ function renderPaz(){
   const q=(document.getElementById('s-paz').value||'').toLowerCase();
   const f=document.getElementById('f-paz').value;
   let list=[...db.pazienti].sort((a,b)=>a.cognome.localeCompare(b.cognome));
+  if(f==='archiviati')list=list.filter(p=>p.stato==='archiviato');
+  else list=list.filter(p=>p.stato!=='archiviato');
   if(q)list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
   if(f==='attivo')list=list.filter(p=>p.inizioAlim);
-  document.getElementById('paz-count').textContent=db.pazienti.length+' pazienti';
+  const attivi=db.pazienti.filter(p=>p.stato!=='archiviato').length;
+  document.getElementById('paz-count').textContent=attivi+' pazienti';
   const grid=document.getElementById('paz-grid');
   if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessun paziente</p><span>Clicca "+ Nuovo paziente" per iniziare</span></div>';return;}
   grid.innerHTML=list.map(p=>{
@@ -1513,17 +1518,22 @@ function renderPaz(){
     }else statoTag=`<span class="tag tag-orange">Nessun piano</span>`;
     const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
     const regimeTag=p.regime?`<span class="tag tag-purple">${p.regime}</span>`:'';
+    const archiviato=p.stato==='archiviato';
     let cardBg='#FAEEDA';let cardBorder='#FAC775';
-    if(p.controlloData){
+    if(archiviato){cardBg='#F3F4F6';cardBorder='#D1D5DB';}
+    else if(p.controlloData){
       cardBg=new Date(p.controlloData)>new Date()?'#E6F1FB':'#FCEBEB';
       cardBorder=new Date(p.controlloData)>new Date()?'#B5D4F4':'#F7C1C1';
     }
-    return`<div class="paz-card" style="background:${cardBg};border-color:${cardBorder}" onclick="openPaz('${p.id}')">
+    const archTag=archiviato?`<span class="tag tag-gray">📦 Archiviato</span>`:'';
+    const ripristinaBtn=archiviato?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();ripristinaPaz('${p.id}')" style="font-size:.7rem;padding:.2rem .6rem;margin-top:.4rem">↩ Ripristina</button>`:'';
+    return`<div class="paz-card" style="background:${cardBg};border-color:${cardBorder};opacity:${archiviato?.7:1}" onclick="${archiviato?'':` openPaz('${p.id}')`}">
       <div class="paz-card-top">
-        <div class="avatar">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
+        <div class="avatar" style="${archiviato?'opacity:.5':''}">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
         <div><div class="paz-nome">${p.nome} ${p.cognome}</div><div class="paz-meta">${eta}${eta&&p.tel?' · ':''}${p.tel||''}</div></div>
       </div>
-      <div class="paz-tags">${statoTag}${regimeTag}</div>
+      <div class="paz-tags">${archiviato?archTag:statoTag+regimeTag}</div>
+      ${ripristinaBtn}
     </div>`;
   }).join('');
 }
@@ -3905,8 +3915,23 @@ function renderDashboard(){
 }
 
 // ═══════════════════════════════════════
-// ELIMINA PAZIENTE
+// ARCHIVIA / RIPRISTINA / ELIMINA PAZIENTE
 // ═══════════════════════════════════════
+function archiviaPaz(id){
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+  if(!confirm(`Archiviare il paziente ${p.nome} ${p.cognome}?\nNon apparirà più nella lista attiva.`))return;
+  p.stato='archiviato';
+  save();
+  goTo('pazienti',document.querySelector('.nav-item'));
+  renderPaz();
+  notif('📦 Paziente archiviato');
+}
+function ripristinaPaz(id){
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+  p.stato='attivo';
+  save();renderPaz();
+  notif('✓ Paziente ripristinato');
+}
 function eliminaPaz(id){
   const p = db.pazienti.find(x=>x.id===id);
   if(!p) return;
