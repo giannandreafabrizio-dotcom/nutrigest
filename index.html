@@ -614,7 +614,15 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
-      <div id="syncTimestampCfg" style="font-size:11px;margin-top:6px;color:var(--text3)"></div>
+    </div>
+  </div>
+  <div class="card" style="background:var(--bg2,rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.08);margin-top:.75rem">
+    <div class="card-hd"><h3>☁️ Stato sincronizzazione</h3></div>
+    <div class="card-bd" style="padding:12px;display:flex;flex-direction:column;gap:6px;font-size:.8rem">
+      <div>URL Script: <span id="ss-url" style="font-weight:600"></span></div>
+      <div>Stato: <span id="ss-stato" style="font-weight:600"></span></div>
+      <div>Ultima sincronizzazione: <span id="ss-ts" style="font-weight:600"></span></div>
+      <div>Record in memoria: <span id="ss-rec" style="font-weight:600;color:var(--text3)"></span></div>
     </div>
   </div>
   <div class="card">
@@ -1350,15 +1358,42 @@ function getSyncColor(){
   if(!ts)return 'gray';
   return (Date.now()-parseInt(ts))<86400000?'#4ade80':'#fb923c';
 }
+let _syncOk=false;
+function aggiornaStatoSync(){
+  const urlEl=document.getElementById('ss-url');
+  const statoEl=document.getElementById('ss-stato');
+  const tsEl=document.getElementById('ss-ts');
+  const recEl=document.getElementById('ss-rec');
+  if(urlEl){
+    const hasUrl=!!getUrl();
+    urlEl.textContent=hasUrl?'✓ Configurato':'✗ Non configurato';
+    urlEl.style.color=hasUrl?'#4ade80':'#f87171';
+  }
+  if(statoEl){
+    statoEl.textContent=_syncOk?'✓ Connesso a Google Sheets':'✗ Non connesso';
+    statoEl.style.color=_syncOk?'#4ade80':'#f87171';
+  }
+  if(tsEl){
+    const ts=localStorage.getItem('lastSync');
+    if(ts){const d=new Date(parseInt(ts));tsEl.textContent=d.toLocaleTimeString('it-IT');}
+    else tsEl.textContent='mai';
+  }
+  if(recEl&&db){
+    const paz=(db.pazienti||[]).length;
+    const piani=(db.pazienti||[]).filter(p=>p.piano&&p.piano.giorni).length;
+    const ric=(db.ricette||[]).length;
+    recEl.textContent=paz+' pazienti, '+piani+' piani, '+ric+' ricette';
+  }
+}
 function setSyncStatus(ok){
+  _syncOk=ok;
   const d=document.getElementById('sync-dot'),t=document.getElementById('sync-txt');
   if(d)d.className='sync-dot'+(ok?'':' err');
   if(t)t.textContent=ok?'Sincronizzato':'Solo locale';
   const txt=getLastSyncText(),col=getSyncColor();
   const el1=document.getElementById('syncTimestamp');
   if(el1){el1.textContent=txt;el1.style.color=col;}
-  const el2=document.getElementById('syncTimestampCfg');
-  if(el2){el2.textContent=txt;el2.style.color=col;}
+  aggiornaStatoSync();
 }
 async function pushToSheets(){
   const url=getUrl();
@@ -3934,7 +3969,8 @@ renderDashboard();
 const savedUrl=getUrl();
 if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
 else setSyncStatus(false);
-setSyncStatus(true);
+setSyncStatus(!!localStorage.getItem('lastSync'));
+aggiornaStatoSync();
 initAntCard();
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
