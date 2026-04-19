@@ -4051,9 +4051,21 @@ function applicaPatch(piano, patch) {
 function renderAnteprima(patch) {
   var pasto = patch.nuovoPasto;
   var html = '<strong>' + patch.giorno + ' — ' + patch.pasto.toUpperCase() + '</strong><br>';
-  if (pasto.p1) html += pasto.p1.n + ' ' + pasto.p1.g + 'g';
-  if (pasto.p2) html += ' · ' + pasto.p2.n + ' ' + pasto.p2.g + 'g';
-  if (pasto.nd) html += '<br><em>' + pasto.nd + '</em>';
+  var p1 = pasto.principale1, p2 = pasto.principale2;
+  if (p1) html += '<strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
+  if (p2) html += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
+  var nd = pasto.nota_descrittiva || pasto.nota || '';
+  if (nd) html += '<br><em style="color:var(--text2);font-size:.8rem">' + nd + '</em>';
+  var alts = pasto.alternative || pasto.alternatives || [];
+  if (alts.length) {
+    var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
+    html += '<br>';
+    alts.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
+      var ic = altLabel[alt.colore] || '';
+      var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
+      html += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
+    });
+  }
   document.getElementById('p2-preview-content').innerHTML = html;
 }
 
@@ -4104,6 +4116,8 @@ async function chiamaAIChat(messaggioUtente) {
     + JSON.stringify(window._pianoCorrente)
     + '. Quando proponi una modifica specifica includila come JSON patch nel formato '
     + '{"giorno":"...","pasto":"...","nuovoPasto":{...}} alla fine del messaggio. '
+    + 'Il campo nuovoPasto deve usare SEMPRE chiavi espanse: principale1 e principale2 (oggetti con campi nome e grammi), '
+    + 'nota_descrittiva (stringa), alternative (array di oggetti con campi posizione, colore, alimenti). '
     + 'Altrimenti rispondi in italiano naturale.';
   var res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
