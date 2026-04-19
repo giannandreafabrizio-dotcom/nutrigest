@@ -222,6 +222,7 @@ main{flex:1;overflow-y:auto;}
   .page{padding:.8rem;}
   .fr,.fr3{grid-template-columns:1fr;}
   .aside-foot{display:none;}
+  .dash-2col{grid-template-columns:1fr!important;}
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -279,97 +280,115 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
 
-  <!-- KPI Cards -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem;margin-bottom:1.3rem;">
+  <div class="dash-2col" style="display:grid;grid-template-columns:1fr 300px;gap:1.1rem;align-items:start">
 
-    <!-- Pazienti Attivi -->
-    <div style="background:linear-gradient(135deg,#2a7d6f,#1f5e53);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(42,125,111,.28);color:#fff;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Pazienti Attivi</span>
-        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    <!-- COLONNA SINISTRA -->
+    <div>
+      <!-- KPI Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem;margin-bottom:1.3rem;">
+        <div style="background:linear-gradient(135deg,#2a7d6f,#1f5e53);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(42,125,111,.28);color:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Pazienti Attivi</span>
+            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+          </div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-tot-paz">—</div>
+          <div style="font-size:.7rem;opacity:.72" id="dash-sub-paz">nel database</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(124,58,237,.25);color:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Appuntamenti Settimana</span>
+            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          </div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-appuntamenti-sett">—</div>
+          <div style="font-size:.7rem;opacity:.72" id="dash-sub-appuntamenti">visite + controlli</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#e07840,#c96830);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(224,120,64,.28);color:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Prime Visite Settimana</span>
+            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+          </div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-visite-sett">—</div>
+          <div style="font-size:.7rem;opacity:.72" id="dash-sub-visite">nuovi pazienti</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#059669,#047857);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(5,150,105,.25);color:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Entrate Questo Mese</span>
+            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+          </div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.1rem;line-height:1;margin-bottom:.3rem" id="dash-entrate-mese">—</div>
+          <div style="font-size:.7rem;opacity:.72">incassi totali</div>
         </div>
       </div>
-      <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-tot-paz">—</div>
-      <div style="font-size:.7rem;opacity:.72" id="dash-sub-paz">nel database</div>
-    </div>
 
-    <!-- Appuntamenti questa settimana -->
-    <div style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(124,58,237,.25);color:#fff;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Appuntamenti Settimana</span>
-        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <!-- Allerte + Ultimi pazienti -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.1rem;">
+        <div class="card">
+          <div class="card-hd"><h3>⚕️ Allerte cliniche</h3></div>
+          <div class="card-bd">
+            <p id="dash-sintesi" style="font-size:.78rem;color:var(--text2);margin-bottom:.6rem"></p>
+            <div id="dash-alert-tags" style="display:flex;flex-wrap:wrap;gap:.35rem"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">
+            <h3>👥 Ultimi pazienti</h3>
+            <button class="btn btn-g btn-sm" onclick="goTo('pazienti',document.querySelectorAll('.nav-item')[1])">Vedi tutti →</button>
+          </div>
+          <div class="card-bd" id="dash-pazienti-recenti"></div>
         </div>
       </div>
-      <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-appuntamenti-sett">—</div>
-      <div style="font-size:.7rem;opacity:.72" id="dash-sub-appuntamenti">visite + controlli</div>
+
+      <!-- Spunti piani alimentari -->
+      <div class="card">
+        <div class="card-hd"><h3>💡 Spunti per i piani alimentari</h3></div>
+        <div class="card-bd" id="dash-spunti-list"></div>
+      </div>
     </div>
 
-    <!-- Prime visite settimana -->
-    <div style="background:linear-gradient(135deg,#e07840,#c96830);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(224,120,64,.28);color:#fff;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Prime Visite Settimana</span>
-        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+    <!-- COLONNA DESTRA — Agenda -->
+    <div style="position:sticky;top:1rem">
+      <!-- Con orario -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px 12px 0 0;padding:.75rem .9rem;border-bottom:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <span style="font-size:.75rem;font-weight:600;color:var(--text)">🗓 Con orario</span>
+          <button onclick="toggleFormAgenda()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
         </div>
-      </div>
-      <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-visite-sett">—</div>
-      <div style="font-size:.7rem;opacity:.72" id="dash-sub-visite">nuovi pazienti</div>
-    </div>
-
-    <!-- Entrate mese -->
-    <div style="background:linear-gradient(135deg,#059669,#047857);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(5,150,105,.25);color:#fff;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-        <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Entrate Questo Mese</span>
-        <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <div id="dash-form-agenda" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <input id="da-testo" type="text" placeholder="Descrizione..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+          <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
+            <input id="da-ora" type="time" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+            <select id="da-cat" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+              <option value="Personale">Personale</option>
+              <option value="Studio">Studio</option>
+              <option value="Formazione">Formazione</option>
+              <option value="Amministrazione">Amministrazione</option>
+            </select>
+          </div>
+          <button onclick="salvaAgendaItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
         </div>
+        <div id="dash-agenda-orario"></div>
       </div>
-      <div style="font-family:'DM Serif Display',serif;font-size:2.1rem;line-height:1;margin-bottom:.3rem" id="dash-entrate-mese">—</div>
-      <div style="font-size:.7rem;opacity:.72">incassi totali</div>
-    </div>
-  </div>
-
-  <!-- Agenda del giorno -->
-  <div class="card" style="margin-bottom:1.1rem;">
-    <div class="card-hd" style="background:linear-gradient(90deg,var(--teal-bg),transparent);">
-      <h3 style="display:flex;align-items:center;gap:.55rem;">
-        <span style="width:10px;height:10px;border-radius:50%;background:var(--teal);display:inline-block;flex-shrink:0"></span>
-        Agenda di Oggi
-      </h3>
-      <span id="dash-oggi-label" style="font-size:.74rem;color:var(--text3);"></span>
-    </div>
-    <div style="padding:.9rem 1.1rem" id="dash-agenda">
-      <div style="padding:.8rem;text-align:center;color:var(--text3);font-size:.79rem">Caricamento...</div>
-    </div>
-  </div>
-
-  <!-- Riga: allerte + pazienti recenti -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.1rem;">
-
-    <div class="card">
-      <div class="card-hd"><h3>⚕️ Allerte cliniche</h3></div>
-      <div class="card-bd">
-        <p id="dash-sintesi" style="font-size:.78rem;color:var(--text2);margin-bottom:.6rem"></p>
-        <div id="dash-alert-tags" style="display:flex;flex-wrap:wrap;gap:.35rem"></div>
+      <!-- Separatore + Da fare -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:.75rem .9rem;border-top:2px solid var(--border2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <span style="font-size:.75rem;font-weight:600;color:var(--text)">📋 Da fare oggi</span>
+          <button onclick="toggleFormTodo()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
+        </div>
+        <div id="dash-form-todo" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <input id="dt-testo" type="text" placeholder="Cosa devi fare..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+          <select id="dt-cat" style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Studio">Studio</option>
+            <option value="Formazione">Formazione</option>
+            <option value="Amministrazione">Amministrazione</option>
+          </select>
+          <button onclick="salvaTodoItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
+        </div>
+        <div id="dash-todo-list"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-hd">
-        <h3>👥 Ultimi pazienti</h3>
-        <button class="btn btn-g btn-sm" onclick="goTo('pazienti',document.querySelectorAll('.nav-item')[1])">Vedi tutti →</button>
-      </div>
-      <div class="card-bd" id="dash-pazienti-recenti"></div>
-    </div>
-  </div>
-
-  <!-- Spunti piani alimentari -->
-  <div class="card">
-    <div class="card-hd"><h3>💡 Spunti per i piani alimentari</h3></div>
-    <div class="card-bd" id="dash-spunti-list"></div>
-  </div>
+  </div><!-- fine dash-2col -->
 </div>
 
 <!-- PAZIENTI -->
@@ -1483,6 +1502,7 @@ function goTo(name,btn){
   const pg=document.getElementById('page-'+name);if(pg)pg.classList.add('active');
   if(btn)btn.classList.add('active');
   if(name==='pazienti')renderPaz();
+  if(name==='dashboard')renderAgendaDx();
   if(name==='calendario')renderCal();
   if(name==='ricette')renderRic();
   if(name==='entrate')renderEntrate();
@@ -3910,6 +3930,121 @@ async function openNuovoConcetto() {
 // ═══════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════
+// ── AGENDA PERSONALE (localStorage) ─────────────────────────────────────────
+function getAgendaPersonale(){return JSON.parse(localStorage.getItem('agendaPersonale')||'[]');}
+function saveAgendaPersonale(a){localStorage.setItem('agendaPersonale',JSON.stringify(a));}
+function getAgendaTodo(){return JSON.parse(localStorage.getItem('agendaTodo')||'[]');}
+function saveAgendaTodo(a){localStorage.setItem('agendaTodo',JSON.stringify(a));}
+
+function pulisciAgendaVecchia(){
+  const og=today();
+  saveAgendaPersonale(getAgendaPersonale().filter(x=>x.data===og));
+  saveAgendaTodo(getAgendaTodo().filter(x=>x.data===og));
+}
+
+function toggleFormAgenda(){const el=document.getElementById('dash-form-agenda');if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function toggleFormTodo(){const el=document.getElementById('dash-form-todo');if(el)el.style.display=el.style.display==='none'?'block':'none';}
+
+function salvaAgendaItem(){
+  const testo=(document.getElementById('da-testo').value||'').trim();
+  const ora=document.getElementById('da-ora').value||'';
+  const cat=document.getElementById('da-cat').value||'Personale';
+  if(!testo)return;
+  const arr=getAgendaPersonale();
+  arr.push({id:uid(),testo,ora,categoria:cat,fatto:false,data:today()});
+  saveAgendaPersonale(arr);
+  document.getElementById('da-testo').value='';
+  document.getElementById('da-ora').value='';
+  toggleFormAgenda();
+  renderAgendaDx();
+}
+
+function salvaTodoItem(){
+  const testo=(document.getElementById('dt-testo').value||'').trim();
+  const cat=document.getElementById('dt-cat').value||'WhatsApp';
+  if(!testo)return;
+  const arr=getAgendaTodo();
+  arr.push({id:uid(),testo,categoria:cat,fatto:false,data:today()});
+  saveAgendaTodo(arr);
+  document.getElementById('dt-testo').value='';
+  toggleFormTodo();
+  renderAgendaDx();
+}
+
+function toggleAgendaFatto(id){
+  const arr=getAgendaPersonale();
+  const item=arr.find(x=>x.id===id);if(!item)return;
+  item.fatto=!item.fatto;
+  saveAgendaPersonale(arr);
+  renderAgendaDx();
+}
+
+function toggleTodoFatto(id){
+  const arr=getAgendaTodo();
+  const item=arr.find(x=>x.id===id);if(!item)return;
+  item.fatto=!item.fatto;
+  saveAgendaTodo(arr);
+  renderAgendaDx();
+}
+
+function renderAgendaDx(){
+  const og=today();
+  const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up S2',sett3:'Follow-up S3',meeting:'Meeting',altro:'Altro'};
+  const EV_COLORS={visita:'#ede9fe;color:#4c1d95',controllo:'#fce7e7;color:#991b1b',chiamata:'#dbeafe;color:#1e40af',sett2:'#fef3c7;color:#92400e',sett3:'#fed7aa;color:#9a3412',meeting:'#f0f9ff;color:#0369a1',altro:'#f1f5f9;color:#475569'};
+
+  // ── Con orario ──────────────────────────────────────────────────────────
+  const evDb=db.eventi.filter(e=>e.data===og&&e.ora);
+  const personali=getAgendaPersonale().filter(x=>x.data===og&&x.ora);
+  const combined=[
+    ...evDb.map(e=>{
+      const paz=db.pazienti.find(p=>p.id===e.pazId);
+      const ini=(paz?paz.nome[0]:'')+(paz?paz.cognome[0]:'');
+      return{id:e.id,testo:paz?paz.nome+' '+paz.cognome:(e.note||EV_LABELS[e.tipo]||e.tipo),ora:e.ora,tag:EV_LABELS[e.tipo]||e.tipo,tagCol:EV_COLORS[e.tipo]||EV_COLORS.altro,avatar:ini||'EV',fonte:'db',fatto:false};
+    }),
+    ...personali.map(p=>({id:p.id,testo:p.testo,ora:p.ora,tag:p.categoria,tagCol:'#f0f9ff;color:#0369a1',avatar:'',fonte:'personale',fatto:p.fatto}))
+  ].sort((a,b)=>a.ora<b.ora?-1:1);
+
+  const orarioEl=document.getElementById('dash-agenda-orario');
+  if(orarioEl){
+    if(!combined.length){
+      orarioEl.innerHTML='<div style="font-size:.77rem;color:var(--text3);text-align:center;padding:.5rem 0;font-style:italic">Nessun appuntamento</div>';
+    } else {
+      orarioEl.innerHTML=combined.map(ev=>{
+        const cb=ev.fonte==='personale'?`<input type="checkbox" ${ev.fatto?'checked':''} onchange="toggleAgendaFatto('${ev.id}')" style="margin-right:.4rem;cursor:pointer;accent-color:var(--teal)">`:`<input type="checkbox" disabled ${ev.fatto?'checked':''} style="margin-right:.4rem;opacity:.4">`;
+        const av=ev.avatar?`<div style="width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ev.avatar}</div>`:`<div style="width:26px;height:26px;border-radius:50%;background:var(--bg2,#e8e2d8);flex-shrink:0"></div>`;
+        const tagH=`<span style="background:${ev.tagCol};padding:1px 6px;border-radius:10px;font-size:.6rem;font-weight:600">${ev.tag}</span>`;
+        return`<div style="display:flex;align-items:center;gap:.4rem;padding:.45rem 0;border-bottom:1px solid var(--border);${ev.fatto?'opacity:.5':''}">
+          ${cb}${av}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.testo}</div>
+            <div>${tagH}</div>
+          </div>
+          <div style="font-size:.72rem;color:var(--teal);font-weight:600;flex-shrink:0">${ev.ora}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Da fare oggi ────────────────────────────────────────────────────────
+  const todo=getAgendaTodo().filter(x=>x.data===og);
+  const todoSorted=[...todo.filter(x=>!x.fatto),...todo.filter(x=>x.fatto)];
+  const todoEl=document.getElementById('dash-todo-list');
+  if(todoEl){
+    if(!todoSorted.length){
+      todoEl.innerHTML='<div style="font-size:.77rem;color:var(--text3);text-align:center;padding:.5rem 0;font-style:italic">Nessuna attività</div>';
+    } else {
+      todoEl.innerHTML=todoSorted.map(t=>`
+        <div style="display:flex;align-items:flex-start;gap:.4rem;padding:.4rem 0;border-bottom:1px solid var(--border);${t.fatto?'opacity:.45':''}">
+          <input type="checkbox" ${t.fatto?'checked':''} onchange="toggleTodoFatto('${t.id}')" style="margin-top:.15rem;cursor:pointer;accent-color:var(--teal)">
+          <div style="flex:1">
+            <div style="font-size:.79rem;${t.fatto?'text-decoration:line-through':''}">${t.testo}</div>
+            <div style="font-size:.68rem;color:var(--text3)">${t.categoria}</div>
+          </div>
+        </div>`).join('');
+    }
+  }
+}
+
 function renderDashboard(){
   const oggi = new Date();
   const oggiStr = oggi.toISOString().split('T')[0];
@@ -4124,6 +4259,8 @@ if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl
 else setSyncStatus(false);
 setSyncStatus(!!localStorage.getItem('lastSync'));
 aggiornaStatoSync();
+pulisciAgendaVecchia();
+renderAgendaDx();
 initAntCard();
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
