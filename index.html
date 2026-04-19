@@ -3105,16 +3105,17 @@ function renderAlEditor(){
   const c=document.getElementById('al-editor');
   if(!c)return;
   let html='';
-  const selTutto=['Frutta','Verdura'];
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
-    const hasBtn=selTutto.includes(cat);
-    html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4>${hasBtn?`<button class="btn btn-g btn-sm" onclick="selTuttiAl('${cat}',this)" style="font-size:.63rem;padding:.17rem .48rem">Seleziona tutto</button>`:''}</div><div class="al-grid">`;
+    const sc=cat.replace(/'/g,"\\'");
+    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✓ Tutti</button>`
+              +` <button onclick="selCatAl('${sc}','no')" style="font-size:11px;padding:2px 8px;border:1px solid #f87171;color:#f87171;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✕ Nessuno</button>`;
+    html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4><div style="display:flex;gap:4px;align-items:center">${btns}</div></div><div class="al-grid">`;
     items.forEach(item=>{
       const key=cat+'__'+item.n;
       const s=window._alStato[key]||'';
       const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
-      const sk=key.replace(/'/g,"\'");const sn=item.n.replace(/'/g,"\'");
+      const sk=key.replace(/'/g,"\\'");const sn=item.n.replace(/'/g,"\\'");
       html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':s==='arancione'?'◐ ':''}${item.n}${gl}</span>`;
     });
     html+='</div></div>';
@@ -3128,6 +3129,12 @@ function togAl(el,key,nome){
   el.className='al-tog '+n;
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
   el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':n==='arancione'?'◐ ':'')+nome+glH;
+}
+function selCatAl(cat,stato){
+  const data=ALIMENTI[cat];if(!data)return;
+  const items=(data.items||[]);
+  items.forEach(i=>{window._alStato[cat+'__'+i.n]=stato;});
+  renderAlEditor();
 }
 function selTuttiAl(cat,btn){
   const data=ALIMENTI[cat];if(!data)return;
