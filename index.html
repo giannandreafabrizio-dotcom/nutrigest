@@ -284,39 +284,27 @@ main{flex:1;overflow-y:auto;}
 
     <!-- COLONNA SINISTRA -->
     <div>
-      <!-- KPI Cards -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9rem;margin-bottom:1.3rem;">
-        <div style="background:linear-gradient(135deg,#2a7d6f,#1f5e53);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(42,125,111,.28);color:#fff;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Pazienti Attivi</span>
-            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
-          </div>
+      <!-- KPI Cards 2x2 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.3rem;">
+        <div style="background:#1D9E75;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Pazienti Attivi</div>
           <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-tot-paz">—</div>
           <div style="font-size:.7rem;opacity:.72" id="dash-sub-paz">nel database</div>
         </div>
-        <div style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(124,58,237,.25);color:#fff;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Appuntamenti Settimana</span>
-            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-          </div>
+        <div style="background:#0F6E56;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Entrate Questo Mese</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.1rem;line-height:1;margin-bottom:.3rem" id="dash-entrate-mese">—</div>
+          <div style="font-size:.7rem;opacity:.72">incassi totali</div>
+        </div>
+        <div style="background:#378ADD;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Appuntamenti Settimana</div>
           <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-appuntamenti-sett">—</div>
           <div style="font-size:.7rem;opacity:.72" id="dash-sub-appuntamenti">visite + controlli</div>
         </div>
-        <div style="background:linear-gradient(135deg,#e07840,#c96830);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(224,120,64,.28);color:#fff;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Prime Visite Settimana</span>
-            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
-          </div>
+        <div style="background:#D85A30;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Prime Visite Settimana</div>
           <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-visite-sett">—</div>
           <div style="font-size:.7rem;opacity:.72" id="dash-sub-visite">nuovi pazienti</div>
-        </div>
-        <div style="background:linear-gradient(135deg,#059669,#047857);border-radius:14px;padding:1.3rem 1.5rem;box-shadow:0 6px 20px rgba(5,150,105,.25);color:#fff;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
-            <span style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78">Entrate Questo Mese</span>
-            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
-          </div>
-          <div style="font-family:'DM Serif Display',serif;font-size:2.1rem;line-height:1;margin-bottom:.3rem" id="dash-entrate-mese">—</div>
-          <div style="font-size:.7rem;opacity:.72">incassi totali</div>
         </div>
       </div>
 
@@ -358,10 +346,9 @@ main{flex:1;overflow-y:auto;}
           <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
             <input id="da-ora" type="time" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
             <select id="da-cat" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+              <option value="Nutrizionista">Nutrizionista</option>
               <option value="Personale">Personale</option>
-              <option value="Studio">Studio</option>
-              <option value="Formazione">Formazione</option>
-              <option value="Amministrazione">Amministrazione</option>
+              <option value="Vigile del fuoco">Vigile del fuoco</option>
             </select>
           </div>
           <button onclick="salvaAgendaItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
@@ -377,10 +364,9 @@ main{flex:1;overflow-y:auto;}
         <div id="dash-form-todo" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
           <input id="dt-testo" type="text" placeholder="Cosa devi fare..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
           <select id="dt-cat" style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
-            <option value="WhatsApp">WhatsApp</option>
-            <option value="Studio">Studio</option>
-            <option value="Formazione">Formazione</option>
-            <option value="Amministrazione">Amministrazione</option>
+            <option value="Nutrizionista">Nutrizionista</option>
+            <option value="Personale">Personale</option>
+            <option value="Vigile del fuoco">Vigile del fuoco</option>
           </select>
           <button onclick="salvaTodoItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
         </div>
@@ -3948,7 +3934,7 @@ function toggleFormTodo(){const el=document.getElementById('dash-form-todo');if(
 function salvaAgendaItem(){
   const testo=(document.getElementById('da-testo').value||'').trim();
   const ora=document.getElementById('da-ora').value||'';
-  const cat=document.getElementById('da-cat').value||'Personale';
+  const cat=document.getElementById('da-cat').value||'Nutrizionista';
   if(!testo)return;
   const arr=getAgendaPersonale();
   arr.push({id:uid(),testo,ora,categoria:cat,fatto:false,data:today()});
@@ -3961,7 +3947,7 @@ function salvaAgendaItem(){
 
 function salvaTodoItem(){
   const testo=(document.getElementById('dt-testo').value||'').trim();
-  const cat=document.getElementById('dt-cat').value||'WhatsApp';
+  const cat=document.getElementById('dt-cat').value||'Nutrizionista';
   if(!testo)return;
   const arr=getAgendaTodo();
   arr.push({id:uid(),testo,categoria:cat,fatto:false,data:today()});
@@ -3987,42 +3973,67 @@ function toggleTodoFatto(id){
   renderAgendaDx();
 }
 
+const CAT_COLORS={
+  'Nutrizionista':{dot:'#1D9E75',bg:'#E1F5EE',border:'#1D9E75'},
+  'Personale':{dot:'#378ADD',bg:'#E6F1FB',border:'#378ADD'},
+  'Vigile del fuoco':{dot:'#E24B4A',bg:'#FCEBEB',border:'#E24B4A'}
+};
+function _catCol(cat){return CAT_COLORS[cat]||{dot:'#94a3b8',bg:'#f1f5f9',border:'#94a3b8'};}
+
 function renderAgendaDx(){
   const og=today();
   const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up S2',sett3:'Follow-up S3',meeting:'Meeting',altro:'Altro'};
-  const EV_COLORS={visita:'#ede9fe;color:#4c1d95',controllo:'#fce7e7;color:#991b1b',chiamata:'#dbeafe;color:#1e40af',sett2:'#fef3c7;color:#92400e',sett3:'#fed7aa;color:#9a3412',meeting:'#f0f9ff;color:#0369a1',altro:'#f1f5f9;color:#475569'};
 
-  // ── Con orario ──────────────────────────────────────────────────────────
+  // ── Con orario — timeline ────────────────────────────────────────────────
   const evDb=db.eventi.filter(e=>e.data===og&&e.ora);
   const personali=getAgendaPersonale().filter(x=>x.data===og&&x.ora);
-  const combined=[
+  const eventiOrario=[
     ...evDb.map(e=>{
       const paz=db.pazienti.find(p=>p.id===e.pazId);
-      const ini=(paz?paz.nome[0]:'')+(paz?paz.cognome[0]:'');
-      return{id:e.id,testo:paz?paz.nome+' '+paz.cognome:(e.note||EV_LABELS[e.tipo]||e.tipo),ora:e.ora,tag:EV_LABELS[e.tipo]||e.tipo,tagCol:EV_COLORS[e.tipo]||EV_COLORS.altro,avatar:ini||'EV',fonte:'db',fatto:false};
+      return{id:e.id,testo:paz?paz.nome+' '+paz.cognome:(e.note||EV_LABELS[e.tipo]||e.tipo),ora:e.ora,categoria:'Nutrizionista',fonte:'db',fatto:false};
     }),
-    ...personali.map(p=>({id:p.id,testo:p.testo,ora:p.ora,tag:p.categoria,tagCol:'#f0f9ff;color:#0369a1',avatar:'',fonte:'personale',fatto:p.fatto}))
-  ].sort((a,b)=>a.ora<b.ora?-1:1);
+    ...personali.map(p=>({id:p.id,testo:p.testo,ora:p.ora,categoria:p.categoria||'Personale',fonte:'personale',fatto:p.fatto}))
+  ];
+
+  // Genera slot 07:30–19:00 ogni 30 min
+  const slots=[];
+  for(let h=7;h<=19;h++){
+    for(let m=0;m<60;m+=30){
+      if(h===7&&m===0)continue; // inizia da 07:30
+      const hh=String(h).padStart(2,'0'),mm=String(m).padStart(2,'0');
+      slots.push(hh+':'+mm);
+    }
+  }
 
   const orarioEl=document.getElementById('dash-agenda-orario');
   if(orarioEl){
-    if(!combined.length){
-      orarioEl.innerHTML='<div style="font-size:.77rem;color:var(--text3);text-align:center;padding:.5rem 0;font-style:italic">Nessun appuntamento</div>';
-    } else {
-      orarioEl.innerHTML=combined.map(ev=>{
-        const cb=ev.fonte==='personale'?`<input type="checkbox" ${ev.fatto?'checked':''} onchange="toggleAgendaFatto('${ev.id}')" style="margin-right:.4rem;cursor:pointer;accent-color:var(--teal)">`:`<input type="checkbox" disabled ${ev.fatto?'checked':''} style="margin-right:.4rem;opacity:.4">`;
-        const av=ev.avatar?`<div style="width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ev.avatar}</div>`:`<div style="width:26px;height:26px;border-radius:50%;background:var(--bg2,#e8e2d8);flex-shrink:0"></div>`;
-        const tagH=`<span style="background:${ev.tagCol};padding:1px 6px;border-radius:10px;font-size:.6rem;font-weight:600">${ev.tag}</span>`;
-        return`<div style="display:flex;align-items:center;gap:.4rem;padding:.45rem 0;border-bottom:1px solid var(--border);${ev.fatto?'opacity:.5':''}">
-          ${cb}${av}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.testo}</div>
-            <div>${tagH}</div>
-          </div>
-          <div style="font-size:.72rem;color:var(--teal);font-weight:600;flex-shrink:0">${ev.ora}</div>
+    // Legenda
+    const legenda=`<div style="display:flex;gap:.7rem;margin-bottom:.6rem;flex-wrap:wrap">
+      ${Object.entries(CAT_COLORS).map(([k,v])=>`<span style="font-size:.68rem;color:${v.dot};display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.dot};display:inline-block"></span>${k}</span>`).join('')}
+    </div>`;
+
+    const timelineHtml=slots.map(slot=>{
+      const evSlot=eventiOrario.filter(e=>e.ora===slot);
+      const lineCol=evSlot.length?'var(--teal)':'var(--border)';
+      const contenuto=evSlot.map(ev=>{
+        const c=_catCol(ev.categoria);
+        const cb=ev.fonte==='personale'
+          ?`<input type="checkbox" ${ev.fatto?'checked':''} onchange="toggleAgendaFatto('${ev.id}')" style="cursor:pointer;accent-color:${c.dot};flex-shrink:0">`
+          :`<input type="checkbox" disabled style="opacity:.35;flex-shrink:0">`;
+        return`<div style="background:${c.bg};border-left:3px solid ${c.border};border-radius:0 6px 6px 0;padding:.3rem .5rem;margin-bottom:2px;display:flex;align-items:center;gap:.4rem;${ev.fatto?'opacity:.5':''}">
+          ${cb}
+          <span style="width:7px;height:7px;border-radius:50%;background:${c.dot};flex-shrink:0"></span>
+          <span style="font-size:.76rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.testo}</span>
         </div>`;
       }).join('');
-    }
+      return`<div style="display:flex;gap:6px;min-height:28px;align-items:${evSlot.length?'flex-start':'center'}">
+        <div style="font-size:.65rem;color:var(--text3);width:32px;flex-shrink:0;padding-top:${evSlot.length?'4px':'0'};text-align:right">${slot}</div>
+        <div style="width:1px;background:${lineCol};flex-shrink:0;align-self:stretch;margin:0 4px"></div>
+        <div style="flex:1;padding:${evSlot.length?'2px 0':'0'}">${contenuto}</div>
+      </div>`;
+    }).join('');
+
+    orarioEl.innerHTML=legenda+timelineHtml;
   }
 
   // ── Da fare oggi ────────────────────────────────────────────────────────
@@ -4033,14 +4044,16 @@ function renderAgendaDx(){
     if(!todoSorted.length){
       todoEl.innerHTML='<div style="font-size:.77rem;color:var(--text3);text-align:center;padding:.5rem 0;font-style:italic">Nessuna attività</div>';
     } else {
-      todoEl.innerHTML=todoSorted.map(t=>`
-        <div style="display:flex;align-items:flex-start;gap:.4rem;padding:.4rem 0;border-bottom:1px solid var(--border);${t.fatto?'opacity:.45':''}">
-          <input type="checkbox" ${t.fatto?'checked':''} onchange="toggleTodoFatto('${t.id}')" style="margin-top:.15rem;cursor:pointer;accent-color:var(--teal)">
+      todoEl.innerHTML=todoSorted.map(t=>{
+        const c=_catCol(t.categoria);
+        return`<div style="display:flex;align-items:flex-start;gap:.4rem;padding:.4rem 0;border-bottom:1px solid var(--border);${t.fatto?'opacity:.45':''}">
+          <input type="checkbox" ${t.fatto?'checked':''} onchange="toggleTodoFatto('${t.id}')" style="margin-top:.15rem;cursor:pointer;accent-color:${c.dot}">
           <div style="flex:1">
             <div style="font-size:.79rem;${t.fatto?'text-decoration:line-through':''}">${t.testo}</div>
-            <div style="font-size:.68rem;color:var(--text3)">${t.categoria}</div>
+            <div style="font-size:.68rem;color:${c.dot};font-weight:600">${t.categoria}</div>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
   }
 }
