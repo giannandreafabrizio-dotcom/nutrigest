@@ -263,6 +263,7 @@ main{flex:1;overflow-y:auto;}
   <div class="aside-foot">
     <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-txt">Sincronizzazione...</span></div>
     <button class="btn-aside" onclick="syncNow()">↺ Sincronizza</button>
+    <div id="syncTimestamp" style="font-size:11px;margin-top:4px;color:rgba(255,255,255,.5)"></div>
     <button class="btn-aside" onclick="esporta()">⬇ Backup</button>
   </div>
 </aside>
@@ -613,6 +614,7 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
+      <div id="syncTimestampCfg" style="font-size:11px;margin-top:6px;color:var(--text3)"></div>
     </div>
   </div>
   <div class="card">
@@ -1333,16 +1335,36 @@ function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.
 function fData(s){if(!s)return'—';return new Date(s).toLocaleDateString('it-IT');}
 function fEur(n){return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n||0);}
 
+function getLastSyncText(){
+  const ts=localStorage.getItem('lastSync');
+  if(!ts)return 'mai sincronizzato';
+  const d=new Date(parseInt(ts)),now=new Date();
+  const diffMs=now-d,diffH=diffMs/3600000,diffD=Math.floor(diffMs/86400000);
+  const hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
+  if(diffD===0)return 'oggi alle '+hh+':'+mm;
+  if(diffD===1)return 'ieri alle '+hh+':'+mm;
+  return diffD+' giorni fa';
+}
+function getSyncColor(){
+  const ts=localStorage.getItem('lastSync');
+  if(!ts)return 'gray';
+  return (Date.now()-parseInt(ts))<86400000?'#4ade80':'#fb923c';
+}
 function setSyncStatus(ok){
   const d=document.getElementById('sync-dot'),t=document.getElementById('sync-txt');
   if(d)d.className='sync-dot'+(ok?'':' err');
   if(t)t.textContent=ok?'Sincronizzato':'Solo locale';
+  const txt=getLastSyncText(),col=getSyncColor();
+  const el1=document.getElementById('syncTimestamp');
+  if(el1){el1.textContent=txt;el1.style.color=col;}
+  const el2=document.getElementById('syncTimestampCfg');
+  if(el2){el2.textContent=txt;el2.style.color=col;}
 }
 async function pushToSheets(){
   const url=getUrl();
   console.log('[Sync] pushToSheets — URL:', url||'⚠ MANCANTE');
   if(!url)return false;
-  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});setSyncStatus(true);console.log('[Sync] push OK');return true;}
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});localStorage.setItem('lastSync',Date.now());setSyncStatus(true);console.log('[Sync] push OK');return true;}
   catch(e){setSyncStatus(false);console.error('[Sync] push ERRORE:',e);return false;}
 }
 async function pullFromSheets(){
@@ -1355,7 +1377,7 @@ async function pullFromSheets(){
     if(!r.ok)throw new Error('status '+r.status);
     const data=await r.json();
     console.log('[Sync] pull data.pazienti:', data&&data.pazienti?data.pazienti.length+' pazienti':'campo pazienti assente');
-    if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();return true;}
+    if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();localStorage.setItem('lastSync',Date.now());return true;}
     return false;
   }catch(e){console.error('[Sync] pull ERRORE:',e);return false;}
 }
@@ -3912,6 +3934,7 @@ renderDashboard();
 const savedUrl=getUrl();
 if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
 else setSyncStatus(false);
+setSyncStatus(true);
 initAntCard();
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
