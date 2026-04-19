@@ -881,6 +881,71 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
     </div>
     <div class="fg"><label>Attività lavorativa</label><input id="p-lavoro" placeholder="Sedentario, in piedi, turni..."></div>
+    <div class="sec-title">Attività Fisica</div>
+    <div class="fr3">
+      <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 8000" min="0"></div>
+      <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 4" min="0" step="0.5"></div>
+      <div class="fg"><label>Circonferenza polso (cm)</label><input type="number" id="p-polso" placeholder="es. 16.5" step="0.1"></div>
+    </div>
+    <div class="fr3">
+      <div class="fg"><label>Tipo allenamento</label>
+        <select id="p-tipo-all">
+          <option value="">— Non specificato —</option>
+          <option value="Forza">Forza</option>
+          <option value="Cardio">Cardio</option>
+          <option value="Misto">Misto</option>
+        </select>
+      </div>
+      <div class="fg"><label>Intensità allenamento</label>
+        <select id="p-intens-all">
+          <option value="">— Non specificata —</option>
+          <option value="Bassa">Bassa</option>
+          <option value="Media">Media</option>
+          <option value="Alta">Alta</option>
+        </select>
+      </div>
+      <div class="fg"><label>Orario allenamento</label>
+        <select id="p-orario-all" onchange="toggleOrarioNote()">
+          <option value="">— Non specificato —</option>
+          <option value="Mattina">Mattina</option>
+          <option value="Pomeriggio">Pomeriggio</option>
+          <option value="Sera">Sera</option>
+          <option value="Variabile">Variabile</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" id="p-orario-all-note-fg" style="display:none">
+      <label>Note orario allenamento</label>
+      <input id="p-orario-all-note" placeholder="Specifica...">
+    </div>
+    <div class="fg"><label>Giorni di allenamento</label>
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-lun" value="Lun" style="accent-color:var(--teal)"> Lun</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mar" value="Mar" style="accent-color:var(--teal)"> Mar</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mer" value="Mer" style="accent-color:var(--teal)"> Mer</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-gio" value="Gio" style="accent-color:var(--teal)"> Gio</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-ven" value="Ven" style="accent-color:var(--teal)"> Ven</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-sab" value="Sab" style="accent-color:var(--teal)"> Sab</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Cronotipo</label>
+        <select id="p-cronotipo">
+          <option value="">— Non specificato —</option>
+          <option value="Mattiniero">Mattiniero</option>
+          <option value="Intermedio">Intermedio</option>
+          <option value="Serale">Serale</option>
+        </select>
+      </div>
+      <div class="fg"><label>Orario pasto principale</label>
+        <select id="p-orario-pasto">
+          <option value="">— Non specificato —</option>
+          <option value="Pranzo abbondante">Pranzo abbondante</option>
+          <option value="Cena abbondante">Cena abbondante</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <!-- PREFERENZE CIBI -->
@@ -1500,6 +1565,7 @@ function goTo(name,btn){
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
 function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));document.getElementById('tp-'+name).classList.add('active');btn.classList.add('active');}
+function toggleOrarioNote(){const fg=document.getElementById('p-orario-all-note-fg');const sel=document.getElementById('p-orario-all');if(fg)fg.style.display=(sel&&sel.value==='Variabile')?'block':'none';}
 function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');}
 function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),dur);}
 
@@ -1552,7 +1618,10 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
+  toggleOrarioNote();
   ['p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['p-nascita','p-visita','p-inizio','p-controllo','p-inizio2','p-controllo2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-visita').value=today();
@@ -1581,6 +1650,13 @@ function editPaz(){
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-lavoro',p.lavoro);s('p-umore',p.umore);s('p-crisi',p.crisi);s('p-fame',p.fame);
   s('p-cheto-note',p.chetoNote);
+  s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);s('p-polso',p.circonferenzaPolso);
+  s('p-orario-all-note',p.orarioAllenamentoNote);
+  const ss2=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+  ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
+  ss2('p-orario-all',p.orarioAllenamento);ss2('p-cronotipo',p.cronotipo);ss2('p-orario-pasto',p.orarioPastoPrincipale);
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
+  toggleOrarioNote();
   const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss('p-regime',p.regime);
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
@@ -1619,6 +1695,11 @@ function salvaPaz(){
     regime:gs('p-regime'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
     weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
     fame:g('p-fame'),abit:gs('p-abit'),
+    passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
+    intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
+    orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
+    giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
+    circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||addDays(ini,28)}:null
   };
@@ -1875,6 +1956,13 @@ function renderPdAnamnesi(p){
     <div class="card"><div class="card-hd"><h3>Alimentazione & sport</h3></div><div class="card-bd">
       ${r('Sport',p.sport)}${r('Ore/sett.',p.sportOre)}${r('Cibi preferiti',p.cibiPref)}
       ${r('Non rinuncia a',p.noRinuncia)}${r('Chetogenica',p.cheto==='si'?'Sì — '+p.chetoNote:p.cheto==='valutare'?'Da valutare':'')}
+    </div></div>
+    <div class="card"><div class="card-hd"><h3>Attività Fisica</h3></div><div class="card-bd">
+      <div class="fr">${r('Passi/giorno',p.passiGiornalieri?p.passiGiornalieri+' passi':'')+r('Polso',p.circonferenzaPolso?p.circonferenzaPolso+' cm':'')}</div>
+      ${r('Giorni allenamento',(p.giorniAllenamento||[]).length?p.giorniAllenamento.join(' · '):'')}
+      <div class="fr">${r('Ore/sett.',p.oreAllenamento?p.oreAllenamento+' ore':'')+r('Tipo',p.tipoAllenamento)+r('Intensità',p.intensitaAllenamento)}</div>
+      ${r('Orario',p.orarioAllenamento?(p.orarioAllenamento+(p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' — '+p.orarioAllenamentoNote:'')):'')}
+      <div class="fr">${r('Cronotipo',p.cronotipo)+r('Pasto principale',p.orarioPastoPrincipale)}</div>
     </div></div>`;
 }
 
@@ -2413,6 +2501,10 @@ Nome: ${p.nome||''} ${p.cognome||''}
 Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
 Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'} | Budget: ${p.economica||'N/D'}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
+${(p.giorniAllenamento||[]).length?`Giorni ON: ${p.giorniAllenamento.join(', ')} | Giorni OFF: ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].filter(g=>!(p.giorniAllenamento||[]).includes(g)).join(', ')||'nessuno'}`:''}
+${(p.oreAllenamento||p.tipoAllenamento||p.intensitaAllenamento)?`Allenamento: ${p.tipoAllenamento||'—'} · intensità ${p.intensitaAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett. · orario ${p.orarioAllenamento||'—'}${p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' ('+p.orarioAllenamentoNote+')':''}`:''}
+${(p.cronotipo||p.orarioPastoPrincipale)?`Cronotipo: ${p.cronotipo||'—'} | Pasto principale: ${p.orarioPastoPrincipale||'—'}`:''}
+${p.circonferenzaPolso?`Polso: ${p.circonferenzaPolso} cm`:''}
 Spuntini: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'} | Pre-nanna: ${p.prenanna==='si'?'Sì':'No'}
 
 GRAMMATURE FISSE
