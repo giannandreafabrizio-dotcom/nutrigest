@@ -2119,7 +2119,9 @@ function renderPdInbody(p){
   }
 }
 
+let _macrosPaziente = null;
 function renderPdMacros(p){
+  _macrosPaziente = p;
   const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const mb=lastIb?lastIb.mb:null;
   const peso=lastIb?lastIb.peso:(p.peso||null);
@@ -2199,12 +2201,13 @@ function renderPdMacros(p){
 
 function calcolaMacros(){
   const mb=parseFloat(document.getElementById('mac-mb').value)||0;
-  const laf=parseFloat(document.getElementById('mac-laf').value)||1.20;
   const obj=parseFloat(document.getElementById('mac-obj').value)||0;
   const peso=parseFloat(document.getElementById('mac-peso').value)||0;
   const prot=parseFloat(document.getElementById('mac-prot').value)||1.8;
   const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
   if(!mb||!peso){notif('⚠ Inserisci metabolismo basale e peso');return;}
+  const {laf:_lafCM}=calcolaTDEE(_macrosPaziente);
+  const laf=_lafCM||(parseFloat(document.getElementById('mac-laf').value)||1.20);
   const tdee=+(mb*laf).toFixed(0);
   const kcalObj=tdee+obj;
   const protG=+(prot*peso).toFixed(0);
@@ -2230,6 +2233,31 @@ function applicaSchema(laf,prot,grassi){
   const el1=document.getElementById('mac-laf');const el2=document.getElementById('mac-prot');const el3=document.getElementById('mac-grassi');
   if(el1)el1.value=laf;if(el2)el2.value=prot;if(el3)el3.value=grassi;
   notif('✓ Valori applicati — clicca Calcola');
+}
+
+function calcolaTDEE(p){
+  const lastIb=p&&p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const mb=lastIb?lastIb.mb:null;
+  const peso=lastIb?lastIb.peso:(p&&p.peso?p.peso:null);
+  if(!mb) return {tdee:null,laf:null,mb:null,peso};
+  const passi=p&&p.passiGiornalieri!=null?+p.passiGiornalieri:null;
+  const ore=p&&p.oreAllenamento!=null?+p.oreAllenamento:null;
+  const intensita=p&&p.intensitaAllenamento?p.intensitaAllenamento.toLowerCase():'media';
+  let laf;
+  if(passi!==null||(ore!==null&&ore>0)){
+    let neat=0;
+    if(passi!==null) neat=passi<3000?0.10:passi<6000?0.20:passi<9000?0.30:passi<12000?0.40:0.50;
+    let eat=0;
+    if(ore!==null&&ore>0){
+      const bassa=intensita.includes('bassa'),alta=intensita.includes('alta');
+      eat=ore<=2?(bassa?0.05:alta?0.15:0.10):ore<=4?(bassa?0.10:alta?0.20:0.15):ore<=6?(bassa?0.15:alta?0.25:0.20):(bassa?0.20:alta?0.30:0.25);
+    }
+    laf=+((1.20+neat+eat).toFixed(3));
+  } else {
+    const sel=document.getElementById('mac-laf');
+    laf=sel?(parseFloat(sel.value)||1.20):1.20;
+  }
+  return {tdee:Math.round(mb*laf),laf,mb,peso};
 }
 
 // ── PIANO ALIMENTARE ──────────────────────────────────────────────────────────
@@ -2281,9 +2309,8 @@ function pianoPazSelezionato(id){
   } else {
     warning.style.display='none';
 
-    // Calcolo TDEE (LAF default 1.375 — leggermente attivo)
-    const laf=1.375;
-    const tdee=Math.round(mb*laf);
+    // Calcolo TDEE personalizzato
+    const {tdee,laf}=calcolaTDEE(p);
 
     // Mappa regime → offset kcal
     const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
@@ -2337,16 +2364,14 @@ function costruisciPrompt(pazienteId) {
 
   // Calcolo targets nutrizionali dal profilo paziente
   var lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
-  var mb = lastIb ? lastIb.mb : null;
-  var peso = lastIb ? lastIb.peso : (p.peso || null);
+  var _ct = calcolaTDEE(p);
+  var mb = _ct.mb, peso = _ct.peso;
   var kcalTarget = null, protG = null, carbG = null, grassiG = null;
   if (mb && peso) {
-    var laf = 1.375;
-    var tdee = Math.round(mb * laf);
     var regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
       'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
       'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    kcalTarget = tdee + (regOff[p.regime] || 0);
+    kcalTarget = _ct.tdee + (regOff[p.regime] || 0);
     protG = Math.round(1.8 * peso);
     grassiG = Math.round(0.9 * peso);
     carbG = Math.max(0, Math.round((kcalTarget - protG*4 - grassiG*9) / 4));
@@ -2387,6 +2412,7 @@ PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
 Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
 Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'} | Budget: ${p.economica||'N/D'}
+${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
 Spuntini: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'} | Pre-nanna: ${p.prenanna==='si'?'Sì':'No'}
 
 GRAMMATURE FISSE
@@ -2582,14 +2608,10 @@ async function generaPiano(){
   const p=db.pazienti.find(x=>x.id===id);
   if(!p){notif('⚠ Paziente non trovato');return;}
 
-  // Calcolo TDEE e macros (stessa logica di pianoPazSelezionato)
-  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
-  const mb=lastIb?lastIb.mb:null;
-  const peso=lastIb?lastIb.peso:(p.peso||null);
-  let tdee=null,kcalTarget=null,protG=null,carbG=null,grassiG=null;
+  // Calcolo TDEE e macros
+  const {tdee,mb,peso}=calcolaTDEE(p);
+  let kcalTarget=null,protG=null,carbG=null,grassiG=null;
   if(mb&&peso){
-    const laf=1.375;
-    tdee=Math.round(mb*laf);
     const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
       'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
       'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
