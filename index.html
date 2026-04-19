@@ -1513,7 +1513,12 @@ function renderPaz(){
     }else statoTag=`<span class="tag tag-orange">Nessun piano</span>`;
     const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
     const regimeTag=p.regime?`<span class="tag tag-purple">${p.regime}</span>`:'';
-    return`<div class="paz-card" onclick="openPaz('${p.id}')">
+    let cardBg='#FAEEDA';let cardBorder='#FAC775';
+    if(p.controlloData){
+      cardBg=new Date(p.controlloData)>new Date()?'#E6F1FB':'#FCEBEB';
+      cardBorder=new Date(p.controlloData)>new Date()?'#B5D4F4':'#F7C1C1';
+    }
+    return`<div class="paz-card" style="background:${cardBg};border-color:${cardBorder}" onclick="openPaz('${p.id}')">
       <div class="paz-card-top">
         <div class="avatar">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
         <div><div class="paz-nome">${p.nome} ${p.cognome}</div><div class="paz-meta">${eta}${eta&&p.tel?' · ':''}${p.tel||''}</div></div>
