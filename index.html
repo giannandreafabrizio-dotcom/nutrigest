@@ -1724,100 +1724,100 @@ function applicaRegoloSemaforo(p){
   // Regole: [chiave_checkbox, [grigi], [celesti]]
   const REGOLE={
     'all-lattosio':{
-      grigi:['Latte intero','Latte parzialmente scremato','Latte scremato','Yogurt intero','Yogurt greco','Ricotta','Mozzarella','Scamorza','Provola','Burro','Panna','Formaggi stagionati','Grana','Parmigiano','Pecorino'],
-      celesti:['Yogurt senza lattosio','Latte senza lattosio','Bevanda di soia','Bevanda di riso','Bevanda di avena','Bevanda di mandorla','Tofu']
+      grigi:['Yogurt','Yogurt parzialmente scremato','Yogurt greco 0-2%','Ricotta di vacca','Ricotta di pecora','Fiocchi di latte','Mozzarella di vacca','Mozzarella Proteinella','Philadelphia light','Feta','Stracchino','Scamorza','Parmigiano','Grana padano','Pecorino','Robiola','Cacioricotta','Burrata','Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato','Kefir'],
+      celesti:['Latte di mandorla','Latte di soia','Latte di riso','Latte di avena','Latte di nocciola','Tofu']
     },
     'all-glutine':{
-      grigi:['Pasta','Pane','Farro','Orzo','Segale','Fette biscottate','Crackers','Grissini','Pizza','Seitan','Couscous','Bulgur'],
-      celesti:['Riso','Patate','Quinoa','Grano saraceno','Polenta','Avena senza glutine','Pane senza glutine','Pasta senza glutine']
+      grigi:['Pasta','Pasta integrale','Pane comune','Pane integrale','Pane di segale','Farro','Orzo','Grano','Frisella','Tarallini','Grissini','Crackers','Panbauletto integrale','Wasa (contiene glutine)','Spätzle','Seitan','Latte di farro'],
+      celesti:['Riso','Riso basmati','Riso integrale','Riso rosso','Riso nero','Quinoa','Mais','Polenta','Patate','Patate dolci','Gnocchi di patate','Gallette di riso','Pasta di riso','Pasta di mais','Grano saraceno','Spaghetti Shirataki Konjac']
     },
     'all-nichel':{
-      grigi:['Cioccolato','Cacao','Lenticchie','Piselli','Fagioli','Pomodori','Pomodorini','Farina integrale','Avena','Arachidi','Soia','Noci','Spinaci','Asparagi'],
-      celesti:['Riso','Carne','Pesce','Uova','Latte','Mela','Pera','Banana','Carote','Zucchine','Lattuga']
+      grigi:['Cacao amaro','Cioccolato fondente 85%','Lenticchie (secche)','Lenticchie (barattolo)','Lenticchie rosse (barattolo)','Piselli (barattolo)','Piselli surgelati','Fagioli borlotti (secchi)','Fagioli borlotti (barattolo)','Fagioli neri (barattolo)','Fagioli rossi (barattolo)','Pomodori','Spinaci','Asparagi','Arachidi','Soia (barattolo)','Soia surgelata (edamame)','Pasta integrale','Farro','Avena'],
+      celesti:['Riso','Riso basmati','Petto di pollo','Petto di tacchino','Merluzzo/nasello surgelato','Orata fresca','Uovo intero','Albumi','Latte vaccino intero','Mela','Pera','Banana','Carote','Zucchine']
     },
     'all-uova':{
-      grigi:['Uova','Uovo sodo','Uova strapazzate','Frittata','Maionese'],
-      celesti:['Tofu','Legumi','Pesce','Pollo','Tacchino']
+      grigi:['Uovo intero','Albumi','Tuorlo'],
+      celesti:['Tofu','Legumi','Ceci (barattolo)','Lenticchie (barattolo)','Petto di pollo','Petto di tacchino','Merluzzo/nasello surgelato']
     },
     'all-pesce':{
-      grigi:['Salmone','Tonno','Merluzzo','Branzino','Orata','Sgombro','Sardine','Acciughe','Gamberetti','Polpo','Calamari','Cozze','Vongole','Baccalà'],
-      celesti:['Pollo','Tacchino','Manzo','Uova','Legumi','Tofu']
+      grigi:['Tonno sottolio sgocciolato','Tonno al naturale','Salmone affumicato','Salmone al naturale','Gamberetti','Sgombro sottolio','Merluzzo/nasello surgelato','Orata fresca','Sarago','Spigola','Salmone fresco','Tonno fresco','Tonno rosso','Pesce spada','Sgombro','Polpo','Seppia','Cozze','Vongole','Trota','Persico'],
+      celesti:['Petto di pollo','Petto di tacchino','Vitellone tagli magri','Uovo intero','Ceci (barattolo)','Lenticchie (barattolo)','Tofu']
     },
     'all-fruttasecca':{
-      grigi:['Mandorle','Noci','Nocciole','Pistacchi','Anacardi','Arachidi','Pinoli','Noci brasiliane','Noci di macadamia'],
-      celesti:['Semi di zucca','Semi di girasole','Semi di lino','Semi di chia']
+      grigi:['Noci','Mandorle','Nocciole','Pistacchi','Anacardi','Pinoli','Arachidi','Burro arachidi','Burro mandorle','Noci brasiliane','Noci di macadamia'],
+      celesti:['Semi di chia','Semi di zucca','Semi di lino','Semi di girasole','Semi di sesamo']
     },
     'all-crostacei':{
-      grigi:['Gamberetti','Gamberi','Scampi','Aragoste','Granchi','Cozze','Vongole','Ostriche'],
-      celesti:['Pesce','Pollo','Legumi']
+      grigi:['Gamberetti','Cozze','Vongole'],
+      celesti:['Petto di pollo','Merluzzo/nasello surgelato','Orata fresca','Ceci (barattolo)']
     },
     'all-soia':{
-      grigi:['Soia','Tofu','Tempeh','Bevanda di soia','Edamame'],
-      celesti:['Legumi','Carne','Pesce','Uova']
+      grigi:['Soia (barattolo)','Soia surgelata (edamame)','Tofu','Latte di soia'],
+      celesti:['Ceci (barattolo)','Lenticchie (barattolo)','Petto di pollo','Uovo intero','Merluzzo/nasello surgelato']
     },
     'pat-diabete':{
-      grigi:['Zucchero','Miele','Marmellata','Succhi di frutta','Bibite','Pane bianco','Riso bianco','Patate fritte','Dolci','Biscotti','Fette biscottate','Crackers','Grissini','Banane','Uva','Fichi','Datteri'],
-      celesti:['Verdure a foglia verde','Legumi','Avena','Quinoa','Mele','Pere','Frutti di bosco','Cannella','Curcuma','Olio EVO','Frutta secca','Pesce azzurro']
+      grigi:['Marmellata rid. zucchero','Miele','Biscotti integrali','Fette biscottate integrali','Pane comune','Riso','Patate','Uva','Fichi','Datteri','Banane','Mango','Kaki','Fiocchi di mais','Popcorn'],
+      celesti:['Spinaci','Broccoli','Zucchine','Carote','Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)','Fiocchi avena','Quinoa','Mela','Pera','Frutti rossi misti','Mirtilli','Cannella','Curcuma','Olio EVO','Noci','Mandorle','Sgombro','Salmone fresco']
     },
     'pat-tiroide':{
-      grigi:['Soia','Tofu','Bevanda di soia','Cavoli','Broccoli','Cavolfiore','Cavoletti di Bruxelles','Rape','Ravanelli'],
-      celesti:['Pesce','Uova','Noci brasiliane','Semi di zucca','Legumi','Yogurt','Olio EVO','Curcuma','Zenzero']
+      grigi:['Soia (barattolo)','Soia surgelata (edamame)','Tofu','Latte di soia','Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cavolo nero','Cime di rapa'],
+      celesti:['Orata fresca','Salmone fresco','Sgombro','Uovo intero','Noci','Semi di zucca','Ceci (barattolo)','Yogurt','Kefir','Olio EVO','Curcuma','Zenzero fresco']
     },
     'pat-ipertensione':{
-      grigi:['Salumi','Prosciutto cotto','Prosciutto crudo','Bresaola','Mortadella','Formaggi stagionati','Grana','Parmigiano','Pecorino','Cibi in scatola','Dado','Salsa di soia','Patatine','Snack salati'],
-      celesti:['Verdure a foglia verde','Aglio','Banana','Patate','Avocado','Pesce azzurro','Olio EVO','Frutti di bosco','Sedano','Barbabietola']
+      grigi:['Bresaola','Prosciutto crudo magro','Prosciutto cotto','Speck','Mortadella','Salame','Nduja','Parmigiano','Grana padano','Pecorino','Salsa di soia'],
+      celesti:['Spinaci','Cavolo nero','Aglio in polvere','Banana','Patate','Avocado','Sgombro','Salmone fresco','Olio EVO','Frutti rossi misti','Mirtilli','Sedano','Barbabietola']
     },
     'pat-colesterolo':{
-      grigi:['Burro','Panna','Formaggi stagionati','Salumi','Carne rossa grassa','Uova','Fritture','Dolci','Biscotti','Merendine'],
-      celesti:['Pesce azzurro','Salmone','Sgombro','Sardine','Avena','Legumi','Frutta secca','Olio EVO','Aglio','Curcuma','Verdure a foglia verde','Mele']
+      grigi:['Burro arachidi','Parmigiano','Grana padano','Pecorino','Bresaola','Prosciutto crudo magro','Salame','Nduja','Mortadella','Vitello carne semigrassa','Maiale arista','Agnello'],
+      celesti:['Sgombro','Salmone fresco','Sardine','Tonno al naturale','Fiocchi avena','Ceci (barattolo)','Lenticchie (barattolo)','Noci','Mandorle','Olio EVO','Aglio in polvere','Curcuma','Spinaci','Mela','Frutti rossi misti']
     },
     'pat-crohn':{
-      grigi:['Legumi','Cavoli','Broccoli','Cipolla','Aglio','Frutta secca','Cibi piccanti','Alcol','Caffè','Latte intero','Formaggi stagionati','Pane integrale','Cereali integrali'],
-      celesti:['Riso','Patate','Carote cotte','Zucchine','Pollo','Pesce','Uova','Banana matura','Mela senza buccia','Yogurt','Olio EVO']
+      grigi:['Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cime di rapa','Cipolla','Porro','Noci','Mandorle','Pistacchi','Pasta integrale','Pane integrale'],
+      celesti:['Riso basmati','Patate','Carote','Zucchine','Petto di pollo','Merluzzo/nasello surgelato','Orata fresca','Uovo intero','Banana','Mela','Yogurt','Olio EVO']
     },
     'pat-ibs':{
-      grigi:['Legumi','Cavoli','Broccoli','Cipolla','Aglio','Porro','Mele','Pere','Anguria','Latte','Latticini','Frumento','Segale','Sorbitolo','Fruttosio'],
-      celesti:['Riso','Patate','Carote','Zucchine','Pollo','Pesce','Uova','Banane','Fragole','Arance','Olio EVO','Zenzero','Finocchio']
+      grigi:['Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Broccoli','Cavolfiore','Cipolla','Porro','Mela','Pera','Anguria','Latte vaccino intero','Latte vaccino p.scremato','Pasta','Pane comune','Farro'],
+      celesti:['Riso basmati','Patate','Carote','Zucchine','Petto di pollo','Merluzzo/nasello surgelato','Uovo intero','Banana','Fragole','Arancia','Olio EVO','Zenzero fresco','Finocchio']
     },
     'pat-pcos':{
-      grigi:['Zucchero','Pane bianco','Riso bianco','Dolci','Bibite','Succhi','Carni processate','Alcol'],
-      celesti:['Verdure a foglia verde','Legumi','Frutti di bosco','Avocado','Pesce azzurro','Olio EVO','Frutta secca','Semi di lino','Curcuma','Cannella','Uova']
+      grigi:['Marmellata rid. zucchero','Miele','Pane comune','Riso','Biscotti integrali','Fette biscottate integrali','Salame','Mortadella','Nduja'],
+      celesti:['Spinaci','Broccoli','Cavolo nero','Ceci (barattolo)','Lenticchie (barattolo)','Frutti rossi misti','Mirtilli','Avocado','Sgombro','Salmone fresco','Olio EVO','Noci','Semi di lino','Curcuma','Cannella','Uovo intero']
     },
     'stile-ritenzione':{
-      grigi:['Salumi','Prosciutto cotto','Prosciutto crudo','Bresaola','Mortadella','Formaggi stagionati','Cibi in scatola','Dado','Patatine','Snack salati'],
-      celesti:['Asparagi','Cetrioli','Ananas','Anguria','Sedano','Prezzemolo','Banana','Patate','Legumi','Finocchio','Zenzero']
+      grigi:['Bresaola','Prosciutto crudo magro','Prosciutto cotto','Speck','Mortadella','Salame','Nduja','Parmigiano','Grana padano','Pecorino','Salsa di soia'],
+      celesti:['Asparagi','Cetriolo','Ananas','Anguria','Sedano','Prezzemolo','Banana','Patate','Ceci (barattolo)','Lenticchie (barattolo)','Finocchio','Zenzero fresco']
     },
     'stile-gonfiore':{
-      grigi:['Legumi','Cavoli','Broccoli','Cavolfiore','Cipolla','Cipolla cruda','Aglio crudo','Uva','Mele','Pere','Bibite gassate'],
-      celesti:['Finocchio','Zenzero','Curcuma','Yogurt','Kefir','Carote','Zucchine','Patate','Riso','Banana matura']
+      grigi:['Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Broccoli','Cavolfiore','Verza','Cipolla','Porro','Uva','Mela','Pera'],
+      celesti:['Finocchio','Zenzero fresco','Curcuma','Yogurt','Kefir','Carote','Zucchine','Patate','Riso basmati','Banana']
     },
     'stile-stitichezza':{
-      grigi:['Riso bianco','Banane acerbe','Cioccolato'],
-      celesti:['Avena','Prugne','Kiwi','Legumi','Carote','Spinaci','Mele','Pere','Fichi','Semi di lino','Acqua','Verdure a foglia verde']
+      grigi:['Riso','Riso basmati'],
+      celesti:['Fiocchi avena','Prugne secche','Kiwi','Ceci (barattolo)','Lenticchie (barattolo)','Carote','Spinaci','Mela','Pera','Fichi','Semi di lino','Verdure a foglia verde']
     },
     'stile-diarrea':{
-      grigi:['Cibi fritti','Latte intero','Caffè','Bibite gassate','Alcol','Cibi piccanti','Frutta secca','Legumi'],
-      celesti:['Riso','Carote cotte','Mela senza buccia','Banana matura','Pane tostato','Patate lesse','Pollo bollito','Brodo vegetale']
+      grigi:['Latte vaccino intero','Latte vaccino p.scremato','Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Noci','Mandorle'],
+      celesti:['Riso','Riso basmati','Carote','Mela','Banana','Pane comune','Patate','Petto di pollo']
     },
     'stile-sostenibilita':{
       grigi:[],
-      celesti:['Legumi','Lenticchie','Ceci','Fagioli','Tofu','Verdure di stagione','Frutta di stagione','Cereali integrali','Uova']
+      celesti:['Ceci (barattolo)','Ceci (secchi)','Fagioli borlotti (barattolo)','Lenticchie (barattolo)','Lenticchie (secche)','Tofu','Zucchine','Carote','Spinaci','Broccoli','Mela','Pera','Fiocchi avena','Riso integrale','Quinoa','Uovo intero']
     },
     'cond-gravidanza':{
-      grigi:['Salmone affumicato','Tonno in scatola','Pesce spada','Squalo','Latte crudo','Formaggi molli','Gorgonzola','Brie','Camembert','Salumi crudi','Prosciutto crudo','Bresaola','Carpaccio','Uova crude','Alcol','Fegato'],
-      celesti:['Verdure a foglia verde','Spinaci','Legumi','Carne magra','Sardine','Uova','Latticini','Yogurt','Arance','Kiwi','Frutti di bosco']
+      grigi:['Salmone affumicato','Tonno fresco','Tonno rosso','Pesce spada','Latte vaccino intero','Feta','Gorgonzola','Prosciutto crudo magro','Speck','Bresaola','Carpaccio','Fegato'],
+      celesti:['Spinaci','Cavolo nero','Ceci (barattolo)','Lenticchie (barattolo)','Vitellone tagli magri','Sgombro','Uovo intero','Yogurt','Latte vaccino p.scremato','Arancia','Kiwi','Frutti rossi misti']
     },
     'cond-allattamento':{
-      grigi:['Cavoli','Broccoli','Cavolfiore','Cipolla','Aglio in eccesso','Caffè','Alcol','Cibi molto piccanti'],
-      celesti:['Avena','Finocchio','Mandorle','Latticini','Pollo','Pesce','Legumi','Verdure a foglia verde','Acqua']
+      grigi:['Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cipolla','Porro','Aglio in polvere'],
+      celesti:['Fiocchi avena','Finocchio','Mandorle','Yogurt','Latte vaccino p.scremato','Petto di pollo','Sgombro','Ceci (barattolo)','Spinaci']
     },
     'cond-menopausa':{
-      grigi:['Salumi','Formaggi stagionati','Alcol','Cibi molto salati','Bibite gassate'],
-      celesti:['Latticini magri','Sardine','Salmone','Uova','Verdure a foglia verde','Semi di sesamo','Legumi','Soia','Semi di lino']
+      grigi:['Salame','Mortadella','Nduja','Speck','Parmigiano','Grana padano','Pecorino'],
+      celesti:['Yogurt','Ricotta di vacca','Sgombro','Salmone fresco','Uovo intero','Spinaci','Cavolo nero','Semi di sesamo','Ceci (barattolo)','Lenticchie (barattolo)','Soia (barattolo)','Semi di lino']
     },
     'cond-massa':{
-      grigi:['Dolci','Bibite','Alcol','Cibi ultra-processati','Snack industriali'],
-      celesti:['Carne','Pollo','Tacchino','Pesce','Uova','Latticini','Legumi','Riso','Avena','Banana','Patate','Frutta secca']
+      grigi:['Marmellata rid. zucchero','Miele','Biscotti integrali'],
+      celesti:['Petto di pollo','Petto di tacchino','Vitellone tagli magri','Merluzzo/nasello surgelato','Tonno al naturale','Uovo intero','Albumi','Yogurt greco 0-2%','Ricotta di vacca','Ceci (barattolo)','Lenticchie (barattolo)','Riso basmati','Fiocchi avena','Banana','Patate','Noci','Mandorle']
     }
   };
 
