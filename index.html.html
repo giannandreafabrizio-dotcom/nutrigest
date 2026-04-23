@@ -1900,7 +1900,7 @@ async function concludiERiassumi(){
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
   notif('⏳ Elaborazione riassunto clinico...');
   const conv=_ragMessages.map(m=>`${m.role==='user'?'Dott. Fabrizio':'Claude'}: ${m.content}`).join('\n\n');
-  const promptRiass=`Sei un assistente clinico. Leggi questa conversazione tra il dottor Fabrizio e te riguardo al paziente ${p.nome} ${p.cognome}. Estrai SOLO le decisioni cliniche finali prese — non i ragionamenti intermedi. Produci un riassunto strutturato con: Obiettivo, Kcal decise, Macros definitivi (P/C/G), Note cliniche importanti, Prossimo controllo se menzionato. Sii preciso e conciso. Non includere nulla che non sia stato esplicitamente deciso.\n\nCONVERSAZIONE:\n${conv}`;
+  const promptRiass=`Sei un assistente clinico. Leggi questa conversazione tra il dottor Fabrizio e te riguardo al paziente ${p.nome} ${p.cognome}. Estrai SOLO le decisioni cliniche finali prese — non i ragionamenti intermedi. Produci un riassunto strutturato con: Obiettivo, Kcal decise, Macros definitivi (P/C/G), Note cliniche importanti, Prossimo controllo se menzionato. Sii preciso e conciso. Non includere nulla che non sia stato esplicitamente deciso.\n\nALLA FINE del riassunto aggiungi SEMPRE questo blocco esatto (sostituendo i numeri con quelli decisi):\n---MACROS---\n{\"kcal\":0,\"P\":0,\"C\":0,\"G\":0}\n---FINE---\nSe i macros non sono stati decisi esplicitamente, ometti il blocco.\n\nCONVERSAZIONE:\n${conv}`;
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -1916,11 +1916,16 @@ async function concludiERiassumi(){
 
 function salvaRagionamento(){
   const p=db.pazienti.find(x=>x.id===_ragPazId);if(!p||!_ragRiassunto)return;
-  const mKcal=_ragRiassunto.match(/(\d{3,4})\s*kcal/i);
-  const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
-  const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
-  const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
-  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1]}:null;
+  let macrosDecisi=null;
+  const mBlock=_ragRiassunto.match(/---MACROS---\s*(\{[^}]+\})\s*---FINE---/s);
+  if(mBlock){try{macrosDecisi=JSON.parse(mBlock[1]);}catch(e){macrosDecisi=null;}}
+  if(!macrosDecisi){
+    const mKcal=_ragRiassunto.match(/(\d{3,4})\s*kcal/i);
+    const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
+    const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
+    const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
+    if(mKcal&&mProt&&mCarb&&mGras)macrosDecisi={kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1]};
+  }
   p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi};
   save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
@@ -2469,8 +2474,10 @@ function costruisciPrompt(pazienteId) {
   var ragCtx = '';
   if (window._ragContextForPiano && window._ragContextForPiano.pazId === pazienteId) {
     var rt = window._ragContextForPiano.riassunto || '';
-    var mk=rt.match(/(\d{3,4})\s*kcal/i), mp=rt.match(/[Pp]roteine[^\d]*(\d+)/), mc=rt.match(/[Cc]arboidrati[^\d]*(\d+)/), mg=rt.match(/[Gg]rassi[^\d]*(\d+)/);
-    if (mk&&mp&&mc&&mg) { kcalTarget=+mk[1]; protG=+mp[1]; carbG=+mc[1]; grassiG=+mg[1]; }
+    var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
+    if(!_md){var _bl=rt.match(/---MACROS---\s*(\{[^}]+\})\s*---FINE---/s);if(_bl){try{_md=JSON.parse(_bl[1]);}catch(e){_md=null;}}}
+    if(!_md){var mk=rt.match(/(\d{3,4})\s*kcal/i),mp=rt.match(/[Pp]roteine[^\d]*(\d+)/),mc=rt.match(/[Cc]arboidrati[^\d]*(\d+)/),mg=rt.match(/[Gg]rassi[^\d]*(\d+)/);if(mk&&mp&&mc&&mg)_md={kcal:+mk[1],P:+mp[1],C:+mc[1],G:+mg[1]};}
+    if(_md){kcalTarget=_md.kcal;protG=_md.P;carbG=_md.C;grassiG=_md.G;}
     ragCtx = '\n\nDECISIONI CLINICHE DEL MEDICO — rispetta con priorità assoluta:\n' + rt;
   }
 
