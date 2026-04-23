@@ -1716,6 +1716,152 @@ function editPaz(){
   document.getElementById('mo-paz').classList.add('open');
 }
 
+function applicaRegoloSemaforo(p){
+  if(!p||!p.checkSemaforo)return;
+  const cs=p.checkSemaforo;
+  const al=p.alimenti||{};
+
+  // Regole: [chiave_checkbox, [grigi], [celesti]]
+  const REGOLE={
+    'all-lattosio':{
+      grigi:['Latte intero','Latte parzialmente scremato','Latte scremato','Yogurt intero','Yogurt greco','Ricotta','Mozzarella','Scamorza','Provola','Burro','Panna','Formaggi stagionati','Grana','Parmigiano','Pecorino'],
+      celesti:['Yogurt senza lattosio','Latte senza lattosio','Bevanda di soia','Bevanda di riso','Bevanda di avena','Bevanda di mandorla','Tofu']
+    },
+    'all-glutine':{
+      grigi:['Pasta','Pane','Farro','Orzo','Segale','Fette biscottate','Crackers','Grissini','Pizza','Seitan','Couscous','Bulgur'],
+      celesti:['Riso','Patate','Quinoa','Grano saraceno','Polenta','Avena senza glutine','Pane senza glutine','Pasta senza glutine']
+    },
+    'all-nichel':{
+      grigi:['Cioccolato','Cacao','Lenticchie','Piselli','Fagioli','Pomodori','Pomodorini','Farina integrale','Avena','Arachidi','Soia','Noci','Spinaci','Asparagi'],
+      celesti:['Riso','Carne','Pesce','Uova','Latte','Mela','Pera','Banana','Carote','Zucchine','Lattuga']
+    },
+    'all-uova':{
+      grigi:['Uova','Uovo sodo','Uova strapazzate','Frittata','Maionese'],
+      celesti:['Tofu','Legumi','Pesce','Pollo','Tacchino']
+    },
+    'all-pesce':{
+      grigi:['Salmone','Tonno','Merluzzo','Branzino','Orata','Sgombro','Sardine','Acciughe','Gamberetti','Polpo','Calamari','Cozze','Vongole','Baccalà'],
+      celesti:['Pollo','Tacchino','Manzo','Uova','Legumi','Tofu']
+    },
+    'all-fruttasecca':{
+      grigi:['Mandorle','Noci','Nocciole','Pistacchi','Anacardi','Arachidi','Pinoli','Noci brasiliane','Noci di macadamia'],
+      celesti:['Semi di zucca','Semi di girasole','Semi di lino','Semi di chia']
+    },
+    'all-crostacei':{
+      grigi:['Gamberetti','Gamberi','Scampi','Aragoste','Granchi','Cozze','Vongole','Ostriche'],
+      celesti:['Pesce','Pollo','Legumi']
+    },
+    'all-soia':{
+      grigi:['Soia','Tofu','Tempeh','Bevanda di soia','Edamame'],
+      celesti:['Legumi','Carne','Pesce','Uova']
+    },
+    'pat-diabete':{
+      grigi:['Zucchero','Miele','Marmellata','Succhi di frutta','Bibite','Pane bianco','Riso bianco','Patate fritte','Dolci','Biscotti','Fette biscottate','Crackers','Grissini','Banane','Uva','Fichi','Datteri'],
+      celesti:['Verdure a foglia verde','Legumi','Avena','Quinoa','Mele','Pere','Frutti di bosco','Cannella','Curcuma','Olio EVO','Frutta secca','Pesce azzurro']
+    },
+    'pat-tiroide':{
+      grigi:['Soia','Tofu','Bevanda di soia','Cavoli','Broccoli','Cavolfiore','Cavoletti di Bruxelles','Rape','Ravanelli'],
+      celesti:['Pesce','Uova','Noci brasiliane','Semi di zucca','Legumi','Yogurt','Olio EVO','Curcuma','Zenzero']
+    },
+    'pat-ipertensione':{
+      grigi:['Salumi','Prosciutto cotto','Prosciutto crudo','Bresaola','Mortadella','Formaggi stagionati','Grana','Parmigiano','Pecorino','Cibi in scatola','Dado','Salsa di soia','Patatine','Snack salati'],
+      celesti:['Verdure a foglia verde','Aglio','Banana','Patate','Avocado','Pesce azzurro','Olio EVO','Frutti di bosco','Sedano','Barbabietola']
+    },
+    'pat-colesterolo':{
+      grigi:['Burro','Panna','Formaggi stagionati','Salumi','Carne rossa grassa','Uova','Fritture','Dolci','Biscotti','Merendine'],
+      celesti:['Pesce azzurro','Salmone','Sgombro','Sardine','Avena','Legumi','Frutta secca','Olio EVO','Aglio','Curcuma','Verdure a foglia verde','Mele']
+    },
+    'pat-crohn':{
+      grigi:['Legumi','Cavoli','Broccoli','Cipolla','Aglio','Frutta secca','Cibi piccanti','Alcol','Caffè','Latte intero','Formaggi stagionati','Pane integrale','Cereali integrali'],
+      celesti:['Riso','Patate','Carote cotte','Zucchine','Pollo','Pesce','Uova','Banana matura','Mela senza buccia','Yogurt','Olio EVO']
+    },
+    'pat-ibs':{
+      grigi:['Legumi','Cavoli','Broccoli','Cipolla','Aglio','Porro','Mele','Pere','Anguria','Latte','Latticini','Frumento','Segale','Sorbitolo','Fruttosio'],
+      celesti:['Riso','Patate','Carote','Zucchine','Pollo','Pesce','Uova','Banane','Fragole','Arance','Olio EVO','Zenzero','Finocchio']
+    },
+    'pat-pcos':{
+      grigi:['Zucchero','Pane bianco','Riso bianco','Dolci','Bibite','Succhi','Carni processate','Alcol'],
+      celesti:['Verdure a foglia verde','Legumi','Frutti di bosco','Avocado','Pesce azzurro','Olio EVO','Frutta secca','Semi di lino','Curcuma','Cannella','Uova']
+    },
+    'stile-ritenzione':{
+      grigi:['Salumi','Prosciutto cotto','Prosciutto crudo','Bresaola','Mortadella','Formaggi stagionati','Cibi in scatola','Dado','Patatine','Snack salati'],
+      celesti:['Asparagi','Cetrioli','Ananas','Anguria','Sedano','Prezzemolo','Banana','Patate','Legumi','Finocchio','Zenzero']
+    },
+    'stile-gonfiore':{
+      grigi:['Legumi','Cavoli','Broccoli','Cavolfiore','Cipolla','Cipolla cruda','Aglio crudo','Uva','Mele','Pere','Bibite gassate'],
+      celesti:['Finocchio','Zenzero','Curcuma','Yogurt','Kefir','Carote','Zucchine','Patate','Riso','Banana matura']
+    },
+    'stile-stitichezza':{
+      grigi:['Riso bianco','Banane acerbe','Cioccolato'],
+      celesti:['Avena','Prugne','Kiwi','Legumi','Carote','Spinaci','Mele','Pere','Fichi','Semi di lino','Acqua','Verdure a foglia verde']
+    },
+    'stile-diarrea':{
+      grigi:['Cibi fritti','Latte intero','Caffè','Bibite gassate','Alcol','Cibi piccanti','Frutta secca','Legumi'],
+      celesti:['Riso','Carote cotte','Mela senza buccia','Banana matura','Pane tostato','Patate lesse','Pollo bollito','Brodo vegetale']
+    },
+    'stile-sostenibilita':{
+      grigi:[],
+      celesti:['Legumi','Lenticchie','Ceci','Fagioli','Tofu','Verdure di stagione','Frutta di stagione','Cereali integrali','Uova']
+    },
+    'cond-gravidanza':{
+      grigi:['Salmone affumicato','Tonno in scatola','Pesce spada','Squalo','Latte crudo','Formaggi molli','Gorgonzola','Brie','Camembert','Salumi crudi','Prosciutto crudo','Bresaola','Carpaccio','Uova crude','Alcol','Fegato'],
+      celesti:['Verdure a foglia verde','Spinaci','Legumi','Carne magra','Sardine','Uova','Latticini','Yogurt','Arance','Kiwi','Frutti di bosco']
+    },
+    'cond-allattamento':{
+      grigi:['Cavoli','Broccoli','Cavolfiore','Cipolla','Aglio in eccesso','Caffè','Alcol','Cibi molto piccanti'],
+      celesti:['Avena','Finocchio','Mandorle','Latticini','Pollo','Pesce','Legumi','Verdure a foglia verde','Acqua']
+    },
+    'cond-menopausa':{
+      grigi:['Salumi','Formaggi stagionati','Alcol','Cibi molto salati','Bibite gassate'],
+      celesti:['Latticini magri','Sardine','Salmone','Uova','Verdure a foglia verde','Semi di sesamo','Legumi','Soia','Semi di lino']
+    },
+    'cond-massa':{
+      grigi:['Dolci','Bibite','Alcol','Cibi ultra-processati','Snack industriali'],
+      celesti:['Carne','Pollo','Tacchino','Pesce','Uova','Latticini','Legumi','Riso','Avena','Banana','Patate','Frutta secca']
+    }
+  };
+
+  // Pulisce solo i colori automatici (grigioScuro e celeste) — non tocca quelli manuali
+  Object.keys(al).forEach(k=>{
+    if(al[k]==='grigioScuro'||al[k]==='celeste') delete al[k];
+  });
+
+  // Conta quante condizioni consigliano o sconsigliano ogni alimento
+  const conteggioGrigi={}, conteggioCelesti={};
+  Object.entries(REGOLE).forEach(([id,regola])=>{
+    if(!cs[id])return;
+    regola.grigi.forEach(nome=>{
+      const key=trovaChiaveAlimento(nome);
+      if(key){conteggioGrigi[key]=(conteggioGrigi[key]||0)+1;}
+    });
+    regola.celesti.forEach(nome=>{
+      const key=trovaChiaveAlimento(nome);
+      if(key){conteggioCelesti[key]=(conteggioCelesti[key]||0)+1;}
+    });
+  });
+
+  // Assegna i colori — grigio scuro ha priorità sul celeste
+  Object.entries(conteggioGrigi).forEach(([key,n])=>{
+    if(al[key]==='si'||al[key]==='arancione'||al[key]==='rosso')return; // non sovrascrivere scelte manuali
+    al[key]= n>=2 ? 'grigioScuro' : 'grigioScuro';
+  });
+  Object.entries(conteggioCelesti).forEach(([key,n])=>{
+    if(al[key])return; // non sovrascrivere nulla (né manuali né grigi)
+    al[key]='celeste';
+  });
+
+  p.alimenti=al;
+}
+
+function trovaChiaveAlimento(nome){
+  for(const cat of Object.keys(ALIMENTI)){
+    const items=(ALIMENTI[cat].items||[]);
+    const found=items.find(i=>i.n===nome||i.n.toLowerCase()===nome.toLowerCase());
+    if(found)return cat+'__'+found.n;
+  }
+  return null;
+}
+
 function salvaPaz(){
   const nome=document.getElementById('p-nome').value.trim();
   const cognome=document.getElementById('p-cognome').value.trim();
