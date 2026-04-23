@@ -1715,7 +1715,7 @@ function editPaz(){
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
   ss('p-abit',p.abit);ss('p-var',p.var);ss('p-cheto',p.cheto);
-  window._alStato=p.alimenti||{};renderAlEditor();aggDateCal();
+  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -1831,27 +1831,59 @@ function applicaRegoloSemaforo(p){
   });
 
   // Conta quante condizioni consigliano o sconsigliano ogni alimento
-  const conteggioGrigi={}, conteggioCelesti={};
+  const NOMI_CONDIZIONE={
+    'all-lattosio':'Lattosio','all-glutine':'Glutine','all-nichel':'Nichel',
+    'all-uova':'Uova','all-pesce':'Pesce','all-fruttasecca':'Frutta secca',
+    'all-crostacei':'Crostacei','all-soia':'Soia','pat-diabete':'Diabete',
+    'pat-tiroide':'Tiroide','pat-ipertensione':'Ipertensione','pat-colesterolo':'Colesterolo',
+    'pat-crohn':'Morbo di Crohn','pat-ibs':'Intestino irritabile','pat-pcos':'PCOS',
+    'stile-ritenzione':'Ritenzione idrica','stile-gonfiore':'Gonfiore',
+    'stile-stitichezza':'Stitichezza','stile-diarrea':'Diarrea',
+    'stile-sostenibilita':'Sostenibilità','cond-gravidanza':'Gravidanza',
+    'cond-allattamento':'Allattamento','cond-menopausa':'Menopausa','cond-massa':'Massa muscolare'
+  };
+  const conteggioGrigi={}, conteggioLuci={};
+  const motivazioniGrigi={}, motivazioniLuci={};
   Object.entries(REGOLE).forEach(([id,regola])=>{
     if(!cs[id])return;
+    const nomeCondizione=NOMI_CONDIZIONE[id]||id;
     regola.grigi.forEach(nome=>{
       const key=trovaChiaveAlimento(nome);
-      if(key){conteggioGrigi[key]=(conteggioGrigi[key]||0)+1;}
+      if(key){
+        conteggioGrigi[key]=(conteggioGrigi[key]||0)+1;
+        motivazioniGrigi[key]=motivazioniGrigi[key]||[];
+        if(!motivazioniGrigi[key].includes(nomeCondizione))motivazioniGrigi[key].push(nomeCondizione);
+      }
     });
     regola.celesti.forEach(nome=>{
       const key=trovaChiaveAlimento(nome);
-      if(key){conteggioCelesti[key]=(conteggioCelesti[key]||0)+1;}
+      if(key){
+        conteggioLuci[key]=(conteggioLuci[key]||0)+1;
+        motivazioniLuci[key]=motivazioniLuci[key]||[];
+        if(!motivazioniLuci[key].includes(nomeCondizione))motivazioniLuci[key].push(nomeCondizione);
+      }
     });
   });
 
-  // Assegna i colori — grigio scuro ha priorità sul celeste
-  Object.entries(conteggioGrigi).forEach(([key,n])=>{
-    if(al[key]==='si'||al[key]==='arancione'||al[key]==='rosso')return; // non sovrascrivere scelte manuali
+  // Assegna colori e salva motivazioni per tooltip ⚡
+  if(!p.motivazioniSemaforo)p.motivazioniSemaforo={};
+
+  Object.keys(conteggioGrigi).forEach(function(key){
+    if(al[key]==='si'||al[key]==='arancione'||al[key]==='rosso')return;
     al[key]='grigioScuro';
+    p.motivazioniSemaforo[key]=p.motivazioniSemaforo[key]||{};
+    p.motivazioniSemaforo[key].grigi=motivazioniGrigi[key]||[];
   });
-  Object.entries(conteggioCelesti).forEach(([key,n])=>{
-    if(al[key])return; // non sovrascrivere nulla (né manuali né grigi)
-    al[key]='celeste';
+
+  Object.keys(conteggioLuci).forEach(function(key){
+    if(al[key]==='si'||al[key]==='arancione'||al[key]==='rosso')return;
+    p.motivazioniSemaforo[key]=p.motivazioniSemaforo[key]||{};
+    p.motivazioniSemaforo[key].luci=motivazioniLuci[key]||[];
+    if(al[key]==='grigioScuro'){
+      p.motivazioniSemaforo[key].conflitto=true;
+    }else{
+      al[key]='celeste';
+    }
   });
 
   p.alimenti=al;
@@ -3616,7 +3648,12 @@ function renderAlEditor(){
       const s=window._alStato[key]||'';
       const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
       const sk=key.replace(/'/g,"\\'");const sn=item.n.replace(/'/g,"\\'");
-      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='arancione'?'◐ ':s==='rosso'?'↓ ':s==='grigioScuro'?'✕ ':s==='celeste'?'★ ':''}${item.n}${gl}</span>`;
+      var _mot=(window._alMotivazioni&&window._alMotivazioni[key])||{};
+      var _conflitto=_mot.conflitto;
+      var _tooltipHtml='';
+      if(_conflitto){var _cG=(_mot.grigi||[]).join(', ');var _cL=(_mot.luci||[]).join(', ');_tooltipHtml=` title="Controindicato per: ${_cG} — Consigliato per: ${_cL}"`;}
+      var _simbolo=_conflitto?'⚡ ':(s==='si'?'✓ ':s==='arancione'?'◐ ':s==='rosso'?'↓ ':s==='grigioScuro'?'✕ ':s==='celeste'?'★ ':'');
+      html+=`<span class="al-tog ${s}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')"`+_tooltipHtml+`>${_simbolo}${item.n}${gl}</span>`;
     });
     html+='</div></div>';
   });
