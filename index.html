@@ -709,6 +709,9 @@ main{flex:1;overflow-y:auto;}
       </div>
       <div class="fg"><label>Obiettivo della visita</label><input id="p-obiettivo" placeholder="Dimagrimento, massa, benessere..."></div>
     </div>
+    <div class="fg"><label>Contesto emotivo e motivazionale</label>
+      <textarea id="p-contesto-emotivo" rows="3" placeholder="Es. storia di fallimenti precedenti, alta motivazione, paziente ansioso, poco tempo, vita caotica..."></textarea>
+    </div>
     <div class="fr">
       <div class="fg"><label>Prezzo prima visita (€)</label><input type="number" id="p-prezzo-visita" step="0.01" placeholder="0.00"></div>
       <div class="fg"><label>Prezzo controllo (€)</label><input type="number" id="p-prezzo-controllo" step="0.01" placeholder="0.00"></div>
@@ -1682,6 +1685,7 @@ function editPaz(){
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
   s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);
   s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
+  if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
   s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
@@ -1873,6 +1877,7 @@ function salvaPaz(){
   const pd={
     nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
     bia:g('p-bia'),obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
+    contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
     controlloData:g('p-controllo'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
@@ -2009,6 +2014,7 @@ Macros target: Proteine ${protG||'—'}g · Carboidrati ${carbG||'—'}g · Gras
   if(p.allergie)ctx+=`\nAllergie/intolleranze: ${p.allergie}`;
   if(p.sport)ctx+=`\nSport: ${p.sport}${p.sportOre?' ('+p.sportOre+' ore/sett.)':''}`;
   if(p.note)ctx+=`\nNote cliniche: ${p.note}`;
+  if(p.contestoEmotivo)ctx+=`\nCONTESTO EMOTIVO E MOTIVAZIONALE: ${p.contestoEmotivo}`;
   if(p.ragionamentoClinico)ctx+=`\n\nRagionamento clinico precedente (${p.ragionamentoClinico.data}):\n${p.ragionamentoClinico.testo}`;
   return ctx;
 }
