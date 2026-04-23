@@ -1902,6 +1902,7 @@ function salvaPaz(){
     pd.id=uid();pd.inbody=[];pd.note='';pd.analisiSangue={};pd.creato=today();db.pazienti.push(pd);
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
+  applicaRegoloSemaforo(pd);
   save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
