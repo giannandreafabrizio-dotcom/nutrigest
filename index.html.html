@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NutriGest — Studio Giannandrea</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
   --bg:#f7f4ef;--s1:#ffffff;--s2:#f0ece4;--s3:#e8e2d8;
@@ -109,6 +110,7 @@ main{flex:1;overflow-y:auto;}
 .al-tog:hover{border-color:var(--teal);color:var(--teal);}
 .al-tog.si{background:var(--teal-bg);border-color:var(--teal-light);color:var(--teal);font-weight:500;}
 .al-tog.no{background:var(--red-bg);border-color:#f5c6c2;color:var(--red);text-decoration:line-through;}
+.al-tog.arancione{background:#fff3e0;border-color:#e08000;color:#a04a00;}
 /* CALENDARIO */
 .cal-wrap{background:var(--s1);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;}
 .cal-hdr{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid var(--border);}
@@ -220,8 +222,10 @@ main{flex:1;overflow-y:auto;}
   .page{padding:.8rem;}
   .fr,.fr3{grid-template-columns:1fr;}
   .aside-foot{display:none;}
+  .dash-2col{grid-template-columns:1fr!important;}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -250,6 +254,9 @@ main{flex:1;overflow-y:auto;}
     <button class="nav-item" onclick="goTo('concetti',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Concetti
     </button>
+    <button class="nav-item" onclick="goTo('piano',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Piano Alimentare
+    </button>
     <div class="nav-s">Sistema</div>
     <button class="nav-item" onclick="goTo('impostazioni',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Impostazioni
@@ -258,20 +265,127 @@ main{flex:1;overflow-y:auto;}
   <div class="aside-foot">
     <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-txt">Sincronizzazione...</span></div>
     <button class="btn-aside" onclick="syncNow()">↺ Sincronizza</button>
+    <div id="syncTimestamp" style="font-size:11px;margin-top:4px;color:rgba(255,255,255,.5)"></div>
     <button class="btn-aside" onclick="esporta()">⬇ Backup</button>
   </div>
 </aside>
 <main>
 
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="page-hd" style="margin-bottom:1.4rem">
+    <div>
+      <h2>Dashboard</h2>
+      <p id="dash-date" style="color:var(--text2);font-size:.82rem;margin-top:2px">—</p>
+    </div>
+  </div>
+
+  <div class="dash-2col" style="display:grid;grid-template-columns:1fr 300px;gap:1.1rem;align-items:start">
+
+    <!-- COLONNA SINISTRA -->
+    <div>
+      <!-- KPI Cards 2x2 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.3rem;">
+        <div style="background:#1D9E75;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Pazienti Attivi</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-tot-paz">—</div>
+          <div style="font-size:.7rem;opacity:.72" id="dash-sub-paz">nel database</div>
+        </div>
+        <div style="background:#0F6E56;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Entrate Questo Mese</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.1rem;line-height:1;margin-bottom:.3rem" id="dash-entrate-mese">—</div>
+          <div style="font-size:.7rem;opacity:.72">incassi totali</div>
+        </div>
+        <div style="background:#378ADD;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Appuntamenti Settimana</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-appuntamenti-sett">—</div>
+          <div style="font-size:.7rem;opacity:.72" id="dash-sub-appuntamenti">visite + controlli</div>
+        </div>
+        <div style="background:#D85A30;border-radius:14px;padding:1.3rem 1.5rem;color:#fff;">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:1.2px;opacity:.78;margin-bottom:.5rem">Prime Visite Settimana</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;margin-bottom:.3rem" id="dash-visite-sett">—</div>
+          <div style="font-size:.7rem;opacity:.72" id="dash-sub-visite">nuovi pazienti</div>
+        </div>
+      </div>
+
+      <!-- Allerte + Ultimi pazienti -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.1rem;">
+        <div class="card">
+          <div class="card-hd"><h3>⚕️ Allerte cliniche</h3></div>
+          <div class="card-bd">
+            <p id="dash-sintesi" style="font-size:.78rem;color:var(--text2);margin-bottom:.6rem"></p>
+            <div id="dash-alert-tags" style="display:flex;flex-wrap:wrap;gap:.35rem"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">
+            <h3>👥 Ultimi pazienti</h3>
+            <button class="btn btn-g btn-sm" onclick="goTo('pazienti',document.querySelectorAll('.nav-item')[1])">Vedi tutti →</button>
+          </div>
+          <div class="card-bd" id="dash-pazienti-recenti"></div>
+        </div>
+      </div>
+
+      <!-- Spunti piani alimentari -->
+      <div class="card">
+        <div class="card-hd"><h3>💡 Spunti per i piani alimentari</h3></div>
+        <div class="card-bd" id="dash-spunti-list"></div>
+      </div>
+    </div>
+
+    <!-- COLONNA DESTRA — Agenda -->
+    <div style="position:sticky;top:1rem">
+      <!-- Con orario -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px 12px 0 0;padding:.75rem .9rem;border-bottom:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <span style="font-size:.75rem;font-weight:600;color:var(--text)">🗓 Con orario</span>
+          <button onclick="toggleFormAgenda()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
+        </div>
+        <div id="dash-form-agenda" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <input id="da-testo" type="text" placeholder="Descrizione..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+          <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
+            <input id="da-ora" type="time" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+            <select id="da-cat" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+              <option value="Nutrizionista">Nutrizionista</option>
+              <option value="Personale">Personale</option>
+              <option value="Vigile del fuoco">Vigile del fuoco</option>
+            </select>
+          </div>
+          <button onclick="salvaAgendaItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
+        </div>
+        <div id="dash-agenda-orario"></div>
+      </div>
+      <!-- Separatore + Da fare -->
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:.75rem .9rem;border-top:2px solid var(--border2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <span style="font-size:.75rem;font-weight:600;color:var(--text)">📋 Da fare oggi</span>
+          <button onclick="toggleFormTodo()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
+        </div>
+        <div id="dash-form-todo" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <input id="dt-testo" type="text" placeholder="Cosa devi fare..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+          <select id="dt-cat" style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
+            <option value="Nutrizionista">Nutrizionista</option>
+            <option value="Personale">Personale</option>
+            <option value="Vigile del fuoco">Vigile del fuoco</option>
+          </select>
+          <button onclick="salvaTodoItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
+        </div>
+        <div id="dash-todo-list"></div>
+      </div>
+    </div>
+
+  </div><!-- fine dash-2col -->
+</div>
+
 <!-- PAZIENTI -->
-<div class="page active" id="page-pazienti">
+<div class="page" id="page-pazienti">
   <div class="page-hd">
     <div><h2>Pazienti</h2><p id="paz-count">—</p></div>
     <button class="btn btn-p" onclick="openNuovoPaz()">+ Nuovo paziente</button>
   </div>
   <div class="sbar">
     <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="renderPaz()">
-    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option></select>
+    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select>
   </div>
   <div class="paz-grid" id="paz-grid"></div>
 </div>
@@ -287,6 +401,8 @@ main{flex:1;overflow-y:auto;}
       <button class="btn btn-g" onclick="editPaz()">✏ Modifica</button>
       <button class="btn btn-orange" onclick="openInbody()">📊 InBody</button>
       <button class="btn btn-p" onclick="openAddEventoPaz()">📅 Aggiungi evento</button>
+      <button class="btn btn-g" onclick="archiviaPaz(currentPazId)" style="background:transparent;border:1px solid #aaa;color:#666">📦 Archivia</button>
+      <button class="btn btn-d" onclick="eliminaPaz(currentPazId)">🗑 Elimina</button>
     </div>
   </div>
   <div class="pd-hdr" id="pd-hdr"></div>
@@ -298,6 +414,7 @@ main{flex:1;overflow-y:auto;}
     <button class="pd-tab" onclick="pdTab('inbody',this)">InBody</button>
     <button class="pd-tab" onclick="pdTab('macros',this)">Calcolo macros</button>
     <button class="pd-tab" onclick="pdTab('note',this)">Note cliniche</button>
+    <button class="pd-tab" onclick="pdTab('ragionamento',this)">💭 Ragionamento</button>
   </div>
   <div class="pd-panel active" id="pd-anamnesi"></div>
   <div class="pd-panel" id="pd-alimenti"></div>
@@ -305,6 +422,7 @@ main{flex:1;overflow-y:auto;}
   <div class="pd-panel" id="pd-inbody"></div>
   <div class="pd-panel" id="pd-macros"></div>
   <div class="pd-panel" id="pd-note"></div>
+  <div class="pd-panel" id="pd-ragionamento"></div>
 </div>
 
 <!-- CALENDARIO -->
@@ -412,6 +530,85 @@ main{flex:1;overflow-y:auto;}
   <!-- Renderizzata dinamicamente da renderConcettiPage() -->
 </div>
 
+<!-- PIANO ALIMENTARE -->
+<div class="page" id="page-piano">
+  <div class="page-hd">
+    <div><h2>Generatore Piani Alimentari</h2><p>Crea piani settimanali personalizzati nel tuo stile</p></div>
+  </div>
+  <div style="max-width:600px;margin:2rem auto;display:flex;flex-direction:column;gap:1.2rem;">
+
+    <!-- Selezione paziente -->
+    <div class="card" style="padding:1.2rem 1.4rem;">
+      <div style="font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Seleziona paziente</div>
+      <select id="piano-select-paz" onchange="pianoPazSelezionato(this.value)"
+        style="width:100%;padding:.55rem .75rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text1);background:var(--bg);font-family:'DM Sans',sans-serif;">
+        <option value="">— Scegli un paziente —</option>
+      </select>
+    </div>
+
+    <!-- Riquadro dati paziente (nascosto finché non selezionato) -->
+    <div id="piano-paz-info" style="display:none;background:var(--green-bg);border:1.5px solid #a8ddb5;border-radius:10px;padding:1.1rem 1.4rem;">
+      <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;">
+        <div id="piano-paz-avatar" style="width:38px;height:38px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:.95rem;color:#fff;flex-shrink:0;"></div>
+        <div>
+          <div id="piano-paz-nome" style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--text1);"></div>
+          <div id="piano-paz-regime" style="font-size:.75rem;color:var(--green);font-weight:600;margin-top:1px;"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;" id="piano-paz-macros">
+        <!-- popolato da JS -->
+      </div>
+      <div id="piano-paz-warning" style="display:none;font-size:.75rem;color:#c0392b;margin-top:.7rem;padding:.5rem .7rem;background:#fdf3f2;border-radius:6px;border:1px solid #f5c6c2;"></div>
+    </div>
+
+    <!-- Pulsante Genera Piano -->
+    <div style="text-align:center;padding-top:.4rem;">
+      <button id="piano-btn-genera" class="btn" disabled
+        style="background:#b2dfbe;border:none;color:#fff;padding:.75rem 2.2rem;font-size:.9rem;border-radius:8px;cursor:not-allowed;transition:all .2s;"
+        onclick="generaPiano()">
+        ✦ Genera Piano
+      </button>
+    </div>
+
+    <!-- P2 — Correzione interattiva piano -->
+    <div id="p2-box" style="display:none;margin-top:1.5rem;">
+      <div style="font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.7rem;">✏️ Correggi il piano</div>
+      <textarea id="p2-input" rows="3" placeholder="Descrivi cosa vuoi cambiare... es: Cambia la cena di martedì con pesce"
+        style="width:100%;padding:.7rem .9rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text1);background:var(--bg);resize:vertical;box-sizing:border-box;"></textarea>
+      <div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem;">
+        <button id="p2-mic" class="btn btn-g" style="flex-shrink:0;padding:.55rem .9rem;">🎤</button>
+        <button id="p2-genera" class="btn btn-p" style="flex:1;">✦ Applica correzione</button>
+      </div>
+      <div style="text-align:right;margin-top:.4rem;">
+        <a href="#" id="p2-open-chat" style="font-size:.8rem;color:var(--green);">Apri chat estesa ›</a>
+      </div>
+      <div id="p2-preview" style="display:none;margin-top:1rem;padding:1rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;">
+        <div style="font-size:.8rem;font-weight:700;color:#2e7d32;margin-bottom:.5rem;">Anteprima modifica:</div>
+        <div id="p2-preview-content" style="font-size:.84rem;color:var(--text1);margin-bottom:.8rem;"></div>
+        <div style="display:flex;gap:.6rem;">
+          <button id="p2-confirm" class="btn btn-p">✔ Conferma</button>
+          <button id="p2-cancel" class="btn btn-g">✕ Annulla</button>
+        </div>
+      </div>
+      <div id="p2-chat" style="display:none;margin-top:1rem;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+          <span style="font-weight:700;font-size:.88rem;color:var(--text1);">Chat con il nutrizionista AI</span>
+          <a href="#" id="p2-close-chat" style="font-size:.8rem;color:var(--text3);">Chiudi chat ✕</a>
+        </div>
+        <div id="p2-chat-log" style="max-height:300px;overflow-y:auto;margin-bottom:.7rem;"></div>
+        <div style="display:flex;gap:.5rem;">
+          <input id="p2-chat-input" type="text" placeholder="Scrivi un messaggio..."
+            style="flex:1;padding:.55rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.84rem;background:var(--bg);color:var(--text1);">
+          <button id="p2-chat-mic" class="btn btn-g" style="flex-shrink:0;padding:.55rem .9rem;">🎤</button>
+          <button id="p2-chat-send" class="btn btn-p" style="flex-shrink:0;">Invia</button>
+        </div>
+      </div>
+      <button id="p2-save" style="display:none;margin-top:1.5rem;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
+    </div>
+
+  </div>
+</div>
+
 <!-- IMPOSTAZIONI -->
 <div class="page" id="page-impostazioni">
   <div class="page-hd"><div><h2>Impostazioni</h2><p>Configurazione e sincronizzazione</p></div></div>
@@ -424,6 +621,29 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-g" onclick="testConn()">🔌 Testa</button>
         <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="background:var(--bg2,rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.08);margin-top:.75rem">
+    <div class="card-hd"><h3>☁️ Stato sincronizzazione</h3></div>
+    <div class="card-bd" style="padding:12px;display:flex;flex-direction:column;gap:6px;font-size:.8rem">
+      <div>URL Script: <span id="ss-url" style="font-weight:600"></span></div>
+      <div>Stato: <span id="ss-stato" style="font-weight:600"></span></div>
+      <div>Ultima sincronizzazione: <span id="ss-ts" style="font-weight:600"></span></div>
+      <div>Record in memoria: <span id="ss-rec" style="font-weight:600;color:var(--text3)"></span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><h3>🤖 API Anthropic</h3></div>
+    <div class="card-bd">
+      <div class="fg">
+        <label>Chiave API <span id="ant-hint" style="font-size:.75rem;color:var(--text3)"></span></label>
+        <input type="password" id="ant-key" placeholder="sk-ant-...">
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="salvaAntKey()">Salva</button>
+        <button class="btn btn-g" onclick="testaAntKey()">🔌 Testa connessione</button>
+        <span id="ant-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
     </div>
   </div>
@@ -465,6 +685,10 @@ main{flex:1;overflow-y:auto;}
           <option value="Post-pranzo">Post-pranzo</option>
         </select>
       </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Peso obiettivo (kg)</label><input type="number" id="p-peso-target" step="0.1" placeholder="es. 70"></div>
+      <div class="fg"></div>
     </div>
     <div class="fr">
       <div class="fg"><label>Tipo regime *</label>
@@ -657,11 +881,76 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
     </div>
     <div class="fg"><label>Attività lavorativa</label><input id="p-lavoro" placeholder="Sedentario, in piedi, turni..."></div>
+    <div class="sec-title">Attività Fisica</div>
+    <div class="fr3">
+      <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 8000" min="0"></div>
+      <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 4" min="0" step="0.5"></div>
+      <div class="fg"><label>Circonferenza polso (cm)</label><input type="number" id="p-polso" placeholder="es. 16.5" step="0.1"></div>
+    </div>
+    <div class="fr3">
+      <div class="fg"><label>Tipo allenamento</label>
+        <select id="p-tipo-all">
+          <option value="">— Non specificato —</option>
+          <option value="Forza">Forza</option>
+          <option value="Cardio">Cardio</option>
+          <option value="Misto">Misto</option>
+        </select>
+      </div>
+      <div class="fg"><label>Intensità allenamento</label>
+        <select id="p-intens-all">
+          <option value="">— Non specificata —</option>
+          <option value="Bassa">Bassa</option>
+          <option value="Media">Media</option>
+          <option value="Alta">Alta</option>
+        </select>
+      </div>
+      <div class="fg"><label>Orario allenamento</label>
+        <select id="p-orario-all" onchange="toggleOrarioNote()">
+          <option value="">— Non specificato —</option>
+          <option value="Mattina">Mattina</option>
+          <option value="Pomeriggio">Pomeriggio</option>
+          <option value="Sera">Sera</option>
+          <option value="Variabile">Variabile</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" id="p-orario-all-note-fg" style="display:none">
+      <label>Note orario allenamento</label>
+      <input id="p-orario-all-note" placeholder="Specifica...">
+    </div>
+    <div class="fg"><label>Giorni di allenamento</label>
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-lun" value="Lun" style="accent-color:var(--teal)"> Lun</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mar" value="Mar" style="accent-color:var(--teal)"> Mar</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mer" value="Mer" style="accent-color:var(--teal)"> Mer</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-gio" value="Gio" style="accent-color:var(--teal)"> Gio</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-ven" value="Ven" style="accent-color:var(--teal)"> Ven</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-sab" value="Sab" style="accent-color:var(--teal)"> Sab</label>
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Cronotipo</label>
+        <select id="p-cronotipo">
+          <option value="">— Non specificato —</option>
+          <option value="Mattiniero">Mattiniero</option>
+          <option value="Intermedio">Intermedio</option>
+          <option value="Serale">Serale</option>
+        </select>
+      </div>
+      <div class="fg"><label>Orario pasto principale</label>
+        <select id="p-orario-pasto">
+          <option value="">— Non specificato —</option>
+          <option value="Pranzo abbondante">Pranzo abbondante</option>
+          <option value="Cena abbondante">Cena abbondante</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <!-- PREFERENZE CIBI -->
   <div class="tab-panel" id="tp-cibi">
-    <p style="font-size:.77rem;color:var(--text2);margin-bottom:.9rem">Tocca per impostare: <strong style="color:var(--teal)">Verde = Sì</strong> · <strong style="color:var(--red)">Rosso = No</strong> · Grigio = non specificato</p>
+    <p style="font-size:.77rem;color:var(--text2);margin-bottom:.9rem">Grigio = Non inserire · <strong style="color:var(--teal)">Verde = Alta frequenza</strong> · <strong style="color:#fb923c">Arancione = Media frequenza</strong> · <strong style="color:var(--red)">Rosso = Bassa frequenza</strong></p>
     <div id="al-editor"></div>
   </div>
 
@@ -1131,27 +1420,82 @@ function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.
 function fData(s){if(!s)return'—';return new Date(s).toLocaleDateString('it-IT');}
 function fEur(n){return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n||0);}
 
+function getLastSyncText(){
+  const ts=localStorage.getItem('lastSync');
+  if(!ts)return 'mai sincronizzato';
+  const d=new Date(parseInt(ts)),now=new Date();
+  const diffMs=now-d,diffH=diffMs/3600000,diffD=Math.floor(diffMs/86400000);
+  const hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
+  if(diffD===0)return 'oggi alle '+hh+':'+mm;
+  if(diffD===1)return 'ieri alle '+hh+':'+mm;
+  return diffD+' giorni fa';
+}
+function getSyncColor(){
+  const ts=localStorage.getItem('lastSync');
+  if(!ts)return 'gray';
+  return (Date.now()-parseInt(ts))<86400000?'#4ade80':'#fb923c';
+}
+let _syncOk=false;
+function aggiornaStatoSync(){
+  const urlEl=document.getElementById('ss-url');
+  const statoEl=document.getElementById('ss-stato');
+  const tsEl=document.getElementById('ss-ts');
+  const recEl=document.getElementById('ss-rec');
+  if(urlEl){
+    const hasUrl=!!getUrl();
+    urlEl.textContent=hasUrl?'✓ Configurato':'✗ Non configurato';
+    urlEl.style.color=hasUrl?'#4ade80':'#f87171';
+  }
+  if(statoEl){
+    statoEl.textContent=_syncOk?'✓ Connesso a Google Sheets':'✗ Non connesso';
+    statoEl.style.color=_syncOk?'#4ade80':'#f87171';
+  }
+  if(tsEl){
+    const ts=localStorage.getItem('lastSync');
+    if(ts){const d=new Date(parseInt(ts));tsEl.textContent=d.toLocaleTimeString('it-IT');}
+    else tsEl.textContent='mai';
+  }
+  if(recEl&&db){
+    const paz=(db.pazienti||[]).length;
+    const piani=(db.pazienti||[]).filter(p=>p.piano&&p.piano.giorni).length;
+    const ric=(db.ricette||[]).length;
+    recEl.textContent=paz+' pazienti, '+piani+' piani, '+ric+' ricette';
+  }
+}
 function setSyncStatus(ok){
+  _syncOk=ok;
   const d=document.getElementById('sync-dot'),t=document.getElementById('sync-txt');
   if(d)d.className='sync-dot'+(ok?'':' err');
   if(t)t.textContent=ok?'Sincronizzato':'Solo locale';
+  const txt=getLastSyncText(),col=getSyncColor();
+  const el1=document.getElementById('syncTimestamp');
+  if(el1){el1.textContent=txt;el1.style.color=col;}
+  aggiornaStatoSync();
 }
 async function pushToSheets(){
-  const url=getUrl();if(!url)return false;
-  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});setSyncStatus(true);return true;}
-  catch(e){setSyncStatus(false);return false;}
+  const url=getUrl();
+  console.log('[Sync] pushToSheets — URL:', url||'⚠ MANCANTE');
+  if(!url)return false;
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});localStorage.setItem('lastSync',Date.now());setSyncStatus(true);console.log('[Sync] push OK');return true;}
+  catch(e){setSyncStatus(false);console.error('[Sync] push ERRORE:',e);return false;}
 }
 async function pullFromSheets(){
-  const url=getUrl();if(!url)return false;
+  const url=getUrl();
+  console.log('[Sync] pullFromSheets — URL:', url||'⚠ MANCANTE');
+  if(!url)return false;
   try{
     const r=await fetch(url+'?action=get',{method:'GET',mode:'cors'});
-    if(!r.ok)throw new Error();
+    console.log('[Sync] pull risposta status:', r.status, r.ok?'OK':'NON OK');
+    if(!r.ok)throw new Error('status '+r.status);
     const data=await r.json();
-    if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();return true;}
+    console.log('[Sync] pull data.pazienti:', data&&data.pazienti?data.pazienti.length+' pazienti':'campo pazienti assente');
+    if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();localStorage.setItem('lastSync',Date.now());return true;}
     return false;
-  }catch(e){return false;}
+  }catch(e){console.error('[Sync] pull ERRORE:',e);return false;}
 }
 async function syncNow(){
+  console.log('sync avviata');
+  console.log('[Sync] URL configurato:', getUrl()||'⚠ MANCANTE — vai in Impostazioni e salva l\'URL');
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
   const p=await pullFromSheets();
   if(!p)await pushToSheets();
@@ -1166,6 +1510,37 @@ async function testConn(){
   try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});res.style.color='var(--teal)';res.textContent='✓ Connessione riuscita!';}
   catch(e){res.style.color='var(--red)';res.textContent='✗ Errore';}
 }
+function salvaAntKey(){
+  const v=document.getElementById('ant-key').value.trim();
+  if(!v){alert('Inserisci la chiave API');return;}
+  localStorage.setItem('anthropicApiKey',v);
+  const hint=document.getElementById('ant-hint');
+  if(hint)hint.textContent='•••• '+v.slice(-4);
+  notif('✓ Chiave API Anthropic salvata!');
+}
+async function testaAntKey(){
+  const key=document.getElementById('ant-key').value.trim()||localStorage.getItem('anthropicApiKey')||'';
+  const res=document.getElementById('ant-res');
+  if(!key){res.style.color='var(--red)';res.textContent='⚠ Inserisci la chiave';return;}
+  res.style.color='var(--text3)';res.textContent='⏳ Test in corso...';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1,messages:[{role:'user',content:'Hi'}]})
+    });
+    if(r.ok){res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';}
+    else{res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
+  }catch(e){res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
+}
+function initAntCard(){
+  const k=localStorage.getItem('anthropicApiKey');
+  if(!k)return;
+  const el=document.getElementById('ant-key');
+  if(el)el.value=k;
+  const hint=document.getElementById('ant-hint');
+  if(hint)hint.textContent='•••• '+k.slice(-4);
+}
 function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
 function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
 
@@ -1178,16 +1553,19 @@ function goTo(name,btn){
   const pg=document.getElementById('page-'+name);if(pg)pg.classList.add('active');
   if(btn)btn.classList.add('active');
   if(name==='pazienti')renderPaz();
+  if(name==='dashboard')renderAgendaDx();
   if(name==='calendario')renderCal();
   if(name==='ricette')renderRic();
   if(name==='entrate')renderEntrate();
   if(name==='dashboard')renderDashboard();
   if(name==='concetti')renderConcettiPage();
-  if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();}
+  if(name==='piano')renderPianoPage();
+  if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();initAntCard();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
 function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));document.getElementById('tp-'+name).classList.add('active');btn.classList.add('active');}
+function toggleOrarioNote(){const fg=document.getElementById('p-orario-all-note-fg');const sel=document.getElementById('p-orario-all');if(fg)fg.style.display=(sel&&sel.value==='Variabile')?'block':'none';}
 function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');}
 function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),dur);}
 
@@ -1198,9 +1576,12 @@ function renderPaz(){
   const q=(document.getElementById('s-paz').value||'').toLowerCase();
   const f=document.getElementById('f-paz').value;
   let list=[...db.pazienti].sort((a,b)=>a.cognome.localeCompare(b.cognome));
+  if(f==='archiviati')list=list.filter(p=>p.stato==='archiviato');
+  else list=list.filter(p=>p.stato!=='archiviato');
   if(q)list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
   if(f==='attivo')list=list.filter(p=>p.inizioAlim);
-  document.getElementById('paz-count').textContent=db.pazienti.length+' pazienti';
+  const attivi=db.pazienti.filter(p=>p.stato!=='archiviato').length;
+  document.getElementById('paz-count').textContent=attivi+' pazienti';
   const grid=document.getElementById('paz-grid');
   if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessun paziente</p><span>Clicca "+ Nuovo paziente" per iniziare</span></div>';return;}
   grid.innerHTML=list.map(p=>{
@@ -1214,12 +1595,22 @@ function renderPaz(){
     }else statoTag=`<span class="tag tag-orange">Nessun piano</span>`;
     const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
     const regimeTag=p.regime?`<span class="tag tag-purple">${p.regime}</span>`:'';
-    return`<div class="paz-card" onclick="openPaz('${p.id}')">
+    const archiviato=p.stato==='archiviato';
+    let cardBg='#FAEEDA';let cardBorder='#FAC775';
+    if(archiviato){cardBg='#F3F4F6';cardBorder='#D1D5DB';}
+    else if(p.controlloData){
+      cardBg=new Date(p.controlloData)>new Date()?'#E6F1FB':'#FCEBEB';
+      cardBorder=new Date(p.controlloData)>new Date()?'#B5D4F4':'#F7C1C1';
+    }
+    const archTag=archiviato?`<span class="tag tag-gray">📦 Archiviato</span>`:'';
+    const ripristinaBtn=archiviato?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();ripristinaPaz('${p.id}')" style="font-size:.7rem;padding:.2rem .6rem;margin-top:.4rem">↩ Ripristina</button>`:'';
+    return`<div class="paz-card" style="background:${cardBg};border-color:${cardBorder};opacity:${archiviato?.7:1}" onclick="${archiviato?'':` openPaz('${p.id}')`}">
       <div class="paz-card-top">
-        <div class="avatar">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
+        <div class="avatar" style="${archiviato?'opacity:.5':''}">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
         <div><div class="paz-nome">${p.nome} ${p.cognome}</div><div class="paz-meta">${eta}${eta&&p.tel?' · ':''}${p.tel||''}</div></div>
       </div>
-      <div class="paz-tags">${statoTag}${regimeTag}</div>
+      <div class="paz-tags">${archiviato?archTag:statoTag+regimeTag}</div>
+      ${ripristinaBtn}
     </div>`;
   }).join('');
 }
@@ -1227,8 +1618,11 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['p-peso','p-altezza'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
+  toggleOrarioNote();
+  ['p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['p-nascita','p-visita','p-inizio','p-controllo','p-inizio2','p-controllo2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-visita').value=today();
   document.getElementById('p-inizio').value=today();
@@ -1244,6 +1638,7 @@ function editPaz(){
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
   s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);
   s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
+  const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
   s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
@@ -1255,6 +1650,13 @@ function editPaz(){
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-lavoro',p.lavoro);s('p-umore',p.umore);s('p-crisi',p.crisi);s('p-fame',p.fame);
   s('p-cheto-note',p.chetoNote);
+  s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);s('p-polso',p.circonferenzaPolso);
+  s('p-orario-all-note',p.orarioAllenamentoNote);
+  const ss2=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+  ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
+  ss2('p-orario-all',p.orarioAllenamento);ss2('p-cronotipo',p.cronotipo);ss2('p-orario-pasto',p.orarioPastoPrincipale);
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
+  toggleOrarioNote();
   const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss('p-regime',p.regime);
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
@@ -1278,7 +1680,7 @@ function salvaPaz(){
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
   const ini=g('p-inizio');
   const pd={
-    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),peso:gn('p-peso'),altezza:gn('p-altezza'),
+    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
     bia:g('p-bia'),obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
     controlloData:g('p-controllo'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
@@ -1290,8 +1692,14 @@ function salvaPaz(){
     dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
+    regime:gs('p-regime'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
     weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
     fame:g('p-fame'),abit:gs('p-abit'),
+    passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
+    intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
+    orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
+    giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
+    circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||addDays(ini,28)}:null
   };
@@ -1301,6 +1709,7 @@ function salvaPaz(){
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.analisiSangue={};pd.creato=today();db.pazienti.push(pd);
   }
+  console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
@@ -1327,7 +1736,7 @@ function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
-  renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);renderPdMacros(p);
+  renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);renderPdMacros(p);renderPdRagionamento(p);
   document.getElementById('pd-note').innerHTML=`
     <div class="card"><div class="card-hd"><h3>Note cliniche</h3></div><div class="card-bd">
       <textarea style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.5rem .7rem;outline:none;min-height:180px;resize:vertical" oninput="saveNote(this.value)">${p.note||''}</textarea>
@@ -1338,6 +1747,196 @@ function openPaz(id){
 }
 
 function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save();}
+
+// ── RAGIONAMENTO CLINICO ───────────────────────────────────────────────────────
+const RAG_SYSTEM_PROMPT=`Sei un assistente clinico specializzato in dietologia che affianca il Dott. Fabrizio Giannandrea, dietologo con studio a Napoli (Magic e Centro Curae).
+
+IL TUO RUOLO
+Non sei un motore di calcolo. Sei un collega clinico con cui Fabrizio ragiona ad alta voce sul percorso nutrizionale del paziente. Hai già in contesto tutti i dati del paziente. Usali senza che Fabrizio debba ripeterli.
+
+APPROCCIO CLINICO DI FABRIZIO
+- Valuta ogni paziente caso per caso, senza schemi fissi
+- La restrizione calorica delle prime settimane dipende dalla motivazione del paziente — non applicare mai deficit standard automaticamente
+- Priorità in ordine: educazione alimentare, aderenza a lungo termine, risultato iniziale che motiva
+- Le patologie modificano i macros in base alla loro gravità — segnala sempre quando una patologia presente nel profilo dovrebbe influenzare il ragionamento
+- Carboidrati e proteine si adattano al paziente e all'obiettivo — le proteine sono moderate, mai eccessive
+- La ciclizzazione dei macros va proposta solo se il paziente appare motivato e strutturato — altrimenti semplifica
+- La composizione corporea (massa magra vs grassa) è sempre un riferimento clinico importante, non solo il peso
+
+COME COMUNICHI
+- Tono caldo e diretto, come un collega fidato con cui ragioni insieme — non un consulente formale
+- La tua forza è il ragionamento clinico: analizza, collega i dati, proponi ipotesi, metti in discussione se necessario
+- Conciso: niente fronzoli, vai dritto al ragionamento
+- Critico costruttivo: se qualcosa non torna dillo senza giri di parole
+- Fai domande solo se davvero manca qualcosa di clinicamente rilevante
+- Quando Fabrizio decide, conferma e vai avanti
+
+GERARCHIA DELLE DECISIONI
+1. Decisioni esplicite di Fabrizio durante la chat (priorità assoluta)
+2. Dati clinici del paziente (patologie, InBody, storia)
+3. Macros calcolati automaticamente (punto di partenza, non verità)
+
+COSA NON FARE
+- Non ripetere i dati del paziente che già conosci se non richiesto
+- Non suggerire protocolli rigidi o diete standard
+- Non ignorare le patologie presenti nel profilo
+- Non essere eccessivamente prudente — Fabrizio è un professionista, parla da pari a pari`;
+
+let _ragMessages=[], _ragPazId=null, _ragRiassunto=null, _ragLoading=false;
+
+function costruisciContestoPaziente(p){
+  const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000):null;
+  const ibSorted=p.inbody&&p.inbody.length?[...p.inbody].sort((a,b)=>b.data.localeCompare(a.data)):[];
+  const lastIb=ibSorted[0]||null;
+  const prevIb=ibSorted[1]||null;
+  const _tdeeCalc=calcolaTDEE(p);
+  const mb=_tdeeCalc.mb||(lastIb?lastIb.mb:null);
+  const peso=_tdeeCalc.peso||(lastIb?lastIb.peso:(p.peso||null));
+  const laf=_tdeeCalc.laf;
+  const tdee=_tdeeCalc.tdee;
+  const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+  const offset=offMap[p.regime]||0;
+  const kcalTarget=tdee?tdee+offset:null;
+  const protG=peso?Math.round(1.8*peso):null;
+  const grassiG=peso?Math.round(0.9*peso):null;
+  const carbG=(kcalTarget&&protG&&grassiG)?Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4)):null;
+  let deltaIb='';
+  if(lastIb&&prevIb&&lastIb.peso&&prevIb.peso){
+    const dP=(lastIb.peso-prevIb.peso).toFixed(1);
+    const dPg=lastIb.pg&&prevIb.pg?(lastIb.pg-prevIb.pg).toFixed(1):null;
+    deltaIb=`\nDelta vs misurazione precedente (${prevIb.data}): peso ${dP>0?'+':''}${dP}kg${dPg?' · %grassa '+(dPg>0?'+':'')+dPg+'%':''}`;
+  }
+  let ctx=`PAZIENTE: ${p.nome} ${p.cognome}${eta?' — '+eta+' anni':''}
+Peso: ${peso||'—'} kg · Altezza: ${p.altezza||'—'} cm · LAF: ${laf}
+Regime: ${p.regime||'—'} · Obiettivo: ${p.obiettivo||'—'}
+MB (InBody): ${mb||'—'} kcal · TDEE: ${tdee||'—'} kcal · Kcal target: ${kcalTarget||'—'} kcal
+Macros target: Proteine ${protG||'—'}g · Carboidrati ${carbG||'—'}g · Grassi ${grassiG||'—'}g`;
+  if(lastIb)ctx+=`\n\nUltima InBody (${lastIb.data}): Peso ${lastIb.peso}kg · %Grassa ${lastIb.pg}% · Massa magra ${lastIb.m||'—'}kg · BMI ${lastIb.bmi||'—'}${deltaIb}`;
+  if(p.patologie||p.farmaci||p.familiarita)ctx+=`\n\nAnamnesi patologica:${p.patologie?'\nPatologie: '+p.patologie:''}${p.farmaci?'\nFarmaci: '+p.farmaci:''}${p.familiarita?'\nFamiliarità: '+p.familiarita:''}`;
+  if(p.allergie)ctx+=`\nAllergie/intolleranze: ${p.allergie}`;
+  if(p.sport)ctx+=`\nSport: ${p.sport}${p.sportOre?' ('+p.sportOre+' ore/sett.)':''}`;
+  if(p.note)ctx+=`\nNote cliniche: ${p.note}`;
+  if(p.ragionamentoClinico)ctx+=`\n\nRagionamento clinico precedente (${p.ragionamentoClinico.data}):\n${p.ragionamentoClinico.testo}`;
+  return ctx;
+}
+
+function renderPdRagionamento(p){
+  if(_ragPazId!==p.id){_ragMessages=[];_ragPazId=p.id;_ragRiassunto=null;}
+  let html='';
+  if(p.ragionamentoClinico){
+    const rc=p.ragionamentoClinico;
+    html+=`<div class="card" style="margin-bottom:.7rem">
+      <div class="card-hd" style="cursor:pointer" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'">
+        <h3>📋 Ragionamento precedente — ${rc.data}</h3><span style="font-size:.72rem;color:var(--text3)">▼ espandi</span>
+      </div>
+      <div class="card-bd" style="display:none;font-size:.8rem;white-space:pre-wrap;line-height:1.6;color:var(--text2)">${rc.testo}</div>
+    </div>`;
+  }
+  const userCount=_ragMessages.filter(m=>m.role==='user').length;
+  const msgs=_ragMessages.map(m=>`<div style="display:flex;justify-content:${m.role==='user'?'flex-end':'flex-start'}">
+    <div style="max-width:82%;padding:.5rem .8rem;border-radius:${m.role==='user'?'12px 12px 4px 12px':'12px 12px 12px 4px'};background:${m.role==='user'?'var(--teal)':'var(--s1)'};color:${m.role==='user'?'#fff':'var(--text)'};font-size:.79rem;line-height:1.5;${m.role!=='user'?'border:1px solid var(--border)':''}">
+      ${m.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+    </div></div>`).join('');
+  const loader=_ragLoading?`<div style="display:flex;justify-content:flex-start"><div style="padding:.5rem .8rem;border-radius:12px 12px 12px 4px;background:var(--s1);border:1px solid var(--border);font-size:.79rem;color:var(--text3)">⏳ Claude sta ragionando...</div></div>`:'';
+  const empty=!_ragMessages.length?`<div style="margin:auto;text-align:center;color:var(--text3);font-size:.8rem"><div style="font-size:1.4rem;margin-bottom:.35rem">💭</div><div>Inizia il ragionamento per <strong>${p.nome}</strong></div><div style="font-size:.72rem;margin-top:.25rem">Il contesto del paziente è già incluso automaticamente</div></div>`:'';
+  html+=`<div class="card">
+    <div class="card-hd">
+      <h3>💭 Ragionamento clinico</h3>
+      ${userCount>0?`<button class="btn btn-g btn-sm" onclick="nuovaSessioneRag()">🔄 Nuova sessione</button>`:''}
+    </div>
+    <div id="rag-msg-area" style="height:320px;overflow-y:auto;padding:.85rem 1rem;display:flex;flex-direction:column;gap:.45rem;background:var(--s2)">${empty}${msgs}${loader}</div>
+    <div style="border-top:1px solid var(--border);padding:.6rem 1rem;display:flex;gap:.5rem">
+      <input id="rag-input" placeholder="Scrivi un messaggio… (Invio per inviare)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();inviaMessaggioRag();}"
+        style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.8rem;padding:.4rem .75rem;outline:none">
+      <button class="btn btn-p btn-sm" onclick="inviaMessaggioRag()">Invia</button>
+    </div>
+  </div>`;
+  if(userCount>=1){
+    html+=`<div style="margin-bottom:.7rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-orange" onclick="concludiERiassumi()">📋 Concludi e Riassumi</button>
+    </div>`;
+  }
+  if(_ragRiassunto){
+    html+=`<div class="card" style="border-color:var(--green);background:var(--green-bg)">
+      <div class="card-hd" style="border-color:var(--green)"><h3 style="color:var(--green)">✅ Riassunto clinico</h3></div>
+      <div class="card-bd">
+        <div style="font-size:.8rem;white-space:pre-wrap;line-height:1.6;margin-bottom:.9rem">${_ragRiassunto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-p btn-sm" onclick="salvaRagionamento()">💾 Salva nel profilo</button>
+          <button class="btn btn-orange btn-sm" onclick="apriGeneratoreDaRag()">🍽️ Genera Piano con queste specifiche</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const el=document.getElementById('pd-ragionamento');
+  if(el){el.innerHTML=html;const ma=document.getElementById('rag-msg-area');if(ma)ma.scrollTop=ma.scrollHeight;}
+}
+
+async function inviaMessaggioRag(){
+  const input=document.getElementById('rag-input');if(!input)return;
+  const msg=input.value.trim();if(!msg)return;
+  input.value='';
+  const p=db.pazienti.find(x=>x.id===_ragPazId);if(!p)return;
+  const apiKey=localStorage.getItem('anthropicApiKey')||'';
+  if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
+  _ragMessages.push({role:'user',content:msg});
+  _ragLoading=true;renderPdRagionamento(p);
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:RAG_SYSTEM_PROMPT+'\n\n'+costruisciContestoPaziente(p),messages:_ragMessages.map(m=>({role:m.role,content:m.content}))})
+    });
+    if(!r.ok)throw new Error('Errore API '+r.status);
+    const data=await r.json();
+    _ragMessages.push({role:'assistant',content:data.content?.[0]?.text||''});
+  }catch(e){_ragMessages.push({role:'assistant',content:'⚠ Errore: '+e.message});}
+  _ragLoading=false;renderPdRagionamento(p);
+}
+
+async function concludiERiassumi(){
+  const p=db.pazienti.find(x=>x.id===_ragPazId);if(!p)return;
+  const apiKey=localStorage.getItem('anthropicApiKey')||'';
+  if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
+  notif('⏳ Elaborazione riassunto clinico...');
+  const conv=_ragMessages.map(m=>`${m.role==='user'?'Dott. Fabrizio':'Claude'}: ${m.content}`).join('\n\n');
+  const promptRiass=`Sei un assistente clinico. Leggi questa conversazione tra il dottor Fabrizio e te riguardo al paziente ${p.nome} ${p.cognome}. Estrai SOLO le decisioni cliniche finali prese — non i ragionamenti intermedi. Produci un riassunto strutturato con: Obiettivo, Kcal decise, Macros definitivi (P/C/G), Note cliniche importanti, Prossimo controllo se menzionato. Sii preciso e conciso. Non includere nulla che non sia stato esplicitamente deciso.\n\nCONVERSAZIONE:\n${conv}`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,messages:[{role:'user',content:promptRiass}]})
+    });
+    if(!r.ok)throw new Error('Errore API '+r.status);
+    const data=await r.json();
+    _ragRiassunto=data.content?.[0]?.text||'';
+    renderPdRagionamento(p);notif('✓ Riassunto clinico generato!');
+  }catch(e){notif('⚠ Errore: '+e.message);}
+}
+
+function salvaRagionamento(){
+  const p=db.pazienti.find(x=>x.id===_ragPazId);if(!p||!_ragRiassunto)return;
+  const mKcal=_ragRiassunto.match(/(\d{3,4})\s*kcal/i);
+  const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
+  const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
+  const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
+  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1]}:null;
+  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi};
+  save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
+}
+
+function apriGeneratoreDaRag(){
+  if(!_ragRiassunto||!_ragPazId)return;
+  window._ragContextForPiano={pazId:_ragPazId,riassunto:_ragRiassunto};
+  goTo('piano',null);
+  setTimeout(()=>{const s=document.getElementById('piano-select-paz');if(s){s.value=_ragPazId;pianoPazSelezionato(_ragPazId);}},120);
+  notif('✓ Paziente selezionato — le decisioni cliniche hanno priorità assoluta nel piano');
+}
+
+function nuovaSessioneRag(){
+  _ragMessages=[];_ragRiassunto=null;
+  const p=db.pazienti.find(x=>x.id===_ragPazId);if(p)renderPdRagionamento(p);
+}
 
 function renderPdAnamnesi(p){
   const r=(lbl,v)=>v?`<div style="margin-bottom:.5rem"><span style="font-size:.64rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:600">${lbl}</span><div style="font-size:.8rem;margin-top:2px">${v}</div></div>`:'';
@@ -1358,6 +1957,13 @@ function renderPdAnamnesi(p){
     <div class="card"><div class="card-hd"><h3>Alimentazione & sport</h3></div><div class="card-bd">
       ${r('Sport',p.sport)}${r('Ore/sett.',p.sportOre)}${r('Cibi preferiti',p.cibiPref)}
       ${r('Non rinuncia a',p.noRinuncia)}${r('Chetogenica',p.cheto==='si'?'Sì — '+p.chetoNote:p.cheto==='valutare'?'Da valutare':'')}
+    </div></div>
+    <div class="card"><div class="card-hd"><h3>Attività Fisica</h3></div><div class="card-bd">
+      <div class="fr">${r('Passi/giorno',p.passiGiornalieri?p.passiGiornalieri+' passi':'')+r('Polso',p.circonferenzaPolso?p.circonferenzaPolso+' cm':'')}</div>
+      ${r('Giorni allenamento',(p.giorniAllenamento||[]).length?p.giorniAllenamento.join(' · '):'')}
+      <div class="fr">${r('Ore/sett.',p.oreAllenamento?p.oreAllenamento+' ore':'')+r('Tipo',p.tipoAllenamento)+r('Intensità',p.intensitaAllenamento)}</div>
+      ${r('Orario',p.orarioAllenamento?(p.orarioAllenamento+(p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' — '+p.orarioAllenamentoNote:'')):'')}
+      <div class="fr">${r('Cronotipo',p.cronotipo)+r('Pasto principale',p.orarioPastoPrincipale)}</div>
     </div></div>`;
 }
 
@@ -1413,11 +2019,144 @@ function updateAnalisi(){
 }
 function salvaAnalisi(){updateAnalisi();save();notif('✓ Analisi salvate!');}
 
+function renderMemoriaInbody(p,sorted){
+  if(!sorted||!sorted.length)return'';
+  const ibDelta=(c,o)=>{if(c==null||o==null||c===''||o==='')return null;return +(parseFloat(c)-parseFloat(o)).toFixed(2);};
+  const ibColor=(d,inv)=>{if(d===null||Math.abs(d)<0.05)return '#a09890';return (inv?d<0:d>0)?'#16a34a':'#dc2626';};
+  const ibSign=(d,unit)=>{if(d===null)return'—';return(d>0?'+':'')+d+unit;};
+  const ibArrow=(d)=>{if(d===null||Math.abs(d)<0.05)return'';return d>0?' ▲':' ▼';};
+  const ibCard=(label,d,unit,inv)=>{
+    const col=ibColor(d,inv);
+    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.65rem .8rem;text-align:center;box-shadow:var(--shadow)"><div style="font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.3rem">'+label+'</div><div style="font-family:\'DM Serif Display\',serif;font-size:1.05rem;color:'+col+';font-weight:600">'+ibSign(d,unit)+ibArrow(d)+'</div></div>';
+  };
+  if(sorted.length>=2){
+    const last=sorted[0],prev=sorted[1];
+    const dPeso=ibDelta(last.peso,prev.peso);
+    const dG=ibDelta(last.g,prev.g);
+    const dPg=ibDelta(last.pg,prev.pg);
+    const dM=ibDelta(last.m,prev.m);
+    const dAcqua=ibDelta(last.acqua,prev.acqua);
+    const dMb=ibDelta(last.mb,prev.mb);
+    let settLabel='—';
+    try{const diff=Math.round((new Date(last.data)-new Date(prev.data))/(7*24*3600*1000));if(diff>0)settLabel=diff+' settimane';}catch(e){}
+    const pid=p.id;
+    return '<div class="card" style="margin-bottom:.7rem;border:1.5px solid #16a34a">'
+      +'<div class="card-hd" style="background:#f0fdf4">'
+      +'<h3 style="color:#16a34a">📈 Memoria paziente tra visite</h3>'
+      +'<span style="font-size:.71rem;color:var(--text2)">'+fData(prev.data)+' → '+fData(last.data)+' · '+settLabel+'</span>'
+      +'</div>'
+      +'<div class="card-bd">'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;margin-bottom:1rem">'
+      +ibCard('Peso',dPeso,' kg',false)
+      +(dG!==null?ibCard('Massa grassa',dG,' kg',true):'')
+      +(dPg!==null?ibCard('% Grassa',dPg,'%',true):'')
+      +(dM!==null?ibCard('Massa magra',dM,' kg',false):'')
+      +(dAcqua!==null?ibCard('Acqua totale',dAcqua,' L',false):'')
+      +(dMb!==null?ibCard('Metabolismo basale',dMb,' kcal',false):'')
+      +'</div>'
+      +'<button id="btn-ascolto-'+pid+'" class="btn" style="background:#16a34a;color:#fff;width:100%;justify-content:center;font-size:.85rem;padding:.6rem 1rem" onclick="ascoltaProgresso(\''+pid+'\')">▶ Ascolta il tuo progresso</button>'
+      +'<div id="box-ascolto-'+pid+'" style="display:none;margin-top:.75rem;padding:.9rem 1.1rem;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;font-size:.84rem;color:var(--text);line-height:1.65"></div>'
+      +'</div></div>';
+  }
+  return '<div class="card" style="margin-bottom:.7rem;border:1.5px solid #86efac">'
+    +'<div class="card-hd" style="background:#f0fdf4">'
+    +'<h3 style="color:#16a34a">📈 Memoria paziente tra visite</h3>'
+    +'</div>'
+    +'<div class="card-bd">'
+    +'<p style="font-size:.85rem;color:var(--text2)">Prima misurazione registrata il <strong>'+fData(sorted[0].data)+'</strong>. Inserisci una seconda misurazione per visualizzare i progressi tra le visite.</p>'
+    +'</div></div>';
+}
+
+function _ibFmtBreve(d){
+  const mesi=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const dt=new Date(d);return dt.getDate()+' '+mesi[dt.getMonth()];
+}
 function renderPdInbody(p){
   const list=p.inbody||[];
   if(!list.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
-  const sorted=[...list].sort((a,b)=>b.data.localeCompare(a.data));
-  document.getElementById('pd-inbody').innerHTML=sorted.map((ib,i)=>`
+  const sorted=[...list].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
+  if(!sorted.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody valida</p></div>';return;}
+  const sortedDesc=[...sorted].reverse();
+  const last=sortedDesc[0],first=sorted[0];
+  const hasMulti=sorted.length>=2;
+  let html='';
+
+  // ── Barra percorso totale ──────────────────────────────────────────────────
+  if(hasMulti&&first.peso&&last.peso){
+    const dPeso=(last.peso-first.peso).toFixed(1);
+    const dPg=first.pg&&last.pg?(last.pg-first.pg).toFixed(1):null;
+    const dMusc=first.musc&&last.musc?(last.musc-first.musc).toFixed(1):null;
+    const pesoStr=(dPeso<0?'−'+Math.abs(dPeso):'+'+dPeso)+' kg di peso';
+    const pgStr=dPg!==null?(dPg<0?' · −'+Math.abs(dPg)+'% di massa grassa':' · +'+dPg+'% di massa grassa'):'';
+    const muscStr=dMusc!==null?(dMusc>0?' · +'+dMusc+' kg di massa muscolare':' · −'+Math.abs(dMusc)+' kg di massa muscolare'):'';
+    html+=`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:.75rem 1rem;margin-bottom:.7rem;font-size:.84rem;color:#166534">
+      <strong>Dal ${fData(first.data)} ad oggi:</strong> ${pesoStr}${pgStr}${muscStr}
+    </div>`;
+  }
+
+  // ── Alert ultima misurazione vecchia ──────────────────────────────────────
+  if(last.data){
+    const giorniFA=Math.round((new Date()-new Date(last.data))/86400000);
+    if(giorniFA>30){
+      html+=`<div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:10px;padding:.75rem 1rem;margin-bottom:.7rem;font-size:.84rem;color:#92400e">
+        ⚠️ Ultima misurazione: <strong>${giorniFA} giorni fa</strong> — considera una nuova rilevazione InBody.
+      </div>`;
+    }
+  }
+
+  // ── Delta ultima vs precedente (Memoria paziente) ─────────────────────────
+  html+=renderMemoriaInbody(p,sortedDesc);
+
+  // ── Grafico ───────────────────────────────────────────────────────────────
+  if(hasMulti){
+    const labels=sorted.map(ib=>_ibFmtBreve(ib.data));
+    const dataPeso=sorted.map(ib=>ib.peso||null);
+    const dataMusc=sorted.map(ib=>ib.musc||null);
+    const dataGrassa=sorted.map(ib=>(ib.peso&&ib.pg)?+(ib.peso*ib.pg/100).toFixed(1):null);
+    const pesoTarget=p.pesoTarget||null;
+    html+=`<div class="card" style="margin-bottom:.7rem">
+      <div class="card-hd"><h3>📈 Andamento nel tempo</h3></div>
+      <div class="card-bd">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.7rem;font-size:.78rem">
+          <span><span style="display:inline-block;width:12px;height:12px;background:#3b82f6;border-radius:2px;margin-right:4px"></span>Peso</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#16a34a;border-radius:2px;margin-right:4px"></span>Massa muscolare</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#dc2626;border-radius:2px;margin-right:4px"></span>Massa grassa</span>
+          ${pesoTarget?`<span><span style="display:inline-block;width:12px;height:12px;background:#94a3b8;border-radius:2px;margin-right:4px"></span>Obiettivo ${pesoTarget} kg</span>`:''}
+        </div>
+        <canvas id="ib-chart-canvas" style="max-height:260px"></canvas>
+      </div>
+    </div>`;
+
+    // ── Velocità di dimagrimento ───────────────────────────────────────────
+    const prev=sortedDesc[1];
+    const totalDays=Math.max(1,Math.round((new Date(last.data)-new Date(first.data))/86400000));
+    const mediaKgSett=last.peso&&first.peso?+((first.peso-last.peso)/totalDays*7).toFixed(2):null;
+    const lastDays=Math.max(1,Math.round((new Date(last.data)-new Date(prev.data))/86400000));
+    const ultimoKgSett=last.peso&&prev.peso?+((prev.peso-last.peso)/lastDays*7).toFixed(2):null;
+    if(mediaKgSett!==null){
+      const ultimoColor=ultimoKgSett!==null?(Math.abs(ultimoKgSett)<1?'#16a34a':'#d97706'):'#6b7280';
+      const ultimoLabel=ultimoKgSett!==null?(Math.abs(ultimoKgSett)<1?'ritmo sostenibile':'ritmo elevato'):'';
+      let obiStr='';
+      if(pesoTarget&&mediaKgSett>0&&last.peso){
+        const mancano=+(last.peso-pesoTarget).toFixed(1);
+        if(mancano>0){
+          const sett=Math.ceil(mancano/mediaKgSett);
+          obiStr=`<div style="margin-top:.4rem;font-size:.8rem;color:#1d4ed8">🎯 Mancano <strong>${mancano} kg</strong> all'obiettivo · circa <strong>${sett} settimane</strong></div>`;
+        }
+      }
+      html+=`<div class="card" style="margin-bottom:.7rem">
+        <div class="card-hd"><h3>⚡ Velocità di dimagrimento</h3></div>
+        <div class="card-bd" style="font-size:.84rem;display:flex;flex-direction:column;gap:.35rem">
+          <div>Media generale (${totalDays} giorni): <strong>${mediaKgSett>0?'−'+mediaKgSett:'+'+Math.abs(mediaKgSett)} kg/settimana</strong></div>
+          ${ultimoKgSett!==null?`<div>Ultimo periodo (${lastDays} giorni): <strong style="color:${ultimoColor}">${ultimoKgSett>0?'−'+ultimoKgSett:'+'+Math.abs(ultimoKgSett)} kg/settimana</strong> <span style="color:${ultimoColor};font-size:.75rem">${ultimoLabel}</span></div>`:''}
+          ${obiStr}
+        </div>
+      </div>`;
+    }
+  }
+
+  // ── Cards singole misurazioni ─────────────────────────────────────────────
+  html+=sortedDesc.map((ib,i)=>`
     <div class="card" style="margin-bottom:.7rem">
       <div class="card-hd"><h3>📊 ${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</h3>
         <button class="btn btn-d btn-sm" onclick="delInbody('${ib.id}')">✕</button></div>
@@ -1435,9 +2174,43 @@ function renderPdInbody(p){
         </div>
         ${ib.note?`<div style="font-size:.77rem;color:var(--text2);margin-top:.4rem;padding:.5rem;background:var(--bg);border-radius:6px">${ib.note}</div>`:''}
       </div></div>`).join('');
+
+  document.getElementById('pd-inbody').innerHTML=html;
+
+  // ── Render Chart.js dopo iniezione HTML ───────────────────────────────────
+  if(hasMulti&&typeof Chart!=='undefined'){
+    const canvas=document.getElementById('ib-chart-canvas');
+    if(canvas){
+      if(window._ibChart){window._ibChart.destroy();window._ibChart=null;}
+      const labels=sorted.map(ib=>_ibFmtBreve(ib.data));
+      const dataPeso=sorted.map(ib=>ib.peso||null);
+      const dataMusc=sorted.map(ib=>ib.musc||null);
+      const dataGrassa=sorted.map(ib=>(ib.peso&&ib.pg)?+(ib.peso*ib.pg/100).toFixed(1):null);
+      const pesoTarget=p.pesoTarget||null;
+      const datasets=[
+        {label:'Peso',data:dataPeso,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',tension:.3,pointRadius:4,fill:false},
+        {label:'Massa muscolare',data:dataMusc,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.08)',tension:.3,pointRadius:4,fill:false},
+        {label:'Massa grassa',data:dataGrassa,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.05)',borderDash:[5,4],tension:.3,pointRadius:4,fill:false}
+      ];
+      if(pesoTarget){
+        datasets.push({label:'Obiettivo',data:sorted.map(()=>pesoTarget),borderColor:'#94a3b8',borderDash:[8,4],pointRadius:0,fill:false,tension:0});
+      }
+      window._ibChart=new Chart(canvas,{
+        type:'line',
+        data:{labels,datasets},
+        options:{
+          responsive:true,maintainAspectRatio:true,
+          plugins:{legend:{display:false}},
+          scales:{y:{ticks:{callback:v=>v+'kg'},grid:{color:'rgba(0,0,0,.05)'}},x:{grid:{display:false}}}
+        }
+      });
+    }
+  }
 }
 
+let _macrosPaziente = null;
 function renderPdMacros(p){
+  _macrosPaziente = p;
   const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const mb=lastIb?lastIb.mb:null;
   const peso=lastIb?lastIb.peso:(p.peso||null);
@@ -1517,12 +2290,13 @@ function renderPdMacros(p){
 
 function calcolaMacros(){
   const mb=parseFloat(document.getElementById('mac-mb').value)||0;
-  const laf=parseFloat(document.getElementById('mac-laf').value)||1.20;
   const obj=parseFloat(document.getElementById('mac-obj').value)||0;
   const peso=parseFloat(document.getElementById('mac-peso').value)||0;
   const prot=parseFloat(document.getElementById('mac-prot').value)||1.8;
   const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
   if(!mb||!peso){notif('⚠ Inserisci metabolismo basale e peso');return;}
+  const {laf:_lafCM}=calcolaTDEE(_macrosPaziente);
+  const laf=_lafCM||(parseFloat(document.getElementById('mac-laf').value)||1.20);
   const tdee=+(mb*laf).toFixed(0);
   const kcalObj=tdee+obj;
   const protG=+(prot*peso).toFixed(0);
@@ -1550,6 +2324,907 @@ function applicaSchema(laf,prot,grassi){
   notif('✓ Valori applicati — clicca Calcola');
 }
 
+function calcolaTDEE(p){
+  const lastIb=p&&p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const mb=lastIb?lastIb.mb:null;
+  const peso=lastIb?lastIb.peso:(p&&p.peso?p.peso:null);
+  if(!mb) return {tdee:null,laf:null,mb:null,peso};
+  const passi=p&&p.passiGiornalieri!=null?+p.passiGiornalieri:null;
+  const ore=p&&p.oreAllenamento!=null?+p.oreAllenamento:null;
+  const intensita=p&&p.intensitaAllenamento?p.intensitaAllenamento.toLowerCase():'media';
+  let laf;
+  if(passi!==null||(ore!==null&&ore>0)){
+    let neat=0;
+    if(passi!==null) neat=passi<3000?0.10:passi<6000?0.20:passi<9000?0.30:passi<12000?0.40:0.50;
+    let eat=0;
+    if(ore!==null&&ore>0){
+      const bassa=intensita.includes('bassa'),alta=intensita.includes('alta');
+      eat=ore<=2?(bassa?0.05:alta?0.15:0.10):ore<=4?(bassa?0.10:alta?0.20:0.15):ore<=6?(bassa?0.15:alta?0.25:0.20):(bassa?0.20:alta?0.30:0.25);
+    }
+    laf=+((1.20+neat+eat).toFixed(3));
+  } else {
+    const sel=document.getElementById('mac-laf');
+    laf=sel?(parseFloat(sel.value)||1.20):1.20;
+  }
+  return {tdee:Math.round(mb*laf),laf,mb,peso};
+}
+
+// ── PIANO ALIMENTARE ──────────────────────────────────────────────────────────
+function renderPianoPage(){
+  const sel=document.getElementById('piano-select-paz');if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="">— Scegli un paziente —</option>';
+  (db.pazienti||[]).slice().sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.id;o.textContent=p.cognome+' '+p.nome;
+    sel.appendChild(o);
+  });
+  if(prev){sel.value=prev;pianoPazSelezionato(prev);}
+  else{
+    document.getElementById('piano-paz-info').style.display='none';
+    const btn=document.getElementById('piano-btn-genera');
+    btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+  }
+}
+
+function pianoPazSelezionato(id){
+  const info=document.getElementById('piano-paz-info');
+  const btn=document.getElementById('piano-btn-genera');
+  if(!id){
+    info.style.display='none';
+    btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+    return;
+  }
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+
+  // Dati InBody
+  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const mb=lastIb?lastIb.mb:null;
+  const peso=lastIb?lastIb.peso:(p.peso||null);
+
+  // Avatar e nome
+  document.getElementById('piano-paz-avatar').textContent=(p.nome[0]||'')+(p.cognome[0]||'');
+  document.getElementById('piano-paz-nome').textContent=p.nome+' '+p.cognome;
+  document.getElementById('piano-paz-regime').textContent=p.regime||'Nessun regime impostato';
+
+  const warning=document.getElementById('piano-paz-warning');
+  const macrosEl=document.getElementById('piano-paz-macros');
+
+  if(!mb||!peso){
+    warning.style.display='block';
+    warning.textContent="⚠ Dati InBody mancanti: inserisci una misurazione nel profilo paziente per calcolare TDEE e macros.";
+    macrosEl.innerHTML='';
+    btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+  } else {
+    warning.style.display='none';
+
+    // Calcolo TDEE personalizzato
+    const {tdee,laf}=calcolaTDEE(p);
+
+    // Mappa regime → offset kcal
+    const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    const offset=regimeOffset[p.regime]||0;
+    const kcalTarget=tdee+offset;
+
+    // Macros standard
+    const protG=Math.round(1.8*peso);
+    const grassiG=Math.round(0.9*peso);
+    const kcalProt=protG*4;const kcalGrassi=grassiG*9;
+    const carbG=Math.max(0,Math.round((kcalTarget-kcalProt-kcalGrassi)/4));
+
+    macrosEl.innerHTML=`
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">TDEE</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${tdee} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
+        <div style="font-size:.65rem;color:var(--text3);">MB ${mb} × LAF ${laf}</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Kcal target</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--green);">${kcalTarget} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
+        <div style="font-size:.65rem;color:var(--text3);">${offset===0?'Mantenimento':offset>0?'+'+offset:offset} kcal</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Proteine</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${protG}g</div>
+        <div style="font-size:.65rem;color:var(--text3);">1.8 g/kg · ${kcalProt} kcal</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Carboidrati</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${carbG}g</div>
+        <div style="font-size:.65rem;color:var(--text3);">${(carbG/peso).toFixed(1)} g/kg · ${carbG*4} kcal</div>
+      </div>
+      <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;grid-column:span 2;">
+        <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Grassi</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
+        <div style="font-size:.65rem;color:var(--text3);">0.9 g/kg · ${kcalGrassi} kcal</div>
+      </div>`;
+
+    btn.disabled=false;btn.style.background='var(--green)';btn.style.cursor='pointer';
+  }
+
+  info.style.display='block';
+}
+
+function costruisciPrompt(pazienteId) {
+  var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
+  if (!p) return '';
+
+  // Calcolo targets nutrizionali dal profilo paziente
+  var lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+  var _ct = calcolaTDEE(p);
+  var mb = _ct.mb, peso = _ct.peso;
+  var kcalTarget = null, protG = null, carbG = null, grassiG = null;
+  if (mb && peso) {
+    var regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    kcalTarget = _ct.tdee + (regOff[p.regime] || 0);
+    protG = Math.round(1.8 * peso);
+    grassiG = Math.round(0.9 * peso);
+    carbG = Math.max(0, Math.round((kcalTarget - protG*4 - grassiG*9) / 4));
+  }
+  // Override con ragionamento clinico se presente
+  var ragCtx = '';
+  if (window._ragContextForPiano && window._ragContextForPiano.pazId === pazienteId) {
+    var rt = window._ragContextForPiano.riassunto || '';
+    var mk=rt.match(/(\d{3,4})\s*kcal/i), mp=rt.match(/[Pp]roteine[^\d]*(\d+)/), mc=rt.match(/[Cc]arboidrati[^\d]*(\d+)/), mg=rt.match(/[Gg]rassi[^\d]*(\d+)/);
+    if (mk&&mp&&mc&&mg) { kcalTarget=+mk[1]; protG=+mp[1]; carbG=+mc[1]; grassiG=+mg[1]; }
+    ragCtx = '\n\nDECISIONI CLINICHE DEL MEDICO — rispetta con priorità assoluta:\n' + rt;
+  }
+
+  var olioG = kcalTarget !== null ? (kcalTarget < 1600 ? 10 : 20) : 15;
+  var carbGr = kcalTarget !== null ? (
+    kcalTarget < 1200 ? 60 : kcalTarget < 1400 ? 70 :
+    kcalTarget < 1600 ? 80 : kcalTarget < 1800 ? 90 :
+    kcalTarget < 2000 ? 100 : kcalTarget < 2200 ? 110 :
+    kcalTarget < 2500 ? 120 : 150) : 80;
+
+  var al = p.alimenti || {};
+  var alimentiVerdi    = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
+  var alimentiArancioni= Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
+  var alimentiRossi    = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
+
+  var ricetteDB = (db.ricette||[]).map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
+
+  var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
+  var nGiorni = isCeto ? 7 : 6;
+  var nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+
+  return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato e realistico.
+
+Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
+Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
+
+PAZIENTE
+Nome: ${p.nome||''} ${p.cognome||''}
+Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
+Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'} | Budget: ${p.economica||'N/D'}
+${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
+${(p.giorniAllenamento||[]).length?`Giorni ON: ${p.giorniAllenamento.join(', ')} | Giorni OFF: ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].filter(g=>!(p.giorniAllenamento||[]).includes(g)).join(', ')||'nessuno'}`:''}
+${(p.oreAllenamento||p.tipoAllenamento||p.intensitaAllenamento)?`Allenamento: ${p.tipoAllenamento||'—'} · intensità ${p.intensitaAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett. · orario ${p.orarioAllenamento||'—'}${p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' ('+p.orarioAllenamentoNote+')':''}`:''}
+${(p.cronotipo||p.orarioPastoPrincipale)?`Cronotipo: ${p.cronotipo||'—'} | Pasto principale: ${p.orarioPastoPrincipale||'—'}`:''}
+${p.circonferenzaPolso?`Polso: ${p.circonferenzaPolso} cm`:''}
+Spuntini: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'} | Pre-nanna: ${p.prenanna==='si'?'Sì':'No'}
+
+GRAMMATURE FISSE
+Verdura: 200g/pasto | Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo (gg 1-3-5 pranzo): 120g | Frutta secca: 20g
+
+ALIMENTI (usa SOLO questi)
+Verdi: ${alimentiVerdi.length ? alimentiVerdi.join(', ') : 'nessuno specificato'}
+Arancioni: ${alimentiArancioni.length ? alimentiArancioni.join(', ') : 'nessuno'}
+Rossi: ${alimentiRossi.length ? alimentiRossi.join(', ') : 'nessuno'}
+Se verdi insufficienti per un pasto completo usa arancioni; se ancora insufficienti usa rossi con moderazione.
+
+STRUTTURA
+${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).join(', ')}
+Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
+Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
+
+3 ALTERNATIVE PRANZO E CENA
+Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
+Colazione, spuntini, pre-nanna: formato unico, nessuna alternativa.
+
+OUTPUT: SOLO JSON valido, nessun testo prima o dopo.
+[{"g":"Lunedì","col":{"p1":{"n":"","g":0},"p2":{"n":"","g":0}},"sm":{"p1":{"n":"","g":0}},"pr":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"sp":{"p1":{"n":"","g":0}},"ce":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"pn":{"p1":{"n":"","g":0}}}]
+
+Prima ricetta alt = verde, seconda = arancione. Includi pn solo se previsto. Includi sm/sp solo se previsti. p2 null se non esiste.`;
+}
+
+function getAnthropicKey() {
+  let key = localStorage.getItem('anthropicApiKey') || localStorage.getItem('anthropic_api_key');
+  if (!key) {
+    key = window.prompt('Inserisci la tua chiave API Anthropic (verrà salvata in questo browser):');
+    if (!key) throw new Error('Chiave API non inserita');
+    localStorage.setItem('anthropicApiKey', key.trim());
+  }
+  return key.trim();
+}
+
+function espandiPiano(piano) {
+  function al2(a) { return a ? {nome:a.n, grammi:a.g} : null; }
+  function espPasto(pasto) {
+    if (!pasto || typeof pasto !== 'object') return pasto;
+    var r = {};
+    if ('p1' in pasto) r.principale1 = al2(pasto.p1);
+    if ('p2' in pasto) r.principale2 = pasto.p2 ? al2(pasto.p2) : null;
+    if ('alt' in pasto) {
+      var colori = ['verde','arancione','rosso'];
+      r.alternative = (pasto.alt||[]).map(function(ricetta,i){
+        return { posizione:i+1, colore:colori[i]||'verde', alimenti:(ricetta||[]).map(al2) };
+      });
+    }
+    return r;
+  }
+  var keyMap = {col:'colazione',sm:'spuntino_mattina',pr:'pranzo',sp:'spuntino_pomeriggio',ce:'cena',pn:'pre_nanna'};
+  return (piano||[]).map(function(g){
+    var eg = { giorno: g.g || g.giorno };
+    Object.keys(keyMap).forEach(function(k){ if(k in g) eg[keyMap[k]]=espPasto(g[k]); });
+    if(g.macros) eg.macros=g.macros;
+    return eg;
+  });
+}
+
+function parseJSONSicuro(testo) {
+  try {
+    return JSON.parse(testo);
+  } catch(e) {
+    try {
+      var start = -1;
+      for (var i = 0; i < testo.length; i++) {
+        if (testo[i] === '[' || testo[i] === '{') { start = i; break; }
+      }
+      if (start === -1) throw new Error('Nessun JSON trovato');
+      var t = testo.slice(start);
+      var stack = [], inStr = false, escape = false;
+      for (var j = 0; j < t.length; j++) {
+        var c = t[j];
+        if (escape) { escape = false; continue; }
+        if (c === '\\' && inStr) { escape = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (c === '{') stack.push('}');
+        else if (c === '[') stack.push(']');
+        else if (c === '}' || c === ']') stack.pop();
+      }
+      while (stack.length > 0) t += stack.pop();
+      return JSON.parse(t);
+    } catch(e) {
+      throw new Error('JSON non riparabile: ' + e.message);
+    }
+  }
+}
+
+async function chiamaGeneraPiano(pazienteId) {
+  const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
+  console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
+  console.log('[Piano] _ragContextForPiano:', JSON.stringify(window._ragContextForPiano));
+
+  const prompt = costruisciPrompt(pazienteId);
+  if (!prompt) throw new Error('Paziente non trovato');
+
+  console.log('[Piano] PROMPT COMPLETO:\n', prompt);
+
+  const apiKey = getAnthropicKey();
+
+  const risposta = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!risposta.ok) throw new Error('Errore API: ' + risposta.status);
+
+  const data = await risposta.json();
+  const testo = data.content[0].text.trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  const pianoEspanso = espandiPiano(parseJSONSicuro(testo));
+
+  // Seconda chiamata: genera note descrittive per pranzo e cena
+  const promptNote = 'Dato questo piano alimentare: ' + JSON.stringify(pianoEspanso)
+    + '\nGenera SOLO le note descrittive brevi (max 80 caratteri ciascuna)'
+    + ' per pranzo e cena di ogni giorno nel formato:\n'
+    + '[{"giorno":"Lunedì","pranzo_nota":"...","cena_nota":"..."},...]\nNessun testo, solo JSON.';
+  try {
+    const rispostaNote = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] })
+    });
+    if (rispostaNote.ok) {
+      const dataNote = await rispostaNote.json();
+      const testoNote = dataNote.content[0].text.trim()
+        .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+      parseJSONSicuro(testoNote).forEach(function(item) {
+        var g = pianoEspanso.find(function(x){ return x.giorno === item.giorno; });
+        if (g) {
+          if (g.pranzo && item.pranzo_nota) g.pranzo.nota_descrittiva = item.pranzo_nota;
+          if (g.cena && item.cena_nota) g.cena.nota_descrittiva = item.cena_nota;
+        }
+      });
+    }
+  } catch(e) { console.warn('Note descrittive non generate:', e); }
+
+  return { ok: true, piano: pianoEspanso };
+}
+
+function mostraLoadingSteps(loadEl){
+  const steps=['Analisi macros paziente','Costruzione rotazione proteica','Bilanciamento giorni','Selezione ricette'];
+  let cur=0;
+  function render(){
+    loadEl.style.cssText='margin-top:1rem;padding:1.2rem 1.5rem;background:#f0fbf7;border:1.5px solid #1D9E75;border-radius:12px;';
+    loadEl.innerHTML='<div style="font-size:.79rem;font-weight:600;color:#1D9E75;margin-bottom:.95rem;text-align:center;letter-spacing:.3px;">Generazione piano in corso…</div>'
+      +steps.map((s,i)=>{
+        const done=i<cur, active=i===cur, grey=i>cur;
+        return`<div style="display:flex;align-items:center;gap:.7rem;${i<steps.length-1?'margin-bottom:.6rem':''}opacity:${grey?.38:1}">
+          <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;
+            background:${done?'#1D9E75':active?'#e6f7f2':'#e8e8e8'};
+            color:${done?'#fff':active?'#1D9E75':'#aaa'};
+            border:2px solid ${done?'#1D9E75':active?'#1D9E75':'#d0d0d0'};">${done?'✓':i+1}</div>
+          <div style="font-size:.81rem;font-weight:${active?700:400};color:${done?'#1D9E75':active?'#1a1814':'#aaa'};">
+            ${s}${active?'<span style="animation:blink 1s infinite;display:inline-block;margin-left:2px">…</span>':''}
+          </div>
+        </div>`;
+      }).join('');
+  }
+  render();
+  const iv=setInterval(()=>{if(cur<steps.length-1){cur++;render();}},5000);
+  return iv;
+}
+
+async function generaPiano(){
+  const id=document.getElementById('piano-select-paz').value;
+  if(!id){notif('⚠ Seleziona prima un paziente');return;}
+
+  console.log('=== db.pazienti ===', db.pazienti);
+  console.log('=== id selezionato ===', id);
+
+  const p=db.pazienti.find(x=>x.id===id);
+  if(!p){notif('⚠ Paziente non trovato');return;}
+
+  // Calcolo TDEE e macros
+  const {tdee,mb,peso}=calcolaTDEE(p);
+  let kcalTarget=null,protG=null,carbG=null,grassiG=null;
+  if(mb&&peso){
+    const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    const offset=regimeOffset[p.regime]||0;
+    kcalTarget=tdee+offset;
+    protG=Math.round(1.8*peso);
+    grassiG=Math.round(0.9*peso);
+    carbG=Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4));
+  }
+
+  // Tre liste alimenti
+  const al=p.alimenti||{};
+  const alimentiVerdi=Object.entries(al).filter(([k,v])=>v==='si').map(([k])=>k.split('__')[1]);
+  const alimentiArancioni=Object.entries(al).filter(([k,v])=>v==='arancione').map(([k])=>k.split('__')[1]);
+  const alimentiRossi=Object.entries(al).filter(([k,v])=>v==='no').map(([k])=>k.split('__')[1]);
+  const preferiti=alimentiVerdi;
+  const scartati=alimentiRossi;
+
+  const dati={
+    nome: p.nome||'',
+    cognome: p.cognome||'',
+    regime: p.regime||'—',
+    tdee: tdee!==null?tdee+' kcal':'N/D',
+    kcalTarget: kcalTarget!==null?kcalTarget+' kcal':'N/D',
+    proteineTarget: protG!==null?protG+'g':'N/D',
+    carboidratiTarget: carbG!==null?carbG+'g':'N/D',
+    grassiTarget: grassiG!==null?grassiG+'g':'N/D',
+    allergie: p.allergie||'—',
+    alimentiVerdi: alimentiVerdi.length?alimentiVerdi.join(', '):'—',
+    alimentiArancioni: alimentiArancioni.length?alimentiArancioni.join(', '):'—',
+    alimentiRossi: alimentiRossi.length?alimentiRossi.join(', '):'—',
+    spuntini: (p.spuntM==='si'||p.spuntP==='si')?'Sì':'No',
+    sabatosera: p.weekend||'—',
+    budget: p.economica||'—',
+    prefProteica: p.prefProteina||'—'
+  };
+
+  console.log('=== DATI PAZIENTE PER PIANO ===');
+  console.log(dati);
+
+  // Riquadro verde sotto il pulsante
+  let box=document.getElementById('piano-dati-box');
+  if(!box){
+    box=document.createElement('div');
+    box.id='piano-dati-box';
+    document.getElementById('piano-btn-genera').parentNode.appendChild(box);
+  }
+  box.style.cssText='margin-top:1rem;padding:1rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.82rem;color:#2e7d32;line-height:1.9;';
+  box.innerHTML='<strong style="font-size:.9rem;">✓ Dati paziente caricati correttamente</strong><br>'
+    +'<b>Nome:</b> '+dati.nome+' '+dati.cognome+'<br>'
+    +'<b>Regime:</b> '+dati.regime+'<br>'
+    +'<b>TDEE:</b> '+dati.tdee+'<br>'
+    +'<b>Kcal target:</b> '+dati.kcalTarget+'<br>'
+    +'<b>Proteine target:</b> '+dati.proteineTarget+'<br>'
+    +'<b>Carboidrati target:</b> '+dati.carboidratiTarget+'<br>'
+    +'<b>Grassi target:</b> '+dati.grassiTarget+'<br>'
+    +'<b>Allergie:</b> '+dati.allergie+'<br>'
+    +'<b>✅ Alimenti verdi:</b> '+dati.alimentiVerdi+'<br>'
+    +'<b>🟠 Alimenti arancioni:</b> '+dati.alimentiArancioni+'<br>'
+    +'<b>❌ Alimenti rossi:</b> '+dati.alimentiRossi+'<br>'
+    +'<b>Spuntini:</b> '+dati.spuntini+'<br>'
+    +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
+    +'<b>Budget:</b> '+dati.budget+'<br>'
+    +'<b>Preferenza proteica:</b> '+dati.prefProteica;
+
+  // ── Costruzione struttura piano ──────────────────────────────────────────
+  const haSp = (p.spuntM==='si'||p.spuntP==='si');
+  const haPrenanna = p.prenanna==='si';
+  const isCetoOrenale = p.regime&&(p.regime.toLowerCase().includes('chetogen')||p.regime.toLowerCase().includes('cetogen')||p.regime.toLowerCase().includes('renale'));
+  const nGiorni = isCetoOrenale?7:6;
+  const nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+
+  // Olio: basato su grassiTarget
+  const olioG = grassiG!==null ? (grassiG<50?10:grassiG<=80?15:20) : 15;
+
+  // Grammatura carboidrati: basata su kcalTarget
+  const carbGr = kcalTarget!==null ? (kcalTarget<1200?60:kcalTarget<1400?70:kcalTarget<1600?80:kcalTarget<1800?90:kcalTarget<2000?100:kcalTarget<2200?110:kcalTarget<2500?120:150) : 80;
+
+  // Tabella pranzo: proteine per ogni giorno (indice 0-6)
+  const pranzoConf = [
+    {legumi:true,  prot:'Tonno al naturale'},
+    {legumi:false, prot:'Carne bianca'},
+    {legumi:true,  prot:'Gamberetti'},
+    {legumi:false, prot:'Pesce'},
+    {legumi:true,  prot:'Uova'},
+    {legumi:false, prot:'Carne rossa'},
+    {legumi:false, prot:'Carne bianca'}
+  ];
+
+  // Tabella cena: proteina principale per ogni giorno
+  const cenaProt = ['Carne bianca','Pesce','Carne rossa','Carne bianca','Pesce','Carne rossa','Carne bianca'];
+
+  const piano = [];
+  for(let i=0;i<nGiorni;i++){
+    const slots = [];
+
+    // COLAZIONE
+    slots.push({slot:'COLAZIONE', alimenti:'Da definire'});
+
+    // SPUNTINO MATTINA
+    if(haSp) slots.push({slot:'SPUNTINO MATTINA', alimenti:'Da definire'});
+
+    // PRANZO
+    const pc = pranzoConf[i];
+    let pranzoAlim = 'Verdura mista 200g, Olio EVO '+olioG+'g, Pasta/Riso '+carbGr+'g';
+    if(pc.legumi) pranzoAlim += ', Legumi (barattolo) 120g, '+pc.prot;
+    else pranzoAlim += ', '+pc.prot;
+    slots.push({slot:'PRANZO', alimenti:pranzoAlim});
+
+    // SPUNTINO POMERIGGIO
+    if(haSp) slots.push({slot:'SPUNTINO POMERIGGIO', alimenti:'Da definire'});
+
+    // CENA
+    const isSabato = (i===5);
+    let cenaAlim;
+    if(isSabato){
+      cenaAlim = (p.weekend&&p.weekend!=='')?p.weekend:'Libero (pizza / panino / sushi)';
+    } else {
+      cenaAlim = 'Verdura mista 200g, Olio EVO '+olioG+'g, '+cenaProt[i];
+    }
+    slots.push({slot:'CENA', alimenti:cenaAlim});
+
+    // PRE-NANNA
+    if(haPrenanna) slots.push({slot:'PRE-NANNA', alimenti:'Da definire'});
+
+    piano.push({giorno:nomiGiorni[i], slots:slots});
+  }
+
+  // ── Render piano in pagina ───────────────────────────────────────────────
+  let pianoEl = document.getElementById('piano-piano-box');
+  if(!pianoEl){
+    pianoEl = document.createElement('div');
+    pianoEl.id = 'piano-piano-box';
+    box.parentNode.appendChild(pianoEl);
+  }
+  let pianoHtml = '<div style="margin-top:1.5rem;">';
+  piano.forEach(function(g){
+    pianoHtml += '<div style="background:#fff;border-radius:10px;border:1.5px solid #e0e0e0;margin-bottom:1rem;overflow:hidden;">'
+      +'<div style="background:var(--green);color:#fff;font-weight:700;font-size:.9rem;padding:.55rem 1rem;">'+g.giorno+'</div>'
+      +'<div style="padding:.7rem 1rem;">';
+    g.slots.forEach(function(s){
+      pianoHtml += '<div style="margin-bottom:.45rem;font-size:.82rem;">'
+        +'<span style="font-weight:700;color:var(--text1);">'+s.slot+'</span>'
+        +' — '+s.alimenti+'</div>';
+    });
+    pianoHtml += '</div></div>';
+  });
+  pianoHtml += '</div>';
+  pianoEl.innerHTML = pianoHtml;
+
+  // ── Chiamata Google Apps Script → Anthropic ──────────────────────────────
+  const scriptUrl = getUrl();
+  if(!scriptUrl){
+    notif('⚠ URL Apps Script non configurato. Vai in Impostazioni e salvalo.');
+    return;
+  }
+
+  // Messaggio di caricamento
+  let loadEl = document.getElementById('piano-load-msg');
+  if(!loadEl){
+    loadEl = document.createElement('div');
+    loadEl.id = 'piano-load-msg';
+    pianoEl.parentNode.insertBefore(loadEl, pianoEl);
+  }
+  let _pianoLoaderIv = mostraLoadingSteps(loadEl);
+  pianoEl.style.opacity = '0.4';
+
+  const prompt = "Sei un nutrizionista esperto. Genera un piano alimentare settimanale personalizzato.\n\n"
+    +"DATI PAZIENTE:\n"
+    +"- Regime: "+(p.regime||'Normocalorico')+"\n"
+    +"- Kcal target: "+(kcalTarget!==null?kcalTarget:'N/D')+" kcal/giorno\n"
+    +"- Proteine target: "+(protG!==null?protG:'N/D')+"g\n"
+    +"- Carboidrati target: "+(carbG!==null?carbG:'N/D')+"g\n"
+    +"- Grassi target: "+(grassiG!==null?grassiG:'N/D')+"g\n"
+    +"- Allergie/intolleranze: "+(p.allergie||'nessuna')+"\n"
+    +"- Alimenti preferiti: "+(preferiti.length?preferiti.join(', '):'nessuno specificato')+"\n"
+    +"- Alimenti scartati: "+(scartati.length?scartati.join(', '):'nessuno specificato')+"\n"
+    +"- Preferenza proteica: "+(p.prefProteina||'indifferente')+"\n"
+    +"- Budget: "+(p.economica||'non specificato')+"\n\n"
+    +"REGOLE:\n"
+    +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
+    +"- Rispetta le kcal e i macronutrienti target\n"
+    +"- Usa alimenti italiani comuni e reperibili al supermercato\n"
+    +"- Rispetta allergie e alimenti scartati\n"
+    +"- Privilegia gli alimenti preferiti quando possibile\n"
+    +"- Grammature realistiche e pratiche\n"
+    +"- Giorni 1-3-5 al pranzo: aggiungi legumi (barattolo 120g) con proteina leggera\n"
+    +"- Giorni 2-4-6 al pranzo: proteina principale senza legumi\n"
+    +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g\n\n"
+    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo, con questa struttura esatta:\n"
+    +'[{"giorno":"Lunedì","colazione":{"descrizione":"testo breve","carboidrati":{"nome":"","grammi":0},"proteine":{"nome":"","grammi":0},"grassi":{"nome":"","grammi":0},"frutta":"(opzionale)"},'
+    +'"spuntino_mattina":"descrizione","pranzo":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"carboidrati":{"nome":"","grammi":'+carbGr+'},"proteina":{"nome":"","grammi":0},"legumi_g":0},'
+    +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
+
+  var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
+  if (!_md && window._ragContextForPiano && window._ragContextForPiano.pazId === p.id) {
+    var _rt = window._ragContextForPiano.riassunto || '';
+    var _mk=_rt.match(/(\d{3,4})\s*kcal/i), _mp=_rt.match(/[Pp]roteine[^\d]*(\d+)/), _mc=_rt.match(/[Cc]arboidrati[^\d]*(\d+)/), _mg=_rt.match(/[Gg]rassi[^\d]*(\d+)/);
+    if (_mk&&_mp&&_mc&&_mg) _md={kcal:+_mk[1],P:+_mp[1],C:+_mc[1],G:+_mg[1]};
+  }
+  window._pianoTargets = _md
+    ? {kcal:_md.kcal, p:_md.P, c:_md.C, g:_md.G, source:'ragionamento'}
+    : {kcal:kcalTarget, p:protG, c:carbG, g:grassiG, source:'calcolo'};
+
+  try {
+    const risultato = await chiamaGeneraPiano(p.id);
+    if (risultato && risultato.ok) {
+      console.log('Piano generato con successo');
+    } else {
+      throw new Error(risultato ? risultato.error : 'Errore sconosciuto');
+    }
+
+    // Attendo 3 secondi che lo script finisca di salvare
+    const pianoAI = risultato.piano.giorni || risultato.piano;
+
+    console.log('[RAW] risultato.piano (grezzo):', JSON.stringify(risultato.piano).substring(0, 500));
+    console.log('[RAW] pianoAI tipo:', Array.isArray(pianoAI)?'array':'altro', '| lunghezza:', pianoAI&&pianoAI.length);
+    if (pianoAI && pianoAI[0]) {
+      var g0 = pianoAI[0];
+      console.log('[RAW] Primo giorno — chiavi:', Object.keys(g0));
+      console.log('[RAW] Primo giorno — g.macros:', JSON.stringify(g0.macros));
+      console.log('[RAW] Primo giorno — g.pasti:', JSON.stringify(g0.pasti));
+    }
+
+    clearInterval(_pianoLoaderIv);
+    loadEl.style.display='none';
+    pianoEl.style.opacity = '1';
+
+    let aiHtml = '<div style="margin-top:1.5rem;">';
+    pianoAI.forEach(function(g, idx) {
+      var tgts = window._pianoTargets || {};
+      var mac = g.macros || {};
+      var hasMac = mac.kcal > 0 && mac.proteine > 0 && mac.carboidrati > 0 && mac.grassi > 0;
+      var hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
+      console.log('[MacroCheck] '+g.giorno+' | macros dal piano:', JSON.stringify(mac), '| targets:', JSON.stringify(tgts), '| hasMac:', hasMac, '| hasTgts:', hasTgts);
+      var isCiclizzato = /\b(ON|OFF)\b/i.test(g.giorno) || g.ciclizzato === true;
+      var tgtSource = tgts.source === 'ragionamento' ? ' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da ragionamento clinico)</span>' : '';
+      var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
+      if (isCiclizzato) {
+        semColor = '#aaa'; semIcon = '↕'; macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Piano ciclizzato — verifica non applicabile</div>';
+      } else if (hasMac && hasTgts) {
+        var rows = [
+          {lbl:'Kcal', a:Math.round(mac.kcal), t:tgts.kcal, u:'kcal'},
+          {lbl:'Proteine', a:Math.round(mac.proteine), t:tgts.p, u:'g'},
+          {lbl:'Carboidrati', a:Math.round(mac.carboidrati), t:tgts.c, u:'g'},
+          {lbl:'Grassi', a:Math.round(mac.grassi), t:tgts.g, u:'g'}
+        ];
+        var deltas = rows.map(function(r){return Math.abs(r.a-r.t)/r.t*100;});
+        var deltaKcal = deltas[0];
+        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| deltaKcal:', deltaKcal.toFixed(1)+'% | source:', tgts.source);
+        semColor = deltaKcal>30?'#c0392b':deltaKcal>15?'#e07840':'#1D9E75';
+        semIcon = deltaKcal>30?'✗':deltaKcal>15?'!':'✓';
+        macroPanel = '<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem;">Target'+tgtSource+'</div>'
+          +rows.map(function(r,i){
+            var d=deltas[i], diff=r.a-r.t, dStr=(diff>=0?'+':'')+Math.round(diff);
+            var dc=d<=15?'#1D9E75':d<=30?'#e07840':'#c0392b';
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;">'
+              +'<span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span>'
+              +'<span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'"> '+dStr+r.u+'</strong></span>'
+              +'</div>';
+          }).join('');
+      }
+      var panBg = semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
+      var tid = 'mtp'+idx;
+      aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
+      aiHtml += '<div onclick="var d=document.getElementById(\''+tid+'\');d.style.display=d.style.display===\'block\'?\'none\':\'block\';"'
+        +' style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">'
+        +'<span>'+g.giorno+'</span>'
+        +'<span title="Clicca per verifica macros" style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.25);">'+semIcon+'</span>'
+        +'</div>';
+      aiHtml += '<div id="'+tid+'" style="display:none;padding:.65rem 1rem;background:'+panBg+';border-bottom:2px solid '+semColor+';">'
+        +'<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:'+semColor+';font-weight:700;margin-bottom:.45rem;">Verifica macros giornalieri</div>'
+        +macroPanel
+        +'</div>';
+      aiHtml += '<div style="padding:.8rem 1rem;">';
+      var slots = [
+        { label: 'COLAZIONE', key: 'colazione' },
+        { label: 'SPUNTINO MATTINA', key: 'spuntino_mattina' },
+        { label: 'PRANZO', key: 'pranzo' },
+        { label: 'SPUNTINO POMERIGGIO', key: 'spuntino_pomeriggio' },
+        { label: 'CENA', key: 'cena' },
+        { label: 'PRE-NANNA', key: 'pre_nanna' }
+      ];
+      slots.forEach(function(s) {
+        var pasto = g[s.key] || (g.pasti && g.pasti[s.key]);
+        if (!pasto) return;
+        aiHtml += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
+        aiHtml += '<span style="font-weight:700;color:var(--green);">' + s.label + '</span>';
+        if (typeof pasto === 'string') {
+          aiHtml += ' — ' + pasto;
+        } else {
+          var nota = pasto.nota_descrittiva || pasto.nota || '';
+          if (nota) aiHtml += '<br><em style="color:var(--text2);font-size:.8rem;">' + nota + '</em>';
+          var p1 = pasto.principale1, p2 = pasto.principale2;
+          if (p1) aiHtml += '<br><strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
+          if (p2) aiHtml += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
+          if (pasto.alternative && pasto.alternative.length) {
+            var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
+            aiHtml += '<br>';
+            pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
+              var ic = altLabel[alt.colore] || '';
+              var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
+              aiHtml += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
+            });
+          }
+        }
+        aiHtml += '</div>';
+      });
+      aiHtml += '</div></div>';
+    });
+    aiHtml += '</div>';
+    pianoEl.innerHTML = aiHtml;
+
+    // Aggiungo pulsante Genera PDF
+    var btnPdf = document.createElement('button');
+    btnPdf.textContent = '📄 Scarica Piano PDF';
+    btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btnPdf.onclick = function() { generaPDF(p, pianoAI); };
+    pianoEl.appendChild(btnPdf);
+
+    window._pianoCorrente = pianoAI;
+    window._storicoPiani = [];
+    inizializzaP2(pianoAI);
+
+  } catch(e) {
+    clearInterval(_pianoLoaderIv);
+    loadEl.style.cssText='margin-top:1rem;padding:.8rem 1.2rem;background:#fdf3f2;border:1.5px solid #f5c6c2;border-radius:10px;font-size:.85rem;color:#c0392b;text-align:center;';
+    loadEl.textContent='⚠ Errore generazione AI: '+e.message;
+    pianoEl.style.opacity = '1';
+    console.error('Errore API Anthropic:', e);
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function generaPDF(paziente, giorni) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const verde = [46, 125, 50];
+  const verdeChiaro = [240, 250, 242];
+  const grigio = [140, 140, 140];
+  const nero = [30, 30, 30];
+  const W = 210, M = 15;
+  const colW = (W - M * 2 - 4) / 2;
+  let y = 20;
+
+  function newPage() { doc.addPage(); y = 20; }
+  function chk(h) { if (y + h > 272) newPage(); }
+
+  // ── Intestazione verde ────────────────────────────────────────────────
+  doc.setFillColor(...verde);
+  doc.rect(0, 0, W, 35, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Dott. Fabrizio Giannandrea — Nutrizionista', W - M, 10, { align: 'right' });
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Regime alimentare', W / 2, 20, { align: 'center' });
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text((paziente.nome || '') + ' ' + (paziente.cognome || ''), W / 2, 30, { align: 'center' });
+
+  y = 44;
+
+  var slotKeys = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  var slotLabel = {
+    colazione:'COLAZIONE', spuntino_mattina:'SPUNTINO MATTINA',
+    pranzo:'PRANZO', spuntino_pomeriggio:'SPUNTINO POMERIGGIO',
+    cena:'CENA', pre_nanna:'PRE-NANNA'
+  };
+
+  giorni.forEach(function(g) {
+    chk(18);
+
+    // ── Titolo giorno centrato ────────────────────────────────────────
+    doc.setDrawColor(...verde);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, W - M, y);
+    y += 5;
+    doc.setTextColor(...verde);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(g.giorno, W / 2, y, { align: 'center' });
+    y += 7;
+
+    slotKeys.forEach(function(key) {
+      var pasto = g[key] || (g.pasti && g.pasti[key]);
+      if (!pasto) return;
+
+      chk(12);
+
+      // Titolo pasto in grassetto maiuscolo
+      doc.setTextColor(...verde);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(slotLabel[key], M, y);
+      y += 4.5;
+
+      if (typeof pasto === 'string') {
+        chk(6);
+        doc.setTextColor(...nero);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.splitTextToSize(pasto, W - M * 2).forEach(function(r) { chk(4.5); doc.text(r, M, y); y += 4.5; });
+        y += 2;
+        return;
+      }
+
+      // Nota descrittiva in corsivo
+      var nota = pasto.nota_descrittiva || pasto.nota || '';
+      if (nota) {
+        chk(5);
+        doc.setTextColor(...grigio);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.splitTextToSize(nota, W - M * 2).forEach(function(r) { chk(4); doc.text(r, M, y); y += 4; });
+      }
+
+      // Principale1 e principale2 — full width se p2 è null, due colonne altrimenti
+      var p1 = pasto.principale1, p2 = pasto.principale2;
+      if (p1 || p2) {
+        chk(7);
+        doc.setTextColor(...nero);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        if (p1 && p2) {
+          doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
+          doc.text(p2.nome + ' ' + (p2.grammi||'') + 'g', M + colW + 4, y);
+          doc.setDrawColor(...grigio);
+          doc.setLineWidth(0.2);
+          doc.line(M + colW + 2, y - 5, M + colW + 2, y + 1);
+        } else if (p1) {
+          doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
+        }
+        y += 5.5;
+      }
+
+      // Alternative: 3 ricette ordinate 1→2→3 con titolo (nota) + lista alimenti
+      var alts = pasto.alternative;
+      if (alts && alts.length) {
+        chk(5);
+        doc.setTextColor(...grigio);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text('Alternative:', M, y);
+        y += 4;
+        alts.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
+          var alimTesto = (alt.alimenti||[]).map(function(a){return a.nome+(a.grammi?' '+a.grammi+'g':'');}).join(', ');
+          if (!alt.nota && !alimTesto) return;
+          chk(8);
+          // Titolo ricetta in corsivo
+          if (alt.nota) {
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(...grigio);
+            doc.splitTextToSize(alt.posizione + '. ' + alt.nota, W - M * 2 - 4).forEach(function(r){ chk(4); doc.text(r, M + 2, y); y += 4; });
+          }
+          // Lista alimenti indentata
+          if (alimTesto) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...grigio);
+            doc.splitTextToSize(alimTesto, W - M * 2 - 8).forEach(function(r){ chk(4); doc.text(r, M + 5, y); y += 4; });
+          }
+        });
+      }
+      y += 4;
+    });
+    y += 3;
+  });
+
+  // ── Concetti educativi — nuova pagina ────────────────────────────────
+  var concetti = paziente.concetti || [];
+  if (concetti.length) {
+    newPage();
+
+    // Header sezione
+    doc.setFillColor(...verde);
+    doc.rect(0, 0, W, 28, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Consigli per te', W / 2, 17, { align: 'center' });
+    y = 38;
+
+    concetti.forEach(function(c) {
+      var titolo = (typeof c === 'string') ? '' : (c.titolo || '');
+      var testo  = (typeof c === 'string') ? c  : (c.testo || c.titolo || '');
+      chk(12);
+
+      if (titolo) {
+        doc.setTextColor(...verde);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text(titolo, M, y);
+        y += 5;
+      }
+      if (testo) {
+        doc.setTextColor(...nero);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.splitTextToSize(testo, W - M * 2).forEach(function(r) { chk(5); doc.text(r, M, y); y += 4.8; });
+      }
+      y += 5;
+    });
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────
+  var totPagine = doc.internal.getNumberOfPages();
+  for (var i = 1; i <= totPagine; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.5);
+    doc.setTextColor(...grigio);
+    doc.text('Pagina ' + i + ' di ' + totPagine + '  —  NutriGest © Dott. Fabrizio Giannandrea', W / 2, 290, { align: 'center' });
+  }
+
+  var nomefile = 'Regime alimentare \u2014 ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
+  doc.save(nomefile);
+}
+
 function openInbody(){
   document.getElementById('ib-data').value=today();
   ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -1574,6 +3249,108 @@ function delInbody(ibId){
   save();renderPdInbody(p);notif('Eliminata');
 }
 
+async function ascoltaProgresso(pazId){
+  const p=db.pazienti.find(x=>x.id===pazId);if(!p)return;
+  const btn=document.getElementById('btn-ascolto-'+pazId);
+  const box=document.getElementById('box-ascolto-'+pazId);
+  if(!btn||!box)return;
+
+  if(btn.dataset.playing==='true'){
+    speechSynthesis.cancel();
+    btn.innerHTML='▶ Ascolta il tuo progresso';
+    btn.style.background='#16a34a';
+    btn.dataset.playing='false';
+    return;
+  }
+
+  const sorted=[...(p.inbody||[])].sort((a,b)=>b.data.localeCompare(a.data));
+  if(sorted.length<2)return;
+  const last=sorted[0],prev=sorted[1];
+
+  function d(c,o){if(c==null||o==null||c===''||o==='')return null;return +(parseFloat(c)-parseFloat(o)).toFixed(2);}
+  function fD(v,unit){if(v===null)return'non disponibile';return(v>0?'+':'')+v+unit;}
+
+  const dPeso=d(last.peso,prev.peso);
+  const dG=d(last.g,prev.g);
+  const dPg=d(last.pg,prev.pg);
+  const dM=d(last.m,prev.m);
+  const dAcqua=d(last.acqua,prev.acqua);
+  const dMb=d(last.mb,prev.mb);
+
+  let settimane='—';
+  try{const diff=Math.round((new Date(last.data)-new Date(prev.data))/(7*24*3600*1000));if(diff>0)settimane=diff;}catch(e){}
+
+  const prompt=`Sei un nutrizionista empatico che parla direttamente al paziente in seconda persona.
+
+Dati del paziente:
+- Nome: ${p.nome}
+- Obiettivo: ${p.obiettivo||'non specificato'}
+- Regime alimentare: ${p.regime||'non specificato'}
+- Attività fisica: ${p.sport||'non specificata'}${p.sportOre?' ('+p.sportOre+' ore/settimana)':''}
+- Settimane tra le due visite: ${settimane}
+
+Variazioni misurate rispetto alla visita precedente:
+- Peso totale: ${fD(dPeso,' kg')}
+- Massa grassa (kg): ${fD(dG,' kg')}
+- Massa grassa (%): ${fD(dPg,'%')}
+- Massa magra: ${fD(dM,' kg')}
+- Acqua totale: ${fD(dAcqua,' L')}
+- Metabolismo basale: ${fD(dMb,' kcal')}
+
+Genera un commento vocale seguendo questa struttura obbligatoria nell'ordine indicato:
+1. Saluto caldo con il nome del paziente
+2. Commento sui dati reali — cita SOLO le variazioni superiori a 0.3 kg o 1%, in modo positivo e motivante
+3. Frase di transizione verso i prossimi obiettivi
+4. Incoraggiamento personalizzato sui prossimi mesi, basato sull'obiettivo e il regime
+5. Chiusura motivante e specifica
+
+Regole:
+- Parla in seconda persona, usa sempre il nome ${p.nome}
+- Tono caldo, empatico, come un alleato — mai freddo o clinico
+- Lunghezza: 5-7 frasi parlate, fluisce come un discorso naturale, non un elenco
+- Lingua: italiano
+- Descrivi i numeri a parole senza simboli matematici
+- Scrivi solo il testo da leggere ad alta voce, senza titoli o intestazioni`;
+
+  try{
+    const apiKey=getAnthropicKey();
+    btn.innerHTML='⏳ Elaborazione...';
+    btn.disabled=true;
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:600,messages:[{role:'user',content:prompt}]})
+    });
+    if(!resp.ok)throw new Error('Errore API: '+resp.status);
+    const data=await resp.json();
+    const testo=data.content[0].text.trim();
+
+    box.textContent=testo;
+    box.style.display='block';
+
+    speechSynthesis.cancel();
+    const utt=new SpeechSynthesisUtterance(testo);
+    utt.lang='it-IT';utt.rate=0.9;utt.pitch=1.0;
+
+    btn.innerHTML='⏹ Stop';
+    btn.style.background='#dc2626';
+    btn.disabled=false;
+    btn.dataset.playing='true';
+
+    utt.onend=()=>{btn.innerHTML='▶ Ascolta il tuo progresso';btn.style.background='#16a34a';btn.dataset.playing='false';};
+    utt.onerror=()=>{btn.innerHTML='▶ Ascolta il tuo progresso';btn.style.background='#16a34a';btn.dataset.playing='false';};
+    speechSynthesis.speak(utt);
+
+  }catch(err){
+    btn.innerHTML='▶ Ascolta il tuo progresso';
+    btn.style.background='#16a34a';
+    btn.disabled=false;
+    btn.dataset.playing='false';
+    notif('❌ '+err.message);
+  }
+}
+
 // ════════════════════════════════════════════════════════════════
 // ALIMENTI EDITOR
 // ════════════════════════════════════════════════════════════════
@@ -1581,17 +3358,17 @@ function renderAlEditor(){
   const c=document.getElementById('al-editor');
   if(!c)return;
   let html='';
-  const selTutto=['Frutta','Verdura'];
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
-    const hasBtn=selTutto.includes(cat);
-    html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4>${hasBtn?`<button class="btn btn-g btn-sm" onclick="selTuttiAl('${cat}',this)" style="font-size:.63rem;padding:.17rem .48rem">Seleziona tutto</button>`:''}</div><div class="al-grid">`;
+    const sc=cat.replace(/'/g,"\\'");
+    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✓ Tutti</button>`;
+    html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4><div style="display:flex;gap:4px;align-items:center">${btns}</div></div><div class="al-grid">`;
     items.forEach(item=>{
       const key=cat+'__'+item.n;
       const s=window._alStato[key]||'';
       const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
-      const sk=key.replace(/'/g,"\'");const sn=item.n.replace(/'/g,"\'");
-      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':''}${item.n}${gl}</span>`;
+      const sk=key.replace(/'/g,"\\'");const sn=item.n.replace(/'/g,"\\'");
+      html+=`<span class="al-tog ${s}" onclick="togAl(this,'${sk}','${sn}')">${s==='si'?'✓ ':s==='no'?'✕ ':s==='arancione'?'◐ ':''}${item.n}${gl}</span>`;
     });
     html+='</div></div>';
   });
@@ -1599,11 +3376,17 @@ function renderAlEditor(){
 }
 function togAl(el,key,nome){
   const s=window._alStato[key]||'';
-  const n=s===''?'si':s==='si'?'no':'';
+  const n=s===''?'si':s==='si'?'arancione':s==='arancione'?'no':'';
   if(n==='')delete window._alStato[key];else window._alStato[key]=n;
   el.className='al-tog '+n;
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
-  el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':'')+nome+glH;
+  el.innerHTML=(n==='si'?'✓ ':n==='no'?'✕ ':n==='arancione'?'◐ ':'')+nome+glH;
+}
+function selCatAl(cat,stato){
+  const data=ALIMENTI[cat];if(!data)return;
+  const items=(data.items||[]);
+  items.forEach(i=>{window._alStato[cat+'__'+i.n]=stato;});
+  renderAlEditor();
 }
 function selTuttiAl(cat,btn){
   const data=ALIMENTI[cat];if(!data)return;
@@ -1997,9 +3780,9 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         messages: [{role:'user', content: prompt}]
       })
@@ -2058,9 +3841,9 @@ async function loadInbodyPDF(e) {
       const base64 = ev.target.result.split(',')[1];
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-5',
           max_tokens: 1000,
           messages: [{role:'user', content:[
             {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}},
@@ -2178,9 +3961,9 @@ async function aiRiscriviConcetto(id) {
   notif('⏳ AI sta riscrivendo il concetto...');
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:800,
+        model:'claude-sonnet-4-5', max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${c.testo.substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]
       })
     });
@@ -2230,8 +4013,8 @@ async function openNuovoConcetto() {
   notif('AI in elaborazione...');
   try {
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]})
     });
     const data=await resp.json();const testo=data.content?.[0]?.text||'';
@@ -2248,6 +4031,148 @@ async function openNuovoConcetto() {
 // ═══════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════
+// ── AGENDA PERSONALE (localStorage) ─────────────────────────────────────────
+function getAgendaPersonale(){return JSON.parse(localStorage.getItem('agendaPersonale')||'[]');}
+function saveAgendaPersonale(a){localStorage.setItem('agendaPersonale',JSON.stringify(a));}
+function getAgendaTodo(){return JSON.parse(localStorage.getItem('agendaTodo')||'[]');}
+function saveAgendaTodo(a){localStorage.setItem('agendaTodo',JSON.stringify(a));}
+
+function pulisciAgendaVecchia(){
+  const og=today();
+  saveAgendaPersonale(getAgendaPersonale().filter(x=>x.data===og));
+  saveAgendaTodo(getAgendaTodo().filter(x=>x.data===og));
+}
+
+function toggleFormAgenda(){const el=document.getElementById('dash-form-agenda');if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function toggleFormTodo(){const el=document.getElementById('dash-form-todo');if(el)el.style.display=el.style.display==='none'?'block':'none';}
+
+function salvaAgendaItem(){
+  const testo=(document.getElementById('da-testo').value||'').trim();
+  const ora=document.getElementById('da-ora').value||'';
+  const cat=document.getElementById('da-cat').value||'Nutrizionista';
+  if(!testo)return;
+  const arr=getAgendaPersonale();
+  arr.push({id:uid(),testo,ora,categoria:cat,fatto:false,data:today()});
+  saveAgendaPersonale(arr);
+  document.getElementById('da-testo').value='';
+  document.getElementById('da-ora').value='';
+  toggleFormAgenda();
+  renderAgendaDx();
+}
+
+function salvaTodoItem(){
+  const testo=(document.getElementById('dt-testo').value||'').trim();
+  const cat=document.getElementById('dt-cat').value||'Nutrizionista';
+  if(!testo)return;
+  const arr=getAgendaTodo();
+  arr.push({id:uid(),testo,categoria:cat,fatto:false,data:today()});
+  saveAgendaTodo(arr);
+  document.getElementById('dt-testo').value='';
+  toggleFormTodo();
+  renderAgendaDx();
+}
+
+function toggleAgendaFatto(id){
+  const arr=getAgendaPersonale();
+  const item=arr.find(x=>x.id===id);if(!item)return;
+  item.fatto=!item.fatto;
+  saveAgendaPersonale(arr);
+  renderAgendaDx();
+}
+
+function toggleTodoFatto(id){
+  const arr=getAgendaTodo();
+  const item=arr.find(x=>x.id===id);if(!item)return;
+  item.fatto=!item.fatto;
+  saveAgendaTodo(arr);
+  renderAgendaDx();
+}
+
+const AGENDA_CAT={
+  'Nutrizionista':{dot:'#1D9E75',bg:'#E1F5EE',border:'#1D9E75'},
+  'Personale':{dot:'#378ADD',bg:'#E6F1FB',border:'#378ADD'},
+  'Vigile del fuoco':{dot:'#E24B4A',bg:'#FCEBEB',border:'#E24B4A'}
+};
+function _catCol(cat){return AGENDA_CAT[cat]||{dot:'#94a3b8',bg:'#f1f5f9',border:'#94a3b8'};}
+
+function renderAgendaDx(){
+  const og=today();
+  const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up S2',sett3:'Follow-up S3',meeting:'Meeting',altro:'Altro'};
+
+  // ── Con orario — timeline ────────────────────────────────────────────────
+  const evDb=db.eventi.filter(e=>e.data===og&&e.ora);
+  const personali=getAgendaPersonale().filter(x=>x.data===og&&x.ora);
+  const eventiOrario=[
+    ...evDb.map(e=>{
+      const paz=db.pazienti.find(p=>p.id===e.pazId);
+      return{id:e.id,testo:paz?paz.nome+' '+paz.cognome:(e.note||EV_LABELS[e.tipo]||e.tipo),ora:e.ora,categoria:'Nutrizionista',fonte:'db',fatto:false};
+    }),
+    ...personali.map(p=>({id:p.id,testo:p.testo,ora:p.ora,categoria:p.categoria||'Personale',fonte:'personale',fatto:p.fatto}))
+  ];
+
+  // Genera slot 07:30–19:00 ogni 30 min
+  const slots=[];
+  for(let h=7;h<=19;h++){
+    for(let m=0;m<60;m+=30){
+      if(h===7&&m===0)continue; // inizia da 07:30
+      const hh=String(h).padStart(2,'0'),mm=String(m).padStart(2,'0');
+      slots.push(hh+':'+mm);
+    }
+  }
+
+  const orarioEl=document.getElementById('dash-agenda-orario');
+  if(orarioEl){
+    // Legenda
+    const legenda=`<div style="display:flex;gap:.7rem;margin-bottom:.6rem;flex-wrap:wrap">
+      ${Object.entries(AGENDA_CAT).map(([k,v])=>`<span style="font-size:.68rem;color:${v.dot};display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.dot};display:inline-block"></span>${k}</span>`).join('')}
+    </div>`;
+
+    const timelineHtml=slots.map(slot=>{
+      const evSlot=eventiOrario.filter(e=>e.ora===slot);
+      const lineCol=evSlot.length?'var(--teal)':'var(--border)';
+      const contenuto=evSlot.map(ev=>{
+        const c=_catCol(ev.categoria);
+        const cb=ev.fonte==='personale'
+          ?`<input type="checkbox" ${ev.fatto?'checked':''} onchange="toggleAgendaFatto('${ev.id}')" style="cursor:pointer;accent-color:${c.dot};flex-shrink:0">`
+          :`<input type="checkbox" disabled style="opacity:.35;flex-shrink:0">`;
+        return`<div style="background:${c.bg};border-left:3px solid ${c.border};border-radius:0 6px 6px 0;padding:.3rem .5rem;margin-bottom:2px;display:flex;align-items:center;gap:.4rem;${ev.fatto?'opacity:.5':''}">
+          ${cb}
+          <span style="width:7px;height:7px;border-radius:50%;background:${c.dot};flex-shrink:0"></span>
+          <span style="font-size:.76rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.testo}</span>
+        </div>`;
+      }).join('');
+      return`<div style="display:flex;gap:6px;min-height:28px;align-items:${evSlot.length?'flex-start':'center'}">
+        <div style="font-size:.65rem;color:var(--text3);width:32px;flex-shrink:0;padding-top:${evSlot.length?'4px':'0'};text-align:right">${slot}</div>
+        <div style="width:1px;background:${lineCol};flex-shrink:0;align-self:stretch;margin:0 4px"></div>
+        <div style="flex:1;padding:${evSlot.length?'2px 0':'0'}">${contenuto}</div>
+      </div>`;
+    }).join('');
+
+    orarioEl.innerHTML=legenda+timelineHtml;
+  }
+
+  // ── Da fare oggi ────────────────────────────────────────────────────────
+  const todo=getAgendaTodo().filter(x=>x.data===og);
+  const todoSorted=[...todo.filter(x=>!x.fatto),...todo.filter(x=>x.fatto)];
+  const todoEl=document.getElementById('dash-todo-list');
+  if(todoEl){
+    if(!todoSorted.length){
+      todoEl.innerHTML='<div style="font-size:.77rem;color:var(--text3);text-align:center;padding:.5rem 0;font-style:italic">Nessuna attività</div>';
+    } else {
+      todoEl.innerHTML=todoSorted.map(t=>{
+        const c=_catCol(t.categoria);
+        return`<div style="display:flex;align-items:flex-start;gap:.4rem;padding:.4rem 0;border-bottom:1px solid var(--border);${t.fatto?'opacity:.45':''}">
+          <input type="checkbox" ${t.fatto?'checked':''} onchange="toggleTodoFatto('${t.id}')" style="margin-top:.15rem;cursor:pointer;accent-color:${c.dot}">
+          <div style="flex:1">
+            <div style="font-size:.79rem;${t.fatto?'text-decoration:line-through':''}">${t.testo}</div>
+            <div style="font-size:.68rem;color:${c.dot};font-weight:600">${t.categoria}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
 function renderDashboard(){
   const oggi = new Date();
   const oggiStr = oggi.toISOString().split('T')[0];
@@ -2257,45 +4182,57 @@ function renderDashboard(){
   const endSettStr = endSett.toISOString().split('T')[0];
   const mese = oggi.getMonth(); const anno = oggi.getFullYear();
 
-  // KPI
+  const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+
+  // Data in italiano
+  const GIORNI=['Domenica','Lunedi','Martedi','Mercoledi','Giovedi','Venerdi','Sabato'];
+  const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  setEl('dash-date', GIORNI[oggi.getDay()]+', '+oggi.getDate()+' '+MESI[mese]+' '+anno);
+
+  // KPI — pazienti attivi
   const totPaz = db.pazienti.filter(p=>p.stato!=='archiviato').length;
-  const pazRegimi = {};
-  db.pazienti.forEach(p=>{if(p.regime){pazRegimi[p.regime]=(pazRegimi[p.regime]||0)+1;}});
-  const topRegime = Object.entries(pazRegimi).sort((a,b)=>b[1]-a[1])[0];
   const dtp=document.getElementById('dash-tot-paz');if(!dtp)return;
   dtp.textContent = totPaz;
-  const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
-  setEl('dash-sub-paz', topRegime ? `${topRegime[1]} in ${topRegime[0].toLowerCase()}` : '');
+  setEl('dash-sub-paz', totPaz===1?'paziente nel database':'pazienti nel database');
 
+  // KPI — appuntamenti settimana
   const visiteSett = db.eventi.filter(e=>e.tipo==='visita'&&e.data>=startSettStr&&e.data<=endSettStr).length;
   const controlliSett = db.eventi.filter(e=>e.tipo==='controllo'&&e.data>=startSettStr&&e.data<=endSettStr).length;
+  const totSett = visiteSett + controlliSett;
+  setEl('dash-appuntamenti-sett', totSett);
+  setEl('dash-sub-appuntamenti', visiteSett+' prime visite, '+controlliSett+' controlli');
   setEl('dash-visite-sett', visiteSett);
-  setEl('dash-sub-visite', `${controlliSett} controlli`);
+  setEl('dash-sub-visite', visiteSett===1?'nuovo paziente':'nuovi pazienti');
   setEl('dash-controlli-sett', controlliSett);
 
+  // KPI — entrate mese
   const entrMese = db.entrate.filter(e=>{
     const d=new Date(e.data); return d.getMonth()===mese&&d.getFullYear()===anno;
   }).reduce((s,e)=>s+(parseFloat(e.importo)||0),0);
-  setEl('dash-entrate-mese', '€ '+entrMese.toFixed(0));
+  setEl('dash-entrate-mese', '\u20AC '+entrMese.toFixed(0));
 
   // Agenda di oggi
   const evOggi = db.eventi.filter(e=>e.data===oggiStr).sort((a,b)=>((a.ora||'00:00')<(b.ora||'00:00')?-1:1));
   const agendaEl = document.getElementById('dash-agenda');
   if(!agendaEl)return;
+  setEl('dash-oggi-label', evOggi.length===0?'Nessun appuntamento':evOggi.length+' appuntament'+(evOggi.length===1?'o':'i'));
   if(evOggi.length===0){
-    agendaEl.innerHTML='<div class="empty" style="padding:1rem"><p>Nessun appuntamento oggi</p></div>';
+    agendaEl.innerHTML='<div style="padding:1.2rem;text-align:center;color:var(--text3);font-size:.82rem;font-style:italic">Nessun appuntamento per oggi — giornata libera!</div>';
   } else {
-    const EV_LABELS = {visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3'};
+    const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3',meeting:'Meeting',altro:'Altro'};
+    const EV_COLORS={visita:'background:#ede9fe;color:#4c1d95',controllo:'background:#fce7e7;color:#991b1b',chiamata:'background:#dbeafe;color:#1e40af',sett2:'background:#fef3c7;color:#92400e',sett3:'background:#fed7aa;color:#9a3412',meeting:'background:#f0f9ff;color:#0369a1',altro:'background:#f1f5f9;color:#475569'};
     agendaEl.innerHTML = evOggi.map(e=>{
       const paz = db.pazienti.find(p=>p.id===e.pazId);
-      const nomePaz = paz ? paz.nome+' '+paz.cognome[0]+'.' : e.note||'';
+      const nomePaz = paz ? paz.nome+' '+paz.cognome : (e.note||'—');
       const ora = e.ora || '—';
       const durata = e.tipo==='visita'?'45-60 min':e.tipo==='controllo'?'20-30 min':'';
-      return `<div style="display:flex;align-items:center;gap:.7rem;padding:.45rem .6rem;border-radius:8px;background:var(--bg);margin-bottom:.3rem;font-size:.77rem">
-        <span style="font-weight:600;color:var(--teal);min-width:38px">${ora}</span>
-        <span style="flex:1">${EV_LABELS[e.tipo]||e.tipo} • <strong>${nomePaz}</strong></span>
-        ${durata?`<span style="font-size:.68rem;color:var(--text3)">${durata}</span>`:''}
-      </div>`;
+      const colore = EV_COLORS[e.tipo]||EV_COLORS.altro;
+      return "<div style=\"display:flex;align-items:center;gap:.8rem;padding:.65rem .9rem;border-radius:10px;border:1px solid var(--border);margin-bottom:.4rem;background:var(--s1);\">"
+        +"<div style=\"font-family:'DM Serif Display',serif;font-size:1rem;color:var(--teal);min-width:46px;font-weight:600\">"+ora+"</div>"
+        +"<span style=\"padding:2px 9px;border-radius:20px;font-size:.69rem;font-weight:600;flex-shrink:0;"+colore+"\">"+( EV_LABELS[e.tipo]||e.tipo)+"</span>"
+        +"<div style=\"flex:1;font-size:.82rem;font-weight:600;color:var(--text)\">"+nomePaz+"</div>"
+        +(durata?"<div style=\"font-size:.68rem;color:var(--text3);flex-shrink:0\">"+durata+"</div>":"")
+        +"</div>";
     }).join('');
   }
 
@@ -2312,9 +4249,9 @@ function renderDashboard(){
     sindEl.textContent = 'Tutto nella norma. Nessuna allerta clinica attiva.';
     tagsEl.innerHTML='';
   } else {
-    sindEl.textContent = `${alerts.length} allert${alerts.length===1?'a':'e'} clini${alerts.length===1?'ca':'che'} da tenere a mente.`;
+    sindEl.textContent = alerts.length+(alerts.length===1?' allerta clinica':' allerte cliniche')+' da tenere a mente.';
     tagsEl.innerHTML = alerts.slice(0,4).map(a=>
-      `<span class="tag ${a.tag}" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)">${a.paz} — ${a.tipo}</span>`
+      "<span class=\"tag "+a.tag+"\">"+a.paz+" \u2014 "+a.tipo+"</span>"
     ).join('');
   }
 
@@ -2358,8 +4295,23 @@ function renderDashboard(){
 }
 
 // ═══════════════════════════════════════
-// ELIMINA PAZIENTE
+// ARCHIVIA / RIPRISTINA / ELIMINA PAZIENTE
 // ═══════════════════════════════════════
+function archiviaPaz(id){
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+  if(!confirm(`Archiviare il paziente ${p.nome} ${p.cognome}?\nNon apparirà più nella lista attiva.`))return;
+  p.stato='archiviato';
+  save();
+  goTo('pazienti',document.querySelector('.nav-item'));
+  renderPaz();
+  notif('📦 Paziente archiviato');
+}
+function ripristinaPaz(id){
+  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+  p.stato='attivo';
+  save();renderPaz();
+  notif('✓ Paziente ripristinato');
+}
 function eliminaPaz(id){
   const p = db.pazienti.find(x=>x.id===id);
   if(!p) return;
@@ -2433,6 +4385,301 @@ renderDashboard();
 const savedUrl=getUrl();
 if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
 else setSyncStatus(false);
+setSyncStatus(!!localStorage.getItem('lastSync'));
+aggiornaStatoSync();
+pulisciAgendaVecchia();
+renderAgendaDx();
+initAntCard();
+
+// ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
+
+function renderPianoBox(piano) {
+  var pianoEl = document.getElementById('piano-piano-box');
+  if (!pianoEl) return;
+  var ks = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  var labels = {colazione:'COLAZIONE',spuntino_mattina:'SPUNTINO MATTINA',pranzo:'PRANZO',spuntino_pomeriggio:'SPUNTINO POMERIGGIO',cena:'CENA',pre_nanna:'PRE-NANNA'};
+  var html = '<div style="margin-top:1.5rem;">';
+  (piano||[]).forEach(function(g) {
+    html += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
+    html += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;">' + g.giorno + '</div>';
+    html += '<div style="padding:.8rem 1rem;">';
+    ks.forEach(function(k) {
+      var pasto = g[k];
+      if (!pasto) return;
+      html += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
+      html += '<span style="font-weight:700;color:var(--green);">' + labels[k] + '</span>';
+      if (typeof pasto === 'string') {
+        html += ' — ' + pasto;
+      } else {
+        var nota = pasto.nota_descrittiva || pasto.nota || '';
+        if (nota) html += '<br><em style="color:var(--text2);font-size:.8rem;">' + nota + '</em>';
+        var p1 = pasto.principale1, p2 = pasto.principale2;
+        if (p1) html += '<br><strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
+        if (p2) html += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
+        if (pasto.alternative && pasto.alternative.length) {
+          var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
+          html += '<br>';
+          pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
+            var ic = altLabel[alt.colore] || '';
+            var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
+            html += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
+          });
+        }
+      }
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  pianoEl.innerHTML = html;
+}
+
+function inizializzaP2(piano) {
+  window._pianoCorrente = piano;
+  window._storicoPiani = [];
+  window._chatHistoryP2 = [];
+  window._pendingPatch = null;
+  document.getElementById('p2-box').style.display = 'block';
+  document.getElementById('p2-save').style.display = 'none';
+  document.getElementById('p2-preview').style.display = 'none';
+  document.getElementById('p2-chat').style.display = 'none';
+}
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function applicaPatch(piano, patch) {
+  if (!patch.giorno || !patch.pasto || !patch.nuovoPasto)
+    throw new Error('Patch non valida');
+  var nuovo = deepClone(piano);
+  var giorno = nuovo.find(function(g){ return g.giorno === patch.giorno; });
+  if (!giorno || !giorno[patch.pasto])
+    throw new Error('Giorno/pasto non trovato');
+  giorno[patch.pasto] = patch.nuovoPasto;
+  return nuovo;
+}
+
+function renderAnteprima(patch) {
+  var pasto = patch.nuovoPasto;
+  var html = '<strong>' + patch.giorno + ' — ' + patch.pasto.toUpperCase() + '</strong><br>';
+  var p1 = pasto.principale1, p2 = pasto.principale2;
+  if (p1) html += '<strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
+  if (p2) html += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
+  var nd = pasto.nota_descrittiva || pasto.nota || '';
+  if (nd) html += '<br><em style="color:var(--text2);font-size:.8rem">' + nd + '</em>';
+  var alts = pasto.alternative || pasto.alternatives || [];
+  if (alts.length) {
+    var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
+    html += '<br>';
+    alts.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
+      var ic = altLabel[alt.colore] || '';
+      var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
+      html += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
+    });
+  }
+  document.getElementById('p2-preview-content').innerHTML = html;
+}
+
+async function chiamaAICorrezione(testoRichiesta) {
+  var apiKey = localStorage.getItem('anthropicApiKey');
+  if (!apiKey) { notif('⚠ API key mancante'); return null; }
+  var id = document.getElementById('piano-select-paz').value;
+  var paz = (db.pazienti||[]).find(function(x){ return x.id === id; });
+  var al = paz ? (paz.alimenti||{}) : {};
+  var verdi = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
+  var arancioni = Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
+  var rossi = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
+  var prompt = 'Sei un nutrizionista. Modifica SOLO il pasto indicato.\n\n'
+    + 'PIANO ATTUALE:\n' + JSON.stringify(window._pianoCorrente) + '\n\n'
+    + 'RICHIESTA: ' + testoRichiesta + '\n\n'
+    + 'ALIMENTI AUTORIZZATI - Verdi: ' + verdi.join(', ')
+    + ' | Arancioni: ' + arancioni.join(', ')
+    + ' | Rossi: ' + rossi.join(', ') + '\n\n'
+    + 'Restituisci SOLO questo JSON:\n'
+    + '{"giorno":"...","pasto":"...","nuovoPasto":{...}}\n'
+    + 'Il campo pasto e\' uno tra: colazione, spuntino_mattina, pranzo, spuntino_pomeriggio, cena\n'
+    + 'Il nuovoPasto ha la stessa struttura del pasto originale (chiavi espanse: nota_descrittiva, principale1, principale2, alternative ecc.)';
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) throw new Error('Errore API ' + res.status);
+  var data = await res.json();
+  var testo = data.content && data.content[0] ? data.content[0].text : '';
+  return parseJSONSicuro(testo);
+}
+
+async function chiamaAIChat(messaggioUtente) {
+  var apiKey = localStorage.getItem('anthropicApiKey');
+  if (!apiKey) { notif('⚠ API key mancante'); return null; }
+  window._chatHistoryP2.push({ role: 'user', content: messaggioUtente });
+  var systemMsg = 'Sei un nutrizionista clinico. Stai revisionando questo piano: '
+    + JSON.stringify(window._pianoCorrente)
+    + '. Quando proponi una modifica specifica includila come JSON patch nel formato '
+    + '{"giorno":"...","pasto":"...","nuovoPasto":{...}} alla fine del messaggio. '
+    + 'Il campo nuovoPasto deve usare SEMPRE chiavi espanse: principale1 e principale2 (oggetti con campi nome e grammi), '
+    + 'nota_descrittiva (stringa), alternative (array di oggetti con campi posizione, colore, alimenti). '
+    + 'Altrimenti rispondi in italiano naturale.';
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1500,
+      system: systemMsg,
+      messages: window._chatHistoryP2
+    })
+  });
+  if (!res.ok) throw new Error('Errore API ' + res.status);
+  var data = await res.json();
+  var testo = data.content && data.content[0] ? data.content[0].text : '';
+  window._chatHistoryP2.push({ role: 'assistant', content: testo });
+  return testo;
+}
+
+function renderChatP2() {
+  var log = document.getElementById('p2-chat-log');
+  log.innerHTML = '';
+  (window._chatHistoryP2||[]).forEach(function(m) {
+    var div = document.createElement('div');
+    div.style.cssText = 'margin-bottom:10px;padding:8px 10px;border-radius:8px;font-size:.85rem;'
+      + (m.role==='user' ? 'background:#e8f5e9;text-align:right;' : 'background:#f5f5f5;');
+    div.textContent = m.content;
+    if (m.role==='assistant' && m.content.includes('"nuovoPasto"')) {
+      var btn = document.createElement('button');
+      btn.textContent = '✔ Applica questa modifica';
+      btn.className = 'btn btn-p';
+      btn.style.cssText = 'display:block;margin-top:6px;font-size:.75rem;';
+      btn.onclick = function() {
+        try {
+          var jsonMatch = m.content.match(/\{[\s\S]*"nuovoPasto"[\s\S]*\}/);
+          if (!jsonMatch) throw new Error();
+          var patch = JSON.parse(jsonMatch[0]);
+          window._storicoPiani.push(deepClone(window._pianoCorrente));
+          window._pianoCorrente = applicaPatch(window._pianoCorrente, patch);
+          renderPianoBox(window._pianoCorrente);
+          document.getElementById('p2-save').style.display = 'block';
+          notif('✓ Modifica applicata');
+        } catch(e) { notif('⚠ Errore nell\'applicare la modifica'); }
+      };
+      div.appendChild(btn);
+    }
+    log.appendChild(div);
+  });
+  log.scrollTop = log.scrollHeight;
+}
+
+var _p2VoiceRec = null;
+function startVoiceP2(targetId, btnId) {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { notif('⚠ Il tuo browser non supporta il riconoscimento vocale. Usa Chrome.'); return; }
+  var btn = document.getElementById(btnId);
+  if (_p2VoiceRec) { _p2VoiceRec.stop(); _p2VoiceRec=null; btn.textContent='🎤'; btn.style.color=''; return; }
+  _p2VoiceRec = new SR();
+  _p2VoiceRec.lang = 'it-IT';
+  _p2VoiceRec.continuous = false;
+  _p2VoiceRec.interimResults = true;
+  btn.textContent = '⏹'; btn.style.color = 'var(--red)';
+  _p2VoiceRec.onresult = function(e) {
+    var t = Array.from(e.results).map(function(r){return r[0].transcript;}).join('');
+    document.getElementById(targetId).value = t;
+  };
+  _p2VoiceRec.onend = function() { btn.textContent='🎤'; btn.style.color=''; _p2VoiceRec=null; };
+  _p2VoiceRec.onerror = function(e) { btn.textContent='🎤'; btn.style.color=''; _p2VoiceRec=null; notif('⚠ Errore microfono: ' + e.error); };
+  _p2VoiceRec.start();
+}
+
+// Event listeners P2
+document.getElementById('p2-mic').onclick = function() { startVoiceP2('p2-input','p2-mic'); };
+document.getElementById('p2-chat-mic').onclick = function() { startVoiceP2('p2-chat-input','p2-chat-mic'); };
+
+document.getElementById('p2-genera').onclick = async function() {
+  var testo = document.getElementById('p2-input').value.trim();
+  if (!testo) { notif('⚠ Scrivi cosa vuoi cambiare'); return; }
+  var loadEl = document.getElementById('piano-load-msg');
+  if (!loadEl) { loadEl = document.createElement('div'); loadEl.id='piano-load-msg'; document.getElementById('p2-box').before(loadEl); }
+  loadEl.style.cssText = 'margin:.8rem 0;padding:.8rem 1.2rem;background:#f0fbf7;border:1.5px solid #1D9E75;border-radius:10px;font-size:.84rem;color:#1D9E75;text-align:center;';
+  loadEl.textContent = 'Sto correggendo il piano…';
+  try {
+    var patch = await chiamaAICorrezione(testo);
+    if (!patch) throw new Error('Risposta vuota');
+    window._pendingPatch = patch;
+    renderAnteprima(patch);
+    document.getElementById('p2-preview').style.display = 'block';
+  } catch(e) { notif('⚠ Errore nella correzione: ' + e.message); }
+  loadEl.innerHTML = '';
+};
+
+document.getElementById('p2-confirm').onclick = function() {
+  if (!window._pendingPatch) return;
+  window._storicoPiani.push(deepClone(window._pianoCorrente));
+  window._pianoCorrente = applicaPatch(window._pianoCorrente, window._pendingPatch);
+  renderPianoBox(window._pianoCorrente);
+  window._pendingPatch = null;
+  document.getElementById('p2-preview').style.display = 'none';
+  document.getElementById('p2-input').value = '';
+  document.getElementById('p2-save').style.display = 'block';
+  notif('✓ Piano aggiornato');
+};
+
+document.getElementById('p2-cancel').onclick = function() {
+  window._pendingPatch = null;
+  document.getElementById('p2-preview').style.display = 'none';
+};
+
+document.getElementById('p2-open-chat').onclick = function(e) {
+  e.preventDefault();
+  document.getElementById('p2-chat').style.display = 'block';
+  document.getElementById('p2-chat').scrollIntoView({behavior:'smooth'});
+};
+
+document.getElementById('p2-close-chat').onclick = function(e) {
+  e.preventDefault();
+  document.getElementById('p2-chat').style.display = 'none';
+};
+
+document.getElementById('p2-chat-send').onclick = async function() {
+  var input = document.getElementById('p2-chat-input');
+  var testo = input.value.trim();
+  if (!testo) return;
+  input.value = '';
+  try {
+    await chiamaAIChat(testo);
+    renderChatP2();
+  } catch(e) { notif('⚠ Errore chat: ' + e.message); }
+};
+
+document.getElementById('p2-chat-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('p2-chat-send').click();
+});
+
+document.getElementById('p2-save').onclick = async function() {
+  var id = document.getElementById('piano-select-paz').value;
+  if (!db.piani) db.piani = [];
+  db.piani.push({
+    pazienteId: id,
+    timestamp: new Date().toISOString(),
+    pianoJSON: JSON.stringify(window._pianoCorrente)
+  });
+  try { await save(); } catch(e) { saveLocal(); }
+  notif('✓ Piano salvato definitivamente');
+};
 </script>
 </body>
 </html>
