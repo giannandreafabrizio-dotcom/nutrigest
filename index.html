@@ -3107,9 +3107,34 @@ async function generaPiano(){
     var _mk=_rt.match(/(\d{3,4})\s*kcal/i), _mp=_rt.match(/[Pp]roteine[^\d]*(\d+)/), _mc=_rt.match(/[Cc]arboidrati[^\d]*(\d+)/), _mg=_rt.match(/[Gg]rassi[^\d]*(\d+)/);
     if (_mk&&_mp&&_mc&&_mg) _md={kcal:+_mk[1],P:+_mp[1],C:+_mc[1],G:+_mg[1]};
   }
+  // Calcolo targets separati per giorni ON e OFF (piani ciclizzati)
+  var _hasCiclizzazione = (p.giorniAllenamento||[]).length > 0;
+  var _targetsOFF = null;
+  if (_hasCiclizzazione && !_md) {
+    var _passi = p.passiGiornalieri != null ? +p.passiGiornalieri : null;
+    var _neat = 0;
+    if (_passi !== null) _neat = _passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
+    var _lafOFF = +((1.20 + _neat).toFixed(3));
+    var _lastIbT = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+    var _mbT = _lastIbT ? _lastIbT.mb : null;
+    var _pesoT = _lastIbT ? _lastIbT.peso : (p.peso || null);
+    if (_mbT && _pesoT) {
+      var _regOff2 = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+        'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+        'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+      var _tdeeOFF = Math.round(_mbT * _lafOFF);
+      var _kcalOFF = _tdeeOFF + (_regOff2[p.regime] || 0);
+      var _protOFF = Math.round(1.8 * _pesoT);
+      var _grassiOFF = Math.round(0.9 * _pesoT);
+      var _carbOFF = Math.max(0, Math.round((_kcalOFF - _protOFF*4 - _grassiOFF*9) / 4));
+      _targetsOFF = {kcal:_kcalOFF, p:_protOFF, c:_carbOFF, g:_grassiOFF, source:'calcolo-off', laf:_lafOFF};
+    }
+  }
   window._pianoTargets = _md
     ? {kcal:_md.kcal, p:_md.P, c:_md.C, g:_md.G, source:'ragionamento'}
     : {kcal:kcalTarget, p:protG, c:carbG, g:grassiG, source:'calcolo'};
+  window._pianoTargetsOFF = _targetsOFF;
+  window._pianoGiorniON = (p.giorniAllenamento||[]);
 
   try {
     const risultato = await chiamaGeneraPiano(p.id);
@@ -3143,11 +3168,21 @@ async function generaPiano(){
       var hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
       console.log('[MacroCheck] '+g.giorno+' | macros dal piano:', JSON.stringify(mac), '| targets:', JSON.stringify(tgts), '| hasMac:', hasMac, '| hasTgts:', hasTgts);
       var isCiclizzato = /\b(ON|OFF)\b/i.test(g.giorno) || g.ciclizzato === true;
-      var tgtSource = tgts.source === 'ragionamento' ? ' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da ragionamento clinico)</span>' : '';
-      var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
       if (isCiclizzato) {
-        semColor = '#aaa'; semIcon = '↕'; macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Piano ciclizzato — verifica non applicabile</div>';
-      } else if (hasMac && hasTgts) {
+        var _isOFF = /\bOFF\b/i.test(g.giorno);
+        var _giorniON = window._pianoGiorniON || [];
+        var _mapGiorno = {'lunedì':'Lun','martedì':'Mar','mercoledì':'Mer','giovedì':'Gio','venerdì':'Ven','sabato':'Sab','domenica':'Dom'};
+        var _nomeBase = (g.giorno||'').toLowerCase().replace(/\s*(on|off)\s*/gi,'').trim();
+        var _abbr = _mapGiorno[_nomeBase] || '';
+        if (_abbr && _giorniON.length) _isOFF = !_giorniON.includes(_abbr);
+        if (_isOFF && window._pianoTargetsOFF) tgts = window._pianoTargetsOFF;
+        hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
+      }
+      var tgtSource = tgts.source === 'ragionamento' ? ' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da ragionamento clinico)</span>'
+        : tgts.source === 'calcolo-off' ? ' <span style="font-size:.68rem;color:#2980b9;font-weight:600;">(giorno OFF)</span>'
+        : isCiclizzato ? ' <span style="font-size:.68rem;color:#27ae60;font-weight:600;">(giorno ON)</span>' : '';
+      var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
+      if (hasMac && hasTgts) {
         var rows = [
           {lbl:'Kcal', a:Math.round(mac.kcal), t:tgts.kcal, u:'kcal'},
           {lbl:'Proteine', a:Math.round(mac.proteine), t:tgts.p, u:'g'},
