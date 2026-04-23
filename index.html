@@ -260,6 +260,10 @@ main{flex:1;overflow-y:auto;}
     <button class="nav-item" onclick="goTo('piano',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Piano Alimentare
     </button>
+    <button class="nav-item" onclick="goTo('storico-piani',this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Storico Piani
+    </button>
     <div class="nav-s">Sistema</div>
     <button class="nav-item" onclick="goTo('impostazioni',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Impostazioni
@@ -563,6 +567,10 @@ main{flex:1;overflow-y:auto;}
       </div>
       <div id="piano-paz-warning" style="display:none;font-size:.75rem;color:#c0392b;margin-top:.7rem;padding:.5rem .7rem;background:#fdf3f2;border-radius:6px;border:1px solid #f5c6c2;"></div>
     </div>
+    <div id="piano-storico-rapido" style="display:none;margin-top:1rem;">
+      <div style="font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:.5rem;">Ultimi piani salvati</div>
+      <div id="piano-storico-rapido-list"></div>
+    </div>
 
     <!-- Pulsante Genera Piano -->
     <div style="text-align:center;padding-top:.4rem;">
@@ -613,6 +621,18 @@ main{flex:1;overflow-y:auto;}
 </div>
 
 <!-- IMPOSTAZIONI -->
+<div id="page-storico-piani" class="page">
+  <div class="page-hd">
+    <div><h2>Storico Piani</h2><p>Tutti i piani salvati, ordinati per data</p></div>
+  </div>
+  <div class="sbar">
+    <input id="storico-search" placeholder="🔍 Cerca paziente..." oninput="renderStoricoPiani()" style="max-width:280px;">
+    <select id="storico-filter-paz" onchange="renderStoricoPiani()" style="min-width:200px;">
+      <option value="">Tutti i pazienti</option>
+    </select>
+  </div>
+  <div id="storico-piani-list"></div>
+</div>
 <div class="page" id="page-impostazioni">
   <div class="page-hd"><div><h2>Impostazioni</h2><p>Configurazione e sincronizzazione</p></div></div>
   <div class="card">
@@ -1606,6 +1626,7 @@ function goTo(name,btn){
   if(name==='dashboard')renderDashboard();
   if(name==='concetti')renderConcettiPage();
   if(name==='piano')renderPianoPage();
+  if(name==='storico-piani')renderStoricoPiani();
   if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();initAntCard();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
@@ -2681,6 +2702,154 @@ function pianoPazSelezionato(id){
   }
 
   info.style.display='block';
+
+  // Storico rapido
+  var _idPaz = document.getElementById('piano-select-paz').value;
+  var _storEl = document.getElementById('piano-storico-rapido');
+  var _storList = document.getElementById('piano-storico-rapido-list');
+  if (_storEl && _storList && _idPaz) {
+    var _piani = (db.piani||[]).filter(function(pl){ return pl.pazienteId === _idPaz; }).slice().reverse().slice(0,3);
+    _storEl.style.display = _piani.length ? 'block' : 'none';
+    _storList.innerHTML = _piani.length ? _piani.map(function(pl, i) {
+      var _d = new Date(pl.timestamp);
+      var _ds = _d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+      var _os = _d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      var _idx = (db.piani||[]).filter(function(x){ return x.pazienteId===_idPaz; }).length - 1 - i;
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:.35rem;">'
+        +'<div><div style="font-size:.8rem;font-weight:600;">📋 Piano del '+_ds+'</div>'
+        +'<div style="font-size:.7rem;color:var(--text3);">ore '+_os+'</div></div>'
+        +'<button class="btn btn-g btn-sm" onclick="riapriPiano(\''+_idPaz+'\','+_idx+')">Riapri</button>'
+        +'</div>';
+    }).join('') : '';
+  }
+}
+
+function riapriPiano(pazId, idx) {
+  var piano = (db.piani||[])[idx];
+  if (!piano) return;
+  try {
+    var pianoAI = JSON.parse(piano.pianoJSON);
+    if (pianoAI.giorni) pianoAI = pianoAI.giorni;
+    window._pianoCorrente = pianoAI;
+    var p = (db.pazienti||[]).find(function(x){ return x.id === pazId; });
+    if (p) {
+      var _ct = calcolaTDEE(p);
+      var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+        'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+        'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+      var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
+      var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
+      var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
+      var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
+      window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
+      window._pianoGiorniON = p.giorniAllenamento||[];
+      var _passi = p.passiGiornalieri!=null?+p.passiGiornalieri:null;
+      var _neat = _passi===null?0:_passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
+      var _lafOFF = +((1.20+_neat).toFixed(3));
+      var _lastIb = p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+      if (_lastIb&&_lastIb.mb&&_ct.peso) {
+        var _tdeeOFF = Math.round(_lastIb.mb*_lafOFF);
+        var _kcalOFF = _tdeeOFF+(_regOff[p.regime]||0);
+        var _protOFF = Math.round(1.8*_ct.peso);
+        var _grasOFF = Math.round(0.9*_ct.peso);
+        var _carbOFF = Math.max(0,Math.round((_kcalOFF-_protOFF*4-_grasOFF*9)/4));
+        window._pianoTargetsOFF = {kcal:_kcalOFF,p:_protOFF,c:_carbOFF,g:_grasOFF,source:'calcolo-off',laf:_lafOFF};
+      }
+    }
+    goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
+    var pianoEl = document.getElementById('piano-output');
+    if (pianoEl) {
+      pianoEl.style.opacity='1';
+      var loadEl = document.getElementById('piano-load-msg');
+      if (loadEl) loadEl.style.display='none';
+      var aiHtml = '<div style="margin-top:1.5rem;">';
+      pianoAI.forEach(function(g,idx2){
+        var tgts = window._pianoTargets||{};
+        var mac = g.macros||{};
+        var hasMac = mac.kcal>0&&mac.proteine>0&&mac.carboidrati>0&&mac.grassi>0;
+        var hasTgts = tgts.kcal>0&&tgts.p>0&&tgts.c>0&&tgts.g>0;
+        var isCiclizzato = /\b(ON|OFF)\b/i.test(g.giorno||g.g||'');
+        if (isCiclizzato) {
+          var _isOFF2=/\bOFF\b/i.test(g.giorno||g.g||'');
+          var _map2={'lunedì':'Lun','martedì':'Mar','mercoledì':'Mer','giovedì':'Gio','venerdì':'Ven','sabato':'Sab','domenica':'Dom'};
+          var _nb2=(g.giorno||g.g||'').toLowerCase().replace(/\s*(on|off)\s*/gi,'').trim();
+          var _ab2=_map2[_nb2]||'';
+          if(_ab2&&(window._pianoGiorniON||[]).length) _isOFF2=!(window._pianoGiorniON||[]).includes(_ab2);
+          if(_isOFF2&&window._pianoTargetsOFF) tgts=window._pianoTargetsOFF;
+          hasTgts=tgts.kcal>0&&tgts.p>0&&tgts.c>0&&tgts.g>0;
+        }
+        var nomeGiorno = g.giorno||g.g||'Giorno '+(idx2+1);
+        aiHtml+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
+        aiHtml+='<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;">'+nomeGiorno+'</div>';
+        aiHtml+='<div style="padding:.8rem 1rem;font-size:.82rem;color:var(--text2);">Piano riaperto — clicca "Genera Piano" per rigenerare o usa P2 per correggere.</div>';
+        aiHtml+='</div>';
+      });
+      aiHtml+='</div>';
+      pianoEl.innerHTML=aiHtml;
+      inizializzaP2(pianoAI);
+      notif('✓ Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
+    }
+  } catch(e) {
+    notif('⚠ Errore nel riaprire il piano: '+e.message);
+  }
+}
+
+function renderStoricoPiani() {
+  var listEl = document.getElementById('storico-piani-list');
+  var searchEl = document.getElementById('storico-search');
+  var filterEl = document.getElementById('storico-filter-paz');
+  if (!listEl) return;
+  if (filterEl && filterEl.options.length <= 1) {
+    (db.pazienti||[]).forEach(function(p){
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = (p.nome||'')+' '+(p.cognome||'');
+      filterEl.appendChild(opt);
+    });
+  }
+  var search = (searchEl?searchEl.value:'').toLowerCase();
+  var filterPaz = filterEl?filterEl.value:'';
+  var piani = (db.piani||[]).slice().reverse();
+  if (filterPaz) piani = piani.filter(function(pl){ return pl.pazienteId===filterPaz; });
+  if (search) piani = piani.filter(function(pl){
+    var paz = (db.pazienti||[]).find(function(p){ return p.id===pl.pazienteId; });
+    var nome = paz ? ((paz.nome||'')+' '+(paz.cognome||'')).toLowerCase() : '';
+    return nome.includes(search);
+  });
+  if (!piani.length) {
+    listEl.innerHTML='<div style="color:var(--text3);padding:2rem;text-align:center;">Nessun piano trovato.</div>';
+    return;
+  }
+  listEl.innerHTML = piani.map(function(pl) {
+    var paz = (db.pazienti||[]).find(function(p){ return p.id===pl.pazienteId; });
+    var nomePaz = paz ? ((paz.nome||'')+' '+(paz.cognome||'')) : 'Paziente sconosciuto';
+    var iniziali = nomePaz.split(' ').map(function(w){ return w[0]||''; }).join('').toUpperCase().slice(0,2);
+    var d = new Date(pl.timestamp);
+    var ds = d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+    var os = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    var idxOriginale = (db.piani||[]).indexOf(pl);
+    return '<div class="card" style="margin-bottom:.75rem;">'
+      +'<div class="card-bd" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">'
+      +'<div style="display:flex;align-items:center;gap:.75rem;">'
+      +'<div class="avatar">'+iniziali+'</div>'
+      +'<div><div style="font-weight:600;font-size:.88rem;">'+nomePaz+'</div>'
+      +'<div style="font-size:.74rem;color:var(--text3);">📋 '+ds+' · ore '+os+'</div>'
+      +(paz?'<div style="font-size:.72rem;color:var(--teal);">'+(paz.regime||'')+'</div>':'')
+      +'</div></div>'
+      +'<div style="display:flex;gap:.5rem;">'
+      +'<button class="btn btn-g btn-sm" onclick="riapriPiano(\''+pl.pazienteId+'\','+idxOriginale+')">📂 Riapri</button>'
+      +'<button class="btn btn-d btn-sm" onclick="eliminaPiano('+idxOriginale+')">🗑</button>'
+      +'</div>'
+      +'</div></div>';
+  }).join('');
+}
+
+function eliminaPiano(idx) {
+  if (!confirm('Eliminare questo piano salvato?')) return;
+  db.piani.splice(idx, 1);
+  save();
+  renderStoricoPiani();
+  notif('Piano eliminato');
 }
 
 function costruisciPrompt(pazienteId) {
