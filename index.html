@@ -801,6 +801,46 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>Patologie</label><textarea id="p-patologie"></textarea></div>
     <div class="fg"><label>Farmaci</label><textarea id="p-farmaci"></textarea></div>
     <div class="fg"><label>Allergie / Intolleranze</label><textarea id="p-allergie"></textarea></div>
+    <div class="fg"><label>Allergie / Intolleranze — Seleziona</label>
+      <div class="integr-grid">
+        <div class="integr-item"><input type="checkbox" id="all-lattosio"><label for="all-lattosio">Lattosio</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-glutine"><label for="all-glutine">Glutine</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-nichel"><label for="all-nichel">Nichel</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-uova"><label for="all-uova">Uova</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-pesce"><label for="all-pesce">Pesce</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-fruttasecca"><label for="all-fruttasecca">Frutta secca</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-crostacei"><label for="all-crostacei">Crostacei</label></div>
+        <div class="integr-item"><input type="checkbox" id="all-soia"><label for="all-soia">Soia</label></div>
+      </div>
+    </div>
+    <div class="fg"><label>Patologie — Seleziona</label>
+      <div class="integr-grid">
+        <div class="integr-item"><input type="checkbox" id="pat-diabete"><label for="pat-diabete">Diabete / Insulino-resistenza</label></div>
+        <div class="integr-item"><input type="checkbox" id="pat-tiroide"><label for="pat-tiroide">Tiroide (Hashimoto / ipotiroidismo)</label></div>
+        <div class="integr-item"><input type="checkbox" id="pat-ipertensione"><label for="pat-ipertensione">Ipertensione</label></div>
+        <div class="integr-item"><input type="checkbox" id="pat-colesterolo"><label for="pat-colesterolo">Colesterolo alto</label></div>
+        <div class="integr-item"><input type="checkbox" id="pat-crohn"><label for="pat-crohn">Morbo di Crohn</label></div>
+        <div class="integr-item"><input type="checkbox" id="pat-ibs"><label for="pat-ibs">Intestino irritabile</label></div>
+        <div class="integr-item"><input type="checkbox" id="pat-pcos"><label for="pat-pcos">PCOS</label></div>
+      </div>
+    </div>
+    <div class="fg"><label>Stile di vita — Seleziona</label>
+      <div class="integr-grid">
+        <div class="integr-item"><input type="checkbox" id="stile-ritenzione"><label for="stile-ritenzione">Ritenzione idrica</label></div>
+        <div class="integr-item"><input type="checkbox" id="stile-gonfiore"><label for="stile-gonfiore">Gonfiore / flatulenza</label></div>
+        <div class="integr-item"><input type="checkbox" id="stile-stitichezza"><label for="stile-stitichezza">Stitichezza</label></div>
+        <div class="integr-item"><input type="checkbox" id="stile-diarrea"><label for="stile-diarrea">Diarrea frequente</label></div>
+        <div class="integr-item"><input type="checkbox" id="stile-sostenibilita"><label for="stile-sostenibilita">Sostenibilità alimentare</label></div>
+      </div>
+    </div>
+    <div class="fg"><label>Condizioni speciali — Seleziona</label>
+      <div class="integr-grid">
+        <div class="integr-item"><input type="checkbox" id="cond-gravidanza"><label for="cond-gravidanza">Gravidanza</label></div>
+        <div class="integr-item"><input type="checkbox" id="cond-allattamento"><label for="cond-allattamento">Allattamento</label></div>
+        <div class="integr-item"><input type="checkbox" id="cond-menopausa"><label for="cond-menopausa">Menopausa / perimenopausa</label></div>
+        <div class="integr-item"><input type="checkbox" id="cond-massa"><label for="cond-massa">Obiettivo massa muscolare</label></div>
+      </div>
+    </div>
     <div class="fg"><label>Patologie in famiglia</label><textarea id="p-familiarita"></textarea></div>
     <div class="fg"><label>Analisi recenti (note generali)</label><textarea id="p-analisi-note"></textarea></div>
     <div class="fg"><label>Modificazioni peso negli anni</label><textarea id="p-peso-storia"></textarea></div>
@@ -1622,6 +1662,7 @@ function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
   ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
   toggleOrarioNote();
@@ -1647,6 +1688,7 @@ function editPaz(){
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);s('p-familiarita',p.familiarita);
+  ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
   s('p-analisi-note',p.analisiNote);s('p-peso-storia',p.pesoStoria);s('p-diete-prec',p.dietePrec);
   s('p-cucina',p.cucina);s('p-dove',p.dove);s('p-economica',p.economica);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
@@ -1689,6 +1731,7 @@ function salvaPaz(){
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
     patologie:g('p-patologie'),farmaci:g('p-farmaci'),allergie:g('p-allergie'),
+    checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     familiarita:g('p-familiarita'),analisiNote:g('p-analisi-note'),pesoStoria:g('p-peso-storia'),
     dietePrec:g('p-diete-prec'),colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),cucina:g('p-cucina'),
