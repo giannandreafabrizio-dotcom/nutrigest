@@ -2719,9 +2719,14 @@ Rossi: ${alimentiRossi.length ? alimentiRossi.join(', ') : 'nessuno'}
 Se verdi insufficienti per un pasto completo usa arancioni; se ancora insufficienti usa rossi con moderazione.
 
 STRUTTURA
-${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).join(', ')}
+${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
+  var abbr={'Lunedì':'Lun','Martedì':'Mar','Mercoledì':'Mer','Giovedì':'Gio','Venerdì':'Ven','Sabato':'Sab','Domenica':'Dom'};
+  var isON=(p.giorniAllenamento||[]).includes(abbr[n]);
+  return (p.giorniAllenamento||[]).length ? n+(isON?' ON':' OFF') : n;
+}).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
 Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
+${(p.giorniAllenamento||[]).length ? `PIANO CICLIZZATO: giorni ON usa kcal target pieno (${kcalTarget} kcal). Giorni OFF riduci carboidrati del 30-40%, mantieni proteine invariate. Nomina ogni giorno con ON o OFF nel campo "g" del JSON (es. "Lunedì ON", "Martedì OFF").` : ''}
 
 3 ALTERNATIVE PRANZO E CENA
 Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
