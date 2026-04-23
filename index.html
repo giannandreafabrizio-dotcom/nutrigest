@@ -2733,9 +2733,9 @@ Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): 
 Colazione, spuntini, pre-nanna: formato unico, nessuna alternativa.
 
 OUTPUT: SOLO JSON valido, nessun testo prima o dopo.
-[{"g":"Lunedì","col":{"p1":{"n":"","g":0},"p2":{"n":"","g":0}},"sm":{"p1":{"n":"","g":0}},"pr":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"sp":{"p1":{"n":"","g":0}},"ce":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"pn":{"p1":{"n":"","g":0}}}]
+[{"g":"Lunedì ON","macros":{"kcal":0,"proteine":0,"carboidrati":0,"grassi":0},"col":{"p1":{"n":"","g":0},"p2":{"n":"","g":0}},"sm":{"p1":{"n":"","g":0}},"pr":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"sp":{"p1":{"n":"","g":0}},"ce":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"pn":{"p1":{"n":"","g":0}}}]
 
-Prima ricetta alt = verde, seconda = arancione. Includi pn solo se previsto. Includi sm/sp solo se previsti. p2 null se non esiste.`;
+Prima ricetta alt = verde, seconda = arancione. Includi pn solo se previsto. Includi sm/sp solo se previsti. p2 null se non esiste. Il campo macros deve contenere i valori reali calcolati per quel giorno (kcal totali, proteine g, carboidrati g, grassi g).`;
 }
 
 function getAnthropicKey() {
