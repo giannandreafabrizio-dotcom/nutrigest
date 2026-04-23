@@ -1847,7 +1847,7 @@ function applicaRegoloSemaforo(p){
   // Assegna i colori — grigio scuro ha priorità sul celeste
   Object.entries(conteggioGrigi).forEach(([key,n])=>{
     if(al[key]==='si'||al[key]==='arancione'||al[key]==='rosso')return; // non sovrascrivere scelte manuali
-    al[key]= n>=2 ? 'grigioScuro' : 'grigioScuro';
+    al[key]='grigioScuro';
   });
   Object.entries(conteggioCelesti).forEach(([key,n])=>{
     if(al[key])return; // non sovrascrivere nulla (né manuali né grigi)
