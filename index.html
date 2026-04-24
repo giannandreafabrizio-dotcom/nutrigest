@@ -1855,7 +1855,8 @@ function salvaPaz(){
     dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
-    regime:gs('p-regime'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
+    regime:gs('mac-regime')||gs('p-regime'),
+    pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
     weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
     fame:g('p-fame'),abit:gs('p-abit'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
@@ -2480,6 +2481,22 @@ function renderPdMacros(p){
         <option value="-700">Dimagrimento aggressivo (−700 kcal)</option>
         <option value="150">Aumento massa leggero (+150 kcal)</option>
         <option value="400">Aumento massa chiaro (+400 kcal)</option>
+      </select>
+    </div>
+  </div>
+  <div class="fr" style="margin-bottom:.8rem">
+    <div class="fg"><label>Peso obiettivo (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}"></div>
+    <div class="fg"><label>Tipo regime</label>
+      <select id="mac-regime">
+        <option value="">— Seleziona —</option>
+        <option value="Ipocalorico lento" ${p&&p.regime==='Ipocalorico lento'?'selected':''}>Ipocalorico lento (−200/−300 kcal)</option>
+        <option value="Ipocalorico moderato" ${p&&p.regime==='Ipocalorico moderato'?'selected':''}>Ipocalorico moderato (−500 kcal)</option>
+        <option value="Ipocalorico aggressivo" ${p&&p.regime==='Ipocalorico aggressivo'?'selected':''}>Ipocalorico aggressivo (−700 kcal)</option>
+        <option value="Normocalorico" ${p&&p.regime==='Normocalorico'?'selected':''}>Normocalorico (mantenimento)</option>
+        <option value="Ipercalorico leggero" ${p&&p.regime==='Ipercalorico leggero'?'selected':''}>Ipercalorico leggero (+150/+200 kcal)</option>
+        <option value="Ipercalorico chiaro" ${p&&p.regime==='Ipercalorico chiaro'?'selected':''}>Ipercalorico chiaro (+300/+500 kcal)</option>
+        <option value="Chetogenico WLKD" ${p&&p.regime==='Chetogenico WLKD'?'selected':''}>Chetogenico WLKD (aggressiva)</option>
+        <option value="Chetogenico moderato" ${p&&p.regime==='Chetogenico moderato'?'selected':''}>Chetogenico moderato</option>
       </select>
     </div>
   </div>
