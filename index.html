@@ -176,6 +176,20 @@ main{flex:1;overflow-y:auto;}
 .pd-stat{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;box-shadow:var(--shadow);}
 .pd-stat-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.18rem;}
 .pd-stat-val{font-family:'DM Serif Display',serif;font-size:1.05rem;}
+/* TIMELINE PERCORSO */
+.paz-timeline{position:relative;display:flex;align-items:flex-start;justify-content:space-between;padding:18px 0 6px;margin-bottom:.8rem;}
+.paz-timeline::before{content:'';position:absolute;top:22px;left:0;right:0;height:2px;background:var(--border);}
+.ptl-done-line{position:absolute;top:22px;left:0;height:2px;background:var(--teal);z-index:0;}
+.ptl-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative;z-index:1;}
+.ptl-dot{width:14px;height:14px;border-radius:50%;border:2px solid;flex-shrink:0;}
+.ptl-dot.done{background:var(--teal);border-color:var(--teal);}
+.ptl-dot.today{background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-bg);}
+.ptl-dot.future{background:var(--s1);border-color:var(--border);}
+.ptl-dot.warn{background:#fff;border-color:var(--yellow);}
+.ptl-label{font-size:.62rem;color:var(--text3);text-align:center;line-height:1.3;max-width:72px;}
+.ptl-date{font-size:.62rem;font-weight:500;color:var(--text2);text-align:center;}
+.ptl-date.today-txt{color:var(--teal);}
+.ptl-label.today-txt{color:var(--teal);}
 .pd-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1rem;flex-wrap:wrap;}
 .pd-tab{padding:.5rem 1rem;font-size:.77rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;margin-bottom:-2px;}
 .pd-tab.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:500;}
@@ -430,6 +444,7 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
   <div class="pd-hdr" id="pd-hdr"></div>
+  <div class="paz-timeline" id="pd-timeline"></div>
   <div class="pd-stats" id="pd-stats"></div>
   <div class="pd-tabs">
     <button class="pd-tab active" onclick="pdTab('anamnesi',this)">Anamnesi</button>
@@ -1965,7 +1980,7 @@ function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
-  renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);renderPdMacros(p);renderPdRagionamento(p);
+  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);renderPdMacros(p);renderPdRagionamento(p);
   document.getElementById('pd-note').innerHTML=`
     <div class="card"><div class="card-hd"><h3>Note cliniche</h3></div><div class="card-bd">
       <textarea style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.5rem .7rem;outline:none;min-height:180px;resize:vertical" oninput="saveNote(this.value)">${p.note||''}</textarea>
@@ -2896,6 +2911,36 @@ function nuovaSessioneRag(){
   if(p)renderPdRagionamento(p);
 }
 
+function renderPazTimeline(p) {
+  const el = document.getElementById('pd-timeline');
+  if (!el) return;
+  const oggi = today();
+  const fasi = [
+    { label: 'Prima visita', data: p.visitaData },
+    { label: 'Inizio piano', data: p.inizioAlim },
+    { label: 'Chiamata sett. 1', data: p.dateCalendario?.chiamata },
+    { label: 'Messaggio sett. 2', data: p.dateCalendario?.sett2 },
+    { label: 'Controllo', data: p.dateCalendario?.controllo || p.controlloData },
+  ].filter(f => f.data);
+  if (!fasi.length) { el.innerHTML = ''; return; }
+  const iDone = fasi.filter(f => f.data <= oggi).length;
+  const pct = fasi.length > 1 ? ((iDone - 1) / (fasi.length - 1) * 100).toFixed(1) : 0;
+  const steps = fasi.map((f, i) => {
+    const done = f.data < oggi;
+    const isToday = f.data === oggi;
+    const isFuture = f.data > oggi;
+    const isWarn = isFuture && Math.round((new Date(f.data) - new Date(oggi)) / 86400000) <= 14;
+    const dotClass = done ? 'done' : isToday ? 'today' : isWarn ? 'warn' : 'future';
+    const dateLabel = isToday ? 'oggi' : fData(f.data);
+    const todayCls = (isToday) ? ' today-txt' : '';
+    return `<div class="ptl-step">
+      <div class="ptl-dot ${dotClass}"></div>
+      <div class="ptl-date${todayCls}">${dateLabel}</div>
+      <div class="ptl-label${todayCls}">${f.label}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="ptl-done-line" style="width:${pct}%"></div>${steps}`;
+}
 function renderPdAnamnesi(p){
   const r=(lbl,v)=>v?`<div style="margin-bottom:.5rem"><span style="font-size:.64rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:600">${lbl}</span><div style="font-size:.8rem;margin-top:2px">${v}</div></div>`:'';
   document.getElementById('pd-anamnesi').innerHTML=`
