@@ -1658,6 +1658,7 @@ function editPaz(){
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
   s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);s('p-studio',p.studio||'');
+  s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
@@ -1901,6 +1902,8 @@ function salvaPaz(){
     giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
     circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
+    prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
+    studio:g('p-studio'),
     dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||addDays(ini,28)}:null
   };
   if(editPazId){
@@ -5650,6 +5653,8 @@ const RICETTE_DEFAULT = [
    tags:['colazione','proteica','senza glutine']}
 ];
 RICETTE_DEFAULT.forEach(r=>{if(!db.ricette.find(x=>x.id===r.id))db.ricette.push(r);});
+// Migrazione entrate senza studio — assegna 'curae' come default se mancante
+db.entrate.forEach(function(e){if(!e.studio)e.studio='';});
 renderPaz();
 renderCal();
 renderDashboard();
