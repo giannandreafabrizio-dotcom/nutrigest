@@ -2387,7 +2387,7 @@ function renderPdMacros(p){
   const peso=lastIb?lastIb.peso:(p.peso||null);
   const ffm=lastIb&&lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null;
 
-  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3><button class="btn btn-p btn-sm" onclick="salvaPaz()">💾 Salva dati</button></div><div class="card-bd">
+  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3><button class="btn btn-p btn-sm" onclick="salvaCalcoloMacros()">💾 Salva dati</button></div><div class="card-bd">
   <div class="sec-title">Attività Fisica</div>
   <div class="fr3">
     <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 8000" min="0"></div>
@@ -2565,6 +2565,29 @@ function applicaSchema(laf,prot,grassi){
   const el1=document.getElementById('mac-laf');const el2=document.getElementById('mac-prot');const el3=document.getElementById('mac-grassi');
   if(el1)el1.value=laf;if(el2)el2.value=prot;if(el3)el3.value=grassi;
   notif('✓ Valori applicati — clicca Calcola');
+}
+
+function salvaCalcoloMacros(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p){notif('⚠ Nessun paziente aperto');return;}
+  const gn=id=>{const el=document.getElementById(id);return el&&el.value!==''?parseFloat(el.value):null;};
+  const gs=id=>{const el=document.getElementById(id);return el?el.value:null;};
+  p.passiGiornalieri=gn('p-passi');
+  p.oreAllenamento=gn('p-ore-all');
+  p.circonferenzaPolso=gn('p-polso');
+  p.tipoAllenamento=gs('p-tipo-all');
+  p.intensitaAllenamento=gs('p-intens-all');
+  p.orarioAllenamento=gs('p-orario-all');
+  p.orarioAllenamentoNote=gs('p-orario-all-note');
+  p.cronotipo=gs('p-cronotipo');
+  p.orarioPastoPrincipale=gs('p-orario-pasto');
+  p.pesoTarget=gn('mac-peso-target');
+  p.regime=gs('mac-regime');
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el&&el.checked)(p.giorniAllenamento=p.giorniAllenamento||[]).push(d.charAt(0).toUpperCase()+d.slice(1));});
+  p.giorniAllenamento=[...new Set(p.giorniAllenamento||[])];
+  save();
+  renderPdMacros(p);
+  notif('✓ Dati salvati');
 }
 
 function calcolaTDEE(p){
