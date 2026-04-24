@@ -14,22 +14,25 @@ var CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action ? e.parameter.action : '';
 
+  var result;
   if (action === 'getPiano') {
-    return getPiano(e.parameter.pazienteId || '');
-  }
-
-  if (action === 'salvaPiano') {
+    result = getPianoObj(e.parameter.pazienteId || '');
+  } else if (action === 'salvaPiano') {
     var pazId = e.parameter.pazienteId || '';
     var pianoStr = e.parameter.piano || '';
     if (pazId && pianoStr) {
       salvaPiano(pazId, pianoStr);
-      return jsonResponse({ ok: true });
+      result = { ok: true };
+    } else {
+      result = { ok: false, error: 'parametri mancanti' };
     }
-    return jsonResponse({ ok: false, error: 'parametri mancanti' });
+  } else {
+    result = getDbObj();
   }
 
-  // default: restituisce il db completo
-  return getDb();
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ─── POST ───────────────────────────────────────────────────────────────────
@@ -37,48 +40,58 @@ function doPost(e) {
   var body = {};
   try { body = JSON.parse(e.postData.contents); } catch(err) { body = {}; }
 
+  var result;
   if (body.action === 'generatePiano') {
-    return generatePiano(body.pazienteId || '', body.prompt || '');
+    result = generatePianoObj(body.pazienteId || '', body.prompt || '');
+  } else {
+    result = saveDbObj(body);
   }
 
-  // default: salva il db completo
-  return saveDb(body);
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ─── OPTIONS ────────────────────────────────────────────────────────────────
+function doOptions(e) {
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FUNZIONI PRINCIPALI
+// FUNZIONI PRINCIPALI (restituiscono oggetti JS semplici, non ContentService)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Salva l'intero db JSON nel foglio NutriGest (cella A1)
-function saveDb(data) {
+function saveDbObj(data) {
   try {
     var ss    = SpreadsheetApp.openById('1zjdPU8JTy8E9ZtXVQO-QM2uwpO1ExhCkdFb9zYhA4QA');
     var sheet = ss.getSheetByName(SHEET_DB) || ss.insertSheet(SHEET_DB);
     sheet.getRange('A1').setValue(JSON.stringify(data));
-    return jsonResponse({ ok: true });
+    return { ok: true };
   } catch(err) {
-    return jsonResponse({ ok: false, error: err.message });
+    return { ok: false, error: err.message };
   }
 }
 
 // Restituisce il db JSON dal foglio NutriGest
-function getDb() {
+function getDbObj() {
   try {
     var ss    = SpreadsheetApp.openById('1zjdPU8JTy8E9ZtXVQO-QM2uwpO1ExhCkdFb9zYhA4QA');
     var sheet = ss.getSheetByName(SHEET_DB);
-    if (!sheet) return jsonResponse({});
+    if (!sheet) return {};
     var raw = sheet.getRange('A1').getValue();
-    var data = raw ? JSON.parse(raw) : {};
-    return jsonResponse(data);
+    return raw ? JSON.parse(raw) : {};
   } catch(err) {
-    return jsonResponse({ error: err.message });
+    return { error: err.message };
   }
 }
 
 // Chiama Claude con il prompt ricevuto e salva il piano nel foglio Piani
-function generatePiano(pazienteId, prompt) {
+function generatePianoObj(pazienteId, prompt) {
   if (!pazienteId || !prompt) {
-    return jsonResponse({ ok: false, error: 'pazienteId e prompt sono obbligatori' });
+    return { ok: false, error: 'pazienteId e prompt sono obbligatori' };
   }
 
   try {
@@ -120,23 +133,23 @@ function generatePiano(pazienteId, prompt) {
     // Salva nel foglio Piani
     salvaPiano(pazienteId, jsonStr);
 
-    return jsonResponse({ ok: true });
+    return { ok: true };
 
   } catch(err) {
     // Salva l'errore nel foglio Piani così il GET può restituirlo
     salvaPiano(pazienteId, JSON.stringify({ errore: err.message }));
-    return jsonResponse({ ok: false, error: err.message });
+    return { ok: false, error: err.message };
   }
 }
 
 // Restituisce il piano salvato per un paziente
-function getPiano(pazienteId) {
-  if (!pazienteId) return jsonResponse({ error: 'pazienteId mancante' });
+function getPianoObj(pazienteId) {
+  if (!pazienteId) return { error: 'pazienteId mancante' };
 
   try {
     var ss    = SpreadsheetApp.openById('1zjdPU8JTy8E9ZtXVQO-QM2uwpO1ExhCkdFb9zYhA4QA');
     var sheet = ss.getSheetByName(SHEET_PIANI);
-    if (!sheet) return jsonResponse({ error: 'Foglio Piani non trovato' });
+    if (!sheet) return { error: 'Foglio Piani non trovato' };
 
     var data  = sheet.getDataRange().getValues();
     // Struttura colonne: A=pazienteId, B=timestamp, C=pianoJSON
@@ -144,13 +157,13 @@ function getPiano(pazienteId) {
       if (String(data[i][0]) === String(pazienteId)) {
         var pianoRaw = data[i][2];
         var piano    = pianoRaw ? JSON.parse(pianoRaw) : null;
-        return jsonResponse({ piano: piano, timestamp: data[i][1] });
+        return { piano: piano, timestamp: data[i][1] };
       }
     }
-    return jsonResponse({ error: 'Piano non ancora pronto, riprova tra qualche secondo' });
+    return { error: 'Piano non ancora pronto, riprova tra qualche secondo' };
 
   } catch(err) {
-    return jsonResponse({ error: err.message });
+    return { error: err.message };
   }
 }
 
@@ -184,7 +197,7 @@ function salvaPiano(pazienteId, pianoJsonStr) {
   sheet.appendRow([pazienteId, timestamp, pianoJsonStr]);
 }
 
-// Risposta JSON con CORS per chiamate da browser
+// Risposta JSON (usata per compatibilità interna)
 function jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
