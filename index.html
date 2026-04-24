@@ -1875,7 +1875,7 @@ function salvaPaz(){
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
-  save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');
+  save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');const _ps=db.pazienti.find(x=>x.id===(editPazId||currentPazId));if(_ps&&document.getElementById('pd-macros'))renderPdMacros(_ps);
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
 
@@ -2093,7 +2093,7 @@ function salvaRagionamento(){
     if(mKcal&&mProt&&mCarb&&mGras)macrosDecisi={kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1]};
   }
   p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi};
-  save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
+  save();const _pp=db.pazienti.find(x=>x.id===_ragPazId);if(_pp&&document.getElementById('pd-macros'))renderPdMacros(_pp);notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
 
 function apriGeneratoreDaRag(){
@@ -2472,17 +2472,6 @@ function renderPdMacros(p){
         LAF: ${lafCalc?lafCalc.toFixed(3):'—'} <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
       </div>
     </div>
-    <div class="fg"><label>Obiettivo</label>
-      <select id="mac-obj">
-        <option value="0">Mantenimento (TDEE)</option>
-        <option value="-200">Dimagrimento lento (−200 kcal)</option>
-        <option value="-300">Dimagrimento lento (−300 kcal)</option>
-        <option value="-500">Dimagrimento moderato (−500 kcal)</option>
-        <option value="-700">Dimagrimento aggressivo (−700 kcal)</option>
-        <option value="150">Aumento massa leggero (+150 kcal)</option>
-        <option value="400">Aumento massa chiaro (+400 kcal)</option>
-      </select>
-    </div>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Peso obiettivo (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}"></div>
@@ -2542,7 +2531,9 @@ function renderPdMacros(p){
 
 function calcolaMacros(){
   const mb=parseFloat(document.getElementById('mac-mb').value)||0;
-  const obj=parseFloat(document.getElementById('mac-obj').value)||0;
+  const regimeVal=document.getElementById('mac-regime')?.value||'';
+  const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+  const obj=offMap[regimeVal]||0;
   const peso=parseFloat(document.getElementById('mac-peso').value)||0;
   const prot=parseFloat(document.getElementById('mac-prot').value)||1.8;
   const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
