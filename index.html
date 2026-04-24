@@ -735,6 +735,9 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Data inizio alimentazione</label><input type="date" id="p-inizio" oninput="aggDateCal()"></div>
     </div>
     <div class="fg"><label>Data prossimo controllo</label><input type="date" id="p-controllo"></div>
+    <div style="margin-top:.8rem">
+      <button class="btn btn-p btn-sm" onclick="aggiungiEntrataPerPaziente()">💶 Aggiungi entrata per questo paziente</button>
+    </div>
   </div>
 
   <!-- CLINICA -->
@@ -4943,6 +4946,23 @@ function renderEntrate(){
   }).join('');
 }
 
+function aggiungiEntrataPerPaziente(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  openNuovaEntrata();
+  setTimeout(function(){
+    const pazSel=document.getElementById('en-paz');
+    if(pazSel){pazSel.value=p.id;}
+    const stEl=document.getElementById('en-studio');
+    if(stEl)stEl.value=p.studio||'';
+    const tipoEl=document.getElementById('en-tipo');
+    if(tipoEl)tipoEl.value=p.controlloData?'Controllo':'Prima visita';
+    const impEl=document.getElementById('en-imp');
+    if(impEl&&!impEl.value){
+      const prezzo=tipoEl&&tipoEl.value==='Controllo'?p.prezzoControllo:p.prezzoVisita;
+      if(prezzo)impEl.value=prezzo;
+    }
+  },50);
+}
 function openNuovaEntrata(){
   document.getElementById('en-data').value=today();
   ['en-imp','en-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
