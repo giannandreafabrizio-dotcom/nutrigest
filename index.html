@@ -1639,7 +1639,8 @@ function openNuovoPaz(){
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
   toggleOrarioNote();
-  ['p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-peso','p-altezza','p-peso-target','p-prezzo-visita','p-prezzo-controllo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const stEl=document.getElementById('p-studio');if(stEl)stEl.value='';
   ['p-nascita','p-visita','p-inizio','p-controllo','p-inizio2','p-controllo2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-visita').value=today();
   document.getElementById('p-inizio').value=today();
