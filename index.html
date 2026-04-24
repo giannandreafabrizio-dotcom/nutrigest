@@ -2387,7 +2387,7 @@ function renderPdMacros(p){
   const peso=lastIb?lastIb.peso:(p.peso||null);
   const ffm=lastIb&&lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null;
 
-  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3></div><div class="card-bd">
+  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3><button class="btn btn-p btn-sm" onclick="salvaPaz()">💾 Salva dati</button></div><div class="card-bd">
   <div class="sec-title">Attività Fisica</div>
   <div class="fr3">
     <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 8000" min="0"></div>
