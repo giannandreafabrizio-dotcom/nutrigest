@@ -925,71 +925,6 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
     </div>
     <div class="fg"><label>Attività lavorativa</label><input id="p-lavoro" placeholder="Sedentario, in piedi, turni..."></div>
-    <div class="sec-title">Attività Fisica</div>
-    <div class="fr3">
-      <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 8000" min="0"></div>
-      <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 4" min="0" step="0.5"></div>
-      <div class="fg"><label>Circonferenza polso (cm)</label><input type="number" id="p-polso" placeholder="es. 16.5" step="0.1"></div>
-    </div>
-    <div class="fr3">
-      <div class="fg"><label>Tipo allenamento</label>
-        <select id="p-tipo-all">
-          <option value="">— Non specificato —</option>
-          <option value="Forza">Forza</option>
-          <option value="Cardio">Cardio</option>
-          <option value="Misto">Misto</option>
-        </select>
-      </div>
-      <div class="fg"><label>Intensità allenamento</label>
-        <select id="p-intens-all">
-          <option value="">— Non specificata —</option>
-          <option value="Bassa">Bassa</option>
-          <option value="Media">Media</option>
-          <option value="Alta">Alta</option>
-        </select>
-      </div>
-      <div class="fg"><label>Orario allenamento</label>
-        <select id="p-orario-all" onchange="toggleOrarioNote()">
-          <option value="">— Non specificato —</option>
-          <option value="Mattina">Mattina</option>
-          <option value="Pomeriggio">Pomeriggio</option>
-          <option value="Sera">Sera</option>
-          <option value="Variabile">Variabile</option>
-        </select>
-      </div>
-    </div>
-    <div class="fg" id="p-orario-all-note-fg" style="display:none">
-      <label>Note orario allenamento</label>
-      <input id="p-orario-all-note" placeholder="Specifica...">
-    </div>
-    <div class="fg"><label>Giorni di allenamento</label>
-      <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-lun" value="Lun" style="accent-color:var(--teal)"> Lun</label>
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mar" value="Mar" style="accent-color:var(--teal)"> Mar</label>
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mer" value="Mer" style="accent-color:var(--teal)"> Mer</label>
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-gio" value="Gio" style="accent-color:var(--teal)"> Gio</label>
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-ven" value="Ven" style="accent-color:var(--teal)"> Ven</label>
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-sab" value="Sab" style="accent-color:var(--teal)"> Sab</label>
-        <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
-      </div>
-    </div>
-    <div class="fr">
-      <div class="fg"><label>Cronotipo</label>
-        <select id="p-cronotipo">
-          <option value="">— Non specificato —</option>
-          <option value="Mattiniero">Mattiniero</option>
-          <option value="Intermedio">Intermedio</option>
-          <option value="Serale">Serale</option>
-        </select>
-      </div>
-      <div class="fg"><label>Orario pasto principale</label>
-        <select id="p-orario-pasto">
-          <option value="">— Non specificato —</option>
-          <option value="Pranzo abbondante">Pranzo abbondante</option>
-          <option value="Cena abbondante">Cena abbondante</option>
-        </select>
-      </div>
-    </div>
   </div>
 
   <!-- PREFERENZE CIBI -->
@@ -2451,7 +2386,73 @@ function renderPdMacros(p){
   const peso=lastIb?lastIb.peso:(p.peso||null);
   const ffm=lastIb&&lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null;
 
-  let html=`<div class="card"><div class="card-hd"><h3>Calcolo macros e TDEE</h3></div><div class="card-bd">`;
+  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3></div><div class="card-bd">
+  <div class="sec-title">Attività Fisica</div>
+  <div class="fr3">
+    <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 8000" min="0"></div>
+    <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 4" min="0" step="0.5"></div>
+    <div class="fg"><label>Circonferenza polso (cm)</label><input type="number" id="p-polso" placeholder="es. 16.5" step="0.1"></div>
+  </div>
+  <div class="fr3">
+    <div class="fg"><label>Tipo allenamento</label>
+      <select id="p-tipo-all">
+        <option value="">— Non specificato —</option>
+        <option value="Forza">Forza</option>
+        <option value="Cardio">Cardio</option>
+        <option value="Misto">Misto</option>
+      </select>
+    </div>
+    <div class="fg"><label>Intensità allenamento</label>
+      <select id="p-intens-all">
+        <option value="">— Non specificata —</option>
+        <option value="Bassa">Bassa</option>
+        <option value="Media">Media</option>
+        <option value="Alta">Alta</option>
+      </select>
+    </div>
+    <div class="fg"><label>Orario allenamento</label>
+      <select id="p-orario-all" onchange="toggleOrarioNote()">
+        <option value="">— Non specificato —</option>
+        <option value="Mattina">Mattina</option>
+        <option value="Pomeriggio">Pomeriggio</option>
+        <option value="Sera">Sera</option>
+        <option value="Variabile">Variabile</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg" id="p-orario-all-note-fg" style="display:none">
+    <label>Note orario allenamento</label>
+    <input id="p-orario-all-note" placeholder="Specifica...">
+  </div>
+  <div class="fg"><label>Giorni di allenamento</label>
+    <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-lun" value="Lun" style="accent-color:var(--teal)"> Lun</label>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mar" value="Mar" style="accent-color:var(--teal)"> Mar</label>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mer" value="Mer" style="accent-color:var(--teal)"> Mer</label>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-gio" value="Gio" style="accent-color:var(--teal)"> Gio</label>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-ven" value="Ven" style="accent-color:var(--teal)"> Ven</label>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-sab" value="Sab" style="accent-color:var(--teal)"> Sab</label>
+      <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
+    </div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Cronotipo</label>
+      <select id="p-cronotipo">
+        <option value="">— Non specificato —</option>
+        <option value="Mattiniero">Mattiniero</option>
+        <option value="Intermedio">Intermedio</option>
+        <option value="Serale">Serale</option>
+      </select>
+    </div>
+    <div class="fg"><label>Orario pasto principale</label>
+      <select id="p-orario-pasto">
+        <option value="">— Non specificato —</option>
+        <option value="Pranzo abbondante">Pranzo abbondante</option>
+        <option value="Cena abbondante">Cena abbondante</option>
+      </select>
+    </div>
+  </div>
+  `;
 
   if(!mb){
     html+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:.8rem">⚠️ Nessuna misurazione InBody presente. Inserisci i dati InBody per il calcolo automatico del metabolismo basale.</div>`;
