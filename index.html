@@ -196,14 +196,22 @@ main{flex:1;overflow-y:auto;}
 .ric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:.9rem;margin-bottom:1rem;}
 .ric-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.95rem;box-shadow:var(--shadow);transition:all .18s;}
 .ric-card:hover{border-color:var(--teal);box-shadow:var(--shadow2);}
-/* ANALISI SANGUE */
+/* CHIP PILLS — integratori, patologie, allergie */
+.chip-group{display:flex;flex-wrap:wrap;gap:5px;margin-top:.3rem;}
+.chip-pill{display:flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:4px 11px;font-size:.75rem;color:var(--text);cursor:pointer;transition:border-color .15s;}
+.chip-pill:hover{border-color:var(--teal);}
+.chip-pill input[type=checkbox]{accent-color:var(--teal);width:12px;height:12px;flex-shrink:0;cursor:pointer;}
+.chip-pill.teal-outline{border-color:var(--teal-light);}
+.chip-pill.teal-outline:hover{border-color:var(--teal);}
+/* ANALISI SANGUE — 3 colonne */
 .analisi-section{margin-bottom:1rem;}
 .analisi-section h4{font-size:.75rem;font-weight:600;color:var(--text2);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.7px;}
-.analisi-item{display:flex;align-items:center;gap:.6rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.79rem;}
-.analisi-item:last-child{border-bottom:none;}
-.analisi-item input[type=checkbox]{accent-color:var(--teal);width:14px;height:14px;cursor:pointer;flex-shrink:0;}
-.analisi-val{margin-left:auto;width:100px;}
-.analisi-val input{padding:.2rem .4rem;font-size:.75rem;}
+.analisi-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+@media(max-width:768px){.analisi-grid3{grid-template-columns:repeat(2,1fr);}}
+.analisi-item{display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--s1);font-size:.75rem;color:var(--text);}
+.analisi-item input[type=checkbox]{accent-color:var(--teal);width:13px;height:13px;cursor:pointer;flex-shrink:0;}
+.analisi-val{margin-left:auto;width:78px;flex-shrink:0;}
+.analisi-val input{padding:.18rem .35rem;font-size:.72rem;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);outline:none;font-family:'DM Sans',sans-serif;}
 /* DISPONIBILITA */
 .disp-bar{display:flex;gap:.4rem;margin-bottom:.6rem;flex-wrap:wrap;}
 .disp-btn{padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:.72rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
@@ -792,57 +800,70 @@ main{flex:1;overflow-y:auto;}
     </div>
     <div class="fg">
       <label>Integratori che GIA' prende</label>
-      <div class="integratori-grid" style="margin-top:.3rem">
-        <div class="integr-item"><input type="checkbox" id="int-omega3"><label for="int-omega3">Omega-3</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-magpot"><label for="int-magpot">Magnesio + Potassio</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-mag"><label for="int-mag">Solo Magnesio</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-multi"><label for="int-multi">Multivitaminico</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-prob"><label for="int-prob">Probiotici</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-creat"><label for="int-creat">Creatina</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-ferro"><label for="int-ferro">Ferro</label></div>
-        <div class="integr-item"><input type="checkbox" id="int-vitd"><label for="int-vitd">Vitamina D</label></div>
+      <div class="chip-group">
+        <label class="chip-pill"><input type="checkbox" id="int-omega3"> Omega-3</label>
+        <label class="chip-pill"><input type="checkbox" id="int-magpot"> Magnesio + Potassio</label>
+        <label class="chip-pill"><input type="checkbox" id="int-mag"> Solo Magnesio</label>
+        <label class="chip-pill"><input type="checkbox" id="int-multi"> Multivitaminico</label>
+        <label class="chip-pill"><input type="checkbox" id="int-prob"> Probiotici</label>
+        <label class="chip-pill"><input type="checkbox" id="int-creat"> Creatina</label>
+        <label class="chip-pill"><input type="checkbox" id="int-ferro"> Ferro</label>
+        <label class="chip-pill"><input type="checkbox" id="int-vitd"> Vitamina D</label>
       </div>
     </div>
     <div class="fg">
       <label style="color:var(--teal)">Integratori che VORREBBE prendere</label>
-      <div class="integratori-grid" style="margin-top:.3rem">
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-omega3"><label for="inw-omega3">Omega-3</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-magpot"><label for="inw-magpot">Magnesio + Potassio</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-mag"><label for="inw-mag">Solo Magnesio</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-multi"><label for="inw-multi">Multivitaminico</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-prob"><label for="inw-prob">Probiotici</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-creat"><label for="inw-creat">Creatina</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-ferro"><label for="inw-ferro">Ferro</label></div>
-        <div class="integr-item" style="border-color:var(--teal-light)"><input type="checkbox" id="inw-vitd"><label for="inw-vitd">Vitamina D</label></div>
+      <div class="chip-group">
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-omega3"> Omega-3</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-magpot"> Magnesio + Potassio</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-mag"> Solo Magnesio</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-multi"> Multivitaminico</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-prob"> Probiotici</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-creat"> Creatina</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-ferro"> Ferro</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-vitd"> Vitamina D</label>
       </div>
     </div>
     <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
     <div class="sec-title">Anamnesi patologica</div>
-    <div class="fg"><label>Patologie</label><textarea id="p-patologie"></textarea></div>
-    <div class="fg"><label>Farmaci</label><textarea id="p-farmaci"></textarea></div>
-    <div class="fg"><label>Allergie / Intolleranze</label><textarea id="p-allergie"></textarea></div>
-    <div class="fg"><label>Allergie / Intolleranze — Seleziona</label>
-      <div class="integr-grid">
-        <div class="integr-item"><input type="checkbox" id="all-lattosio"><label for="all-lattosio">Lattosio</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-glutine"><label for="all-glutine">Glutine</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-nichel"><label for="all-nichel">Nichel</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-uova"><label for="all-uova">Uova</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-pesce"><label for="all-pesce">Pesce</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-fruttasecca"><label for="all-fruttasecca">Frutta secca</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-crostacei"><label for="all-crostacei">Crostacei</label></div>
-        <div class="integr-item"><input type="checkbox" id="all-soia"><label for="all-soia">Soia</label></div>
+    <div class="fg">
+      <label>Patologie comuni</label>
+      <div class="chip-group">
+        <label class="chip-pill"><input type="checkbox" id="pat-diabete"> Diabete T2</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-ir"> Insulino-resistenza</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-ipert"> Ipertensione</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-colest"> Colesterolo alto</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-trig"> Trigliceridi alti</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-tiroid"> Ipotiroidismo</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-hashim"> Hashimoto</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-pcos"> PCOS</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-ibs"> IBS / Colon irritabile</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-reflusso"> Reflusso</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-gotta"> Gotta / Iperuricemia</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-irc"> IRC / Patologia renale</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-meno"> Menopausa</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-steat"> Steatosi epatica</label>
       </div>
+      <textarea id="p-patologie" style="margin-top:.5rem" placeholder="Altre patologie / note..."></textarea>
     </div>
-    <div class="fg"><label>Patologie — Seleziona</label>
-      <div class="integr-grid">
-        <div class="integr-item"><input type="checkbox" id="pat-diabete"><label for="pat-diabete">Diabete / Insulino-resistenza</label></div>
-        <div class="integr-item"><input type="checkbox" id="pat-tiroide"><label for="pat-tiroide">Tiroide (Hashimoto / ipotiroidismo)</label></div>
-        <div class="integr-item"><input type="checkbox" id="pat-ipertensione"><label for="pat-ipertensione">Ipertensione</label></div>
-        <div class="integr-item"><input type="checkbox" id="pat-colesterolo"><label for="pat-colesterolo">Colesterolo alto</label></div>
-        <div class="integr-item"><input type="checkbox" id="pat-crohn"><label for="pat-crohn">Morbo di Crohn</label></div>
-        <div class="integr-item"><input type="checkbox" id="pat-ibs"><label for="pat-ibs">Intestino irritabile</label></div>
-        <div class="integr-item"><input type="checkbox" id="pat-pcos"><label for="pat-pcos">PCOS</label></div>
+    <div class="fg"><label>Farmaci</label><textarea id="p-farmaci"></textarea></div>
+    <div class="fg">
+      <label>Allergie / Intolleranze</label>
+      <div class="chip-group">
+        <label class="chip-pill"><input type="checkbox" id="all-glutine"> Glutine / Celiachia</label>
+        <label class="chip-pill"><input type="checkbox" id="all-lattosio"> Lattosio</label>
+        <label class="chip-pill"><input type="checkbox" id="all-latte"> Latte (proteine)</label>
+        <label class="chip-pill"><input type="checkbox" id="all-uova"> Uova</label>
+        <label class="chip-pill"><input type="checkbox" id="all-pesce"> Pesce</label>
+        <label class="chip-pill"><input type="checkbox" id="all-crost"> Crostacei</label>
+        <label class="chip-pill"><input type="checkbox" id="all-soia"> Soia</label>
+        <label class="chip-pill"><input type="checkbox" id="all-fruttasec"> Frutta a guscio</label>
+        <label class="chip-pill"><input type="checkbox" id="all-arachidi"> Arachidi</label>
+        <label class="chip-pill"><input type="checkbox" id="all-nichel"> Nichel</label>
+        <label class="chip-pill"><input type="checkbox" id="all-istamina"> Istamina</label>
+        <label class="chip-pill"><input type="checkbox" id="all-fruttosio"> Fruttosio</label>
       </div>
+      <textarea id="p-allergie" style="margin-top:.5rem" placeholder="Altre allergie / intolleranze..."></textarea>
     </div>
     <div class="fg"><label>Stile di vita — Seleziona</label>
       <div class="integr-grid">
@@ -1685,7 +1706,7 @@ function editPaz(){
   ss('p-regime',p.regime);
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
   s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
-  setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);
+  setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);setPatologieFromStr(p.patologie||'');setAllergieFromStr(p.allergie||'');
   ss('p-prenanna',p.prenanna);ss('p-pref-proteina',p.prefProteina);
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
@@ -1888,7 +1909,7 @@ function salvaPaz(){
     controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
-    patologie:g('p-patologie'),farmaci:g('p-farmaci'),allergie:g('p-allergie'),
+    patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     familiarita:g('p-familiarita'),analisiNote:g('p-analisi-note'),pesoStoria:g('p-peso-storia'),
     dietePrec:g('p-diete-prec'),colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
@@ -2952,18 +2973,18 @@ function renderPdAnalisi(p){
   const as=p.analisiSangue||{};
   let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div><div class="card-bd">';
   Object.entries(ANALISI).forEach(([sez,items])=>{
-    html+=`<div class="analisi-section"><h4>${sez}</h4>`;
+    html+=`<div class="analisi-section"><h4>${sez}</h4><div class="analisi-grid3">`;
     items.forEach(item=>{
       const key=item.replace(/[^a-z0-9]/gi,'_');
       const checked=as[key+'_check']?'checked':'';
       const val=as[key+'_val']||'';
       html+=`<div class="analisi-item">
         <input type="checkbox" id="an-${key}" ${checked} onchange="updateAnalisi()">
-        <label for="an-${key}" style="cursor:pointer;flex:1">${item}</label>
-        <div class="analisi-val"><input class="fg input" type="text" id="an-val-${key}" value="${val}" placeholder="Valore" style="width:100%;padding:.18rem .4rem;font-size:.73rem;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);outline:none;" oninput="updateAnalisi()"></div>
+        <label for="an-${key}" style="cursor:pointer;flex:1;line-height:1.2">${item}</label>
+        <div class="analisi-val"><input type="text" id="an-val-${key}" value="${val}" placeholder="val." oninput="updateAnalisi()"></div>
       </div>`;
     });
-    html+='</div>';
+    html+='</div></div>';
   });
   html+='</div></div>';
   document.getElementById('pd-analisi').innerHTML=html;
@@ -5164,6 +5185,31 @@ function setIntegraWant(lista) {
     const el=document.getElementById('inw-'+k);
     if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
   });
+}
+const PAT_KEYS=['diabete','ir','ipert','colest','trig','tiroid','hashim','pcos','ibs','reflusso','gotta','irc','meno','steat'];
+const PAT_LABELS={'diabete':'Diabete T2','ir':'Insulino-resistenza','ipert':'Ipertensione','colest':'Colesterolo alto','trig':'Trigliceridi alti','tiroid':'Ipotiroidismo','hashim':'Hashimoto','pcos':'PCOS','ibs':'IBS / Colon irritabile','reflusso':'Reflusso','gotta':'Gotta / Iperuricemia','irc':'IRC / Patologia renale','meno':'Menopausa','steat':'Steatosi epatica'};
+const ALL_KEYS=['glutine','lattosio','latte','uova','pesce','crost','soia','fruttasec','arachidi','nichel','istamina','fruttosio'];
+const ALL_LABELS={'glutine':'Glutine / Celiachia','lattosio':'Lattosio','latte':'Latte (proteine)','uova':'Uova','pesce':'Pesce','crost':'Crostacei','soia':'Soia','fruttasec':'Frutta a guscio','arachidi':'Arachidi','nichel':'Nichel','istamina':'Istamina','fruttosio':'Fruttosio'};
+
+function getPatologieChip(){return PAT_KEYS.filter(k=>document.getElementById('pat-'+k)?.checked).map(k=>PAT_LABELS[k]);}
+function getAllergieChip(){return ALL_KEYS.filter(k=>document.getElementById('all-'+k)?.checked).map(k=>ALL_LABELS[k]);}
+function setPatologieChip(lista){PAT_KEYS.forEach(k=>{const el=document.getElementById('pat-'+k);if(el)el.checked=lista?.includes(PAT_LABELS[k])||false;});}
+function setAllergieChip(lista){ALL_KEYS.forEach(k=>{const el=document.getElementById('all-'+k);if(el)el.checked=lista?.includes(ALL_LABELS[k])||false;});}
+function getPatologie(){const chip=getPatologieChip();const nota=document.getElementById('p-patologie')?.value.trim()||'';const parts=[...chip];if(nota)parts.push(nota);return parts.join(', ');}
+function getAllergie(){const chip=getAllergieChip();const nota=document.getElementById('p-allergie')?.value.trim()||'';const parts=[...chip];if(nota)parts.push(nota);return parts.join(', ');}
+function setPatologieFromStr(str){
+  if(!str){setPatologieChip([]);return;}
+  const parts=str.split(',').map(s=>s.trim());
+  const chipLabels=Object.values(PAT_LABELS);
+  setPatologieChip(parts.filter(p=>chipLabels.includes(p)));
+  const ta=document.getElementById('p-patologie');if(ta)ta.value=parts.filter(p=>!chipLabels.includes(p)).join(', ');
+}
+function setAllergieFromStr(str){
+  if(!str){setAllergieChip([]);return;}
+  const parts=str.split(',').map(s=>s.trim());
+  const chipLabels=Object.values(ALL_LABELS);
+  setAllergieChip(parts.filter(p=>chipLabels.includes(p)));
+  const ta=document.getElementById('p-allergie');if(ta)ta.value=parts.filter(p=>!chipLabels.includes(p)).join(', ');
 }
 
 // ═══════════════════════════════════════
