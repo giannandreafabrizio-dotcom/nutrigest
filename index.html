@@ -1657,8 +1657,9 @@ function editPaz(){
   s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
-  s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);s('p-studio',p.studio||'');
+  s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
   s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
+  s('p-studio',p.studio||'');
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
