@@ -349,6 +349,12 @@ main{flex:1;overflow-y:auto;}
       <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px 12px 0 0;padding:.75rem .9rem;border-bottom:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
           <span style="font-size:.75rem;font-weight:600;color:var(--text)">🗓 Con orario</span>
+          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+  <button onclick="navigaAgenda(-1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.15rem .45rem;cursor:pointer;font-size:.8rem;color:var(--text2)">←</button>
+  <span id="agenda-data-label" style="font-size:.75rem;font-weight:600;color:var(--text);flex:1;text-align:center"></span>
+  <button onclick="navigaAgenda(+1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.15rem .45rem;cursor:pointer;font-size:.8rem;color:var(--text2)">→</button>
+  <button onclick="navigaAgenda(0)" style="background:none;border:1px solid var(--border2);border-radius:6px;padding:.15rem .45rem;cursor:pointer;font-size:.68rem;color:var(--text3)">oggi</button>
+</div>
           <button onclick="toggleFormAgenda()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
         </div>
         <div id="dash-form-agenda" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
@@ -1418,6 +1424,7 @@ function getSyncColor(){
   return (Date.now()-parseInt(ts))<86400000?'#4ade80':'#fb923c';
 }
 let _syncOk=false;
+let _agendaData=today();
 function aggiornaStatoSync(){
   const urlEl=document.getElementById('ss-url');
   const statoEl=document.getElementById('ss-stato');
@@ -5251,11 +5258,18 @@ function getAgendaTodo(){return JSON.parse(localStorage.getItem('agendaTodo')||'
 function saveAgendaTodo(a){localStorage.setItem('agendaTodo',JSON.stringify(a));}
 
 function pulisciAgendaVecchia(){
-  const og=today();
-  saveAgendaPersonale(getAgendaPersonale().filter(x=>x.data===og));
-  saveAgendaTodo(getAgendaTodo().filter(x=>x.data===og));
+  // Non cancella più automaticamente — l'utente gestisce i todo manualmente
 }
 
+function navigaAgenda(delta){
+  if(delta===0){_agendaData=today();}
+  else{
+    const dt=new Date(_agendaData);
+    dt.setDate(dt.getDate()+delta);
+    _agendaData=dt.toISOString().slice(0,10);
+  }
+  renderAgendaDx();
+}
 function toggleFormAgenda(){const el=document.getElementById('dash-form-agenda');if(el)el.style.display=el.style.display==='none'?'block':'none';}
 function toggleFormTodo(){const el=document.getElementById('dash-form-todo');if(el)el.style.display=el.style.display==='none'?'block':'none';}
 
@@ -5308,8 +5322,9 @@ const AGENDA_CAT={
 };
 function _catCol(cat){return AGENDA_CAT[cat]||{dot:'#94a3b8',bg:'#f1f5f9',border:'#94a3b8'};}
 
-function renderAgendaDx(){
-  const og=today();
+function renderAgendaDx(dataOverride){
+  if(dataOverride)_agendaData=dataOverride;
+  const og=_agendaData;
   const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up S2',sett3:'Follow-up S3',meeting:'Meeting',altro:'Altro'};
 
   // ── Con orario — timeline ────────────────────────────────────────────────
@@ -5333,6 +5348,21 @@ function renderAgendaDx(){
     }
   }
 
+  const labelEl=document.getElementById('agenda-data-label');
+  if(labelEl){
+    const ogStr=today();
+    const ieri=addDays(ogStr,-1);
+    const domani=addDays(ogStr,+1);
+    const gg=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+    const mesi=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+    const dt=new Date(og);
+    let label=gg[dt.getDay()]+' '+dt.getDate()+' '+mesi[dt.getMonth()];
+    if(og===ogStr)label='Oggi — '+label;
+    else if(og===ieri)label='Ieri — '+label;
+    else if(og===domani)label='Domani — '+label;
+    labelEl.textContent=label;
+    labelEl.style.color=og===ogStr?'var(--teal)':'var(--text)';
+  }
   const orarioEl=document.getElementById('dash-agenda-orario');
   if(orarioEl){
     // Legenda
