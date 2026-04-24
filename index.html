@@ -395,7 +395,7 @@ main{flex:1;overflow-y:auto;}
   </div>
   <div class="sbar">
     <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="renderPaz()">
-    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select>
+    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select><select id="sort-paz" onchange="renderPaz()"><option value="cognome">A→Z</option><option value="recenti">Più recenti</option></select>
   </div>
   <div class="paz-grid" id="paz-grid"></div>
 </div>
@@ -1558,7 +1558,11 @@ function notif(msg,dur=2500){const el=document.createElement('div');el.className
 function renderPaz(){
   const q=(document.getElementById('s-paz').value||'').toLowerCase();
   const f=document.getElementById('f-paz').value;
-  let list=[...db.pazienti].sort((a,b)=>a.cognome.localeCompare(b.cognome));
+  const sortMode=document.getElementById('sort-paz')?.value||'cognome';
+  let list=[...db.pazienti].sort((a,b)=>{
+    if(sortMode==='recenti')return (b.id||'').localeCompare(a.id||'');
+    return (a.cognome||'').localeCompare(b.cognome||'');
+  });
   if(f==='archiviati')list=list.filter(p=>p.stato==='archiviato');
   else list=list.filter(p=>p.stato!=='archiviato');
   if(q)list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
