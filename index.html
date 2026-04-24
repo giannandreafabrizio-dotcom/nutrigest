@@ -720,6 +720,13 @@ main{flex:1;overflow-y:auto;}
       <textarea id="p-contesto-emotivo" rows="3" placeholder="Es. storia di fallimenti precedenti, alta motivazione, paziente ansioso, poco tempo, vita caotica..."></textarea>
     </div>
     <div class="fr">
+      <div class="fg"><label>Studio</label>
+  <select id="p-studio">
+    <option value="">— Seleziona —</option>
+    <option value="magic">🏋️ Palestra Magic</option>
+    <option value="curae">🏥 Centro Curae</option>
+  </select>
+</div>
       <div class="fg"><label>Prezzo prima visita (€)</label><input type="number" id="p-prezzo-visita" step="0.01" placeholder="0.00"></div>
       <div class="fg"><label>Prezzo controllo (€)</label><input type="number" id="p-prezzo-controllo" step="0.01" placeholder="0.00"></div>
     </div>
@@ -1104,6 +1111,13 @@ main{flex:1;overflow-y:auto;}
       <option value="Altro">Altro</option>
     </select>
   </div>
+  <div class="fg"><label>Studio</label>
+  <select id="en-studio">
+    <option value="">— Seleziona —</option>
+    <option value="magic">🏋️ Palestra Magic</option>
+    <option value="curae">🏥 Centro Curae</option>
+  </select>
+</div>
   <div class="fg"><label>Note</label><input id="en-note"></div>
   <div class="mf">
     <button class="btn btn-g" onclick="closeM('mo-entrata')">Annulla</button>
@@ -1620,7 +1634,7 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
@@ -1643,7 +1657,7 @@ function editPaz(){
   s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
-  s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
+  s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);s('p-studio',p.studio||'');
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
@@ -1866,7 +1880,7 @@ function salvaPaz(){
     nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
     bia:g('p-bia'),obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
     contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
-    controlloData:g('p-controllo'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
+    controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
     patologie:g('p-patologie'),farmaci:g('p-farmaci'),allergie:g('p-allergie'),
@@ -4842,7 +4856,8 @@ function delRic(id){if(!confirm('Eliminare?'))return;db.ricette=db.ricette.filte
 // ════════════════════════════════════════════════════════════════
 function renderEntrate(){
   const periodo=document.getElementById('f-entr-periodo').value;
-  const oggi=new Date();let list=[...db.entrate].sort((a,b)=>b.data.localeCompare(a.data));
+  const oggi=new Date();
+  let list=[...db.entrate].sort((a,b)=>b.data.localeCompare(a.data));
   if(periodo==='settimana'){const d=new Date();d.setDate(d.getDate()-7);list=list.filter(e=>e.data>=d.toISOString().slice(0,10));}
   else if(periodo==='mese'){const m=oggi.toISOString().slice(0,7);list=list.filter(e=>e.data.startsWith(m));}
   else if(periodo==='anno'){list=list.filter(e=>e.data.startsWith(String(oggi.getFullYear())));}
@@ -4850,33 +4865,109 @@ function renderEntrate(){
   const settTot=db.entrate.filter(e=>{const d=new Date();d.setDate(d.getDate()-7);return e.data>=d.toISOString().slice(0,10);}).reduce((s,e)=>s+(e.importo||0),0);
   const mesTot=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))).reduce((s,e)=>s+(e.importo||0),0);
   const annoTot=db.entrate.filter(e=>e.data.startsWith(String(oggi.getFullYear()))).reduce((s,e)=>s+(e.importo||0),0);
+
+  // KPI separati per studio
+  const magicMese=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))&&e.studio==='magic').reduce((s,e)=>s+(e.importo||0),0);
+  const curaeMese=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))&&e.studio==='curae').reduce((s,e)=>s+(e.importo||0),0);
+
   document.getElementById('entrate-kpi').innerHTML=`
     <div class="pd-stat"><div class="pd-stat-lbl">Settimana</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(settTot)}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Mese corrente</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(mesTot)}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">🏋️ Magic (mese)</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(magicMese)}</div></div>
+    <div class="pd-stat"><div class="pd-stat-lbl">🏥 Curae (mese)</div><div class="pd-stat-val" style="color:var(--orange)">${fEur(curaeMese)}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Anno ${oggi.getFullYear()}</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(annoTot)}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Periodo selezionato</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(tot)}</div></div>`;
+
+  // Grafico ultimi 12 mesi
+  const mesi=[];
+  const labelMesi=[];
+  const nomiMesi=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  for(let i=11;i>=0;i--){
+    const d=new Date(oggi.getFullYear(),oggi.getMonth()-i,1);
+    const key=d.toISOString().slice(0,7);
+    mesi.push(key);
+    labelMesi.push(nomiMesi[d.getMonth()]+' '+(d.getFullYear()===oggi.getFullYear()?'':d.getFullYear()));
+  }
+  const datiMagic=mesi.map(m=>db.entrate.filter(e=>e.data.startsWith(m)&&e.studio==='magic').reduce((s,e)=>s+(e.importo||0),0));
+  const datiCurae=mesi.map(m=>db.entrate.filter(e=>e.data.startsWith(m)&&e.studio==='curae').reduce((s,e)=>s+(e.importo||0),0));
+  const datiAltro=mesi.map(m=>db.entrate.filter(e=>e.data.startsWith(m)&&e.studio!=='magic'&&e.studio!=='curae').reduce((s,e)=>s+(e.importo||0),0));
+
+  let grafEl=document.getElementById('entrate-grafico-box');
+  if(!grafEl){
+    grafEl=document.createElement('div');
+    grafEl.id='entrate-grafico-box';
+    grafEl.style.cssText='background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1rem;';
+    document.getElementById('entrate-kpi').insertAdjacentElement('afterend',grafEl);
+  }
+  grafEl.innerHTML='<div style="font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.7rem">📊 Entrate ultimi 12 mesi</div><canvas id="entr-chart-canvas" style="max-height:220px"></canvas>';
+
+  setTimeout(function(){
+    const canvas=document.getElementById('entr-chart-canvas');
+    if(!canvas||typeof Chart==='undefined')return;
+    if(window._entrChart){window._entrChart.destroy();window._entrChart=null;}
+    window._entrChart=new Chart(canvas,{
+      type:'bar',
+      data:{
+        labels:labelMesi,
+        datasets:[
+          {label:'🏋️ Magic',data:datiMagic,backgroundColor:'rgba(42,125,111,0.75)',borderColor:'#2a7d6f',borderWidth:1,borderRadius:4},
+          {label:'🏥 Centro Curae',data:datiCurae,backgroundColor:'rgba(224,120,64,0.75)',borderColor:'#e07840',borderWidth:1,borderRadius:4},
+          {label:'Altro',data:datiAltro,backgroundColor:'rgba(160,152,144,0.5)',borderColor:'#a09890',borderWidth:1,borderRadius:4}
+        ]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fEur(c.raw);}}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:10},callback:function(v){return '€'+v;}}}}
+      }
+    });
+  },50);
+
+  // Tabella con colonna studio
   const tb=document.getElementById('entrate-tb');
-  if(!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text3)">Nessuna entrata nel periodo</td></tr>';return;}
-  tb.innerHTML=list.map(e=>`<tr>
-    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)">${fData(e.data)}</td>
-    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)">${e.pazNome||'—'}</td>
-    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)">${e.tipo||'—'}</td>
-    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:var(--teal)">${fEur(e.importo)}</td>
-    <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)"><button class="btn btn-d btn-sm" onclick="delEntrata('${e.id}')">✕</button></td>
-  </tr>`).join('');
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Nessuna entrata nel periodo</td></tr>';return;}
+  tb.innerHTML=list.map(e=>{
+    const studioLabel=e.studio==='magic'?'<span style="font-size:.68rem;color:var(--teal);font-weight:600">🏋️ Magic</span>':e.studio==='curae'?'<span style="font-size:.68rem;color:var(--orange);font-weight:600">🏥 Curae</span>':'<span style="font-size:.68rem;color:var(--text3)">—</span>';
+    return`<tr>
+      <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)">${fData(e.data)}</td>
+      <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)">${e.pazNome||'—'}</td>
+      <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)">${studioLabel}</td>
+      <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)">${e.tipo||'—'}</td>
+      <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border);text-align:right;font-weight:600;color:var(--teal)">${fEur(e.importo)}</td>
+      <td style="padding:.45rem .8rem;border-bottom:1px solid var(--border)"><button class="btn btn-d btn-sm" onclick="delEntrata('${e.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
 }
 
 function openNuovaEntrata(){
   document.getElementById('en-data').value=today();
   ['en-imp','en-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('en-paz').innerHTML='<option value="">— Nessuno —</option>'+db.pazienti.map(p=>`<option value="${p.id}">${p.nome} ${p.cognome}</option>`).join('');
+  document.getElementById('en-studio').value='';
+  const pazSel=document.getElementById('en-paz');
+  pazSel.innerHTML='<option value="">— Nessuno —</option>'+db.pazienti.map(p=>`<option value="${p.id}">${p.nome} ${p.cognome}</option>`).join('');
+  pazSel.onchange=function(){
+    const p=db.pazienti.find(x=>x.id===this.value);
+    if(p&&p.studio)document.getElementById('en-studio').value=p.studio;
+    else document.getElementById('en-studio').value='';
+  };
   document.getElementById('mo-entrata').classList.add('open');
 }
 function salvaEntrata(){
   const imp=parseFloat(document.getElementById('en-imp').value)||0;
   if(!imp){alert('Inserisci importo');return;}
-  const pazId=document.getElementById('en-paz').value;const paz=pazId?db.pazienti.find(x=>x.id===pazId):null;
-  db.entrate.push({id:uid(),data:document.getElementById('en-data').value||today(),importo:imp,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:document.getElementById('en-tipo').value,note:document.getElementById('en-note').value.trim()});
+  const pazId=document.getElementById('en-paz').value;
+  const paz=pazId?db.pazienti.find(x=>x.id===pazId):null;
+  const studio=document.getElementById('en-studio').value||(paz?paz.studio:'')||'';
+  db.entrate.push({
+    id:uid(),
+    data:document.getElementById('en-data').value||today(),
+    importo:imp,
+    pazId,
+    pazNome:paz?paz.nome+' '+paz.cognome:'',
+    tipo:document.getElementById('en-tipo').value,
+    studio:studio,
+    note:document.getElementById('en-note').value.trim()
+  });
   save();closeM('mo-entrata');renderEntrate();notif('✓ Entrata salvata!');
 }
 function delEntrata(id){if(!confirm('Eliminare?'))return;db.entrate=db.entrate.filter(x=>x.id!==id);save();renderEntrate();notif('Eliminata');}
