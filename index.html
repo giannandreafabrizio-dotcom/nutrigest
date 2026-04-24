@@ -2468,8 +2468,7 @@ function renderPdMacros(p){
   html+=`<div class="fr" style="margin-bottom:.8rem">
     <div class="fg">
       <label>Fattore attività (LAF)</label>
-      <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">
-        LAF: <strong>${lafCalc?lafCalc.toFixed(3):'—'}</strong> · TDEE: <strong>${lafCalc&&mb?Math.round(mb*lafCalc)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
+      <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">LAF: <strong>${lafCalc?lafCalc.toFixed(3):'—'}</strong> · TDEE: <strong>${lafCalc&&mb?Math.round(mb*lafCalc)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
       </div>
     </div>
   </div>
