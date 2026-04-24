@@ -1875,7 +1875,7 @@ function salvaPaz(){
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
-  save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');const _ps=db.pazienti.find(x=>x.id===(editPazId||currentPazId));if(_ps&&document.getElementById('pd-macros'))renderPdMacros(_ps);
+  save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');if(document.getElementById('pd-macros'))renderPdMacros(pd);
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
 
