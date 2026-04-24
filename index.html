@@ -2462,15 +2462,14 @@ function renderPdMacros(p){
     </div>`;
   }
 
+  const {laf:lafCalc}=calcolaTDEE(p);
+  const lafSource=p&&(p.passiGiornalieri||p.oreAllenamento)?'calcolato da passi e allenamento':'da selezione manuale (dati attività mancanti)';
   html+=`<div class="fr" style="margin-bottom:.8rem">
-    <div class="fg"><label>Fattore attività (LAF)</label>
-      <select id="mac-laf">
-        <option value="1.20">1.20 — Sedentario</option>
-        <option value="1.375">1.375 — Leggermente attivo</option>
-        <option value="1.55">1.55 — Moderatamente attivo (palestra 3-5/sett.)</option>
-        <option value="1.725">1.725 — Molto attivo</option>
-        <option value="1.90">1.90 — Estremamente attivo</option>
-      </select>
+    <div class="fg">
+      <label>Fattore attività (LAF)</label>
+      <div style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">
+        LAF: ${lafCalc?lafCalc.toFixed(3):'—'} <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
+      </div>
     </div>
     <div class="fg"><label>Obiettivo</label>
       <select id="mac-obj">
