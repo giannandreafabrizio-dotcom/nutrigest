@@ -821,6 +821,9 @@ main{flex:1;overflow-y:auto;}
         <label class="chip-pill"><input type="checkbox" id="int-creat"> Creatina</label>
         <label class="chip-pill"><input type="checkbox" id="int-ferro"> Ferro</label>
         <label class="chip-pill"><input type="checkbox" id="int-vitd"> Vitamina D</label>
+        <label class="chip-pill"><input type="checkbox" id="int-prot"> Proteine in polvere</label>
+        <label class="chip-pill"><input type="checkbox" id="int-bcaa"> BCAA (ramificati)</label>
+        <label class="chip-pill"><input type="checkbox" id="int-eaa"> EAA (essenziali)</label>
       </div>
     </div>
     <div class="fg">
@@ -834,6 +837,9 @@ main{flex:1;overflow-y:auto;}
         <label class="chip-pill teal-outline"><input type="checkbox" id="inw-creat"> Creatina</label>
         <label class="chip-pill teal-outline"><input type="checkbox" id="inw-ferro"> Ferro</label>
         <label class="chip-pill teal-outline"><input type="checkbox" id="inw-vitd"> Vitamina D</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-prot"> Proteine in polvere</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-bcaa"> BCAA (ramificati)</label>
+        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-eaa"> EAA (essenziali)</label>
       </div>
     </div>
     <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
@@ -1174,7 +1180,7 @@ const ALIMENTI = {
   'Cereali senza Glutine': {items:[
     {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},
     {n:'Riso rosso',g:90,gl:false},{n:'Riso nero',g:90,gl:false},{n:'Quinoa',g:90,gl:false},
-    {n:'Mais',g:90,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
+    {n:'Mais',g:90,gl:false},{n:'Mais dolce in scatola',g:120,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
     {n:'Patate dolci',g:250,gl:false},{n:'Gnocchi di patate',g:200,gl:false},
     {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:20,gl:false},
     {n:'Fiocchi di mais',g:30,gl:false},{n:'Pasta di riso',g:90,gl:false},
@@ -1198,10 +1204,11 @@ const ALIMENTI = {
   ]},
   'Pesce (Cena)': {items:[
     {n:'Merluzzo/nasello surgelato',g:250},{n:'Orata fresca',g:300},{n:'Sarago',g:280},
-    {n:'Spigola',g:300},{n:'Salmone fresco',g:200},{n:'Tonno fresco',g:200},
+    {n:'Spigola',g:300},{n:'Salmone fresco',g:200},
     {n:'Tonno rosso',g:200},{n:'Pesce spada',g:250},{n:'Sgombro',g:200},
     {n:'Polpo',g:350},{n:'Seppia',g:280},{n:'Cozze',g:300},{n:'Vongole',g:250},
-    {n:'Trota',g:250},{n:'Persico',g:250}
+    {n:'Trota',g:250},{n:'Persico',g:250},
+    {n:"Tonno sott'olio",g:120},{n:'Gamberetti',g:150},{n:'Salmone affumicato',g:100}
   ]},
   'Insaccati & Salumi': {items:[
     {n:'Bresaola',g:80},{n:'Prosciutto crudo magro',g:80},{n:'Prosciutto cotto',g:80},
@@ -1230,7 +1237,7 @@ const ALIMENTI = {
     {n:'Parmigiano',g:50},{n:'Grana padano',g:50},{n:'Pecorino',g:40},
     {n:'Robiola',g:60},{n:'Cacioricotta',g:60},{n:'Burrata',g:100},
     {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
-    {n:'Latte vaccino scremato',g:150},{n:'Kefir',g:150}
+    {n:'Latte vaccino scremato',g:150},{n:'Kefir',g:150},{n:'Yogurt greco intero',g:125}
   ]},
   'Latte Vegetale': {items:[
     {n:'Latte di mandorla',g:200},{n:'Latte di cocco',g:200},{n:'Latte di soia',g:200},
@@ -1260,7 +1267,7 @@ const ALIMENTI = {
     {n:'Zucca',g:200},{n:'Barbabietola',g:150},{n:'Verza',g:200},{n:'Cavolo cappuccio',g:200},
     {n:'Cavolo nero',g:200},{n:'Bieta',g:200},{n:'Porro',g:100},{n:'Cipolla',g:80},
     {n:'Funghi champignon',g:150},{n:'Funghi porcini',g:150},{n:'Piselli freschi',g:150},
-    {n:'Mais dolce in scatola',g:120},{n:'Germogli misti',g:80},{n:'Topinambur',g:150}
+    {n:'Germogli misti',g:80},{n:'Topinambur',g:150}
   ]},
   'Frutta': {items:[
     {n:'Mela',g:150},{n:'Pera',g:150},{n:'Banana',g:150},{n:'Arancia',g:150},
@@ -5201,11 +5208,12 @@ async function loadInbodyPDF(e) {
 // ═══════════════════════════════════════
 // INTEGRATORI — save/load
 // ═══════════════════════════════════════
-const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd'];
+const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd','prot','bcaa','eaa'];
 const INTEGR_LABELS = {
   'omega3':'Omega-3','magpot':'Magnesio + Potassio','mag':'Solo Magnesio',
   'multi':'Multivitaminico','prob':'Probiotici','creat':'Creatina',
-  'ferro':'Ferro','vitd':'Vitamina D'
+  'ferro':'Ferro','vitd':'Vitamina D','prot':'Proteine in polvere',
+  'bcaa':'BCAA (ramificati)','eaa':'EAA (essenziali)'
 };
 function getIntegratori() {
   return INTEGR_KEYS.filter(k=>document.getElementById('int-'+k)?.checked).map(k=>INTEGR_LABELS[k]);
