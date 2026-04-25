@@ -4276,151 +4276,237 @@ async function generaPiano(){
 function generaPDF(paziente, giorni) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const verde = [46, 125, 50];
-  const verdeChiaro = [240, 250, 242];
-  const grigio = [140, 140, 140];
-  const nero = [30, 30, 30];
-  const W = 210, M = 15;
-  const colW = (W - M * 2 - 4) / 2;
-  let y = 20;
 
-  function newPage() { doc.addPage(); y = 20; }
-  function chk(h) { if (y + h > 272) newPage(); }
+  var VERDE    = [29, 158, 117];
+  var VERDE_BG = [245, 253, 249];
+  var ARANCIO  = [239, 159, 39];
+  var ROSSO    = [226, 75, 74];
+  var GRIGIO   = [136, 136, 136];
+  var NERO     = [30, 30, 30];
+  var BIANCO   = [255, 255, 255];
 
-  // ── Intestazione verde ────────────────────────────────────────────────
-  doc.setFillColor(...verde);
-  doc.rect(0, 0, W, 35, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Dott. Fabrizio Giannandrea — Nutrizionista', W - M, 10, { align: 'right' });
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Regime alimentare', W / 2, 20, { align: 'center' });
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text((paziente.nome || '') + ' ' + (paziente.cognome || ''), W / 2, 30, { align: 'center' });
+  var W = 210, M = 15;
+  var colW = (W - M * 2) / 2;
+  var nomePaz = ((paziente.nome || '') + ' ' + (paziente.cognome || '')).trim();
+  var giornoCorrente = '';
+  var y = 0;
 
-  y = 44;
+  var slotEmoji = { colazione:'☀', spuntino_mattina:'🍎', pranzo:'🌿', spuntino_pomeriggio:'🥜', cena:'🌙', pre_nanna:'🌛' };
+  var slotLabel = { colazione:'Colazione', spuntino_mattina:'Spuntino mattina', pranzo:'Pranzo', spuntino_pomeriggio:'Spuntino pomeriggio', cena:'Cena', pre_nanna:'Pre-nanna' };
+  var slotKeys  = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
 
-  var slotKeys = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
-  var slotLabel = {
-    colazione:'COLAZIONE', spuntino_mattina:'SPUNTINO MATTINA',
-    pranzo:'PRANZO', spuntino_pomeriggio:'SPUNTINO POMERIGGIO',
-    cena:'CENA', pre_nanna:'PRE-NANNA'
-  };
-
-  giorni.forEach(function(g) {
-    chk(18);
-
-    // ── Titolo giorno centrato ────────────────────────────────────────
-    doc.setDrawColor(...verde);
-    doc.setLineWidth(0.3);
-    doc.line(M, y, W - M, y);
-    y += 5;
-    doc.setTextColor(...verde);
-    doc.setFontSize(12);
+  function drawHeader(giorno) {
+    doc.setFillColor(...VERDE);
+    doc.rect(0, 0, W, 28, 'F');
+    doc.setTextColor(...BIANCO);
     doc.setFont('helvetica', 'bold');
-    doc.text(g.giorno, W / 2, y, { align: 'center' });
-    y += 7;
+    doc.setFontSize(20);
+    doc.text(nomePaz, W / 2, 16, { align: 'center' });
+    doc.setFontSize(26);
+    doc.text(giorno, W - M, 23, { align: 'right' });
+    y = 34;
+  }
+
+  function drawCompactHeader(giorno) {
+    doc.setFillColor(...VERDE);
+    doc.rect(0, 0, W, 12, 'F');
+    doc.setTextColor(...BIANCO);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    if (giorno) doc.text(giorno, W - M, 8, { align: 'right' });
+    y = 17;
+  }
+
+  function chk(h) {
+    if (y + h > 272) {
+      doc.addPage();
+      drawCompactHeader(giornoCorrente);
+    }
+  }
+
+  giorni.forEach(function(g, idx) {
+    giornoCorrente = g.giorno;
+    if (idx === 0) {
+      drawHeader(g.giorno);
+    } else {
+      doc.addPage();
+      drawHeader(g.giorno);
+    }
+
+    var firstSlot = true;
 
     slotKeys.forEach(function(key) {
       var pasto = g[key] || (g.pasti && g.pasti[key]);
       if (!pasto) return;
 
-      chk(12);
+      var gap = firstSlot ? 2 : 6;
+      chk(gap + 8);
+      y += gap;
+      firstSlot = false;
 
-      // Titolo pasto in grassetto maiuscolo
-      doc.setTextColor(...verde);
-      doc.setFontSize(9);
+      doc.setTextColor(...VERDE);
       doc.setFont('helvetica', 'bold');
-      doc.text(slotLabel[key], M, y);
-      y += 4.5;
+      doc.setFontSize(13);
+      doc.text((slotEmoji[key] || '') + ' ' + (slotLabel[key] || key), M, y);
+      y += 6;
 
       if (typeof pasto === 'string') {
-        chk(6);
-        doc.setTextColor(...nero);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
-        doc.splitTextToSize(pasto, W - M * 2).forEach(function(r) { chk(4.5); doc.text(r, M, y); y += 4.5; });
+        chk(10);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(11);
+        doc.setTextColor(...NERO);
+        doc.splitTextToSize(pasto, W - M * 2).forEach(function(l) { chk(5); doc.text(l, M, y); y += 5; });
         y += 2;
         return;
       }
 
-      // Nota descrittiva in corsivo
-      var nota = pasto.nota_descrittiva || pasto.nota || '';
-      if (nota) {
-        chk(5);
-        doc.setTextColor(...grigio);
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
-        doc.splitTextToSize(nota, W - M * 2).forEach(function(r) { chk(4); doc.text(r, M, y); y += 4; });
-      }
+      var isPranzoOrCena = (key === 'pranzo' || key === 'cena');
+      var alts = (pasto.alternative || []).slice().sort(function(a, b) { return a.posizione - b.posizione; });
 
-      // Principale1 e principale2 — full width se p2 è null, due colonne altrimenti
-      var p1 = pasto.principale1, p2 = pasto.principale2;
-      if (p1 || p2) {
-        chk(7);
-        doc.setTextColor(...nero);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
-        if (p1 && p2) {
-          doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
-          doc.text(p2.nome + ' ' + (p2.grammi||'') + 'g', M + colW + 4, y);
-          doc.setDrawColor(...grigio);
-          doc.setLineWidth(0.2);
-          doc.line(M + colW + 2, y - 5, M + colW + 2, y + 1);
-        } else if (p1) {
-          doc.text(p1.nome + ' ' + (p1.grammi||'') + 'g', M, y);
-        }
-        y += 5.5;
-      }
-
-      // Alternative: 3 ricette ordinate 1→2→3 con titolo (nota) + lista alimenti
-      var alts = pasto.alternative;
-      if (alts && alts.length) {
-        chk(5);
-        doc.setTextColor(...grigio);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.text('Alternative:', M, y);
-        y += 4;
-        alts.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
-          var alimTesto = (alt.alimenti||[]).map(function(a){return a.nome+(a.grammi?' '+a.grammi+'g':'');}).join(', ');
-          if (!alt.nota && !alimTesto) return;
-          chk(8);
-          // Titolo ricetta in corsivo
-          if (alt.nota) {
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(8);
-            doc.setTextColor(...grigio);
-            doc.splitTextToSize(alt.posizione + '. ' + alt.nota, W - M * 2 - 4).forEach(function(r){ chk(4); doc.text(r, M + 2, y); y += 4; });
-          }
-          // Lista alimenti indentata
-          if (alimTesto) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...grigio);
-            doc.splitTextToSize(alimTesto, W - M * 2 - 8).forEach(function(r){ chk(4); doc.text(r, M + 5, y); y += 4; });
-          }
+      var ricette = [];
+      if (isPranzoOrCena) {
+        alts.forEach(function(alt) {
+          var coloreMap = { verde: VERDE, arancione: ARANCIO, rosso: ROSSO };
+          var c = coloreMap[alt.colore] || (alt.posizione === 1 ? VERDE : alt.posizione === 2 ? ARANCIO : ROSSO);
+          ricette.push({ testo: alt.nota || alt.nota_descrittiva || '', colore: c });
         });
+        if (!ricette.length && pasto.nota_descrittiva) ricette.push({ testo: pasto.nota_descrittiva, colore: null });
+      } else {
+        var nota = pasto.nota_descrittiva || pasto.nota || '';
+        if (nota) ricette.push({ testo: nota, colore: null });
       }
-      y += 4;
+
+      if (ricette.some(function(r) { return r.testo; })) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        var boxH = 5;
+        ricette.forEach(function(r) {
+          if (!r.testo) return;
+          boxH += doc.splitTextToSize(r.testo, W - M * 2 - 12).length * 4.5 + 2;
+        });
+        boxH += 3;
+
+        chk(boxH + 3);
+        doc.setFillColor(...VERDE_BG);
+        doc.rect(M, y, W - M * 2, boxH, 'F');
+        doc.setFillColor(...VERDE);
+        doc.rect(M, y, 1, boxH, 'F');
+
+        var by = y + 5;
+        ricette.forEach(function(r) {
+          if (!r.testo) return;
+          var lines = doc.splitTextToSize(r.testo, W - M * 2 - 12);
+          if (r.colore) {
+            doc.setFillColor(...r.colore);
+            doc.circle(M + 5, by - 1.2, 1.3, 'F');
+            doc.setTextColor(...NERO);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            lines.forEach(function(l) { doc.text(l, M + 10, by); by += 4.5; });
+          } else {
+            doc.setTextColor(...NERO);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            lines.forEach(function(l) { doc.text(l, M + 4, by); by += 4.5; });
+          }
+          by += 2;
+        });
+        y += boxH + 4;
+      }
+
+      var p1 = pasto.principale1, p2 = pasto.principale2;
+      if (!p1 && !p2 && !alts.some(function(a) { return a.alimenti && a.alimenti.length; })) return;
+
+      if (p1 && p2) {
+        chk(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...NERO);
+        doc.text(p1.nome || '', M, y);
+        if (p1.grammi != null) { doc.setTextColor(...VERDE); doc.text(p1.grammi + 'g', M + colW - 1, y, { align: 'right' }); }
+        doc.setTextColor(...NERO);
+        doc.text(p2.nome || '', M + colW + 2, y);
+        if (p2.grammi != null) { doc.setTextColor(...VERDE); doc.text(p2.grammi + 'g', W - M - 1, y, { align: 'right' }); }
+        y += 5;
+
+        doc.setDrawColor(...GRIGIO);
+        doc.setLineWidth(0.2);
+        doc.line(M, y, W - M, y);
+        y += 2;
+
+        alts.forEach(function(alt) {
+          var foods = alt.alimenti || [];
+          if (!foods.length) return;
+          chk(5);
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(9.5);
+          doc.setTextColor(...GRIGIO);
+          if (foods[0]) {
+            doc.text(foods[0].nome || '', M + 6, y);
+            if (foods[0].grammi != null) doc.text(foods[0].grammi + 'g', M + colW - 1, y, { align: 'right' });
+          }
+          if (foods[1]) {
+            doc.text(foods[1].nome || '', M + colW + 8, y);
+            if (foods[1].grammi != null) doc.text(foods[1].grammi + 'g', W - M - 1, y, { align: 'right' });
+          }
+          y += 4.5;
+        });
+
+      } else {
+        var p = p1 || p2;
+        if (p) {
+          chk(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setTextColor(...NERO);
+          doc.text(p.nome || '', M, y);
+          if (p.grammi != null) { doc.setTextColor(...VERDE); doc.text(p.grammi + 'g', W - M - 1, y, { align: 'right' }); }
+          y += 5;
+
+          doc.setDrawColor(...GRIGIO);
+          doc.setLineWidth(0.2);
+          doc.line(M, y, W - M, y);
+          y += 2;
+
+          alts.forEach(function(alt) {
+            (alt.alimenti || []).forEach(function(f) {
+              chk(5);
+              doc.setFont('helvetica', 'italic');
+              doc.setFontSize(9.5);
+              doc.setTextColor(...GRIGIO);
+              doc.text(f.nome || '', M + 6, y);
+              if (f.grammi != null) doc.text(f.grammi + 'g', W - M - 1, y, { align: 'right' });
+              y += 4.5;
+            });
+          });
+        } else {
+          alts.forEach(function(alt) {
+            (alt.alimenti || []).forEach(function(f) {
+              chk(6);
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(11);
+              doc.setTextColor(...NERO);
+              doc.text(f.nome || '', M, y);
+              if (f.grammi != null) { doc.setTextColor(...VERDE); doc.text(f.grammi + 'g', W - M - 1, y, { align: 'right' }); }
+              y += 5;
+            });
+          });
+        }
+      }
+
+      y += 2;
     });
-    y += 3;
   });
 
-  // ── Concetti educativi — nuova pagina ────────────────────────────────
   var concetti = paziente.concetti || [];
   if (concetti.length) {
-    newPage();
-
-    // Header sezione
-    doc.setFillColor(...verde);
+    doc.addPage();
+    giornoCorrente = '';
+    doc.setFillColor(...VERDE);
     doc.rect(0, 0, W, 28, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
+    doc.setTextColor(...BIANCO);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
     doc.text('Consigli per te', W / 2, 17, { align: 'center' });
     y = 38;
 
@@ -4428,16 +4514,15 @@ function generaPDF(paziente, giorni) {
       var titolo = (typeof c === 'string') ? '' : (c.titolo || '');
       var testo  = (typeof c === 'string') ? c  : (c.testo || c.titolo || '');
       chk(12);
-
       if (titolo) {
-        doc.setTextColor(...verde);
+        doc.setTextColor(...VERDE);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.text(titolo, M, y);
         y += 5;
       }
       if (testo) {
-        doc.setTextColor(...nero);
+        doc.setTextColor(...NERO);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.splitTextToSize(testo, W - M * 2).forEach(function(r) { chk(5); doc.text(r, M, y); y += 4.8; });
@@ -4446,18 +4531,18 @@ function generaPDF(paziente, giorni) {
     });
   }
 
-  // ── Footer ────────────────────────────────────────────────────────────
   var totPagine = doc.internal.getNumberOfPages();
   for (var i = 1; i <= totPagine; i++) {
     doc.setPage(i);
     doc.setFontSize(7.5);
-    doc.setTextColor(...grigio);
+    doc.setTextColor(...GRIGIO);
     doc.text('Pagina ' + i + ' di ' + totPagine + '  —  NutriGest © Dott. Fabrizio Giannandrea', W / 2, 290, { align: 'center' });
   }
 
-  var nomefile = 'Regime alimentare \u2014 ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
+  var nomefile = 'Regime alimentare — ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
   doc.save(nomefile);
 }
+
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
