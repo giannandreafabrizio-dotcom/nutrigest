@@ -296,8 +296,11 @@ main{flex:1;overflow-y:auto;}
   </nav>
   <div class="aside-foot">
     <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-txt">Sincronizzazione...</span></div>
+    <div style="background:rgba(255,255,255,.1);border-radius:4px;height:4px;margin-bottom:5px;overflow:hidden;">
+      <div id="sync-bar" style="height:4px;border-radius:4px;background:#4ade80;width:100%;transition:width .2s,background .3s;"></div>
+    </div>
+    <div id="syncTimestamp" style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:5px;"></div>
     <button class="btn-aside" onclick="syncNow()">↺ Sincronizza</button>
-    <div id="syncTimestamp" style="font-size:11px;margin-top:4px;color:rgba(255,255,255,.5)"></div>
     <button class="btn-aside" onclick="esporta()">⬇ Backup</button>
   </div>
 </aside>
@@ -1538,9 +1541,22 @@ async function syncNow(){
   console.log('sync avviata');
   console.log('[Sync] URL configurato:', getUrl()||'⚠ MANCANTE — vai in Impostazioni e salva l\'URL');
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
+  const bar=document.getElementById('sync-bar');
+  if(bar){bar.style.width='0%';bar.style.background='#facc15';}
+  var barPct=0;
+  var barIv=setInterval(function(){
+    barPct+=6;
+    if(bar&&barPct<90)bar.style.width=barPct+'%';
+  },120);
   const p=await pullFromSheets();
   if(!p)await pushToSheets();
   else{renderPaz();renderRic();renderCal();renderEntrate();}
+  clearInterval(barIv);
+  if(bar){
+    bar.style.width='100%';
+    bar.style.background=_syncOk?'#4ade80':'#f87171';
+    setTimeout(function(){if(bar)bar.style.width='100%';},1000);
+  }
 }
 async function save(){saveLocal();await pushToSheets();}
 
