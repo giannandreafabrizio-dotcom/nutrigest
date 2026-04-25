@@ -897,10 +897,6 @@ main{flex:1;overflow-y:auto;}
         <div class="integr-item"><input type="checkbox" id="cond-massa"><label for="cond-massa">Obiettivo massa muscolare</label></div>
       </div>
     </div>
-    <div class="fg"><label>Patologie in famiglia</label><textarea id="p-familiarita"></textarea></div>
-    <div class="fg"><label>Analisi recenti (note generali)</label><textarea id="p-analisi-note"></textarea></div>
-    <div class="fg"><label>Modificazioni peso negli anni</label><textarea id="p-peso-storia"></textarea></div>
-    <div class="fg"><label>Terapie alimentari precedenti</label><textarea id="p-diete-prec"></textarea></div>
   </div>
 
   <!-- ALIMENTAZIONE -->
@@ -1673,7 +1669,7 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-familiarita','p-analisi-note','p-peso-storia','p-diete-prec','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
@@ -1702,9 +1698,8 @@ function editPaz(){
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
-  s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);s('p-familiarita',p.familiarita);
+  s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
-  s('p-analisi-note',p.analisiNote);s('p-peso-storia',p.pesoStoria);s('p-diete-prec',p.dietePrec);
   s('p-cucina',p.cucina);s('p-dove',p.dove);s('p-economica',p.economica);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
@@ -1926,8 +1921,7 @@ function salvaPaz(){
     gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
-    familiarita:g('p-familiarita'),analisiNote:g('p-analisi-note'),pesoStoria:g('p-peso-storia'),
-    dietePrec:g('p-diete-prec'),colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
+    colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),cucina:g('p-cucina'),
     dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
