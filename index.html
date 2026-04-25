@@ -766,7 +766,7 @@ main{flex:1;overflow-y:auto;}
   <!-- CLINICA -->
   <div class="tab-panel" id="tp-clinica">
     <div class="sec-title">Stile di vita</div>
-    <div class="fr3">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem .6rem;margin-bottom:.5rem">
       <div class="fg"><label>Fumo</label>
         <select id="p-fumo"><option value="No">No</option><option value="Sì">Sì</option></select>
       </div>
@@ -776,9 +776,7 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Caffè</label>
         <select id="p-caffe"><option value="No">No</option><option value="Senza zucchero">Senza zucchero</option><option value="Con zucchero">Con zucchero</option><option value="Fit (cacao amaro)">Fit (cacao amaro)</option></select>
       </div>
-    </div>
-    <div class="fr3">
-      <div class="fg"><label>Acqua giornaliera</label>
+      <div class="fg"><label>Acqua</label>
         <select id="p-acqua"><option value="Poca">Poca (&lt;1L)</option><option value="Normale" selected>Normale (1-1.5L)</option><option value="Molta">Molta (&gt;1.5L)</option></select>
       </div>
       <div class="fg"><label>Diuresi</label>
@@ -787,8 +785,6 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Alvo</label>
         <select id="p-alvo"><option value="Regolare" selected>Regolare</option><option value="Non regolare">Non regolare</option><option value="Liquida">Liquida</option><option value="Stitica">Stitica</option><option value="Molto stitica">Molto stitica</option></select>
       </div>
-    </div>
-    <div class="fr">
       <div class="fg"><label>Ciclo mestruale</label>
         <select id="p-ciclo">
           <option value="">— N.A. —</option>
