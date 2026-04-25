@@ -963,7 +963,6 @@ main{flex:1;overflow-y:auto;}
           <option value="Sushi o Poke">Sushi o Poke</option>
         </select>
       </div>
-      <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
     </div>
   </div>
 
@@ -999,7 +998,7 @@ main{flex:1;overflow-y:auto;}
       <p>📄 Clicca per caricare il PDF della bilancia InBody 120</p>
       <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
     </div>
-    <input type="file" id="ib-pdf-input" accept=".pdf" style="display:none" onchange="loadInbodyPDF(event)">
+    <input type="file" id="ib-pdf-input" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="loadInbodyPDF(event)">
   </div>
   <div id="ib-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">
     ⏳ Estrazione dati dal PDF InBody in corso...
@@ -1658,7 +1657,7 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-umore','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
@@ -1692,7 +1691,7 @@ function editPaz(){
   s('p-dove',p.dove);setBudget(p.economica||'Standard');s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
-  s('p-umore',p.umore);s('p-crisi',p.crisi);
+  s('p-crisi',p.crisi);
   s('p-cheto-note',p.chetoNote);
   s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);s('p-polso',p.circonferenzaPolso);
   s('p-orario-all-note',p.orarioAllenamentoNote);
@@ -1917,7 +1916,7 @@ function salvaPaz(){
     dove:getDove(),flusso:gs('p-flusso'),
     regime:gs('mac-regime')||gs('p-regime'),
     pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
-    weekend:gs('p-weekend'),umore:g('p-umore'),crisi:g('p-crisi'),abit:gs('p-abit'),
+    weekend:gs('p-weekend'),crisi:g('p-crisi'),abit:gs('p-abit'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
@@ -5155,10 +5154,15 @@ async function loadInbodyPDF(e) {
   const file = e.target.files[0]; if(!file) return;
   document.getElementById('ib-pdf-name').textContent = file.name;
   document.getElementById('ib-pdf-loading').style.display = 'block';
+  const isImage = file.type.startsWith('image/');
   try {
     const reader = new FileReader();
     reader.onload = async function(ev) {
       const base64 = ev.target.result.split(',')[1];
+      const mediaType = isImage ? file.type : 'application/pdf';
+      const contentBlock = isImage
+        ? {type:'image', source:{type:'base64', media_type:mediaType, data:base64}}
+        : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -5166,8 +5170,8 @@ async function loadInbodyPDF(e) {
           model: 'claude-sonnet-4-5',
           max_tokens: 1000,
           messages: [{role:'user', content:[
-            {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}},
-            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON: peso (kg), percentuale_grassa (%), massa_grassa (kg), massa_magra (kg), massa_muscolare (kg), acqua_totale (L), metabolismo_basale (kcal), grasso_viscerale (livello 1-20), bmi. Se un valore non è presente metti null. Rispondi SOLO con il JSON.'}
+            contentBlock,
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON: peso (kg), altezza (cm), percentuale_grassa (%), massa_grassa (kg), massa_magra (kg), massa_muscolare (kg), acqua_totale (L), metabolismo_basale (kcal), grasso_viscerale (livello 1-20), bmi. Se un valore non è presente metti null. Rispondi SOLO con il JSON.'}
           ]}]
         })
       });
@@ -5179,6 +5183,7 @@ async function loadInbodyPDF(e) {
       s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
       s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi);
+      if(ib.altezza){const elH=document.getElementById('p-altezza');if(elH&&!elH.value)elH.value=ib.altezza;}
       notif('✓ Dati estratti dal PDF InBody!');
     };
     reader.readAsDataURL(file);
