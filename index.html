@@ -777,7 +777,7 @@ main{flex:1;overflow-y:auto;}
         <select id="p-caffe"><option value="No">No</option><option value="Senza zucchero">Senza zucchero</option><option value="Con zucchero">Con zucchero</option><option value="Fit (cacao amaro)">Fit (cacao amaro)</option></select>
       </div>
       <div class="fg"><label>Acqua</label>
-        <select id="p-acqua"><option value="Poca">Poca (&lt;1L)</option><option value="Normale" selected>Normale (1-1.5L)</option><option value="Molta">Molta (&gt;1.5L)</option></select>
+        <select id="p-acqua"><option value="&lt;1L poca">&lt;1L — Poca</option><option value="1-2L media" selected>1-2L — Media</option><option value="2-3L ottimale">2-3L — Ottimale</option><option value="&gt;3L molta">&gt;3L — Molta</option></select>
       </div>
       <div class="fg"><label>Diuresi</label>
         <select id="p-diuresi"><option value="Poco frequente">Poco frequente</option><option value="Regolare" selected>Regolare</option><option value="Molto frequente">Molto frequente</option></select>
@@ -915,31 +915,25 @@ main{flex:1;overflow-y:auto;}
     <div class="fr">
       <div class="fg"><label>Cucina tu o altri?</label><input id="p-cucina" placeholder="Io / partner / entrambi..."></div>
       <div class="fg"><label>Dove consumi i pasti?</label>
-        <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
-          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
-            <input type="checkbox" id="dove-casa" style="accent-color:var(--teal)"> A casa
-          </label>
-          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
-            <input type="checkbox" id="dove-lavoro" style="accent-color:var(--teal)"> Al lavoro
-          </label>
-          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
-            <input type="checkbox" id="dove-fuori" style="accent-color:var(--teal)"> Fuori (ristorante)
-          </label>
-          <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem">
-            <input type="checkbox" id="dove-mensa" style="accent-color:var(--teal)"> Mensa
-          </label>
+        <div class="chip-group" style="margin-top:.3rem">
+          <label class="chip-pill"><input type="checkbox" id="dove-casa"> Casa</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-lavoro"> Lavoro</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-fuori"> Fuori (ristorante)</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-mensa"> Mensa</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-scuola"> Merenda a scuola</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-merlav"> Merenda al lavoro</label>
         </div>
       </div>
     </div>
     <div class="fr">
       <div class="fg"><label>Possibilità riscaldare al lavoro</label><select id="p-risc"><option value="si">Sì</option><option value="no">No</option></select></div>
       <div class="fg"><label>Budget alimentare</label>
-        <select id="p-economica">
-          <option value="Economico">Economico</option>
-          <option value="Standard" selected>Standard</option>
-          <option value="Comfort">Comfort</option>
-          <option value="Premium">Premium</option>
-        </select>
+        <div class="chip-group" style="margin-top:.3rem">
+          <label class="chip-pill"><input type="checkbox" id="bud-eco"> Economico</label>
+          <label class="chip-pill"><input type="checkbox" id="bud-std" checked> Standard</label>
+          <label class="chip-pill"><input type="checkbox" id="bud-com"> Comfort</label>
+          <label class="chip-pill"><input type="checkbox" id="bud-pre"> Premium</label>
+        </div>
       </div>
     </div>
     <div class="fr">
@@ -1699,7 +1693,7 @@ function editPaz(){
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
-  s('p-cucina',p.cucina);s('p-dove',p.dove);s('p-economica',p.economica);s('p-veg',p.veg);
+  s('p-cucina',p.cucina);s('p-dove',p.dove);setBudget(p.economica||'Standard');s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-lavoro',p.lavoro);s('p-umore',p.umore);s('p-crisi',p.crisi);s('p-fame',p.fame);
@@ -1922,7 +1916,7 @@ function salvaPaz(){
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),cucina:g('p-cucina'),
-    dove:g('p-dove'),risc:gs('p-risc'),economica:g('p-economica'),veg:g('p-veg'),
+    dove:g('p-dove'),risc:gs('p-risc'),economica:getBudget(),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
     regime:gs('mac-regime')||gs('p-regime'),
@@ -5262,6 +5256,11 @@ function setCspChip(lista){CSP_KEYS.forEach(k=>{const el=document.getElementById
 function setSdvFromStr(str){if(!str){setSdvChip([]);return;}setSdvChip(str.split(',').map(s=>s.trim()));}
 function setCspFromStr(str){if(!str){setCspChip([]);return;}setCspChip(str.split(',').map(s=>s.trim()));}
 
+const BUD_KEYS=['eco','std','com','pre'];
+const BUD_LABELS={'eco':'Economico','std':'Standard','com':'Comfort','pre':'Premium'};
+function getBudget(){return BUD_KEYS.filter(k=>document.getElementById('bud-'+k)?.checked).map(k=>BUD_LABELS[k]).join(', ');}
+function setBudget(str){if(!str){BUD_KEYS.forEach(k=>{const el=document.getElementById('bud-'+k);if(el)el.checked=false;});return;}const parts=str.split(',').map(s=>s.trim());BUD_KEYS.forEach(k=>{const el=document.getElementById('bud-'+k);if(el)el.checked=parts.includes(BUD_LABELS[k]);});}
+
 // ═══════════════════════════════════════
 // CALENDARIO ANNO
 // ═══════════════════════════════════════
@@ -5720,12 +5719,12 @@ function eliminaPaz(id){
 // getDove / setDove helper
 // ═══════════════════════════════════════
 function getDove(){
-  const opts = ['casa','lavoro','fuori','mensa'];
+  const opts = ['casa','lavoro','fuori','mensa','scuola','merlav'];
   return opts.filter(o=>document.getElementById('dove-'+o)?.checked).join(', ');
 }
 function setDove(val){
   const vals = (val||'').split(',').map(v=>v.trim().toLowerCase());
-  ['casa','lavoro','fuori','mensa'].forEach(o=>{
+  ['casa','lavoro','fuori','mensa','scuola','merlav'].forEach(o=>{
     const el=document.getElementById('dove-'+o);
     if(el) el.checked=vals.includes(o);
   });
