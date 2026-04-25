@@ -3789,7 +3789,7 @@ ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
 }).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
 Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
-${p.ciclizzato ? 'PIANO CICLIZZATO: chiama i giorni "Lunedi ON", "Martedi OFF" ecc. in base ai giorni di allenamento del paziente.' : 'PIANO NON CICLIZZATO: usa nomi normali Lunedi, Martedi ecc.'}
+${!p.ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento e OFF ai giorni di riposo del paziente.'}
 
 3 ALTERNATIVE PRANZO E CENA
 Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
