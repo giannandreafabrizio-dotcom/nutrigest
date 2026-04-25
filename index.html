@@ -1706,6 +1706,8 @@ function editPaz(){
   ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
   ss2('p-orario-all',p.orarioAllenamento);ss2('p-cronotipo',p.cronotipo);ss2('p-orario-pasto',p.orarioPastoPrincipale);
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
+  const elCicl = document.getElementById('mac-ciclizzato');
+  if (elCicl) elCicl.checked = p.ciclizzato || false;
   toggleOrarioNote();
   const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss('p-regime',p.regime);
@@ -1928,6 +1930,7 @@ function salvaPaz(){
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
     giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
+    ciclizzato: document.getElementById('mac-ciclizzato')?.checked || false,
     circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
@@ -3283,6 +3286,10 @@ function renderPdMacros(p){
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
     </div>
   </div>
+  <div class="fg" style="margin-top:.4rem;display:flex;align-items:center;gap:8px;">
+    <input type="checkbox" id="mac-ciclizzato" style="accent-color:var(--teal);width:15px;height:15px;">
+    <label for="mac-ciclizzato" style="font-size:.82rem;color:var(--text2);cursor:pointer;">Piano ciclizzato — distingui giorni ON/OFF nel piano settimanale</label>
+  </div>
   <div class="fr">
     <div class="fg"><label>Cronotipo</label>
       <select id="p-cronotipo">
@@ -3782,7 +3789,7 @@ ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
 }).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
 Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
-${(p.giorniAllenamento||[]).length ? `PIANO CICLIZZATO: giorni ON usa kcal target pieno (${kcalTarget} kcal). Giorni OFF riduci carboidrati del 30-40%, mantieni proteine invariate. Nomina ogni giorno con ON o OFF nel campo "g" del JSON (es. "Lunedì ON", "Martedì OFF").` : ''}
+${p.ciclizzato ? 'PIANO CICLIZZATO: chiama i giorni "Lunedi ON", "Martedi OFF" ecc. in base ai giorni di allenamento del paziente.' : 'PIANO NON CICLIZZATO: usa nomi normali Lunedi, Martedi ecc.'}
 
 3 ALTERNATIVE PRANZO E CENA
 Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
@@ -3859,6 +3866,8 @@ function parseJSONSicuro(testo) {
 }
 
 async function chiamaGeneraPiano(pazienteId) {
+  var paz = db.pazienti.find(function(x){ return x.id === pazienteId; });
+  var ciclizzato = paz && paz.ciclizzato ? true : false;
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
   console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
   console.log('[Piano] _ragContextForPiano:', JSON.stringify(window._ragContextForPiano));
