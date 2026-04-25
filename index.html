@@ -4291,8 +4291,7 @@ function generaPDF(paziente, giorni) {
   var giornoCorrente = '';
   var y = 0;
 
-  var slotEmoji = { colazione:'☀', spuntino_mattina:'🍎', pranzo:'🌿', spuntino_pomeriggio:'🥜', cena:'🌙', pre_nanna:'🌛' };
-  var slotLabel = { colazione:'Colazione', spuntino_mattina:'Spuntino mattina', pranzo:'Pranzo', spuntino_pomeriggio:'Spuntino pomeriggio', cena:'Cena', pre_nanna:'Pre-nanna' };
+  var slotLabel = { colazione:'COLAZIONE', spuntino_mattina:'SPUNTINO MATTINA', pranzo:'PRANZO', spuntino_pomeriggio:'SPUNTINO POMERIGGIO', cena:'CENA', pre_nanna:'PRE-NANNA' };
   var slotKeys  = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
 
   function drawHeader(giorno) {
@@ -4347,7 +4346,7 @@ function generaPDF(paziente, giorni) {
       doc.setTextColor(...VERDE);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
-      doc.text((slotEmoji[key] || '') + ' ' + (slotLabel[key] || key), M, y);
+      doc.text(slotLabel[key] || key, M, y);
       y += 6;
 
       if (typeof pasto === 'string') {
@@ -4365,12 +4364,21 @@ function generaPDF(paziente, giorni) {
 
       var ricette = [];
       if (isPranzoOrCena) {
-        alts.forEach(function(alt) {
-          var coloreMap = { verde: VERDE, arancione: ARANCIO, rosso: ROSSO };
-          var c = coloreMap[alt.colore] || (alt.posizione === 1 ? VERDE : alt.posizione === 2 ? ARANCIO : ROSSO);
-          ricette.push({ testo: alt.nota || alt.nota_descrittiva || '', colore: c });
-        });
-        if (!ricette.length && pasto.nota_descrittiva) ricette.push({ testo: pasto.nota_descrittiva, colore: null });
+        var notaPasto = pasto.nota_descrittiva || pasto.nota || '';
+        if (notaPasto) {
+          var parti = notaPasto.split(/\n|(?=\d\.)/g).map(function(s){ return s.trim(); }).filter(Boolean);
+          var colori = [VERDE, ARANCIO, ROSSO];
+          parti.forEach(function(p, i) {
+            ricette.push({ testo: p.replace(/^\d+\.\s*/,''), colore: colori[i] || VERDE });
+          });
+        }
+        if (!ricette.length && alts.length) {
+          var colori = [VERDE, ARANCIO, ROSSO];
+          alts.forEach(function(alt, i) {
+            var nomi = (alt.alimenti || []).map(function(a){ return a.nome; }).join(' con ');
+            if (nomi) ricette.push({ testo: nomi, colore: colori[i] || VERDE });
+          });
+        }
       } else {
         var nota = pasto.nota_descrittiva || pasto.nota || '';
         if (nota) ricette.push({ testo: nota, colore: null });
