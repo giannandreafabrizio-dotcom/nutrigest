@@ -4026,6 +4026,13 @@ async function generaPiano(){
     +'<b>Budget:</b> '+dati.budget+'<br>'
     +'<b>Preferenza proteica:</b> '+dati.prefProteica;
 
+  let pianoEl = document.getElementById('piano-piano-box');
+  if(!pianoEl){
+    pianoEl = document.createElement('div');
+    pianoEl.id = 'piano-piano-box';
+    document.getElementById('piano-btn-genera').parentNode.appendChild(pianoEl);
+  }
+
   // ── Costruzione struttura piano ──────────────────────────────────────────
   const haSp = (p.spuntM==='si'||p.spuntP==='si');
   const haPrenanna = p.prenanna==='si';
