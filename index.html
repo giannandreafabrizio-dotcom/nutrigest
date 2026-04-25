@@ -4352,10 +4352,18 @@ function generaPDF(paziente, giorni) {
       y += gap;
       firstSlot = false;
 
-      doc.setTextColor(...VERDE);
+      var slotSigla = { colazione:'C', spuntino_mattina:'SM', pranzo:'P', spuntino_pomeriggio:'SP', cena:'CE', pre_nanna:'PN' };
+      var sigla = slotSigla[key] || key[0].toUpperCase();
+      doc.setFillColor(...VERDE);
+      doc.circle(M + 3.5, y - 3, 3.5, 'F');
+      doc.setTextColor(...BIANCO);
+      doc.setFontSize(sigla.length > 1 ? 5.5 : 7);
       doc.setFont('helvetica', 'bold');
+      doc.text(sigla, M + 3.5, y - 1.8, { align: 'center' });
+      doc.setTextColor(...VERDE);
       doc.setFontSize(13);
-      doc.text(slotLabel[key] || key, M, y);
+      doc.setFont('helvetica', 'bold');
+      doc.text(slotLabel[key] || key, M + 10, y);
       y += 6;
 
       if (typeof pasto === 'string') {
@@ -4451,9 +4459,11 @@ function generaPDF(paziente, giorni) {
         doc.line(M, y, W - M, y);
         y += 2;
 
+        var firstAlt = true;
         alts.forEach(function(alt) {
           var foods = alt.alimenti || [];
           if (!foods.length) return;
+          if (firstAlt) { y += 2; firstAlt = false; }
           chk(5);
           doc.setFont('helvetica', 'italic');
           doc.setFontSize(9.5);
@@ -4485,8 +4495,10 @@ function generaPDF(paziente, giorni) {
           doc.line(M, y, W - M, y);
           y += 2;
 
+          var firstAlt2 = true;
           alts.forEach(function(alt) {
             (alt.alimenti || []).forEach(function(f) {
+              if (firstAlt2) { y += 2; firstAlt2 = false; }
               chk(5);
               doc.setFont('helvetica', 'italic');
               doc.setFontSize(9.5);
