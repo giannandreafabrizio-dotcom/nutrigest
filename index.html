@@ -800,12 +800,13 @@ main{flex:1;overflow-y:auto;}
           <option value="Abbondante">Abbondante ⚠ +ferro</option>
         </select>
       </div>
-      <div class="fg"><label>Gravidanza</label>
+      <div class="fg"><label>N. gravidanza</label>
         <select id="p-gravidanza">
           <option value="No">No</option>
-          <option value="Prima gravidanza">Prima gravidanza</option>
-          <option value="Seconda gravidanza">Seconda gravidanza</option>
-          <option value="Terza gravidanza">Terza gravidanza</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
         </select>
       </div>
     </div>
@@ -876,21 +877,23 @@ main{flex:1;overflow-y:auto;}
       </div>
       <textarea id="p-allergie" style="margin-top:.5rem" placeholder="Altre allergie / intolleranze..."></textarea>
     </div>
-    <div class="fg"><label>Stile di vita — Seleziona</label>
-      <div class="integr-grid">
-        <div class="integr-item"><input type="checkbox" id="stile-ritenzione"><label for="stile-ritenzione">Ritenzione idrica</label></div>
-        <div class="integr-item"><input type="checkbox" id="stile-gonfiore"><label for="stile-gonfiore">Gonfiore / flatulenza</label></div>
-        <div class="integr-item"><input type="checkbox" id="stile-stitichezza"><label for="stile-stitichezza">Stitichezza</label></div>
-        <div class="integr-item"><input type="checkbox" id="stile-diarrea"><label for="stile-diarrea">Diarrea frequente</label></div>
-        <div class="integr-item"><input type="checkbox" id="stile-sostenibilita"><label for="stile-sostenibilita">Sostenibilità alimentare</label></div>
+    <div class="fg" style="margin-top:.4rem">
+      <label>Situazioni particolari</label>
+      <div class="chip-group">
+        <label class="chip-pill"><input type="checkbox" id="sdv-ritenzione"> Ritenzione idrica</label>
+        <label class="chip-pill"><input type="checkbox" id="sdv-gonfiore"> Gonfiore / flatulenza</label>
+        <label class="chip-pill"><input type="checkbox" id="sdv-stitichezza"> Stitichezza</label>
+        <label class="chip-pill"><input type="checkbox" id="sdv-diarrea"> Diarrea frequente</label>
+        <label class="chip-pill"><input type="checkbox" id="sdv-sostenibilita"> Sostenibilità alimentare</label>
       </div>
     </div>
-    <div class="fg"><label>Condizioni speciali — Seleziona</label>
-      <div class="integr-grid">
-        <div class="integr-item"><input type="checkbox" id="cond-gravidanza"><label for="cond-gravidanza">Gravidanza</label></div>
-        <div class="integr-item"><input type="checkbox" id="cond-allattamento"><label for="cond-allattamento">Allattamento</label></div>
-        <div class="integr-item"><input type="checkbox" id="cond-menopausa"><label for="cond-menopausa">Menopausa / perimenopausa</label></div>
-        <div class="integr-item"><input type="checkbox" id="cond-massa"><label for="cond-massa">Obiettivo massa muscolare</label></div>
+    <div class="fg" style="margin-top:.4rem">
+      <label>Condizioni speciali</label>
+      <div class="chip-group">
+        <label class="chip-pill"><input type="checkbox" id="csp-gravidanza"> Gravidanza</label>
+        <label class="chip-pill"><input type="checkbox" id="csp-allattamento"> Allattamento</label>
+        <label class="chip-pill"><input type="checkbox" id="csp-menopausa"> Menopausa / perimenopausa</label>
+        <label class="chip-pill"><input type="checkbox" id="csp-massa"> Obiettivo massa muscolare</label>
       </div>
     </div>
   </div>
@@ -1712,7 +1715,7 @@ function editPaz(){
   ss('p-regime',p.regime);
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
   s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
-  setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);setPatologieFromStr(p.patologie||'');setAllergieFromStr(p.allergie||'');
+  setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);setPatologieFromStr(p.patologie||'');setAllergieFromStr(p.allergie||'');setSdvFromStr(p.sdv||'');setCspFromStr(p.condSpeciali||'');
   ss('p-prenanna',p.prenanna);ss('p-pref-proteina',p.prefProteina);
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
@@ -1914,7 +1917,7 @@ function salvaPaz(){
     contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
     controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
-    gravidanza:g('p-gravidanza'),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
+    gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
@@ -5246,6 +5249,18 @@ function setAllergieFromStr(str){
   setAllergieChip(parts.filter(p=>chipLabels.includes(p)));
   const ta=document.getElementById('p-allergie');if(ta)ta.value=parts.filter(p=>!chipLabels.includes(p)).join(', ');
 }
+
+const SDV_KEYS=['ritenzione','gonfiore','stitichezza','diarrea','sostenibilita'];
+const SDV_LABELS={'ritenzione':'Ritenzione idrica','gonfiore':'Gonfiore / flatulenza','stitichezza':'Stitichezza','diarrea':'Diarrea frequente','sostenibilita':'Sostenibilità alimentare'};
+const CSP_KEYS=['gravidanza','allattamento','menopausa','massa'];
+const CSP_LABELS={'gravidanza':'Gravidanza','allattamento':'Allattamento','menopausa':'Menopausa / perimenopausa','massa':'Obiettivo massa muscolare'};
+
+function getSdvChip(){return SDV_KEYS.filter(k=>document.getElementById('sdv-'+k)?.checked).map(k=>SDV_LABELS[k]);}
+function getCspChip(){return CSP_KEYS.filter(k=>document.getElementById('csp-'+k)?.checked).map(k=>CSP_LABELS[k]);}
+function setSdvChip(lista){SDV_KEYS.forEach(k=>{const el=document.getElementById('sdv-'+k);if(el)el.checked=lista?.includes(SDV_LABELS[k])||false;});}
+function setCspChip(lista){CSP_KEYS.forEach(k=>{const el=document.getElementById('csp-'+k);if(el)el.checked=lista?.includes(CSP_LABELS[k])||false;});}
+function setSdvFromStr(str){if(!str){setSdvChip([]);return;}setSdvChip(str.split(',').map(s=>s.trim()));}
+function setCspFromStr(str){if(!str){setCspChip([]);return;}setCspChip(str.split(',').map(s=>s.trim()));}
 
 // ═══════════════════════════════════════
 // CALENDARIO ANNO
