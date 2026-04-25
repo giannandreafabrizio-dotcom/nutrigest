@@ -913,7 +913,6 @@ main{flex:1;overflow-y:auto;}
     </div>
     <div class="sec-title">Abitudini alimentari</div>
     <div class="fr">
-      <div class="fg"><label>Cucina tu o altri?</label><input id="p-cucina" placeholder="Io / partner / entrambi..."></div>
       <div class="fg"><label>Dove consumi i pasti?</label>
         <div class="chip-group" style="margin-top:.3rem">
           <label class="chip-pill"><input type="checkbox" id="dove-casa"> Casa</label>
@@ -926,7 +925,6 @@ main{flex:1;overflow-y:auto;}
       </div>
     </div>
     <div class="fr">
-      <div class="fg"><label>Possibilità riscaldare al lavoro</label><select id="p-risc"><option value="si">Sì</option><option value="no">No</option></select></div>
       <div class="fg"><label>Budget alimentare</label>
         <div class="chip-group" style="margin-top:.3rem">
           <label class="chip-pill"><input type="checkbox" id="bud-eco"> Economico</label>
@@ -941,7 +939,6 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
     </div>
     <div class="fr">
-      <div class="fg"><label>Momento più fame</label><input id="p-fame" placeholder="Sera, pomeriggio..."></div>
       <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
     </div>
     <div class="fr">
@@ -968,7 +965,6 @@ main{flex:1;overflow-y:auto;}
       </div>
       <div class="fg"><label>Umore generale</label><input id="p-umore" placeholder="Note sul benessere psicologico..."></div>
     </div>
-    <div class="fg"><label>Attività lavorativa</label><input id="p-lavoro" placeholder="Sedentario, in piedi, turni..."></div>
   </div>
 
   <!-- PREFERENZE CIBI -->
@@ -1662,7 +1658,7 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-cucina','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-lavoro','p-umore','p-crisi','p-fame','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-umore','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
@@ -1693,10 +1689,10 @@ function editPaz(){
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
-  s('p-cucina',p.cucina);s('p-dove',p.dove);setBudget(p.economica||'Standard');s('p-veg',p.veg);
+  s('p-dove',p.dove);setBudget(p.economica||'Standard');s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
-  s('p-lavoro',p.lavoro);s('p-umore',p.umore);s('p-crisi',p.crisi);s('p-fame',p.fame);
+  s('p-umore',p.umore);s('p-crisi',p.crisi);
   s('p-cheto-note',p.chetoNote);
   s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);s('p-polso',p.circonferenzaPolso);
   s('p-orario-all-note',p.orarioAllenamentoNote);
@@ -1915,14 +1911,13 @@ function salvaPaz(){
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
-    pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),cucina:g('p-cucina'),
+    pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
     dove:g('p-dove'),risc:gs('p-risc'),economica:getBudget(),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
     regime:gs('mac-regime')||gs('p-regime'),
     pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
-    weekend:gs('p-weekend'),lavoro:g('p-lavoro'),umore:g('p-umore'),crisi:g('p-crisi'),
-    fame:g('p-fame'),abit:gs('p-abit'),
+    weekend:gs('p-weekend'),umore:g('p-umore'),crisi:g('p-crisi'),abit:gs('p-abit'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
