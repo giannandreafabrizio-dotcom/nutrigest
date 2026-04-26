@@ -1164,22 +1164,14 @@ main{flex:1;overflow-y:auto;}
 // COSTANTI
 // ════════════════════════════════════════════════════════════════
 const ALIMENTI = {
-  'Prima Colazione': {items:[
-    {n:'Yogurt',g:125},{n:'Yogurt parz. scremato',g:125},{n:'Yogurt greco 0-2%',g:125},
-    {n:'Biscotti integrali',g:40},{n:'Muesli',g:40},{n:'Fiocchi avena',g:30},
-    {n:'Fette biscottate integrali',g:30},{n:'Pane comune',g:60},{n:'Pane integrale',g:60},
-    {n:'Ricotta di vacca',g:80},{n:'Pancake proteico',g:100},{n:'Wasa',g:20},
-    {n:'Philadelphia light',g:40},{n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},
-    {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
-    {n:'Uova di gallina intero',g:120},{n:'Bresaola',g:60}
-  ]},
   'Cereali con Glutine': {items:[
     {n:'Pasta',g:90,gl:true},{n:'Pasta integrale',g:90,gl:true},{n:'Pane comune',g:110,gl:true},{n:'Pane integrale',g:100,gl:true},
     {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:90,gl:true},{n:'Orzo',g:90,gl:true},
     {n:'Grano',g:90,gl:true},{n:'Frisella',g:40,gl:true},{n:'Tarallini',g:30,gl:true},
     {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:50,gl:true},
     {n:'Wasa (contiene glutine)',g:20,gl:true},{n:'Spaghetti Shirataki Konjac',g:200,gl:false},
-    {n:'Spätzle',g:80,gl:true}
+    {n:'Spätzle',g:80,gl:true},{n:'Biscotti integrali',g:40,gl:true},
+    {n:'Muesli',g:40,gl:true},{n:'Fette biscottate integrali',g:30,gl:true}
   ]},
   'Cereali senza Glutine': {items:[
     {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},
@@ -1188,7 +1180,7 @@ const ALIMENTI = {
     {n:'Patate dolci',g:250,gl:false},{n:'Gnocchi di patate',g:200,gl:false},
     {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:20,gl:false},
     {n:'Fiocchi di mais',g:30,gl:false},{n:'Pasta di riso',g:90,gl:false},
-    {n:'Pasta di mais',g:90,gl:false},{n:'Grano saraceno',g:90,gl:false}
+    {n:'Pasta di mais',g:90,gl:false},{n:'Grano saraceno',g:90,gl:false},{n:"Fiocchi d'avena",g:40,gl:false}
   ]},
   'Carne Bianca': {items:[
     {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Ala di pollo',g:180},
@@ -1293,6 +1285,12 @@ const ALIMENTI = {
     {n:'Chiodi di garofano',g:2},{n:'Noce moscata',g:2},{n:'Zafferano',g:1},
     {n:'Cardamomo',g:2},{n:'Anice stellato',g:3},{n:'Aglio in polvere',g:3},
     {n:'Cipolla in polvere',g:3}
+  ]},
+  'Fit': {items:[
+    {n:'Pancake proteico',g:100}
+  ]},
+  'Dolcificanti & Conserve': {items:[
+    {n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},{n:'Eritritolo',g:5},{n:'Dolcificante',g:2}
   ]},
   'Olio & Condimenti': {items:[
     {n:'Olio EVO',g:10},{n:'Aceto di vino',g:10},{n:'Salsa di soia',g:10},
