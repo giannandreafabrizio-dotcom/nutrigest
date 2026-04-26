@@ -1416,14 +1416,18 @@ const CONCETTI_EDUCATIVI = [
 
 // MACROS SCHEMA
 const MACRO_SCHEMA = [
-  {cat:'Normopeso – sedentario, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,1.8],carb:[2.5,4.0],grassi:[0.8,1.0]},
-  {cat:'Normopeso – sportivo 3-5, tono/dimagrimento',laf:[1.55,1.55],kcal:'-200/-400',prot:[1.6,2.0],carb:[3.5,5.5],grassi:[0.7,0.9]},
-  {cat:'Normopeso – sportivo intenso, aumento massa',laf:[1.725,1.725],kcal:'+200/+500',prot:[1.6,2.2],carb:[4.5,8.0],grassi:[0.6,0.9]},
-  {cat:'Sovrappeso – sedentario, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.6,2.2],carb:[2.0,3.5],grassi:[0.8,1.0]},
-  {cat:'Sovrappeso – sportivo 2-4, definizione',laf:[1.55,1.55],kcal:'-300/-500',prot:[1.8,2.4],carb:[3.0,5.0],grassi:[0.7,0.9]},
-  {cat:'Obesità I – bassa attività, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,2.0],carb:[2.0,3.5],grassi:[0.9,1.1]},
-  {cat:'Obesità II – bassa attività, dimagrimento',laf:[1.20,1.30],kcal:'-500',prot:[1.4,2.0],carb:[1.8,3.0],grassi:[0.9,1.1]},
-  {cat:'Obesità III – bassa attività, dimagrimento',laf:[1.20,1.30],kcal:'-300/-500',prot:[1.4,1.8],carb:[1.5,3.0],grassi:[0.9,1.1]}
+  {cat:'Sottopeso – sedentario',bmiLabel:'< 18.5',bmiMin:0,bmiMax:18.5,laf:[1.20,1.35],deltaMin:300,deltaMax:500,prot:[1.4,1.8],grassi:[1.0,1.3],useFFM:false,colore:'#27500A',nota:'ipercalorica, recupero massa'},
+  {cat:'Sottopeso – sportivo',bmiLabel:'< 18.5',bmiMin:0,bmiMax:18.5,laf:[1.55,1.75],deltaMin:400,deltaMax:700,prot:[1.8,2.2],grassi:[1.0,1.2],useFFM:false,colore:'#27500A',nota:'ipercalorica, massa + performance'},
+  {cat:'Normopeso – sedentario, dimagrimento',bmiLabel:'18.5–24.9',bmiMin:18.5,bmiMax:25,laf:[1.20,1.35],deltaMin:-400,deltaMax:-250,prot:[1.4,1.8],grassi:[0.7,0.9],useFFM:false,colore:'#0C447C',nota:'ipocalorica lenta'},
+  {cat:'Normopeso – sedentario, mantenimento',bmiLabel:'18.5–24.9',bmiMin:18.5,bmiMax:25,laf:[1.20,1.35],deltaMin:0,deltaMax:0,prot:[1.2,1.6],grassi:[0.9,1.1],useFFM:false,colore:'#0C447C',nota:'normocalorica'},
+  {cat:'Normopeso – sportivo, tono/dimagrimento',bmiLabel:'18.5–24.9',bmiMin:18.5,bmiMax:25,laf:[1.55,1.65],deltaMin:-400,deltaMax:-200,prot:[1.6,2.0],grassi:[0.7,0.9],useFFM:false,colore:'#0C447C',nota:'ipocalorica moderata'},
+  {cat:'Normopeso – sportivo intenso, aumento massa',bmiLabel:'18.5–24.9',bmiMin:18.5,bmiMax:25,laf:[1.725,1.725],deltaMin:200,deltaMax:400,prot:[1.8,2.2],grassi:[0.8,1.0],useFFM:false,colore:'#0C447C',nota:'ipercalorica'},
+  {cat:'Sovrappeso – sedentario, dimagrimento',bmiLabel:'25–29.9',bmiMin:25,bmiMax:30,laf:[1.20,1.35],deltaMin:-500,deltaMax:-300,prot:[1.8,2.2],grassi:[0.9,1.1],useFFM:true,colore:'#854F0B',nota:'ipocalorica moderata'},
+  {cat:'Sovrappeso – sportivo, definizione',bmiLabel:'25–29.9',bmiMin:25,bmiMax:30,laf:[1.45,1.55],deltaMin:-500,deltaMax:-300,prot:[2.0,2.4],grassi:[0.8,1.0],useFFM:true,colore:'#854F0B',nota:'ipocalorica controllata'},
+  {cat:'Obesità I – sedentario, dimagrimento',bmiLabel:'30–34.9',bmiMin:30,bmiMax:35,laf:[1.20,1.30],deltaMin:-600,deltaMax:-400,prot:[1.8,2.2],grassi:[1.0,1.2],useFFM:true,colore:'#712B13',nota:'ipocalorica moderata-aggressiva'},
+  {cat:'Obesità I – poco sportivo, dimagrimento',bmiLabel:'30–34.9',bmiMin:30,bmiMax:35,laf:[1.30,1.45],deltaMin:-600,deltaMax:-400,prot:[2.0,2.4],grassi:[0.9,1.1],useFFM:true,colore:'#712B13',nota:'ipocalorica moderata'},
+  {cat:'Obesità II – sedentario, dimagrimento',bmiLabel:'≥ 35',bmiMin:35,bmiMax:999,laf:[1.20,1.25],deltaMin:-700,deltaMax:-500,prot:[1.6,2.0],grassi:[1.0,1.2],useFFM:true,colore:'#791F1F',nota:'ipocalorica aggressiva'},
+  {cat:'Obesità II – poco sportivo, dimagrimento',bmiLabel:'≥ 35',bmiMin:35,bmiMax:999,laf:[1.25,1.35],deltaMin:-700,deltaMax:-500,prot:[1.8,2.2],grassi:[1.0,1.2],useFFM:true,colore:'#791F1F',nota:'ipocalorica aggressiva'}
 ];
 
 const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spuntino:'tag-green','post-workout':'tag-red'};
@@ -3360,27 +3364,70 @@ function renderPdMacros(p){
   <div id="mac-result" style="margin-top:1rem"></div>
 
   <div style="margin-top:1.2rem"><div class="sec-title">Tabella di riferimento per categoria paziente</div>
-  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.73rem">
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem">
     <thead><tr>
-      <th style="padding:.35rem .5rem;text-align:left;color:var(--text3);border-bottom:1px solid var(--border)">Categoria</th>
-      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">LAF</th>
-      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Kcal</th>
-      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Prot g/kg</th>
-      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Carb g/kg</th>
-      <th style="padding:.35rem .5rem;color:var(--text3);border-bottom:1px solid var(--border)">Grassi g/kg</th>
+      <th style="padding:.4rem .5rem;text-align:left;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500">Categoria</th>
+      <th style="padding:.4rem .5rem;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500;text-align:center">BMI</th>
+      <th style="padding:.4rem .5rem;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500;text-align:center">LAF</th>
+      <th style="padding:.4rem .5rem;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500;text-align:center">Kcal target</th>
+      <th style="padding:.4rem .5rem;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500;text-align:center">Proteine</th>
+      <th style="padding:.4rem .5rem;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500;text-align:center">Lipidi</th>
+      <th style="padding:.4rem .5rem;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500;text-align:center">Carboidrati</th>
     </tr></thead>
     <tbody>
-    ${MACRO_SCHEMA.map(s=>`<tr style="cursor:pointer" onclick="applicaSchema(${s.laf[0]},${s.prot[0]},${s.grassi[0]})" title="Clicca per applicare valori minimi">
-      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border)">${s.cat}</td>
-      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.laf[0]}${s.laf[1]!==s.laf[0]?'–'+s.laf[1]:''}</td>
-      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.kcal}</td>
-      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.prot[0]}–${s.prot[1]}</td>
-      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.carb[0]}–${s.carb[1]}</td>
-      <td style="padding:.32rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.grassi[0]}–${s.grassi[1]}</td>
-    </tr>`).join('')}
+    ${(()=>{
+      const lastIb=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
+      const tdeeInfo=_macrosPaziente?calcolaTDEE(_macrosPaziente):{tdee:null};
+      const tdee=tdeeInfo.tdee;
+      const peso=lastIb?lastIb.peso:(_macrosPaziente&&_macrosPaziente.peso?_macrosPaziente.peso:null);
+      const ffm=lastIb&&lastIb.m?lastIb.m:null;
+      const bmi=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
+      return MACRO_SCHEMA.map(s=>{
+        const ref=s.useFFM?(ffm||peso):peso;
+        const refLabel=s.useFFM?'FFM':'peso';
+        const refColor=s.useFFM?'#185FA5':'#3B6D11';
+        const isActive=bmi!==null&&bmi>=s.bmiMin&&bmi<s.bmiMax;
+        const kcalMin=tdee?tdee+s.deltaMin:null;
+        const kcalMax=tdee?tdee+s.deltaMax:null;
+        const pMinG=ref?Math.round(s.prot[0]*ref):null;
+        const pMaxG=ref?Math.round(s.prot[1]*ref):null;
+        const lMinG=ref?Math.round(s.grassi[0]*ref):null;
+        const lMaxG=ref?Math.round(s.grassi[1]*ref):null;
+        const cMinG=(kcalMax&&pMaxG&&lMaxG)?Math.max(0,Math.round((kcalMax-pMaxG*4-lMaxG*9)/4)):null;
+        const cMaxG=(kcalMin&&pMinG&&lMinG)?Math.max(0,Math.round((kcalMin-pMinG*4-lMinG*9)/4)):null;
+        const deltaStr=s.deltaMin===0&&s.deltaMax===0?'mantenimento':(s.deltaMin>0?'+':'')+s.deltaMin+'/'+(s.deltaMax>0?'+':'')+s.deltaMax+' kcal';
+        const rowBg=isActive?'background:rgba(29,158,117,.08);outline:1.5px solid #1D9E75;outline-offset:-1px;':'';
+        const activeTag=isActive?'<span style="margin-left:4px;font-size:.6rem;background:#1D9E75;color:#fff;border-radius:3px;padding:1px 4px">paziente</span>':'';
+        return `<tr style="cursor:pointer;${rowBg}" onclick="applicaSchema(${s.laf[0]},${s.prot[0]},${s.grassi[0]})" title="Clicca per applicare i valori minimi">
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border)">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${s.colore};margin-right:5px;vertical-align:middle"></span>
+            <strong>${s.cat}</strong>${activeTag}
+            <div style="font-size:.62rem;color:var(--text3);margin-top:1px">${s.nota}</div>
+          </td>
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:center;color:var(--text3)">${s.bmiLabel}</td>
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:center">${s.laf[0]}${s.laf[1]!==s.laf[0]?'–'+s.laf[1]:''}</td>
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:center">
+            ${kcalMin&&kcalMax?(kcalMin===kcalMax?'<strong>'+kcalMin+'</strong>':'<strong>'+kcalMin+'–'+kcalMax+'</strong>'):'<span style="color:var(--text3)">—</span>'} <span style="font-size:.6rem;color:var(--text3)">kcal</span>
+            <div style="font-size:.6rem;color:var(--text3)">${deltaStr}</div>
+          </td>
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:center">
+            ${pMinG&&pMaxG?'<strong>'+pMinG+'–'+pMaxG+'g</strong>':'<span style="color:var(--text3)">—</span>'}
+            <div style="font-size:.6rem;color:${refColor}">${s.prot[0]}–${s.prot[1]} g/kg ${refLabel}</div>
+          </td>
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:center">
+            ${lMinG&&lMaxG?'<strong>'+lMinG+'–'+lMaxG+'g</strong>':'<span style="color:var(--text3)">—</span>'}
+            <div style="font-size:.6rem;color:${refColor}">${s.grassi[0]}–${s.grassi[1]} g/kg ${refLabel}</div>
+          </td>
+          <td style="padding:.35rem .5rem;border-bottom:1px solid var(--border);text-align:center">
+            ${cMinG!==null&&cMaxG!==null?'<strong>'+Math.min(cMinG,cMaxG)+'–'+Math.max(cMinG,cMaxG)+'g</strong>':'<span style="color:var(--text3)">—</span>'}
+            <div style="font-size:.6rem;color:var(--text3)">residuale</div>
+          </td>
+        </tr>`;
+      }).join('');
+    })()}
     </tbody>
   </table></div>
-  <div style="font-size:.68rem;color:var(--text3);margin-top:.4rem">💡 Clicca su una riga per applicare i valori minimi della categoria</div>
+  <div style="font-size:.68rem;color:var(--text3);margin-top:.5rem">Clicca su una riga per applicare i valori minimi · Riga verde = BMI del paziente · Grammi calcolati sul paziente corrente</div>
   </div>`;
 
   html+=`</div></div>`;
