@@ -1973,7 +1973,7 @@ function openPaz(id){
   document.getElementById('pd-hdr').innerHTML=`
     <div class="pd-av">${p.nome[0]}${p.cognome[0]}</div>
     <div style="flex:1"><div style="font-family:'DM Serif Display',serif;font-size:1.1rem">${p.nome} ${p.cognome}</div>
-    <div style="font-size:.77rem;color:var(--text2)">${eta?eta+' anni · ':''}${p.tel||''}${p.obiettivo?' · '+p.obiettivo:''}</div></div>
+    <div style="font-size:.77rem;color:var(--text2)">${eta?eta+' anni · ':''}${(()=>{const ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;if(!ib||!ib.bmi)return '';const b=ib.bmi;const col=b<18.5?'#3498db':b<25?'#1D9E75':b<30?'#f39c12':'#e74c3c';return '<span style="font-size:.65rem;font-weight:700;color:#fff;background:'+col+';border-radius:4px;padding:1px 6px;margin-right:4px">BMI '+b+'</span>';})()} ${p.tel||''}${p.obiettivo?' · '+p.obiettivo:''}</div></div>
     <div style="display:flex;gap:.3rem;flex-wrap:wrap">
       ${p.allergie?`<span class="tag tag-red">⚠ ${p.allergie.substring(0,25)}</span>`:''}
       ${p.inizioAlim?`<span class="tag tag-teal">Inizio: ${fData(p.inizioAlim)}</span>`:'<span class="tag tag-orange">Nessun piano</span>'}
