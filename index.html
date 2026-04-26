@@ -1721,6 +1721,8 @@ function editPaz(){
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
   const elCicl = document.getElementById('mac-ciclizzato');
   if (elCicl) elCicl.checked = p.ciclizzato || false;
+  const elRef = document.querySelector('input[name="mac-ref"][value="'+(p.rifCalcolo||'auto')+'"]');
+  if(elRef) elRef.checked = true;
   toggleOrarioNote();
   const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss('p-regime',p.regime);
@@ -2678,7 +2680,25 @@ async function avviaF1(p,apiKey){
   const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
   const kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
   const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea. Analizza i dati del paziente e produci un ragionamento completo sui macronutrienti.\n\nSTRUTTURA OBBLIGATORIA (usa esattamente questi titoli):\n\nPUNTO DI PARTENZA\nMostra: MB · LAF · TDEE · regime · delta calorico · kcal target iniziale\n\nANALISI COMPOSIZIONE CORPOREA\nCommenta massa magra, % grassa, massa viscerale, delta vs misurazione precedente. Cosa dice la composizione corporea sul piano da costruire?\n\nRAGIONAMENTO KCAL\nIl target calorico calcolato e corretto per questo paziente? Considera: contesto emotivo e motivazionale, patologie presenti, trend InBody, obiettivo peso, sostenibilita. Proponi aggiustamenti motivati se necessario.\n\nPROPOSTA MACROS\nProteine: g/kg scelto e motivazione specifica (eta, massa magra, patologie renali, sport)\nCarboidrati: calcolo residuo e commento clinico\nGrassi: g/kg scelto e motivazione\nNumeri finali chiari: Kcal: X · P: Xg · C: Xg · G: Xg\n\nFLAG CLINICI\nLista puntata di tutto cio che il medico deve tenere a mente (farmaci che interferiscono, patologie che modificano i macros, dati mancanti o vecchi)\n\nPROPOSTA ALTERNATIVA\nSolo se il profilo lo giustifica: ciclizzazione ON/OFF o altro. Altrimenti ometti questa sezione.\n\nTONO: collega clinico esperto, diretto, conciso. Ragiona su questo paziente specifico, non in modo generico.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1200,system:system,messages:[{role:'user',content:costruisciContestoPaziente(p)+'\n\nAnalizza i macronutrienti per questo paziente.'}]})});
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1200,system:system,messages:[{role:'user',content:(()=>{
+    const _ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+    const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
+    const _bmi=_ib&&_ib.bmi?parseFloat(_ib.bmi):null;
+    const _rif=p.rifCalcolo||'auto';
+    const _useFFM=_rif==='ffm'?(_ffm!==null):_rif==='peso'?false:(_ffm!==null&&_bmi!==null&&_bmi>=25);
+    const _ref=_useFFM?_ffm:(_ib?_ib.peso:(p.peso||null));
+    const _rifLabel=_useFFM?'FFM ('+_ffm+'kg)':'peso corporeo ('+_ref+'kg)';
+    const _kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
+    let extra='\n\nRIFERIMENTO CALCOLO MACROS: '+_rifLabel+(_useFFM?' — calcolo su massa magra perche BMI '+(_bmi?_bmi.toFixed(1):'')+(p.rifCalcolo==='ffm'?' (forzato dal medico)':' >= 25'):'');
+    if(_ref&&_kcalBase){
+      const _pMin=Math.round(1.6*_ref),_pMax=Math.round(2.0*_ref);
+      const _lMin=Math.round(0.8*_ref),_lMax=Math.round(1.0*_ref);
+      extra+='\nRange proteine indicativo: '+_pMin+'-'+_pMax+'g ('+Number((1.6).toFixed(1))+'-'+Number((2.0).toFixed(1))+' g/kg '+(_useFFM?'FFM':'peso')+')';
+      extra+='\nRange lipidi indicativo: '+_lMin+'-'+_lMax+'g ('+Number((0.8).toFixed(1))+'-'+Number((1.0).toFixed(1))+' g/kg '+(_useFFM?'FFM':'peso')+')';
+      extra+='\nKcal target indicativo: '+_kcalBase+' kcal (TDEE '+_ct.tdee+' + delta regime '+(_kcalBase-_ct.tdee)+')';
+    }
+    return costruisciContestoPaziente(p)+extra+'\n\nAnalizza i macronutrienti per questo paziente. Usa il riferimento '+_rifLabel+' per il calcolo di proteine e lipidi.';
+  })()}]})});
   if(!r.ok)throw new Error('F1 errore '+r.status);
   const data=await r.json();
   return data.content?.[0]?.text||'';
@@ -3509,6 +3529,7 @@ function salvaCalcoloMacros(){
   p.orarioPastoPrincipale=gs('p-orario-pasto');
   p.pesoTarget=gn('mac-peso-target');
   p.regime=gs('mac-regime');
+  p.rifCalcolo=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
   p.giorniAllenamento=['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1));
   save();
   const lafInfo=calcolaTDEE(p);
