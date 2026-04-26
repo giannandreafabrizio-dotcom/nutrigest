@@ -3622,11 +3622,19 @@ function pianoPazSelezionato(id){
     const offset=regimeOffset[p.regime]||0;
     const kcalTarget=tdee+offset;
 
-    // Macros standard
-    const protG=Math.round(1.8*peso);
-    const grassiG=Math.round(0.9*peso);
+    // Macros con logica FFM/peso coerente con calcolaMacros
+    const ffm=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
+    const bmi=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
+    const rifCalcolo=p.rifCalcolo||'auto';
+    const useFFM=rifCalcolo==='ffm'?(ffm!==null):rifCalcolo==='peso'?false:(ffm!==null&&bmi!==null&&bmi>=25);
+    const ref=useFFM?ffm:peso;
+    const refLabel=useFFM?'FFM':'peso';
+    const refColor=useFFM?'#185FA5':'#3B6D11';
+    const protG=Math.round(1.8*ref);
+    const grassiG=Math.round(0.9*ref);
     const kcalProt=protG*4;const kcalGrassi=grassiG*9;
     const carbG=Math.max(0,Math.round((kcalTarget-kcalProt-kcalGrassi)/4));
+    const ciclizzatoBadge=p.ciclizzato?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">Piano ciclizzato attivo — giorni ON/OFF</div>':'';
 
     macrosEl.innerHTML=`
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
@@ -3642,18 +3650,19 @@ function pianoPazSelezionato(id){
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Proteine</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${protG}g</div>
-        <div style="font-size:.65rem;color:var(--text3);">1.8 g/kg · ${kcalProt} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">1.8 g/kg ${refLabel} · ${kcalProt} kcal</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Carboidrati</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${carbG}g</div>
-        <div style="font-size:.65rem;color:var(--text3);">${(carbG/peso).toFixed(1)} g/kg · ${carbG*4} kcal</div>
+        <div style="font-size:.65rem;color:var(--text3);">${(carbG/ref).toFixed(1)} g/kg · ${carbG*4} kcal</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;grid-column:span 2;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Grassi</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
-        <div style="font-size:.65rem;color:var(--text3);">0.9 g/kg · ${kcalGrassi} kcal</div>
-      </div>`;
+        <div style="font-size:.65rem;color:${refColor};">0.9 g/kg ${refLabel} · ${kcalGrassi} kcal</div>
+      </div>
+      ${ciclizzatoBadge}`;
 
     btn.disabled=false;btn.style.background='var(--green)';btn.style.cursor='pointer';
   }
@@ -3823,8 +3832,13 @@ function costruisciPrompt(pazienteId) {
       'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
       'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
     kcalTarget = _ct.tdee + (regOff[p.regime] || 0);
-    protG = Math.round(1.8 * peso);
-    grassiG = Math.round(0.9 * peso);
+    var _ffmP=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
+    var _bmiP=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
+    var _rifP=p.rifCalcolo||'auto';
+    var _useFFMP=_rifP==='ffm'?(_ffmP!==null):_rifP==='peso'?false:(_ffmP!==null&&_bmiP!==null&&_bmiP>=25);
+    var _refP=_useFFMP?_ffmP:peso;
+    protG = Math.round(1.8 * _refP);
+    grassiG = Math.round(0.9 * _refP);
     carbG = Math.max(0, Math.round((kcalTarget - protG*4 - grassiG*9) / 4));
   }
   // Override con ragionamento clinico se presente
@@ -3866,7 +3880,7 @@ PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
 Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
 Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'} | Budget: ${p.economica||'N/D'}
-${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
+${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra (FFM) ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'} · Riferimento macros: ${_useFFMP?`FFM (${_ffmP}kg)`:`peso corporeo (${peso}kg)`}`:'INBODY: dati non disponibili'}
 ${(p.giorniAllenamento||[]).length?`Giorni ON: ${p.giorniAllenamento.join(', ')} | Giorni OFF: ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].filter(g=>!(p.giorniAllenamento||[]).includes(g)).join(', ')||'nessuno'}`:''}
 ${(p.oreAllenamento||p.tipoAllenamento||p.intensitaAllenamento)?`Allenamento: ${p.tipoAllenamento||'—'} · intensità ${p.intensitaAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett. · orario ${p.orarioAllenamento||'—'}${p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' ('+p.orarioAllenamentoNote+')':''}`:''}
 ${(p.cronotipo||p.orarioPastoPrincipale)?`Cronotipo: ${p.cronotipo||'—'} | Pasto principale: ${p.orarioPastoPrincipale||'—'}`:''}
