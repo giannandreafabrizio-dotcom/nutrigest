@@ -252,7 +252,7 @@ main{flex:1;overflow-y:auto;}
   .aside-foot{display:none;}
   .dash-2col{grid-template-columns:1fr!important;}
 }
-#p2-ric-panel.open { transform: translateX(0); }
+#p2-ric-panel.open { transform: translateX(0) !important; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -5998,11 +5998,15 @@ function apriPannelloRicette(giorno, slotKey) {
     }).join('');
   }
   panel.classList.add('open');
+  panel.style.transform = 'translateX(0)';
 }
 
 function chiudiPannelloRicette() {
   var panel = document.getElementById('p2-ric-panel');
-  if (panel) panel.classList.remove('open');
+  if (panel) {
+    panel.classList.remove('open');
+    panel.style.transform = 'translateX(100%)';
+  }
 }
 
 function applicaRicettaPasto(ricettaId) {
