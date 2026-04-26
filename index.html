@@ -252,6 +252,7 @@ main{flex:1;overflow-y:auto;}
   .aside-foot{display:none;}
   .dash-2col{grid-template-columns:1fr!important;}
 }
+#p2-ric-panel.open { transform: translateX(0); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -5944,7 +5945,7 @@ function renderPianoBox(piano) {
       var pasto = g[k];
       if (!pasto) return;
       html += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
-      html += '<span style="font-weight:700;color:var(--green);">' + labels[k] + '</span>';
+      html += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+g.giorno+'\',\''+k+'\')">' + labels[k] + '</span>';
       if (typeof pasto === 'string') {
         html += ' — ' + pasto;
       } else {
@@ -5969,6 +5970,43 @@ function renderPianoBox(piano) {
   });
   html += '</div>';
   pianoEl.innerHTML = html;
+}
+
+function apriPannelloRicette(giorno, slotKey) {
+  var slotLabels = {colazione:'Colazione',spuntino_mattina:'Spuntino mattina',pranzo:'Pranzo',spuntino_pomeriggio:'Spuntino pomeriggio',cena:'Cena',pre_nanna:'Pre-nanna'};
+  var catMap = {colazione:'colazione',spuntino_mattina:'spuntino',pranzo:'pranzo',spuntino_pomeriggio:'spuntino',cena:'cena',pre_nanna:'pre_nanna'};
+  var cat = catMap[slotKey] || slotKey;
+  var panel = document.getElementById('p2-ric-panel');
+  var listEl = document.getElementById('p2-ric-list');
+  var slotEl = document.getElementById('p2-ric-slot-label');
+  if (!panel || !listEl) return;
+  window._p2RicSlot = slotKey;
+  window._p2RicGiorno = giorno;
+  if (slotEl) slotEl.textContent = giorno + ' — ' + (slotLabels[slotKey] || slotKey);
+  var ricette = (db.ricette||[]).filter(function(r){ return (r.cat||'').toLowerCase() === cat; });
+  if (!ricette.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:2rem 1rem;font-size:.8rem;color:var(--text2)">Nessuna ricetta per questo slot.<br>Aggiungile dalla sezione Ricette.</div>';
+  } else {
+    listEl.innerHTML = ricette.map(function(r){
+      return '<div style="padding:.7rem .9rem;border-radius:8px;border:1px solid var(--border);margin-bottom:.5rem;cursor:pointer;" onclick="applicaRicettaPasto(\''+r.id+'\')">'
+        +'<div style="font-size:.82rem;font-weight:500;color:var(--text)">'+r.nome+'</div>'
+        +(r.ing?'<div style="font-size:.72rem;color:var(--text2);margin-top:2px">'+r.ing.substring(0,80)+'...</div>':'')
+        +'</div>';
+    }).join('');
+  }
+  panel.classList.add('open');
+}
+
+function chiudiPannelloRicette() {
+  var panel = document.getElementById('p2-ric-panel');
+  if (panel) panel.classList.remove('open');
+}
+
+function applicaRicettaPasto(ricettaId) {
+  var r = (db.ricette||[]).find(function(x){ return x.id === ricettaId; });
+  if (!r || !window._p2RicSlot || !window._p2RicGiorno) return;
+  chiudiPannelloRicette();
+  notif('✓ Ricetta applicata: ' + r.nome);
 }
 
 function inizializzaP2(piano) {
@@ -6218,5 +6256,13 @@ document.getElementById('p2-save').onclick = async function() {
   notif('✓ Piano salvato definitivamente');
 };
 </script>
+<div id="p2-ric-panel" style="position:fixed;top:0;right:0;bottom:0;width:300px;background:var(--s1);border-left:1px solid var(--border);z-index:1000;display:flex;flex-direction:column;box-shadow:-4px 0 20px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .25s ease;">
+  <div style="padding:1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-size:.85rem;font-weight:600;color:var(--text)">📖 Ricette compatibili</div>
+    <button onclick="chiudiPannelloRicette()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text2);">✕</button>
+  </div>
+  <div id="p2-ric-slot-label" style="font-size:.7rem;color:var(--teal);font-weight:500;text-transform:uppercase;letter-spacing:.6px;padding:.4rem 1rem;background:var(--teal-bg);border-bottom:1px solid var(--border);"></div>
+  <div id="p2-ric-list" style="flex:1;overflow-y:auto;padding:.6rem;"></div>
+</div>
 </body>
 </html>
