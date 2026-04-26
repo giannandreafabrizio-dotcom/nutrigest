@@ -3442,10 +3442,17 @@ function calcolaMacros(){
   const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
   const {laf,mb,peso}=calcolaTDEE(_macrosPaziente);
   if(!mb||!peso){notif('⚠ Nessun dato InBody disponibile');return;}
+  const lastIb=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
+  const ffm=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
+  const bmi=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
+  const useFFM=ffm!==null&&bmi!==null&&bmi>=25;
+  const ref=useFFM?ffm:peso;
+  const refLabel=useFFM?'FFM ('+ffm+'kg)':'peso ('+peso+'kg)';
+  const refColor=useFFM?'#185FA5':'#3B6D11';
   const tdee=+(mb*laf).toFixed(0);
   const kcalObj=tdee+obj;
-  const protG=+(prot*peso).toFixed(0);
-  const grassiG=+(grassi*peso).toFixed(0);
+  const protG=+(prot*ref).toFixed(0);
+  const grassiG=+(grassi*ref).toFixed(0);
   const kcalProt=protG*4;const kcalGrassi=grassiG*9;
   const kcalCarb=Math.max(0,kcalObj-kcalProt-kcalGrassi);
   const carbG=+(kcalCarb/4).toFixed(0);
@@ -3453,11 +3460,12 @@ function calcolaMacros(){
     <div class="macro-result">
       <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
         MB: ${mb} kcal × LAF ${laf} = TDEE <strong>${tdee} kcal</strong> → Obiettivo: <strong>${kcalObj} kcal</strong>
+        <span style="margin-left:8px;font-size:.65rem;font-weight:500;padding:2px 7px;border-radius:4px;background:${useFFM?'#E6F1FB':'#EAF3DE'};color:${refColor}">calcolato su ${refLabel}</span>
       </div>
       <div class="macro-grid">
-        <div class="macro-item"><div class="macro-lbl">Proteine</div><div class="macro-val">${protG}g</div><div style="font-size:.62rem;color:var(--text3)">${prot} g/kg · ${kcalProt} kcal</div></div>
-        <div class="macro-item"><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${(carbG/peso).toFixed(1)} g/kg · ${kcalCarb} kcal</div></div>
-        <div class="macro-item"><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:var(--text3)">${grassi} g/kg · ${kcalGrassi} kcal</div></div>
+        <div class="macro-item"><div class="macro-lbl">Proteine</div><div class="macro-val">${protG}g</div><div style="font-size:.62rem;color:${refColor}">${prot} g/kg · ${kcalProt} kcal</div></div>
+        <div class="macro-item"><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${(carbG/ref).toFixed(1)} g/kg · ${kcalCarb} kcal</div></div>
+        <div class="macro-item"><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:${refColor}">${grassi} g/kg · ${kcalGrassi} kcal</div></div>
         <div class="macro-item"><div class="macro-lbl">Totale kcal</div><div class="macro-val" style="font-size:.9rem">${kcalObj}</div><div style="font-size:.62rem;color:var(--text3)">Obiettivo giornaliero</div></div>
       </div>
     </div>`;
