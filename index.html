@@ -4252,7 +4252,7 @@ async function generaPiano(){
         var pasto = g[s.key] || (g.pasti && g.pasti[s.key]);
         if (!pasto) return;
         aiHtml += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
-        aiHtml += '<span style="font-weight:700;color:var(--green);">' + s.label + '</span>';
+        aiHtml += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+g.giorno+'\',\''+s.key+'\')">' + s.label + '</span>';
         if (typeof pasto === 'string') {
           aiHtml += ' — ' + pasto;
         } else {
