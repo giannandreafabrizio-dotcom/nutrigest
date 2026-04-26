@@ -727,7 +727,7 @@ main{flex:1;overflow-y:auto;}
   <!-- DATI -->
   <div class="tab-panel active" id="tp-dati">
     <div class="fr"><div class="fg"><label>Nome *</label><input id="p-nome"></div><div class="fg"><label>Cognome *</label><input id="p-cognome"></div></div>
-    <div class="fr"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita"></div><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
+    <div class="fr"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita" onchange="aggiornaEta()"><span id="p-eta-calc" style="font-size:.72rem;color:var(--teal);margin-top:2px;display:block"></span></div><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
     <div class="fr3">
       <div class="fg"><label>BIA — Condizione</label>
         <select id="p-bia">
@@ -1620,6 +1620,7 @@ function goTo(name,btn){
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
 function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));document.getElementById('tp-'+name).classList.add('active');btn.classList.add('active');}
+function aggiornaEta(){const v=document.getElementById("p-nascita")?.value;const el=document.getElementById("p-eta-calc");if(!el)return;if(!v){el.textContent="";return;}const eta=Math.floor((new Date()-new Date(v))/31557600000);el.textContent=eta>=0&&eta<120?eta+" anni":"";}
 function toggleOrarioNote(){const fg=document.getElementById('p-orario-all-note-fg');const sel=document.getElementById('p-orario-all');if(fg)fg.style.display=(sel&&sel.value==='Variabile')?'block':'none';}
 function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');}
 function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),dur);}
