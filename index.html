@@ -5973,6 +5973,9 @@ function renderPianoBox(piano) {
 }
 
 function apriPannelloRicette(giorno, slotKey) {
+  console.log('[P2] apriPannelloRicette chiamata — giorno:', giorno, 'slot:', slotKey);
+  console.log('[P2] ricette nel db:', (db.ricette||[]).length);
+  console.log('[P2] panel element:', document.getElementById('p2-ric-panel'));
   var slotLabels = {colazione:'Colazione',spuntino_mattina:'Spuntino mattina',pranzo:'Pranzo',spuntino_pomeriggio:'Spuntino pomeriggio',cena:'Cena',pre_nanna:'Pre-nanna'};
   var catMap = {colazione:'colazione',spuntino_mattina:'spuntino',pranzo:'pranzo',spuntino_pomeriggio:'spuntino',cena:'cena',pre_nanna:'pre_nanna'};
   var cat = catMap[slotKey] || slotKey;
