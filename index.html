@@ -3682,6 +3682,8 @@ function pianoPazSelezionato(id){
     return;
   }
   const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+  document.getElementById('piano-regole-box').style.display='block';
+  caricaRegolePiano(p);
 
   // Dati InBody
   const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
