@@ -602,6 +602,97 @@ main{flex:1;overflow-y:auto;}
       <div id="piano-storico-rapido-list"></div>
     </div>
 
+    <!-- REGOLE PIANO -->
+    <div id="piano-regole-box" style="display:none;margin-bottom:1rem;">
+      <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;">
+        <div onclick="toggleRegolePiano()" style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.1rem;cursor:pointer;background:var(--teal-bg);border-bottom:1px solid var(--teal-light);">
+          <span style="font-size:.78rem;font-weight:600;color:var(--teal);">⚙ Regole del piano</span>
+          <span id="piano-regole-arrow" style="font-size:.75rem;color:var(--teal);">▼</span>
+        </div>
+        <div id="piano-regole-content" style="display:none;padding:1rem 1.1rem;">
+
+          <!-- SEZIONE 1: Frequenze settimanali -->
+          <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Frequenze settimanali</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .8rem;margin-bottom:1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🐟 Pesce</span>
+              <select id="rp-pesce" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2" selected>2×/sett</option><option value="3">3×/sett</option><option value="4">4×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🍗 Carne bianca</span>
+              <select id="rp-carnebianca" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2">2×/sett</option><option value="3" selected>3×/sett</option><option value="4">4×/sett</option><option value="5">5×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🥩 Carne rossa</span>
+              <select id="rp-carnerossa" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🥚 Uova</span>
+              <select id="rp-uova" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2" selected>2×/sett</option><option value="3">3×/sett</option><option value="4">4×/sett</option><option value="5">5×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🥗 Affettati magri</span>
+              <select id="rp-affettati" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🧀 Latticini</span>
+              <select id="rp-latticini" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🫘 Legumi</span>
+              <select id="rp-legumi" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2">2×/sett</option><option value="3" selected>3×/sett</option><option value="4">4×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🐟 Pesce conservato</span>
+              <select id="rp-pesceconsv" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- SEZIONE 2: Regole strutturali -->
+          <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Regole strutturali</div>
+          <div style="display:flex;flex-direction:column;gap:.45rem;margin-bottom:1rem;">
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-legumi135" checked onchange="salvaRegolePiano()"> Legumi lun/mer/ven a pranzo</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-sabatolibero" checked onchange="salvaRegolePiano()"> Sabato cena libera (usa scelta paziente)</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-rotazione" checked onchange="salvaRegolePiano()"> Rotazione proteine (no ripetizioni consecutive)</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-verdura200" checked onchange="salvaRegolePiano()"> Verdura 200g fissa a pranzo e cena</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-frsecca" onchange="salvaRegolePiano()"> Frutta secca 20g quotidiana</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-cenaleggera" onchange="salvaRegolePiano()"> Cena leggera (no carboidrati complessi)</label>
+          </div>
+          <div style="margin-bottom:1rem;">
+            <label style="font-size:.72rem;color:var(--text3);display:block;margin-bottom:.3rem;">Note posizionamento uova (opzionale)</label>
+            <input type="text" id="rp-uova-note" placeholder="es. Martedi pranzo 2 uova, Venerdi pranzo 2 uova" oninput="salvaRegolePiano()" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.76rem;background:var(--bg);">
+          </div>
+
+          <!-- SEZIONE 3: Adattamenti clinici -->
+          <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Adattamenti clinici</div>
+          <div style="display:flex;flex-direction:column;gap:.45rem;">
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-ibs" onchange="salvaRegolePiano()"> Profilo IBS / Colon irritabile (low FODMAP)</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-antinf" onchange="salvaRegolePiano()"> Profilo antinfiammatorio</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-stip" onchange="salvaRegolePiano()"> Profilo antistitichezza</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-ipert" onchange="salvaRegolePiano()"> Profilo ipertensione (sale ridotto, no affettati)</label>
+            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-pcos" onchange="salvaRegolePiano()"> Profilo PCOS / insulino-resistenza</label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
     <!-- Pulsante Genera Piano -->
     <div style="text-align:center;padding-top:.4rem;">
       <button id="piano-btn-genera" class="btn" disabled
@@ -3576,14 +3667,14 @@ function renderPianoPage(){
   });
   if(prev){sel.value=prev;pianoPazSelezionato(prev);}
   else{
-    document.getElementById('piano-paz-info').style.display='none';
+    document.getElementById('piano-regole-box').style.display='none';document.getElementById('piano-paz-info').style.display='none';
     const btn=document.getElementById('piano-btn-genera');
     btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
   }
 }
 
 function pianoPazSelezionato(id){
-  const info=document.getElementById('piano-paz-info');
+  document.getElementById('piano-regole-box').style.display='block';caricaRegolePiano(p);const info=document.getElementById('piano-paz-info');
   const btn=document.getElementById('piano-btn-genera');
   if(!id){
     info.style.display='none';
@@ -3907,6 +3998,45 @@ Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
 Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
 ${!p.ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento e OFF ai giorni di riposo del paziente.'}
 
+REGOLE PERSONALIZZATE MEDICO
+${(function(){
+  var r=p.regolePiano||{};
+  var righe=[];
+  var pesce=r.pesce!==undefined?r.pesce:2;
+  var carnebianca=r.carnebianca!==undefined?r.carnebianca:3;
+  var carnerossa=r.carnerossa!==undefined?r.carnerossa:1;
+  var uova=r.uova!==undefined?r.uova:2;
+  var affettati=r.affettati!==undefined?r.affettati:1;
+  var latticini=r.latticini!==undefined?r.latticini:1;
+  var legumi=r.legumi!==undefined?r.legumi:3;
+  var pesceconsv=r.pesceconsv!==undefined?r.pesceconsv:1;
+  righe.push('Pesce fresco: '+pesce+'x/settimana');
+  righe.push('Carne bianca (pollo/tacchino/coniglio): '+carnebianca+'x/settimana');
+  righe.push('Carne rossa: '+carnerossa+'x/settimana');
+  righe.push('Uova: '+uova+'x/settimana');
+  righe.push('Affettati magri (bresaola/prosciutto crudo sgrassato/tacchino): '+affettati+'x/settimana');
+  righe.push('Latticini (formaggi): '+latticini+'x/settimana');
+  righe.push('Legumi: '+legumi+'x/settimana');
+  righe.push('Pesce conservato (tonno/sgombro al naturale): '+pesceconsv+'x/settimana');
+  var legumi135=r.legumi135!==undefined?r.legumi135:true;
+  var sabatolibero=r.sabatolibero!==undefined?r.sabatolibero:true;
+  var rotazione=r.rotazione!==undefined?r.rotazione:true;
+  var verdura200=r.verdura200!==undefined?r.verdura200:true;
+  if(legumi135)righe.push('Legumi posizionati nei giorni Lunedi/Mercoledi/Venerdi a pranzo');
+  if(sabatolibero)righe.push('Sabato cena libera: '+( p.weekend||'pizza'));
+  if(rotazione)righe.push('Rotazione proteine: non ripetere la stessa proteina principale due giorni di fila');
+  if(verdura200)righe.push('Verdura sempre 200g a pranzo e a cena — usa le verdure selezionate nelle preferenze alimenti');
+  if(r.frsecca)righe.push('Frutta secca 20g ogni giorno (a colazione o spuntino)');
+  if(r.cenaleggera)righe.push('Cena leggera: nessun carboidrato complesso a cena, solo proteina + verdura + grassi');
+  if(r.uovanote)righe.push('Posizionamento uova specificato dal medico: '+r.uovanote);
+  if(r.ibs)righe.push('PROFILO IBS/COLON IRRITABILE: applica schema low FODMAP — escludi aglio e cipolla crudi, legumi in eccesso, latticini ad alto lattosio, fruttosio in eccesso');
+  if(r.antinf)righe.push('PROFILO ANTINFIAMMATORIO: privilegia omega-3 (pesce azzurro, salmone, noci), curcuma, zenzero, olio EVO — riduci zuccheri aggiunti e grassi saturi');
+  if(r.stip)righe.push('PROFILO ANTISTITICHEZZA: inserisci kiwi a colazione, prugne, alimenti integrali, alto contenuto di fibre');
+  if(r.ipert)righe.push('PROFILO IPERTENSIONE: sale ridotto, nessun affettato, nessun formaggio stagionato');
+  if(r.pcos)righe.push('PROFILO PCOS/INSULINO-RESISTENZA: carboidrati a basso indice glicemico, distribuiti nei pasti, evita zuccheri semplici');
+  return righe.join('\n');
+})()}
+
 3 ALTERNATIVE PRANZO E CENA
 Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
 Colazione, spuntini, pre-nanna: formato unico, nessuna alternativa.
@@ -3915,6 +4045,53 @@ OUTPUT: SOLO JSON valido, nessun testo prima o dopo.
 [{"g":"Lunedì ON","macros":{"kcal":0,"proteine":0,"carboidrati":0,"grassi":0},"col":{"p1":{"n":"","g":0},"p2":{"n":"","g":0}},"sm":{"p1":{"n":"","g":0}},"pr":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"sp":{"p1":{"n":"","g":0}},"ce":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0}],[{"n":"","g":0},{"n":"","g":0}]]},"pn":{"p1":{"n":"","g":0}}}]
 
 Prima ricetta alt = verde, seconda = arancione. Includi pn solo se previsto. Includi sm/sp solo se previsti. p2 null se non esiste. Il campo macros deve contenere i valori reali calcolati per quel giorno (kcal totali, proteine g, carboidrati g, grassi g).`;
+}
+
+function toggleRegolePiano(){
+  const box=document.getElementById('piano-regole-content');
+  const arrow=document.getElementById('piano-regole-arrow');
+  if(!box)return;
+  const vis=box.style.display==='block';
+  box.style.display=vis?'none':'block';
+  if(arrow)arrow.textContent=vis?'▼':'▲';
+}
+
+function salvaRegolePiano(){
+  const pazId=document.getElementById('piano-select-paz')?.value;
+  if(!pazId)return;
+  const p=(db.pazienti||[]).find(x=>x.id===pazId);
+  if(!p)return;
+  const gv=id=>{const el=document.getElementById(id);return el?parseInt(el.value)||0:0;};
+  const gc=id=>{const el=document.getElementById(id);return el?el.checked:false;};
+  const gt=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  p.regolePiano={
+    pesce:gv('rp-pesce'),carnebianca:gv('rp-carnebianca'),carnerossa:gv('rp-carnerossa'),
+    uova:gv('rp-uova'),affettati:gv('rp-affettati'),latticini:gv('rp-latticini'),
+    legumi:gv('rp-legumi'),pesceconsv:gv('rp-pesceconsv'),
+    legumi135:gc('rp-legumi135'),sabatolibero:gc('rp-sabatolibero'),
+    rotazione:gc('rp-rotazione'),verdura200:gc('rp-verdura200'),
+    frsecca:gc('rp-frsecca'),cenaleggera:gc('rp-cenaleggera'),
+    uovanote:gt('rp-uova-note'),
+    ibs:gc('rp-ibs'),antinf:gc('rp-antinf'),stip:gc('rp-stip'),
+    ipert:gc('rp-ipert'),pcos:gc('rp-pcos')
+  };
+  salvaPaz(true);
+}
+
+function caricaRegolePiano(p){
+  const r=p.regolePiano||{};
+  const sv=(id,v,def)=>{const el=document.getElementById(id);if(el)el.value=(v!==undefined?v:def);};
+  const sc=(id,v,def)=>{const el=document.getElementById(id);if(el)el.checked=(v!==undefined?v:def);};
+  const st=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
+  sv('rp-pesce',r.pesce,2);sv('rp-carnebianca',r.carnebianca,3);sv('rp-carnerossa',r.carnerossa,1);
+  sv('rp-uova',r.uova,2);sv('rp-affettati',r.affettati,1);sv('rp-latticini',r.latticini,1);
+  sv('rp-legumi',r.legumi,3);sv('rp-pesceconsv',r.pesceconsv,1);
+  sc('rp-legumi135',r.legumi135,true);sc('rp-sabatolibero',r.sabatolibero,true);
+  sc('rp-rotazione',r.rotazione,true);sc('rp-verdura200',r.verdura200,true);
+  sc('rp-frsecca',r.frsecca,false);sc('rp-cenaleggera',r.cenaleggera,false);
+  st('rp-uova-note',r.uovanote);
+  sc('rp-ibs',r.ibs,false);sc('rp-antinf',r.antinf,false);sc('rp-stip',r.stip,false);
+  sc('rp-ipert',r.ipert,false);sc('rp-pcos',r.pcos,false);
 }
 
 function getAnthropicKey() {
