@@ -232,7 +232,7 @@ main{flex:1;overflow-y:auto;}
 .disp-btn.magic{border-color:#2a7d6f;color:#2a7d6f;}.disp-btn.magic.active{background:#2a7d6f;color:#fff;}
 .disp-btn.curae{border-color:#d4a020;color:#d4a020;}.disp-btn.curae.active{background:#d4a020;color:#fff;}
 /* NOTIF */
-.notif{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.65rem 1.1rem;border-radius:10px;font-size:.78rem;z-index:1000;animation:slideIn .3s ease;box-shadow:var(--shadow2);}
+.notif{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.65rem 1.1rem;border-radius:10px;font-size:.78rem;z-index:1000;box-shadow:var(--shadow2);animation:notifIn .25s ease forwards;}@keyframes notifIn{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}.notif.hide{animation:notifOut .25s ease forwards;}@keyframes notifOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.93)}}
 @keyframes slideIn{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 /* EMPTY */
 .empty{text-align:center;padding:2.5rem 1rem;color:var(--text3);}
@@ -1714,7 +1714,7 @@ function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.cla
 function aggiornaEta(){const v=document.getElementById("p-nascita")?.value;const el=document.getElementById("p-eta-calc");if(!el)return;if(!v){el.textContent="";return;}const eta=Math.floor((new Date()-new Date(v))/31557600000);el.textContent=eta>=0&&eta<120?eta+" anni":"";}
 function toggleOrarioNote(){const fg=document.getElementById('p-orario-all-note-fg');const sel=document.getElementById('p-orario-all');if(fg)fg.style.display=(sel&&sel.value==='Variabile')?'block':'none';}
 function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');}
-function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),dur);}
+function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>{el.classList.add('hide');setTimeout(()=>el.remove(),250);},dur);}
 
 // ════════════════════════════════════════════════════════════════
 // PAZIENTI
