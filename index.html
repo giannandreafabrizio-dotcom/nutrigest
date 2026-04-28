@@ -6367,7 +6367,7 @@ function renderAnteprima(patch) {
   document.getElementById('p2-preview-content').innerHTML = html;
 }
 
-async async function chiamaAICorrezione(testoRichiesta) {
+async function chiamaAICorrezione(testoRichiesta) {
   var apiKey = localStorage.getItem('anthropicApiKey');
   if (!apiKey) { notif('⚠ API key mancante'); return null; }
   var id = document.getElementById('piano-select-paz').value;
