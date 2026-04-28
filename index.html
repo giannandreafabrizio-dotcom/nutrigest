@@ -420,7 +420,7 @@ main{flex:1;overflow-y:auto;}
     <button class="btn btn-p" onclick="openNuovoPaz()">+ Nuovo paziente</button>
   </div>
   <div class="sbar">
-    <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="renderPaz()">
+    <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="debounceRicerca()">
     <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select><select id="sort-paz" onchange="renderPaz()"><option value="cognome">A→Z</option><option value="recenti">Più recenti</option></select>
   </div>
   <div class="paz-grid" id="paz-grid"></div>
@@ -1719,6 +1719,7 @@ function notif(msg,dur=2500){const el=document.createElement('div');el.className
 // ════════════════════════════════════════════════════════════════
 // PAZIENTI
 // ════════════════════════════════════════════════════════════════
+var _debRicTimer=null;function debounceRicerca(){  clearTimeout(_debRicTimer);  _debRicTimer=setTimeout(renderPaz,200);}
 function renderPaz(){
   const q=(document.getElementById('s-paz').value||'').toLowerCase();
   const f=document.getElementById('f-paz').value;
