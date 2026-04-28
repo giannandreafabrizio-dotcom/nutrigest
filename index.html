@@ -4750,6 +4750,7 @@ function generaPDF(paziente, giorni) {
         doc.setTextColor(...NERO);
         doc.text(p2.nome || '', M + colW + 2, y);
         if (p2.grammi != null) { doc.setTextColor(...VERDE); doc.text(p2.grammi + 'g', W - M - 1, y, { align: 'right' }); }
+        if (olioEvo) { doc.setTextColor(...VERDE); doc.text((olioEvo.nome||'Olio EVO') + ' ' + (olioEvo.grammi||olioEvo.g||'') + 'g', M + colW + 2, y); doc.setTextColor(...NERO); }
         y += 5;
 
         doc.setDrawColor(...GRIGIO);
