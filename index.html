@@ -6232,6 +6232,7 @@ function renderPianoBox(piano) {
         var p1 = pasto.principale1, p2 = pasto.principale2;
         if (p1) html += '<br><strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
         if (p2) html += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
+        if ((k==='pranzo'||k==='cena') && pasto.olio) html += ' &nbsp;·&nbsp; <strong>' + (pasto.olio.nome||'Olio EVO') + '</strong> ' + (pasto.olio.grammi||pasto.olio.g||'') + 'g';
         if (pasto.alternative && pasto.alternative.length) {
           var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
           html += '<br>';
