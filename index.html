@@ -6291,6 +6291,31 @@ function chiudiPannelloRicette() {
 function applicaRicettaPasto(ricettaId) {
   var r = (db.ricette||[]).find(function(x){ return x.id === ricettaId; });
   if (!r || !window._p2RicSlot || !window._p2RicGiorno) return;
+  var slotKey = window._p2RicSlot;
+  var giorno = window._p2RicGiorno;
+  if (!window._pianoCorrente) { chiudiPannelloRicette(); return; }
+  var nuovoPiano = deepClone(window._pianoCorrente);
+  var giornoObj = nuovoPiano.find(function(g){ return g.giorno === giorno; });
+  if (!giornoObj) { chiudiPannelloRicette(); return; }
+  var pastoAttuale = giornoObj[slotKey] || {};
+  var nuovoPasto = deepClone(pastoAttuale);
+  var ingredienti = (r.ing||'').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  if (ingredienti.length >= 1) {
+    var p1parts = ingredienti[0].match(/^(.+?)\s*(\d+)g?$/);
+    if (p1parts) nuovoPasto.principale1 = {nome: p1parts[1].trim(), grammi: parseInt(p1parts[2])};
+    else nuovoPasto.principale1 = {nome: ingredienti[0], grammi: nuovoPasto.principale1 ? nuovoPasto.principale1.grammi : 100};
+  }
+  if (ingredienti.length >= 2) {
+    var p2parts = ingredienti[1].match(/^(.+?)\s*(\d+)g?$/);
+    if (p2parts) nuovoPasto.principale2 = {nome: p2parts[1].trim(), grammi: parseInt(p2parts[2])};
+    else nuovoPasto.principale2 = {nome: ingredienti[1], grammi: nuovoPasto.principale2 ? nuovoPasto.principale2.grammi : 100};
+  }
+  nuovoPasto.nota_descrittiva = r.nome || '';
+  giornoObj[slotKey] = nuovoPasto;
+  window._storicoPiani.push(deepClone(window._pianoCorrente));
+  window._pianoCorrente = nuovoPiano;
+  renderPianoBox(nuovoPiano);
+  document.getElementById('p2-save').style.display = 'block';
   chiudiPannelloRicette();
   notif('✓ Ricetta applicata: ' + r.nome);
 }
