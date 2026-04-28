@@ -6219,8 +6219,9 @@ function renderPianoBox(piano) {
   var html = '<div style="margin-top:1.5rem;">';
   (piano||[]).forEach(function(g) {
     html += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
-    html += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;">' + g.giorno + '</div>';
+    html += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;cursor:pointer;" onclick="this.nextElementSibling.querySelector(\'.macros-box\').style.display=this.nextElementSibling.querySelector(\'.macros-box\').style.display===\'none\'?\'block\':\'none\'">' + g.giorno + ' <span style="font-size:.7rem;opacity:.7">▼ macros</span></div>';
     html += '<div style="padding:.8rem 1rem;">';
+    var macHtml=''; if(g.macros&&g.macros.kcal){macHtml='<div class="macros-box" style="display:none;background:#f0faf6;border-radius:6px;padding:.5rem .8rem;margin-bottom:.6rem;font-size:.76rem;"><div style="font-weight:700;color:var(--teal);margin-bottom:.3rem;">Macros giornalieri</div><div>Kcal: '+Math.round(g.macros.kcal)+'</div><div>Proteine: '+Math.round(g.macros.proteine)+'g</div><div>Carboidrati: '+Math.round(g.macros.carboidrati)+'g</div><div>Grassi: '+Math.round(g.macros.grassi)+'g</div></div>';} html+=macHtml;
     ks.forEach(function(k) {
       var pasto = g[k];
       if (!pasto) return;
