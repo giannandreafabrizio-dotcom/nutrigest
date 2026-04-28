@@ -4562,6 +4562,8 @@ async function generaPiano(){
     btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
     btnPdf.onclick = function() { generaPDF(p, pianoAI); };
     pianoEl.appendChild(btnPdf);
+    window._pdfPaziente = p;
+    window._pdfPiano = pianoAI;
 
     window._pianoCorrente = pianoAI;
     window._storicoPiani = [];
@@ -6249,6 +6251,14 @@ function renderPianoBox(piano) {
   });
   html += '</div>';
   pianoEl.innerHTML = html;
+  // Ripristina pulsante PDF se esiste il piano
+  if(window._pdfPaziente && window._pdfPiano){
+    var _btnPdf=document.createElement('button');
+    _btnPdf.textContent='📄 Scarica Piano PDF';
+    _btnPdf.style.cssText='margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    _btnPdf.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
+    pianoEl.appendChild(_btnPdf);
+  }
 }
 
 function apriPannelloRicette(giorno, slotKey) {
