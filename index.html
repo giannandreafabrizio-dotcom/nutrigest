@@ -3982,7 +3982,7 @@ ${p.circonferenzaPolso?`Polso: ${p.circonferenzaPolso} cm`:''}
 Spuntini: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'} | Pre-nanna: ${p.prenanna==='si'?'Sì':'No'}
 
 GRAMMATURE FISSE
-Verdura: 200g/pasto | Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo (gg 1-3-5 pranzo): 120g | Frutta secca: 20g
+Verdura: 200g/pasto | Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g${((p.regolePiano&&p.regolePiano.legumi!==undefined?p.regolePiano.legumi:3)>0)? " | Legumi barattolo: 120g":""} | Frutta secca: 20g
 
 ALIMENTI (usa SOLO questi)
 Verdi: ${alimentiVerdi.length ? alimentiVerdi.join(', ') : 'nessuno specificato'}
@@ -3997,7 +3997,7 @@ ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
   return (p.giorniAllenamento||[]).length ? n+(isON?' ON':' OFF') : n;
 }).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
-Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi
+${(function(){var _rp=p.regolePiano||{};var _leg=_rp.legumi!==undefined?_rp.legumi:3;if(_leg===0)return "Tutti i giorni pranzo: proteina principale senza legumi";if(_rp.legumi135!==false)return "Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi";return "Legumi "+_leg+"x/settimana distribuiti a pranzo nei giorni scelti";})()} 
 ${!p.ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento e OFF ai giorni di riposo del paziente.'}
 
 REGOLE PERSONALIZZATE MEDICO
@@ -4018,7 +4018,7 @@ ${(function(){
   righe.push('Uova: '+uova+'x/settimana');
   righe.push('Affettati magri (bresaola/prosciutto crudo sgrassato/tacchino): '+affettati+'x/settimana');
   righe.push('Latticini (formaggi): '+latticini+'x/settimana');
-  righe.push('Legumi: '+legumi+'x/settimana');
+  righe.push(legumi===0?'LEGUMI: 0 volte a settimana — NON inserire mai legumi in nessun giorno del piano':'Legumi: '+legumi+'x/settimana');
   righe.push('Pesce conservato (tonno/sgombro al naturale): '+pesceconsv+'x/settimana');
   var legumi135=r.legumi135!==undefined?r.legumi135:true;
   var sabatolibero=r.sabatolibero!==undefined?r.sabatolibero:true;
