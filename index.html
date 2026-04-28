@@ -4737,6 +4737,7 @@ function generaPDF(paziente, giorni) {
       }
 
       var p1 = pasto.principale1, p2 = pasto.principale2;
+      var olioEvo = isPranzoOrCena && pasto.olio ? pasto.olio : null;
       if (!p1 && !p2 && !alts.some(function(a) { return a.alimenti && a.alimenti.length; })) return;
 
       if (p1 && p2) {
