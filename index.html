@@ -6386,16 +6386,7 @@ async function chiamaAICorrezione(testoRichiesta) {
   var verdi = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
   var arancioni = Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
   var rossi = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
-  var prompt = 'Sei un nutrizionista. Modifica SOLO il pasto indicato.\n\n'
-    + 'PIANO ATTUALE:\n' + JSON.stringify(window._pianoCorrente) + '\n\n'
-    + 'RICHIESTA: ' + testoRichiesta + '\n\n'
-    + 'ALIMENTI AUTORIZZATI - Verdi: ' + verdi.join(', ')
-    + ' | Arancioni: ' + arancioni.join(', ')
-    + ' | Rossi: ' + rossi.join(', ') + '\n\n'
-    + 'Restituisci SOLO questo JSON:\n'
-    + '{"giorno":"...","pasto":"...","nuovoPasto":{...}}\n'
-    + 'Il campo pasto e\' uno tra: colazione, spuntino_mattina, pranzo, spuntino_pomeriggio, cena\n'
-    + 'Il nuovoPasto ha la stessa struttura del pasto originale (chiavi espanse: nota_descrittiva, principale1, principale2, alternative ecc.)';
+  var prompt = 'Sei un nutrizionista clinico. Modifica SOLO il pasto indicato dalla richiesta. Non modificare gli altri pasti.\n\nPIANO ATTUALE (JSON):\n' + JSON.stringify(window._pianoCorrente) + '\n\nRICHIESTA MEDICO: ' + testoRichiesta + '\n\nALIMENTI AUTORIZZATI - Verdi (preferiti): ' + verdi.join(', ') + ' | Arancioni: ' + arancioni.join(', ') + ' | Rossi (limitati): ' + rossi.join(', ') + '\n\nRispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown, zero backtick.\nFormato ESATTO:\n{"giorno":"nome giorno come nel piano","pasto":"uno tra: colazione spuntino_mattina pranzo spuntino_pomeriggio cena pre_nanna","nuovoPasto":{"nota_descrittiva":"...","principale1":{"nome":"...","grammi":0},"principale2":{"nome":"...","grammi":0},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"...","grammi":0}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"...","grammi":0}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"...","grammi":0}]}]}}';
   var res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
