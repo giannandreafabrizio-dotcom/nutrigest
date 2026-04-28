@@ -4160,7 +4160,7 @@ function parseJSONSicuro(testo) {
   }
 }
 
-async function chiamaGeneraPiano(pazienteId) {
+async async async function chiamaGeneraPiano(pazienteId) {
   var paz = db.pazienti.find(function(x){ return x.id === pazienteId; });
   var ciclizzato = paz && paz.ciclizzato ? true : false;
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
