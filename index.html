@@ -3012,7 +3012,7 @@ function salvaRagionamento(){
   const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
   const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
   const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
-  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1]}:null;
+  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'f1'}:null;
   p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{f1:_ragFlussi.f1,f2:_ragFlussi.f2,f3:_ragFlussi.f3,f4:_ragFlussi.f4}};
   save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
@@ -3634,6 +3634,24 @@ function salvaCalcoloMacros(){
   p.regime=gs('mac-regime');
   p.rifCalcolo=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
   p.giorniAllenamento=['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1));
+  // ── BUG3 FIX: salva target macros completi sul paziente ──
+  const _protGkg=parseFloat(document.getElementById('mac-prot').value)||1.8;
+  const _grassiGkg=parseFloat(document.getElementById('mac-grassi').value)||0.9;
+  const _ctSv=calcolaTDEE(p);
+  const _lastIbSv=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const _ffmSv=_lastIbSv&&_lastIbSv.m?parseFloat(_lastIbSv.m):null;
+  const _bmiSv=_lastIbSv&&_lastIbSv.bmi?parseFloat(_lastIbSv.bmi):null;
+  const _useFFMSv=p.rifCalcolo==='ffm'?(_ffmSv!==null):p.rifCalcolo==='peso'?false:(_ffmSv!==null&&_bmiSv!==null&&_bmiSv>=25);
+  const _refSv=_useFFMSv?_ffmSv:_ctSv.peso;
+  if(_ctSv.tdee&&_refSv){
+    const _offMapSv={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    const _offsetSv=_offMapSv[p.regime]||0;
+    const _kcalSv=_ctSv.tdee+_offsetSv;
+    const _protSv=Math.round(_protGkg*_refSv);
+    const _grasSv=Math.round(_grassiGkg*_refSv);
+    const _carbSv=Math.max(0,Math.round((_kcalSv-_protSv*4-_grasSv*9)/4));
+    p.macrosTarget={kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:_grassiGkg,ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,timestamp:Date.now(),source:'tdee'};
+  }
   save();
   const lafInfo=calcolaTDEE(p);
   const lafEl=document.getElementById('laf-display');
@@ -3923,19 +3941,40 @@ function eliminaPiano(idx) {
   notif('Piano eliminato');
 }
 
+// ── BUG3 FIX: helper centrale per scegliere target attivi ──
+// Vince l'ultimo aggiornato tra TDEE (p.macrosTarget) e F1 (p.ragionamentoClinico.macrosDecisi)
+function _getActiveMacrosTarget(p){
+  if(!p)return null;
+  const tT=p.macrosTarget&&p.macrosTarget.timestamp?p.macrosTarget:null;
+  const tF=p.ragionamentoClinico&&p.ragionamentoClinico.macrosDecisi&&p.ragionamentoClinico.macrosDecisi.timestamp?p.ragionamentoClinico.macrosDecisi:null;
+  if(!tT&&!tF)return null;
+  if(tT&&!tF)return {kcal:tT.kcal,protG:tT.protG,carbG:tT.carbG,grassiG:tT.grassiG,source:'tdee',timestamp:tT.timestamp,raw:tT};
+  if(tF&&!tT)return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'f1',timestamp:tF.timestamp,raw:tF};
+  // entrambi presenti — vince l'ultimo aggiornato
+  if(tT.timestamp>=tF.timestamp)return {kcal:tT.kcal,protG:tT.protG,carbG:tT.carbG,grassiG:tT.grassiG,source:'tdee',timestamp:tT.timestamp,raw:tT};
+  return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'f1',timestamp:tF.timestamp,raw:tF};
+}
+
 function costruisciPrompt(pazienteId) {
   var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
   if (!p) return '';
 
-  // Calcolo targets nutrizionali dal profilo paziente
   var lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
   var _ct = calcolaTDEE(p);
   var mb = _ct.mb, peso = _ct.peso;
+
+  // ── BUG3 FIX: leggi target attivi da p.macrosTarget o p.ragionamentoClinico ──
+  var _active = _getActiveMacrosTarget(p);
   var kcalTarget = null, protG = null, carbG = null, grassiG = null;
-  if (mb && peso) {
-    var regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
-      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
-      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+  if(_active){
+    kcalTarget = _active.kcal;
+    protG = _active.protG;
+    carbG = _active.carbG;
+    grassiG = _active.grassiG;
+    console.log('[Prompt] Target attivi da:', _active.source, '| ts:', new Date(_active.timestamp).toLocaleString('it-IT'));
+  } else if (mb && peso) {
+    // Fallback legacy (paziente senza target salvati)
+    var regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
     kcalTarget = _ct.tdee + (regOff[p.regime] || 0);
     var _ffmP=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
     var _bmiP=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
@@ -3945,15 +3984,13 @@ function costruisciPrompt(pazienteId) {
     protG = Math.round(1.8 * _refP);
     grassiG = Math.round(0.9 * _refP);
     carbG = Math.max(0, Math.round((kcalTarget - protG*4 - grassiG*9) / 4));
+    console.log('[Prompt] Nessun target salvato — usando fallback hardcoded');
   }
-  // Override con ragionamento clinico se presente
+
+  // Contesto ragionamento (testuale) sempre passato all'AI se presente
   var ragCtx = '';
   if (window._ragContextForPiano && window._ragContextForPiano.pazId === pazienteId) {
     var rt = window._ragContextForPiano.riassunto || '';
-    var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
-    if(!_md){var _bl=rt.match(/---MACROS---\s*(\{[^}]+\})\s*---FINE---/s);if(_bl){try{_md=JSON.parse(_bl[1]);}catch(e){_md=null;}}}
-    if(!_md){var mk=rt.match(/(\d{3,4})\s*kcal/i),mp=rt.match(/[Pp]roteine[^\d]*(\d+)/),mc=rt.match(/[Cc]arboidrati[^\d]*(\d+)/),mg=rt.match(/[Gg]rassi[^\d]*(\d+)/);if(mk&&mp&&mc&&mg)_md={kcal:+mk[1],P:+mp[1],C:+mc[1],G:+mg[1]};}
-    if(_md){kcalTarget=_md.kcal;protG=_md.P;carbG=_md.C;grassiG=_md.G;}
     ragCtx = '\n\nDECISIONI CLINICHE DEL MEDICO — rispetta con priorità assoluta:\n' + rt;
   }
 
