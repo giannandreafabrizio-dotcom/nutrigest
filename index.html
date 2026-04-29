@@ -2887,18 +2887,27 @@ function _renderFlussoPanel(id,emoji,titolo,testo,loading){
 function renderPdRagionamento(p){
   if(_ragPazId!==p.id){
     _ragMessages=[];_ragPazId=p.id;_ragRiassunto=null;
-    _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+    // ── BUG3 FIX: ricarica flussi salvati invece di azzerarli ──
+    const _rc=p.ragionamentoClinico;
+    if(_rc&&_rc.flussi){
+      _ragFlussi={f1:_rc.flussi.f1||'',f2:_rc.flussi.f2||'',f3:_rc.flussi.f3||'',f4:_rc.flussi.f4||'',loading:[]};
+      // Ricarica anche il riassunto salvato così è subito visibile
+      _ragRiassunto=_rc.testo||null;
+    } else {
+      _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+    }
   }
   let html='';
 
   if(p.ragionamentoClinico){
     const rc=p.ragionamentoClinico;
-    html+='<div class="card" style="margin-bottom:.7rem;border-color:var(--purple)">'
-      +'<div class="card-hd" style="cursor:pointer" onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\'none\'?\'block\':\'none\'">'
+    // Mostra riassunto salvato sempre espanso con pulsante cancella
+    html+='<div class="card" style="margin-bottom:.7rem;border-color:var(--purple);background:#faf7ff">'
+      +'<div class="card-hd" style="border-color:var(--purple)">'
       +'<h3 style="color:var(--purple)">📋 Ragionamento salvato — '+rc.data+'</h3>'
-      +'<span style="font-size:.72rem;color:var(--text3)">▼ espandi</span>'
+      +'<button class="btn btn-g btn-sm" onclick="cancellaSavedRag()">🗑 Cancella</button>'
       +'</div>'
-      +'<div class="card-bd" style="display:none;font-size:.8rem;white-space:pre-wrap;line-height:1.6;color:var(--text2)">'+rc.testo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>'
+      +'<div class="card-bd" style="font-size:.8rem;white-space:pre-wrap;line-height:1.6;color:var(--text2)">'+rc.testo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>'
       +'</div>';
   }
 
@@ -3035,6 +3044,16 @@ function nuovaSessioneRag(){
   _ragMessages=[];_ragRiassunto=null;_ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
   if(p)renderPdRagionamento(p);
+}
+
+function cancellaSavedRag(){
+  if(!confirm('Eliminare il ragionamento clinico salvato per questo paziente?'))return;
+  const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
+  if(!p)return;
+  p.ragionamentoClinico=null;
+  _ragRiassunto=null;
+  _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+  save();notif('Ragionamento eliminato');renderPdRagionamento(p);
 }
 
 function renderPazTimeline(p) {
