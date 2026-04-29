@@ -6451,10 +6451,29 @@ function applicaPatch(piano, patch) {
   if (!patch.giorno || !patch.pasto || !patch.nuovoPasto)
     throw new Error('Patch non valida');
   var nuovo = deepClone(piano);
-  var giorno = nuovo.find(function(g){ return g.giorno === patch.giorno; });
-  if (!giorno || !giorno[patch.pasto])
-    throw new Error('Giorno/pasto non trovato');
-  giorno[patch.pasto] = patch.nuovoPasto;
+  // Cerca giorno per nome (campo g nel formato compatto)
+  var giorno = nuovo.find(function(g){ return (g.g||g.giorno) === patch.giorno; });
+  if (!giorno) throw new Error('Giorno non trovato: ' + patch.giorno);
+  // Mappa nome pasto espanso → chiave compatta
+  var keyMap = {colazione:'col',spuntino_mattina:'sm',pranzo:'pr',spuntino_pomeriggio:'sp',cena:'ce',pre_nanna:'pn'};
+  var chiaveCompatta = keyMap[patch.pasto] || patch.pasto;
+  if (!giorno[chiaveCompatta]) throw new Error('Pasto non trovato: ' + patch.pasto + ' (chiave: ' + chiaveCompatta + ')');
+  // Converti dal formato espanso al formato compatto
+  var np = patch.nuovoPasto;
+  var pastoCompatto = {};
+  if (np.principale1) pastoCompatto.p1 = {n: np.principale1.nome, g: np.principale1.grammi};
+  if (np.principale2 && np.principale2.nome) pastoCompatto.p2 = {n: np.principale2.nome, g: np.principale2.grammi};
+  if (np.alternative && np.alternative.length) {
+    pastoCompatto.alt = np.alternative.map(function(alt){
+      return (alt.alimenti||[]).map(function(a){ return {n:a.nome,g:a.grammi}; });
+    });
+    // Aggiungi olio EVO se pranzo o cena e non già presente nelle alt
+    if ((patch.pasto==='pranzo'||patch.pasto==='cena') && np.principale1) {
+      pastoCompatto.olio = giorno[chiaveCompatta].olio || {n:'Olio EVO',g:10};
+    }
+  }
+  if (np.nota_descrittiva) pastoCompatto.nota = np.nota_descrittiva;
+  giorno[chiaveCompatta] = pastoCompatto;
   return nuovo;
 }
 
@@ -6488,7 +6507,8 @@ async function chiamaAICorrezione(testoRichiesta) {
   var verdi = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
   var arancioni = Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
   var rossi = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
-  var prompt = 'Sei un nutrizionista clinico. Modifica SOLO il pasto indicato dalla richiesta. Non modificare gli altri pasti.\n\nPIANO ATTUALE (JSON):\n' + JSON.stringify(window._pianoCorrente) + '\n\nRICHIESTA MEDICO: ' + testoRichiesta + '\n\nALIMENTI AUTORIZZATI - Verdi (preferiti): ' + verdi.join(', ') + ' | Arancioni: ' + arancioni.join(', ') + ' | Rossi (limitati): ' + rossi.join(', ') + '\n\nRispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown, zero backtick.\nFormato ESATTO:\n{"giorno":"nome giorno come nel piano","pasto":"uno tra: colazione spuntino_mattina pranzo spuntino_pomeriggio cena pre_nanna","nuovoPasto":{"nota_descrittiva":"...","principale1":{"nome":"...","grammi":0},"principale2":{"nome":"...","grammi":0},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"...","grammi":0}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"...","grammi":0}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"...","grammi":0}]}]}}';
+  var _pianoEspanso = (typeof espandiPianoPerAI === 'function') ? espandiPianoPerAI(window._pianoCorrente) : window._pianoCorrente;
+  var prompt = 'Sei un nutrizionista clinico. Modifica SOLO il pasto indicato dalla richiesta. Non modificare gli altri pasti.\n\nPIANO ATTUALE (JSON):\n' + JSON.stringify(_pianoEspanso) + '\n\nRICHIESTA MEDICO: ' + testoRichiesta + '\n\nALIMENTI AUTORIZZATI - Verdi (preferiti): ' + verdi.join(', ') + ' | Arancioni: ' + arancioni.join(', ') + ' | Rossi (limitati): ' + rossi.join(', ') + '\n\nRispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown, zero backtick.\nFormato ESATTO (usa esattamente questi nomi campo):\n{"giorno":"nome giorno ESATTO come appare nel piano (es: Lunedì)","pasto":"uno tra: colazione spuntino_mattina pranzo spuntino_pomeriggio cena pre_nanna","nuovoPasto":{"nota_descrittiva":"breve descrizione","principale1":{"nome":"alimento","grammi":100},"principale2":{"nome":"alimento","grammi":50},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"alimento","grammi":100},{"nome":"Olio EVO","grammi":10}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"alimento","grammi":100},{"nome":"Olio EVO","grammi":10}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"alimento","grammi":100},{"nome":"Olio EVO","grammi":10}]}]}}';
   var res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
