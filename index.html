@@ -2026,7 +2026,7 @@ function salvaPaz(){
     contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
     controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
-    gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:g('p-integratori'),intVuole:g('p-int-vuole'),
+    gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:getIntegratori(),integraWant:getIntegraWant(),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
