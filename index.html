@@ -3783,10 +3783,13 @@ function pianoPazSelezionato(id){
     const ref=useFFM?ffm:peso;
     const refLabel=useFFM?'FFM':'peso';
     const refColor=useFFM?'#185FA5':'#3B6D11';
-    const protG=Math.round(1.8*ref);
-    const grassiG=Math.round(0.9*ref);
+    // BUG3 STEP2b: usa target attivi per i box macros (vince ultimo aggiornato)
+    const _activeDisp=_getActiveMacrosTarget(p);
+    const protG=_activeDisp?_activeDisp.protG:Math.round(1.8*ref);
+    const grassiG=_activeDisp?_activeDisp.grassiG:Math.round(0.9*ref);
+    const carbG=_activeDisp?_activeDisp.carbG:Math.max(0,Math.round((kcalTarget-Math.round(1.8*ref)*4-Math.round(0.9*ref)*9)/4));
+    const kcalDisp=_activeDisp?_activeDisp.kcal:kcalTarget;
     const kcalProt=protG*4;const kcalGrassi=grassiG*9;
-    const carbG=Math.max(0,Math.round((kcalTarget-kcalProt-kcalGrassi)/4));
     const ciclizzatoBadge=p.ciclizzato?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">Piano ciclizzato attivo — giorni ON/OFF</div>':'';
 
     macrosEl.innerHTML=`
@@ -3797,13 +3800,13 @@ function pianoPazSelezionato(id){
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Kcal target</div>
-        <div style="font-size:1rem;font-weight:600;color:var(--green);">${kcalTarget} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
-        <div style="font-size:.65rem;color:var(--text3);">${offset===0?'Mantenimento':offset>0?'+'+offset:offset} kcal</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--green);">${kcalDisp} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
+        <div style="font-size:.65rem;color:var(--text3);">${_activeDisp?('da '+(_activeDisp.source==='tdee'?'TDEE':('F1'))):((offset===0?'Mantenimento':offset>0?'+'+offset:offset)+' kcal')}</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Proteine</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${protG}g</div>
-        <div style="font-size:.65rem;color:${refColor};">1.8 g/kg ${refLabel} · ${kcalProt} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.protGkg?_activeDisp.raw.protGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'F1')):'1.8 g/kg '+refLabel} · ${kcalProt} kcal</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Carboidrati</div>
@@ -3813,7 +3816,7 @@ function pianoPazSelezionato(id){
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;grid-column:span 2;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Grassi</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
-        <div style="font-size:.65rem;color:${refColor};">0.9 g/kg ${refLabel} · ${kcalGrassi} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.grassiGkg?_activeDisp.raw.grassiGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'F1')):'0.9 g/kg '+refLabel} · ${kcalGrassi} kcal</div>
       </div>
       ${ciclizzatoBadge}${renderTargetBadge(p)}`;
 
