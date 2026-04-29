@@ -3569,6 +3569,56 @@ function renderPdMacros(p){
 
   html+=`</div></div>`;
   document.getElementById('pd-macros').innerHTML=html;
+
+  // ── RIPRISTINO CAMPI TDEE all'apertura paziente ──
+  const _gn = (id,v) => { const el=document.getElementById(id); if(el&&v!=null)el.value=v; };
+  const _gs = (id,v) => { const el=document.getElementById(id); if(el&&v!=null)el.value=v; };
+  _gn('p-passi', p.passiGiornalieri);
+  _gn('p-ore-all', p.oreAllenamento);
+  _gn('p-polso', p.circonferenzaPolso);
+  _gs('p-tipo-all', p.tipoAllenamento);
+  _gs('p-intens-all', p.intensitaAllenamento);
+  _gs('p-orario-all', p.orarioAllenamento);
+  _gn('mac-peso-target', p.pesoTarget);
+  _gs('mac-regime', p.regime);
+  _gs('p-cronotipo', p.cronotipo);
+  _gs('p-orario-pasto', p.orarioPastoPrincipale);
+  if(p.giorniAllenamento&&p.giorniAllenamento.length){
+    ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(function(d){
+      const el=document.getElementById('gall-'+d.toLowerCase());
+      if(el) el.checked=p.giorniAllenamento.includes(d);
+    });
+  }
+  const _cicEl=document.getElementById('mac-ciclizzato');
+  if(_cicEl) _cicEl.checked=!!(p.ciclizzato);
+  const _rifVal=p.rifCalcolo||'auto';
+  const _rifEl=document.getElementById('mac-ref-'+_rifVal);
+  if(_rifEl) _rifEl.checked=true;
+  aggiornaLabelMacros();
+  if(p.macrosTarget&&p.macrosTarget.kcal){
+    const mt=p.macrosTarget;
+    const _lastIbR=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+    const _ffmR=_lastIbR&&_lastIbR.m?parseFloat(_lastIbR.m):null;
+    const _pesoR=_lastIbR?_lastIbR.peso:(p.peso||null);
+    const _useFFMR=mt.ref==='ffm';
+    const _refLblR=_useFFMR?'FFM ('+(_ffmR||mt.refValue||'?')+'kg)':'peso ('+(_pesoR||mt.refValue||'?')+'kg)';
+    const _refColorR=_useFFMR?'#185FA5':'#3B6D11';
+    const _tsR=new Date(mt.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('mac-result').innerHTML=`
+      <div class="macro-result">
+        <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
+          MB: ${_lastIbR?_lastIbR.mb:'?'} kcal × LAF ${mt.laf||'?'} = TDEE <strong>${mt.tdee||'?'} kcal</strong> → Obiettivo: <strong>${mt.kcal} kcal</strong>
+          <span style="margin-left:8px;font-size:.65rem;font-weight:500;padding:2px 7px;border-radius:4px;background:${_useFFMR?'#E6F1FB':'#EAF3DE'};color:${_refColorR}">calcolato su ${_refLblR}</span>
+          <span style="margin-left:6px;font-size:.6rem;color:var(--text3)">salvato ${_tsR}</span>
+        </div>
+        <div class="macro-grid">
+          <div class="macro-item"><div class="macro-lbl">Proteine</div><div class="macro-val">${mt.protG}g</div><div style="font-size:.62rem;color:${_refColorR}">${mt.protGkg||'?'} g/kg · ${Math.round(mt.protG*4)} kcal</div></div>
+          <div class="macro-item"><div class="macro-lbl">Carboidrati</div><div class="macro-val">${mt.carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${(mt.refValue?+(mt.carbG/mt.refValue).toFixed(1):'?')} g/kg · ${Math.round(mt.carbG*4)} kcal</div></div>
+          <div class="macro-item"><div class="macro-lbl">Grassi</div><div class="macro-val">${mt.grassiG}g</div><div style="font-size:.62rem;color:${_refColorR}">${mt.grassiGkg||'?'} g/kg · ${Math.round(mt.grassiG*9)} kcal</div></div>
+          <div class="macro-item"><div class="macro-lbl">Totale kcal</div><div class="macro-val" style="font-size:.9rem">${mt.kcal}</div><div style="font-size:.62rem;color:var(--text3)">💾 da TDEE salvato</div></div>
+        </div>
+      </div>`;
+  }
 }
 
 function aggiornaLabelMacros(){
