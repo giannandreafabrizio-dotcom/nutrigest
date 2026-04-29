@@ -3468,21 +3468,21 @@ function renderPdMacros(p){
     </div>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
-    <div class="fg"><label>Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
-    <div class="fg"><label>Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
+    <div class="fg"><label id="mac-prot-lbl">Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
+    <div class="fg"><label id="mac-grassi-lbl">Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;padding:.5rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;">
     <span style="font-size:.78rem;color:var(--text2);font-weight:500">Calcola proteine e lipidi su:</span>
     <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer">
-      <input type="radio" name="mac-ref" id="mac-ref-auto" value="auto" checked style="accent-color:var(--teal)">
+      <input type="radio" name="mac-ref" id="mac-ref-auto" value="auto" checked style="accent-color:var(--teal)" onchange="aggiornaLabelMacros()">
       <span>Automatico</span><span style="font-size:.65rem;color:var(--text3)">(FFM se BMI≥25, peso se normopeso)</span>
     </label>
     <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer">
-      <input type="radio" name="mac-ref" id="mac-ref-ffm" value="ffm" style="accent-color:var(--teal)">
+      <input type="radio" name="mac-ref" id="mac-ref-ffm" value="ffm" style="accent-color:var(--teal)" onchange="aggiornaLabelMacros()">
       <span style="color:#185FA5;font-weight:500">FFM</span>
     </label>
     <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer">
-      <input type="radio" name="mac-ref" id="mac-ref-peso" value="peso" style="accent-color:var(--teal)">
+      <input type="radio" name="mac-ref" id="mac-ref-peso" value="peso" style="accent-color:var(--teal)" onchange="aggiornaLabelMacros()">
       <span style="color:#3B6D11;font-weight:500">Peso corporeo</span>
     </label>
   </div>
@@ -3559,6 +3559,13 @@ function renderPdMacros(p){
 
   html+=`</div></div>`;
   document.getElementById('pd-macros').innerHTML=html;
+}
+
+function aggiornaLabelMacros(){
+  const r=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
+  const suff=r==='ffm'?' (g/kg FFM)':r==='peso'?' (g/kg peso)':' (g/kg)';
+  const lp=document.getElementById('mac-prot-lbl');if(lp)lp.textContent='Proteine'+suff;
+  const lg=document.getElementById('mac-grassi-lbl');if(lg)lg.textContent='Grassi'+suff;
 }
 
 function calcolaMacros(){
