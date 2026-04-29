@@ -2766,6 +2766,12 @@ function costruisciContestoPaziente(p){
   if(p.alvo)ctx+='\nAlvo: '+p.alvo;
   if(p.flusso&&p.flusso!=='')ctx+='\nFlusso mestruale: '+p.flusso;
   if(p.note)ctx+='\nNote cliniche: '+p.note;
+  // Integratori — usa array (nuovo sistema chip) con fallback a stringa (legacy)
+  const _intPrende=Array.isArray(p.integratori)?p.integratori.filter(Boolean):(p.integratori?[p.integratori]:[]);
+  const _intVuole=Array.isArray(p.integraWant)?p.integraWant.filter(Boolean):(p.integraWant?[p.integraWant]:[]);
+  if(_intPrende.length)ctx+='\nIntegratori attualmente in uso: '+_intPrende.join(', ');
+  else ctx+='\nIntegratori attualmente in uso: nessuno';
+  if(_intVuole.length)ctx+='\nIntegratori che vorrebbe prendere: '+_intVuole.join(', ');
   if(p.ragionamentoClinico)ctx+='\n\nRagionamento clinico precedente ('+p.ragionamentoClinico.data+'):\n'+p.ragionamentoClinico.testo;
 
   return ctx;
