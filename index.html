@@ -3702,6 +3702,36 @@ function renderPianoPage(){
   }
 }
 
+// ── BUG3 STEP2: badge target attivi nel Generatore ──
+function renderTargetBadge(p){
+  if(!p)return'';
+  const a=(typeof _getActiveMacrosTarget==='function')?_getActiveMacrosTarget(p):null;
+  const tT=p.macrosTarget&&p.macrosTarget.timestamp?p.macrosTarget:null;
+  const tF=p.ragionamentoClinico&&p.ragionamentoClinico.macrosDecisi&&p.ragionamentoClinico.macrosDecisi.timestamp?p.ragionamentoClinico.macrosDecisi:null;
+  const fmt=ts=>new Date(ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(!a){
+    return '<div style="margin-top:.7rem;padding:.7rem .9rem;background:#FFF4E5;border:1.5px solid #F5A623;border-radius:8px;">'
+      +'<div style="font-size:.82rem;font-weight:600;color:#854F0B;margin-bottom:.25rem;">⚠️ Nessun target macros salvato</div>'
+      +'<div style="font-size:.72rem;color:#854F0B;line-height:1.4;">Vai in TDEE → <b>Calcola</b> → <b>💾 Salva dati</b>, oppure completa un Ragionamento clinico (Concludi e Riassumi → Salva nel profilo), prima di generare il piano.</div>'
+      +'</div>';
+  }
+  const srcLabel=a.source==='tdee'?'TDEE':'Ragionamento clinico F1';
+  const srcColor=a.source==='tdee'?'#0F6E56':'#185FA5';
+  const srcBg=a.source==='tdee'?'#E1F5EE':'#E6F1FB';
+  const srcBorder=a.source==='tdee'?'#9FE1CB':'#A8C9E8';
+  let altInfo='';
+  if(tT&&tF){
+    const altSrc=a.source==='tdee'?'F1':'TDEE';
+    const altTs=a.source==='tdee'?tF.timestamp:tT.timestamp;
+    altInfo='<div style="font-size:.65rem;color:var(--text3);margin-top:.3rem;font-style:italic;">'+altSrc+' disponibile del '+fmt(altTs)+' — non usato perché meno recente</div>';
+  }
+  return '<div style="margin-top:.7rem;padding:.7rem .9rem;background:'+srcBg+';border:1.5px solid '+srcBorder+';border-radius:8px;">'
+    +'<div style="font-size:.82rem;font-weight:600;color:'+srcColor+';margin-bottom:.25rem;">🎯 Target attivi: '+srcLabel+' <span style="font-weight:400;font-size:.7rem;color:var(--text3);">('+fmt(a.timestamp)+')</span></div>'
+    +'<div style="font-size:.78rem;color:var(--text1);font-weight:500;">kcal '+a.kcal+' · P '+a.protG+'g · C '+a.carbG+'g · G '+a.grassiG+'g</div>'
+    +altInfo
+    +'</div>';
+}
+
 function pianoPazSelezionato(id){
   const info=document.getElementById('piano-paz-info');
   const btn=document.getElementById('piano-btn-genera');
@@ -3785,9 +3815,15 @@ function pianoPazSelezionato(id){
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
         <div style="font-size:.65rem;color:${refColor};">0.9 g/kg ${refLabel} · ${kcalGrassi} kcal</div>
       </div>
-      ${ciclizzatoBadge}`;
+      ${ciclizzatoBadge}${renderTargetBadge(p)}`;
 
-    btn.disabled=false;btn.style.background='var(--green)';btn.style.cursor='pointer';
+    // BUG3 STEP2: blocca generazione se mancano target
+    const _activeChk=_getActiveMacrosTarget(p);
+    if(_activeChk){
+      btn.disabled=false;btn.style.background='var(--green)';btn.style.cursor='pointer';
+    } else {
+      btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+    }
   }
 
   info.style.display='block';
@@ -4210,6 +4246,11 @@ function parseJSONSicuro(testo) {
 
 async function chiamaGeneraPiano(pazienteId) {
   var paz = db.pazienti.find(function(x){ return x.id === pazienteId; });
+  // BUG3 STEP2: barriera anti-generazione se mancano target
+  if(paz && typeof _getActiveMacrosTarget==='function' && !_getActiveMacrosTarget(paz)){
+    notif('⚠ Nessun target macros salvato — vai in TDEE → Salva dati o completa un Ragionamento');
+    throw new Error('Target macros non disponibili per il paziente');
+  }
   var ciclizzato = paz && paz.ciclizzato ? true : false;
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
   console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
