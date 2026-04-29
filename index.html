@@ -1113,7 +1113,10 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>Metabolismo basale (kcal)</label><input type="number" id="ib-mb" step="1"></div>
     <div class="fg"><label>Grasso viscerale (livello)</label><input type="number" id="ib-visc" step="1"></div>
   </div>
-  <div class="fg"><label>BMI</label><input type="number" id="ib-bmi" step="0.1"></div>
+  <div class="fr">
+    <div class="fg"><label>BMI</label><input type="number" id="ib-bmi" step="0.1"></div>
+    <div class="fg"><label>Altezza (cm)</label><input type="number" id="ib-altezza" step="0.1" placeholder="es. 170"></div>
+  </div>
   <div class="fg"><label>Note cliniche</label><textarea id="ib-note"></textarea></div>
   <div class="mf">
     <button class="btn btn-g" onclick="closeM('mo-inbody')">Annulla</button>
@@ -4882,7 +4885,7 @@ function generaPDF(paziente, giorni) {
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
-  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('mo-inbody').classList.add('open');
 }
 
@@ -4892,7 +4895,8 @@ function salvaInbody(){
   const ib={id:uid(),data:document.getElementById('ib-data').value||today(),
     peso:gn('ib-peso'),pg:gn('ib-pg'),g:gn('ib-g'),m:gn('ib-m'),
     musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
-    visc:gn('ib-visc'),bmi:gn('ib-bmi'),note:document.getElementById('ib-note').value.trim()};
+    visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),note:document.getElementById('ib-note').value.trim()};
+  if(ib.altezza){p.altezza=ib.altezza;}  // aggiorna sempre altezza paziente da InBody
   if(!p.inbody)p.inbody=[];p.inbody.push(ib);
   save();closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
 }
@@ -5617,8 +5621,8 @@ async function loadInbodyPDF(e) {
       const s=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null)el.value=v;};
       s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
-      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi);
-      if(ib.altezza){const elH=document.getElementById('p-altezza');if(elH&&!elH.value)elH.value=ib.altezza;}
+      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza);
+      // altezza ora gestita da salvaInbody() che aggiorna sempre p.altezza
       notif('✓ Dati estratti dal PDF InBody!');
     };
     reader.readAsDataURL(file);
