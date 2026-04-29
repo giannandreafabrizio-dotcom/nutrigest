@@ -1815,6 +1815,7 @@ function editPaz(){
   if (elCicl) elCicl.checked = p.ciclizzato || false;
   const elRef = document.querySelector('input[name="mac-ref"][value="'+(p.rifCalcolo||'auto')+'"]');
   if(elRef) elRef.checked = true;
+  aggiornaLabelMacros();
   toggleOrarioNote();
   const ss=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss('p-regime',p.regime);
