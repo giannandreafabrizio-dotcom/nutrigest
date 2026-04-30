@@ -8,6 +8,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 .cell-ctrl{background:#fff;border:1px solid #cbd5e1;border-radius:4px;width:24px;height:22px;font-size:.7rem;cursor:pointer;color:#475569;padding:0;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
+.alt-ctrl{background:#fff;border:1px solid #cbd5e1;border-radius:3px;width:18px;height:18px;font-size:.65rem;cursor:pointer;color:#475569;padding:0;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
+.alt-ctrl:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+.alt-ctrl.alt-x:hover{background:#dc2626;border-color:#dc2626}
+.alt-add{background:transparent;border:1px dashed #94a3b8;border-radius:4px;color:#64748b;font-size:.68rem;padding:2px 8px;cursor:pointer;transition:all .15s}
+.alt-add:hover{background:#f0f9f4;border-color:var(--teal);color:var(--teal)}
 .cell-ctrl:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
 
 :root {
@@ -4592,15 +4597,25 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
       html += '<div style="background:#fafbfc;border:1px solid #eef0f3;border-radius:6px;padding:.4rem .5rem;min-height:34px">';
       if (cella && cella.alimenti && cella.alimenti.length) {
         var princ = cella.alimenti[0];
+        var giornoEsc = giorno.replace(/"/g,'&quot;');
         // PRINCIPALE — grammatura cliccabile
         html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
         html += '<strong style="font-size:.83rem">' + princ.n + '</strong>';
-        html += '<span class="gram-edit" data-giorno="'+giorno.replace(/"/g,'&quot;')+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.8rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px" title="Click per modificare">' + princ.g + 'g</span>';
+        html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.8rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px" title="Click per modificare">' + princ.g + 'g</span>';
         html += '</div>';
-        // ALTERNATIVE — grammatura cliccabile
+        // ALTERNATIVE — con pulsanti swap (⇄) e rimuovi (×)
         cella.alimenti.slice(1).forEach(function(alt, altIdx) {
-          html += '<div style="font-size:.73rem;color:var(--text3);font-style:italic;padding-left:.6rem;margin-top:1px">' + alt.n + ' <span class="gram-edit" data-giorno="'+giorno.replace(/"/g,'&quot;')+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+(altIdx+1)+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px" title="Click per modificare">' + alt.g + 'g</span></div>';
+          var idx1 = altIdx + 1;
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:.73rem;color:var(--text3);padding-left:.6rem;margin-top:1px">';
+          html += '<span style="font-style:italic;flex:1">' + alt.n + ' <span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+idx1+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px" title="Click per modificare">' + alt.g + 'g</span></span>';
+          html += '<button class="alt-ctrl" onclick="cellaSwap(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Promuovi a principale">⇄</button>';
+          html += '<button class="alt-ctrl alt-x" onclick="cellaRimuoviAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Rimuovi alternativa">×</button>';
+          html += '</div>';
         });
+        // BOTTONE + alt
+        if (cella.alimenti.length < 5) {
+          html += '<div style="margin-top:.3rem"><button class="alt-add" onclick="cellaAggiungiAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\')">+ alternativa</button></div>';
+        }
         // CONTROLLI CELLA (frecce)
         var ordNum = Number(ord);
         html += '<div style="display:flex;gap:3px;margin-top:.4rem;flex-wrap:wrap">';
@@ -4694,6 +4709,138 @@ function apriEditGrammatura(span) {
     if (e.key === 'Enter') { input.blur(); }
     else if (e.key === 'Escape') { input.value = oldG; input.blur(); }
   });
+}
+
+function cellaSwap(giorno, slotKey, cellaId, altIdx) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) return;
+  var cella = ctx.pasto.celle.find(function(c){ return c.id === cellaId; });
+  if (!cella || !cella.alimenti[altIdx]) return;
+  // Scambia principale (idx 0) con alternativa (idx altIdx)
+  var tmp = cella.alimenti[0];
+  cella.alimenti[0] = cella.alimenti[altIdx];
+  cella.alimenti[altIdx] = tmp;
+  _aggiornaPianoBox();
+  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+}
+
+function cellaRimuoviAlt(giorno, slotKey, cellaId, altIdx) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) return;
+  var cella = ctx.pasto.celle.find(function(c){ return c.id === cellaId; });
+  if (!cella || !cella.alimenti[altIdx]) return;
+  cella.alimenti.splice(altIdx, 1);
+  _aggiornaPianoBox();
+  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+}
+
+function cellaAggiungiAlt(giorno, slotKey, cellaId) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) return;
+  var cella = ctx.pasto.celle.find(function(c){ return c.id === cellaId; });
+  if (!cella) return;
+
+  // Determina categoria e colori da usare per filtrare
+  var princ = cella.alimenti[0];
+  var categoriaTarget = princ ? (princ.categoria || getCategoriaFunzionale(princ.n)) : '';
+
+  // Trova paziente corrente
+  var pazId = window._pdfPaziente ? window._pdfPaziente.id : null;
+  var p = pazId ? db.pazienti.find(function(x){return x.id===pazId;}) : null;
+  if (!p) { alert('Paziente non trovato'); return; }
+
+  // Costruisci lista alimenti compatibili (verdi+arancioni+rossi del paziente, escludi grigi/celesti)
+  var al = p.alimenti || {};
+  var compatibili = [];
+  Object.keys(al).forEach(function(key) {
+    var stato = al[key];
+    if (stato !== 'si' && stato !== 'verde' && stato !== 'arancione' && stato !== 'rosso' && stato !== 'no') return;
+    var nome = key.split('__')[1];
+    if (!nome) return;
+    var cat = getCategoriaFunzionale(nome);
+    if (categoriaTarget && cat !== categoriaTarget) return;
+    var colore = (stato === 'si' || stato === 'verde') ? 'verde' : stato === 'arancione' ? 'arancione' : 'rosso';
+    // Evita duplicati con quelli già nella cella
+    if (cella.alimenti.some(function(a){ return a.n === nome; })) return;
+    compatibili.push({n: nome, cat: cat, colore: colore});
+  });
+
+  if (!compatibili.length) {
+    alert('Nessun alimento compatibile trovato per categoria "' + categoriaTarget + '". Aggiungi alimenti nel profilo del paziente.');
+    return;
+  }
+
+  // Grammatura suggerita per categoria
+  var gSugg = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[categoriaTarget] || 100;
+
+  // Mostra popup di selezione
+  _mostraPopupAggiungiAlt(compatibili, gSugg, function(scelto) {
+    cella.alimenti.push({n: scelto.n, g: gSugg, categoria: scelto.cat, colore: scelto.colore});
+    _aggiornaPianoBox();
+    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  });
+}
+
+function _mostraPopupAggiungiAlt(alimenti, gSugg, onScelto) {
+  // Rimuovi popup esistente
+  var existing = document.getElementById('popup-add-alt');
+  if (existing) existing.remove();
+
+  var pop = document.createElement('div');
+  pop.id = 'popup-add-alt';
+  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:420px;max-height:70vh;display:flex;flex-direction:column';
+
+  var header = document.createElement('div');
+  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Aggiungi alternativa</strong><button onclick="document.getElementById(\'popup-add-alt\').remove();document.getElementById(\'popup-add-alt-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  pop.appendChild(header);
+
+  var search = document.createElement('input');
+  search.type = 'text';
+  search.placeholder = '🔍 Cerca alimento...';
+  search.style.cssText = 'width:100%;padding:.5rem .7rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;margin-bottom:.7rem';
+  pop.appendChild(search);
+
+  var lista = document.createElement('div');
+  lista.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px';
+  pop.appendChild(lista);
+
+  function renderLista(filtro) {
+    lista.innerHTML = '';
+    var f = (filtro||'').toLowerCase();
+    var filtered = alimenti.filter(function(a){ return !f || a.n.toLowerCase().includes(f); });
+    if (!filtered.length) {
+      lista.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.8rem">Nessun risultato</div>';
+      return;
+    }
+    filtered.forEach(function(a) {
+      var c = a.colore === 'verde' ? '#059669' : a.colore === 'arancione' ? '#D97706' : '#DC2626';
+      var bg = a.colore === 'verde' ? '#ECFDF5' : a.colore === 'arancione' ? '#FFFBEB' : '#FEF2F2';
+      var btn = document.createElement('button');
+      btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.5rem .7rem;border:1px solid '+bg+';background:'+bg+';border-radius:6px;cursor:pointer;font-size:.83rem;color:#1e293b;text-align:left;transition:all .15s';
+      btn.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+c+';flex-shrink:0"></span><span style="flex:1">'+a.n+'</span><span style="color:'+c+';font-size:.7rem;font-weight:600">'+gSugg+'g</span>';
+      btn.onclick = function() {
+        document.getElementById('popup-add-alt').remove();
+        document.getElementById('popup-add-alt-bg').remove();
+        onScelto(a);
+      };
+      lista.appendChild(btn);
+    });
+  }
+  renderLista('');
+  search.addEventListener('input', function(){ renderLista(search.value); });
+
+  // Sfondo scuro
+  var bg = document.createElement('div');
+  bg.id = 'popup-add-alt-bg';
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
+  bg.onclick = function(){ pop.remove(); bg.remove(); };
+
+  document.body.appendChild(bg);
+  document.body.appendChild(pop);
+  setTimeout(function(){ search.focus(); }, 50);
 }
 
 function _aggiornaPianoBox() {
