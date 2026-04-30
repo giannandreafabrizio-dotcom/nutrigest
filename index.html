@@ -3913,6 +3913,65 @@ function renderTargetBadge(p){
     +'</div>';
 }
 
+function verificaRegola_75_20_5(piano) {
+  if (!piano || !piano.length) return null;
+  var isNuovo = piano[0] && piano[0].pasti;
+  var totAl = 0, verdi = 0, arancioni = 0, rossi = 0, esclusi = 0;
+  var violazioni = [];
+  piano.forEach(function(g) {
+    var pasti = isNuovo ? g.pasti : g;
+    var chiavi = isNuovo ? Object.keys(pasti || {}) : ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+    chiavi.forEach(function(k) {
+      var pasto = isNuovo ? (pasti && pasti[k]) : g[k];
+      if (!pasto) return;
+      if (isNuovo && pasto.celle) {
+        (pasto.celle || []).forEach(function(cella) {
+          (cella.alimenti || []).forEach(function(al) {
+            totAl++;
+            var c = (al.colore || '').toLowerCase();
+            if (c === 'verde' || c === 'si') verdi++;
+            else if (c === 'arancione') arancioni++;
+            else if (c === 'rosso' || c === 'no') rossi++;
+            else { esclusi++;
+              if (c === 'grigio' || c === 'grigioscuro' || c === 'celeste')
+                violazioni.push('⚠ Escluso presente: ' + al.n + ' (' + (g.g||'') + ')');
+            }
+          });
+        });
+      } else if (pasto.principale1) { totAl++; verdi++; }
+    });
+  });
+  if (totAl === 0) return null;
+  var percV = Math.round(verdi/totAl*100);
+  var percA = Math.round(arancioni/totAl*100);
+  var percR = Math.round(rossi/totAl*100);
+  var percE = Math.round(esclusi/totAl*100);
+  var ok = percV >= 70 && percA <= 25 && percR <= 10 && esclusi === 0;
+  return { ok, totAl, verdi, percV, arancioni, percA, rossi, percR, esclusi, percE, violazioni };
+}
+
+function renderBadge75_20_5(piano) {
+  var v = verificaRegola_75_20_5(piano);
+  var el = document.getElementById('piano-badge-75');
+  if (!el) return;
+  if (!v) { el.innerHTML = ''; return; }
+  var colore = v.ok ? '#059669' : '#D97706';
+  var sfondo = v.ok ? '#ECFDF5' : '#FFFBEB';
+  var bordo  = v.ok ? '#6EE7B7' : '#FCD34D';
+  var icona  = v.ok ? '✓' : '⚠';
+  var testo  = v.ok ? 'Distribuzione corretta' : 'Distribuzione fuori target';
+  var h = '<div style="padding:.5rem .9rem;background:'+sfondo+';border:1px solid '+bordo+';border-radius:8px;font-size:.75rem;margin-bottom:.6rem">';
+  h += '<span style="font-weight:700;color:'+colore+'">'+icona+' '+testo+'</span> &nbsp;|&nbsp; ';
+  h += '<span style="color:#059669">Verdi: '+v.percV+'%</span> · ';
+  h += '<span style="color:#D97706">Arancioni: '+v.percA+'%</span> · ';
+  h += '<span style="color:#DC2626">Rossi: '+v.percR+'%</span>';
+  if (v.esclusi > 0) h += ' · <span style="color:#6B7280;font-weight:700">Esclusi: '+v.percE+'% ⚠</span>';
+  h += ' &nbsp;<span style="color:var(--text3)">('+v.totAl+' alimenti)</span>';
+  if (v.violazioni.length) h += '<div style="margin-top:.3rem;color:#DC2626;font-size:.7rem">'+v.violazioni.join(' | ')+'</div>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
 function pianoPazSelezionato(id){
   const info=document.getElementById('piano-paz-info');
   const btn=document.getElementById('piano-btn-genera');
