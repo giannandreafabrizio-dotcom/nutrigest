@@ -1018,16 +1018,7 @@ main{flex:1;overflow-y:auto;}
         </div>
       </div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Budget alimentare</label>
-        <div class="chip-group" style="margin-top:.3rem">
-          <label class="chip-pill"><input type="checkbox" id="bud-eco"> Economico</label>
-          <label class="chip-pill"><input type="checkbox" id="bud-std" checked> Standard</label>
-          <label class="chip-pill"><input type="checkbox" id="bud-com"> Comfort</label>
-          <label class="chip-pill"><input type="checkbox" id="bud-pre"> Premium</label>
-        </div>
-      </div>
-    </div>
+
     <div class="fr">
       <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
@@ -1858,7 +1849,7 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-economica','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
@@ -1889,7 +1880,7 @@ function editPaz(){
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
   ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
-  s('p-dove',p.dove);setDove(p.dove);setBudget(p.economica||'Standard');s('p-veg',p.veg);
+  s('p-dove',p.dove);setDove(p.dove);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-crisi',p.crisi);
@@ -2117,7 +2108,7 @@ function salvaPaz(){
     checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
-    dove:g('p-dove'),risc:gs('p-risc'),economica:getBudget(),veg:g('p-veg'),
+    dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
     regime:gs('mac-regime')||gs('p-regime'),
@@ -4221,7 +4212,7 @@ Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
 PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
 Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
-Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'} | Budget: ${p.economica||'N/D'}
+Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra (FFM) ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'} · Riferimento macros: ${_useFFMP?`FFM (${_ffmP}kg)`:`peso corporeo (${peso}kg)`}`:'INBODY: dati non disponibili'}
 ${(p.giorniAllenamento||[]).length?`Giorni ON: ${p.giorniAllenamento.join(', ')} | Giorni OFF: ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].filter(g=>!(p.giorniAllenamento||[]).includes(g)).join(', ')||'nessuno'}`:''}
 ${(p.oreAllenamento||p.tipoAllenamento||p.intensitaAllenamento)?`Allenamento: ${p.tipoAllenamento||'—'} · intensità ${p.intensitaAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett. · orario ${p.orarioAllenamento||'—'}${p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' ('+p.orarioAllenamentoNote+')':''}`:''}
@@ -4558,7 +4549,6 @@ async function generaPiano(){
     alimentiRossi: alimentiRossi.length?alimentiRossi.join(', '):'—',
     spuntini: (p.spuntM==='si'||p.spuntP==='si')?'Sì':'No',
     sabatosera: p.weekend||'—',
-    budget: p.economica||'—',
     prefProteica: p.prefProteina||'—'
   };
 
