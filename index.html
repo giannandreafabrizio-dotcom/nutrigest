@@ -4407,6 +4407,9 @@ function getAnthropicKey() {
 }
 
 function espandiPiano(piano) {
+  // Nuovo formato: ha già "pasti" con "celle" — passalo direttamente
+  if (piano && piano.length && piano[0] && piano[0].pasti) return piano;
+  // Vecchio formato: converte p1/p2/alt nel vecchio formato espanso (retrocompatibilità)
   function al2(a) { return a ? {nome:a.n, grammi:a.g} : null; }
   function espPasto(pasto) {
     if (!pasto || typeof pasto !== 'object') return pasto;
@@ -4428,6 +4431,49 @@ function espandiPiano(piano) {
     if(g.macros) eg.macros=g.macros;
     return eg;
   });
+}
+
+// Helper: dato un pasto nuovo formato (celle), restituisce testo descrittivo per renderPianoBox
+function _renderCelleHtml(pasto, slotKey, giorno) {
+  if (!pasto || !pasto.celle) return '';
+  var html = '';
+  // Ricette descrittive in cima (solo pranzo/cena)
+  if (pasto.ricette && pasto.ricette.length) {
+    html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .4rem;line-height:1.5">';
+    pasto.ricette.forEach(function(r, i) {
+      if (r) html += '<div><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> → ' + r + '</div>';
+    });
+    html += '</div>';
+  }
+  // Raggruppa celle per ordine e colonna
+  var celle = (pasto.celle||[]).slice().sort(function(a,b){
+    if (a.ordine !== b.ordine) return a.ordine - b.ordine;
+    return a.colonna === 'sx' ? -1 : 1;
+  });
+  var righe = {};
+  celle.forEach(function(c) {
+    var ord = c.ordine || 1;
+    if (!righe[ord]) righe[ord] = {sx: null, dx: null};
+    righe[ord][c.colonna || 'sx'] = c;
+  });
+  Object.keys(righe).sort().forEach(function(ord) {
+    var riga = righe[ord];
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .8rem;margin-bottom:.3rem">';
+    ['sx','dx'].forEach(function(col) {
+      var cella = riga[col];
+      html += '<div>';
+      if (cella && cella.alimenti && cella.alimenti.length) {
+        var princ = cella.alimenti[0];
+        html += '<div><strong style="font-size:.83rem">' + princ.n + '</strong> <span style="color:var(--teal);font-size:.8rem">' + princ.g + 'g</span></div>';
+        cella.alimenti.slice(1).forEach(function(alt) {
+          html += '<div style="font-size:.73rem;color:var(--text3);font-style:italic;padding-left:.8rem">' + alt.n + ' ' + alt.g + 'g</div>';
+        });
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
 }
 
 function parseJSONSicuro(testo) {
@@ -4504,36 +4550,39 @@ async function chiamaGeneraPiano(pazienteId) {
     .trim();
 
   const pianoEspanso = espandiPiano(parseJSONSicuro(testo));
+  var _isNuovoFormato = pianoEspanso && pianoEspanso.length && pianoEspanso[0] && pianoEspanso[0].pasti;
 
-  // Seconda chiamata: genera note descrittive per pranzo e cena
-  const promptNote = 'Dato questo piano alimentare: ' + JSON.stringify(pianoEspanso)
-    + '\nGenera SOLO le note descrittive brevi (max 80 caratteri ciascuna)'
-    + ' per pranzo e cena di ogni giorno nel formato:\n'
-    + '[{"giorno":"Lunedì","pranzo_nota":"...","cena_nota":"..."},...]\nNessun testo, solo JSON.';
-  try {
-    const rispostaNote = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] })
-    });
-    if (rispostaNote.ok) {
-      const dataNote = await rispostaNote.json();
-      const testoNote = dataNote.content[0].text.trim()
-        .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-      parseJSONSicuro(testoNote).forEach(function(item) {
-        var g = pianoEspanso.find(function(x){ return x.giorno === item.giorno; });
-        if (g) {
-          if (g.pranzo && item.pranzo_nota) g.pranzo.nota_descrittiva = item.pranzo_nota;
-          if (g.cena && item.cena_nota) g.cena.nota_descrittiva = item.cena_nota;
-        }
+  // Seconda chiamata: genera note/ricette descrittive solo se vecchio formato
+  if (!_isNuovoFormato) {
+    const promptNote = 'Dato questo piano alimentare: ' + JSON.stringify(pianoEspanso)
+      + '\nGenera SOLO le note descrittive brevi (max 80 caratteri ciascuna)'
+      + ' per pranzo e cena di ogni giorno nel formato:\n'
+      + '[{"giorno":"Lunedì","pranzo_nota":"...","cena_nota":"..."},...]\nNessun testo, solo JSON.';
+    try {
+      const rispostaNote = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] })
       });
-    }
-  } catch(e) { console.warn('Note descrittive non generate:', e); }
+      if (rispostaNote.ok) {
+        const dataNote = await rispostaNote.json();
+        const testoNote = dataNote.content[0].text.trim()
+          .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+        parseJSONSicuro(testoNote).forEach(function(item) {
+          var g = pianoEspanso.find(function(x){ return x.giorno === item.giorno; });
+          if (g) {
+            if (g.pranzo && item.pranzo_nota) g.pranzo.nota_descrittiva = item.pranzo_nota;
+            if (g.cena && item.cena_nota) g.cena.nota_descrittiva = item.cena_nota;
+          }
+        });
+      }
+    } catch(e) { console.warn('Note descrittive non generate:', e); }
+  }
 
   return { ok: true, piano: pianoEspanso };
 }
@@ -6549,13 +6598,18 @@ function renderPianoBox(piano) {
     html += '<div style="padding:.8rem 1rem;">';
     var macHtml=''; if(g.macros&&g.macros.kcal){macHtml='<div class="macros-box" style="display:none;background:#f0faf6;border-radius:6px;padding:.5rem .8rem;margin-bottom:.6rem;font-size:.76rem;"><div style="font-weight:700;color:var(--teal);margin-bottom:.3rem;">Macros giornalieri</div><div>Kcal: '+Math.round(g.macros.kcal)+'</div><div>Proteine: '+Math.round(g.macros.proteine)+'g</div><div>Carboidrati: '+Math.round(g.macros.carboidrati)+'g</div><div>Grassi: '+Math.round(g.macros.grassi)+'g</div></div>';} html+=macHtml;
     ks.forEach(function(k) {
-      var pasto = g[k];
+      // Nuovo formato: pasto dentro g.pasti.{k}
+      var pasto = (g.pasti && g.pasti[k]) ? g.pasti[k] : g[k];
       if (!pasto) return;
-      html += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
+      html += '<div style="margin-bottom:.7rem;font-size:.85rem;">';
       html += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+g.giorno+'\',\''+k+'\')">' + labels[k] + '</span>';
       if (typeof pasto === 'string') {
         html += ' — ' + pasto;
+      } else if (pasto.celle) {
+        // ── NUOVO FORMATO SLOT/CELLE ──
+        html += _renderCelleHtml(pasto, k, g.giorno);
       } else {
+        // ── VECCHIO FORMATO (retrocompatibilità) ──
         var nota = pasto.nota_descrittiva || pasto.nota || '';
         if (nota) html += '<br><em style="color:var(--text2);font-size:.8rem;">' + nota + '</em>';
         var p1 = pasto.principale1, p2 = pasto.principale2;
@@ -6563,12 +6617,10 @@ function renderPianoBox(piano) {
         if (p2) html += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
         if ((k==='pranzo'||k==='cena') && pasto.olio) html += ' &nbsp;·&nbsp; <strong>' + (pasto.olio.nome||'Olio EVO') + '</strong> ' + (pasto.olio.grammi||pasto.olio.g||'') + 'g';
         if (pasto.alternative && pasto.alternative.length) {
-          var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
           html += '<br>';
           pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
-            var ic = altLabel[alt.colore] || '';
             var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
-            html += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
+            html += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">→ ' + alis + '</span><br>';
           });
         }
       }
