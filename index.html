@@ -2874,7 +2874,6 @@ function costruisciContestoPaziente(p){
   if(p.allergie)ctx+='\nAllergie/intolleranze: '+p.allergie;
   if(p.contestoEmotivo)ctx+='\nContesto emotivo e motivazionale: '+p.contestoEmotivo;
   if(p.sostenibilita)ctx+='\nSostenibilita alimentare: priorita per questo paziente';
-  if(p.economica)ctx+='\nBudget alimentare: '+p.economica;
   if(p.alvo)ctx+='\nAlvo: '+p.alvo;
   if(p.flusso&&p.flusso!=='')ctx+='\nFlusso mestruale: '+p.flusso;
   if(p.note)ctx+='\nNote cliniche: '+p.note;
@@ -4814,7 +4813,6 @@ async function generaPiano(){
     +'<b>❌ Alimenti rossi:</b> '+dati.alimentiRossi+'<br>'
     +'<b>Spuntini:</b> '+dati.spuntini+'<br>'
     +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
-    +'<b>Budget:</b> '+dati.budget+'<br>'
     +'<b>Preferenza proteica:</b> '+dati.prefProteica;
 
   if (!document.getElementById('piano-badge-75')) {
@@ -4871,7 +4869,6 @@ async function generaPiano(){
     +"- Alimenti preferiti: "+(preferiti.length?preferiti.join(', '):'nessuno specificato')+"\n"
     +"- Alimenti scartati: "+(scartati.length?scartati.join(', '):'nessuno specificato')+"\n"
     +"- Preferenza proteica: "+(p.prefProteina||'indifferente')+"\n"
-    +"- Budget: "+(p.economica||'non specificato')+"\n\n"
     +"REGOLE:\n"
     +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
     +"- Rispetta le kcal e i macronutrienti target\n"
@@ -5018,19 +5015,21 @@ async function generaPiano(){
         aiHtml += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+g.giorno+'\',\''+s.key+'\')">' + s.label + '</span>';
         if (typeof pasto === 'string') {
           aiHtml += ' — ' + pasto;
+        } else if (pasto.celle) {
+          // ── NUOVO FORMATO SLOT/CELLE ──
+          aiHtml += _renderCelleHtml(pasto, s.key, g.giorno);
         } else {
+          // ── VECCHIO FORMATO (retrocompatibilità) ──
           var nota = pasto.nota_descrittiva || pasto.nota || '';
           if (nota) aiHtml += '<br><em style="color:var(--text2);font-size:.8rem;">' + nota + '</em>';
           var p1 = pasto.principale1, p2 = pasto.principale2;
           if (p1) aiHtml += '<br><strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
           if (p2) aiHtml += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
           if (pasto.alternative && pasto.alternative.length) {
-            var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
             aiHtml += '<br>';
             pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
-              var ic = altLabel[alt.colore] || '';
               var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
-              aiHtml += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
+              aiHtml += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">→ ' + alis + '</span><br>';
             });
           }
         }
@@ -6564,7 +6563,6 @@ function renderDashboard(){
   db.pazienti.forEach(p=>{
     if(p.alvo==='Stitica'||p.alvo==='Molto stitica') alerts.push({paz:p.nome,tipo:'Stitichezza',tag:'tag-orange'});
     if(p.flusso==='Abbondante') alerts.push({paz:p.nome,tipo:'+Ferro',tag:'tag-red'});
-    if(p.economica==='Economico') alerts.push({paz:p.nome,tipo:'Budget',tag:'tag-yellow'});
   });
   const sindEl = document.getElementById('dash-sintesi');
   const tagsEl = document.getElementById('dash-alert-tags');
@@ -6601,7 +6599,6 @@ function renderDashboard(){
   // Spunti per il piano
   const spunti = [];
   db.pazienti.forEach(p=>{
-    if(p.economica==='Economico') spunti.push(`Budget economico (${p.nome}) → privilegia legumi, uova, merluzzo`);
     if(p.alvo==='Stitica'||p.alvo==='Molto stitica') spunti.push(`Stitichezza (${p.nome}) → più ricette ricche di fibre e idratazione`);
     if(p.flusso==='Abbondante') spunti.push(`Flusso abbondante (${p.nome}) → aumenta ferro nella dieta`);
     if(p.weekend==='Pizza') spunti.push(`Sabato sera pizza (${p.nome}) → compensazione su pranzo e snack`);
