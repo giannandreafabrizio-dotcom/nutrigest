@@ -4399,18 +4399,40 @@ ${(function(){
 })()}
 
 FORMATO OUTPUT — SOLO JSON valido, zero testo prima o dopo, zero markdown
-Il piano usa il nuovo formato con "pasti" e "celle" (slot Metadieta-style).
-Ogni cella ha: id (stringa unica), colonna ("sx" o "dx"), ordine (numero intero 1,2,3...), alimenti (array).
-Ogni alimento ha: n (nome), g (grammi), categoria (carbo|proteine|legumi|verdura|frutta|olio|grasso|fit|condimento), colore (verde|arancione|rosso).
-Il primo alimento di ogni cella è il principale, gli altri sono alternative.
-Per pranzo/cena: campo "ricette" con array di 3 stringhe descrittive (senza grammature, stile ristorante).
-Colazione/spuntini: campo "ricette" vuoto [].
-Disposizione default celle: pranzo → carbo sx ordine 1, proteine dx ordine 1, verdura sx ordine 2, olio dx ordine 2, frutta sx ordine 3. Cena → proteine sx ordine 1, carbo dx ordine 1 (se previsto), verdura sx ordine 2, olio dx ordine 2.
+Il piano usa il formato slot/celle Metadieta-style. CHIAVI ABBREVIATE per risparmiare token.
 
-ESEMPIO FORMATO (un solo giorno, da espandere per tutti i giorni):
-[{"g":"Lunedì","macros":{"kcal":0,"proteine":0,"carboidrati":0,"grassi":0},"pasti":{"colazione":{"ricette":[],"celle":[{"id":"c1","colonna":"sx","ordine":1,"alimenti":[{"n":"Yogurt greco 0%","g":125,"categoria":"proteine","colore":"verde"},{"n":"Skyr","g":125,"categoria":"proteine","colore":"verde"}]},{"id":"c2","colonna":"dx","ordine":1,"alimenti":[{"n":"Noci","g":20,"categoria":"grasso","colore":"verde"}]},{"id":"c3","colonna":"sx","ordine":2,"alimenti":[{"n":"Fiocchi d'avena","g":40,"categoria":"carbo","colore":"verde"},{"n":"Muesli","g":40,"categoria":"carbo","colore":"verde"}]}]},"pranzo":{"ricette":["Pasta al pesto con petto di pollo e verdure grigliate","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"celle":[{"id":"c1","colonna":"sx","ordine":1,"alimenti":[{"n":"Pasta integrale","g":80,"categoria":"carbo","colore":"verde"},{"n":"Riso","g":70,"categoria":"carbo","colore":"verde"},{"n":"Farro","g":80,"categoria":"carbo","colore":"verde"}]},{"id":"c2","colonna":"dx","ordine":1,"alimenti":[{"n":"Petto di pollo","g":150,"categoria":"proteine","colore":"verde"},{"n":"Salmone","g":130,"categoria":"proteine","colore":"verde"},{"n":"Tonno al naturale","g":120,"categoria":"proteine","colore":"verde"}]},{"id":"c3","colonna":"sx","ordine":2,"alimenti":[{"n":"Verdura","g":200,"categoria":"verdura","colore":"verde"}]},{"id":"c4","colonna":"dx","ordine":2,"alimenti":[{"n":"Olio EVO","g":20,"categoria":"olio","colore":"verde"}]},{"id":"c5","colonna":"sx","ordine":3,"alimenti":[{"n":"Frutta","g":150,"categoria":"frutta","colore":"verde"}]}]}}}]
+OGNI GIORNO ha questi campi:
+- "g" (giorno, es. "Lunedì" o "Lunedì ON")
+- "macros" {kcal,proteine,carboidrati,grassi}
+- "pasti" {colazione, spuntino_mattina, pranzo, spuntino_pomeriggio, cena, pre_nanna}
 
-Genera TUTTI i ${nGiorni} giorni completi. Includi spuntino_mattina e spuntino_pomeriggio solo se appropriati per il paziente. Includi pre_nanna solo se appropriato. IMPORTANTE per macros: calcola valori REALI sommando tutti gli alimenti usando valori nutrizionali standard italiani.`;
+OGNI PASTO ha questi campi:
+- "ric" array di stringhe ricette descrittive (3 stringhe per pranzo/cena, [] per altri)
+- "ce" array di celle (slot)
+
+OGNI CELLA ha questi campi:
+- "id" stringa univoca (es. "c1")
+- "co" colonna ("sx" o "dx")
+- "or" ordine (numero intero 1,2,3...)
+- "al" array alimenti
+
+OGNI ALIMENTO ha questi campi:
+- "n" nome
+- "g" grammi
+- "cat" categoria abbreviata: ca=carbo, pr=proteine, le=legumi, ve=verdura, fr=frutta, oi=olio, gx=grasso, fi=fit, co=condimento
+- "cl" colore abbreviato: v=verde, a=arancione, r=rosso
+
+REGOLE STRUTTURA CELLE:
+- Il primo alimento di ogni cella è il principale, gli altri sono alternative
+- MASSIMO 3 alimenti per cella (1 principale + max 2 alternative) per limitare output
+- Verdura, frutta, olio: una sola voce per cella, NESSUNA alternativa
+- Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
+- Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)
+
+ESEMPIO FORMATO (un giorno):
+[{"g":"Lunedì","macros":{"kcal":1850,"proteine":130,"carboidrati":200,"grassi":60},"pasti":{"colazione":{"ric":[],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Yogurt greco 0%","g":125,"cat":"pr","cl":"v"},{"n":"Skyr","g":125,"cat":"pr","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Noci","g":20,"cat":"gx","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Fiocchi d'avena","g":40,"cat":"ca","cl":"v"},{"n":"Muesli","g":40,"cat":"ca","cl":"v"}]}]},"pranzo":{"ric":["Pasta al pesto con pollo e verdure","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Pasta integrale","g":80,"cat":"ca","cl":"v"},{"n":"Riso","g":70,"cat":"ca","cl":"v"},{"n":"Farro","g":80,"cat":"ca","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Petto di pollo","g":150,"cat":"pr","cl":"v"},{"n":"Salmone","g":130,"cat":"pr","cl":"v"},{"n":"Tonno","g":120,"cat":"pr","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Verdura","g":200,"cat":"ve","cl":"v"}]},{"id":"c4","co":"dx","or":2,"al":[{"n":"Olio EVO","g":20,"cat":"oi","cl":"v"}]},{"id":"c5","co":"sx","or":3,"al":[{"n":"Frutta","g":150,"cat":"fr","cl":"v"}]}]}}}]
+
+Genera TUTTI i ${nGiorni} giorni. Includi spuntino_mattina/pomeriggio e pre_nanna solo se appropriati. Macros: calcola valori REALI sommando tutti gli alimenti.`;
 }
 
 function toggleRegolePiano(){
@@ -4468,6 +4490,42 @@ function getAnthropicKey() {
     localStorage.setItem('anthropicApiKey', key.trim());
   }
   return key.trim();
+}
+
+function _normalizzaPianoNuovo(piano) {
+  // Converte chiavi abbreviate (ric, ce, co, or, al, cat, cl) in chiavi estese (ricette, celle, colonna, ordine, alimenti, categoria, colore)
+  if (!piano || !piano.length) return piano;
+  var catMap = {ca:'carbo',pr:'proteine',le:'legumi',ve:'verdura',fr:'frutta',oi:'olio',gx:'grasso',fi:'fit',co:'condimento'};
+  var clMap = {v:'verde',a:'arancione',r:'rosso'};
+  return piano.map(function(g) {
+    if (!g.pasti) return g;
+    var nuoviPasti = {};
+    Object.keys(g.pasti).forEach(function(k) {
+      var p = g.pasti[k];
+      if (!p) return;
+      var nuovoP = {
+        ricette: p.ricette || p.ric || [],
+        celle: (p.celle || p.ce || []).map(function(c) {
+          return {
+            id: c.id,
+            colonna: c.colonna || c.co || 'sx',
+            ordine: c.ordine || c.or || 1,
+            alimenti: (c.alimenti || c.al || []).map(function(a) {
+              return {
+                n: a.n,
+                g: a.g,
+                categoria: a.categoria || catMap[a.cat] || a.cat || '',
+                colore: a.colore || clMap[a.cl] || a.cl || ''
+              };
+            })
+          };
+        })
+      };
+      if (p.nota_descrittiva) nuovoP.nota_descrittiva = p.nota_descrittiva;
+      nuoviPasti[k] = nuovoP;
+    });
+    return { g: g.g, giorno: g.giorno || g.g, macros: g.macros, pasti: nuoviPasti };
+  });
 }
 
 function espandiPiano(piano) {
@@ -4599,7 +4657,7 @@ async function chiamaGeneraPiano(pazienteId) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 8000,
+      max_tokens: 16000,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -4613,7 +4671,12 @@ async function chiamaGeneraPiano(pazienteId) {
     .replace(/\s*```$/, '')
     .trim();
 
-  const pianoEspanso = espandiPiano(parseJSONSicuro(testo));
+  var _pianoGrezzo = parseJSONSicuro(testo);
+  // Normalizza chiavi abbreviate (Step 1.7b: token saving)
+  if (_pianoGrezzo && _pianoGrezzo.length && _pianoGrezzo[0] && (_pianoGrezzo[0].pasti || _pianoGrezzo[0].g)) {
+    _pianoGrezzo = _normalizzaPianoNuovo(_pianoGrezzo);
+  }
+  const pianoEspanso = espandiPiano(_pianoGrezzo);
   var _isNuovoFormato = pianoEspanso && pianoEspanso.length && pianoEspanso[0] && pianoEspanso[0].pasti;
 
   // Seconda chiamata: genera note/ricette descrittive solo se vecchio formato
