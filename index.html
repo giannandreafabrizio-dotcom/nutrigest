@@ -4281,6 +4281,11 @@ Arancioni (${alimentiArancioni.length}): ${alimentiArancioni.join(', ')||'nessun
 Rossi (${alimentiRossi.length}): ${alimentiRossi.join(', ')||'nessuno'}
 Esclusi (mai usare): ${alimentiEsclusi.join(', ')||'nessuno'}
 
+REGOLA VARIETÀ ALIMENTI — IMPORTANTE
+Ogni slot di ogni pasto deve avere alimenti DIVERSI dagli altri pasti della stessa giornata.
+Esempio: se a pranzo hai pasta/riso/farro nel slot carbo, a cena usa altri cereali o nessun carbo.
+Mai copiare lo stesso set di alternative da un pasto all'altro. Ogni slot è indipendente.
+
 REGOLA DISTRIBUZIONE COLORI — CRITICA
 Su ${totRicette} ricette totali della settimana (pasti principali × 3 ricette per pasto):
 - 75% devono contenere alimenti VERDI come ingrediente principale
@@ -4690,6 +4695,11 @@ async function generaPiano(){
     +'<b>Budget:</b> '+dati.budget+'<br>'
     +'<b>Preferenza proteica:</b> '+dati.prefProteica;
 
+  if (!document.getElementById('piano-badge-75')) {
+    var _badgeEl = document.createElement('div');
+    _badgeEl.id = 'piano-badge-75';
+    document.getElementById('piano-btn-genera').parentNode.appendChild(_badgeEl);
+  }
   let pianoEl = document.getElementById('piano-piano-box');
   if(!pianoEl){
     pianoEl = document.createElement('div');
@@ -4917,7 +4927,7 @@ async function generaPiano(){
     pianoEl.appendChild(btnPdf);
     window._pdfPaziente = p;
     window._pdfPiano = pianoAI;
-
+    renderBadge75_20_5(pianoAI);
     window._pianoCorrente = pianoAI;
     window._storicoPiani = [];
     inizializzaP2(pianoAI);
