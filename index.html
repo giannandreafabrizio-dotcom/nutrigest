@@ -7,6 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
+.cell-ctrl{background:#fff;border:1px solid #cbd5e1;border-radius:4px;width:24px;height:22px;font-size:.7rem;cursor:pointer;color:#475569;padding:0;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
+.cell-ctrl:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+
 :root {
   --bg:#f7f4ef;--s1:#ffffff;--s2:#f0ece4;--s3:#e8e2d8;
   --border:#ddd8ce;--border2:#c8c0b4;
@@ -4560,7 +4563,7 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
   var html = '';
   // Ricette descrittive in cima (solo pranzo/cena)
   if (pasto.ricette && pasto.ricette.length) {
-    html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .4rem;line-height:1.5">';
+    html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.5;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
     pasto.ricette.forEach(function(r, i) {
       if (r) html += '<div><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> → ' + r + '</div>';
     });
@@ -4577,24 +4580,120 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
     if (!righe[ord]) righe[ord] = {sx: null, dx: null};
     righe[ord][c.colonna || 'sx'] = c;
   });
-  Object.keys(righe).sort().forEach(function(ord) {
+  // Calcola se ci sono celle in una colonna ma non nell'altra (per saper mostrare frecce ←/→)
+  var ordKeys = Object.keys(righe).sort(function(a,b){return Number(a)-Number(b);});
+  var maxOrd = ordKeys.length ? Number(ordKeys[ordKeys.length-1]) : 0;
+
+  ordKeys.forEach(function(ord) {
     var riga = righe[ord];
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .8rem;margin-bottom:.3rem">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem;margin-bottom:.4rem;align-items:start">';
     ['sx','dx'].forEach(function(col) {
       var cella = riga[col];
-      html += '<div>';
+      html += '<div style="background:#fafbfc;border:1px solid #eef0f3;border-radius:6px;padding:.4rem .5rem;min-height:34px">';
       if (cella && cella.alimenti && cella.alimenti.length) {
         var princ = cella.alimenti[0];
-        html += '<div><strong style="font-size:.83rem">' + princ.n + '</strong> <span style="color:var(--teal);font-size:.8rem">' + princ.g + 'g</span></div>';
+        // PRINCIPALE
+        html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+        html += '<strong style="font-size:.83rem">' + princ.n + '</strong>';
+        html += '<span style="color:var(--teal);font-size:.8rem;font-weight:600">' + princ.g + 'g</span>';
+        html += '</div>';
+        // ALTERNATIVE
         cella.alimenti.slice(1).forEach(function(alt) {
-          html += '<div style="font-size:.73rem;color:var(--text3);font-style:italic;padding-left:.8rem">' + alt.n + ' ' + alt.g + 'g</div>';
+          html += '<div style="font-size:.73rem;color:var(--text3);font-style:italic;padding-left:.6rem;margin-top:1px">' + alt.n + ' ' + alt.g + 'g</div>';
         });
+        // CONTROLLI CELLA (frecce)
+        var ordNum = Number(ord);
+        html += '<div style="display:flex;gap:3px;margin-top:.4rem;flex-wrap:wrap">';
+        // Up
+        if (ordNum > 1) html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'up\')" title="Sposta su">↑</button>';
+        // Down
+        if (ordNum < maxOrd) html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'down\')" title="Sposta giù">↓</button>';
+        // Left/Right
+        if (col === 'dx') html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'left\')" title="Sposta a sinistra">←</button>';
+        else html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'right\')" title="Sposta a destra">→</button>';
+        html += '</div>';
+      } else {
+        html += '<div style="font-size:.7rem;color:#cbd5e1;font-style:italic">— vuoto —</div>';
       }
       html += '</div>';
     });
     html += '</div>';
   });
   return html;
+}
+
+// ── FASE 2 — funzioni di manipolazione celle ──
+function _trovaPasto(giorno, slotKey) {
+  if (!window._pianoCorrente) return null;
+  var g = window._pianoCorrente.find(function(x){ return (x.giorno||x.g) === giorno; });
+  if (!g) return null;
+  var pasto = (g.pasti && g.pasti[slotKey]) ? g.pasti[slotKey] : g[slotKey];
+  return { g: g, pasto: pasto };
+}
+
+function cellaSposta(giorno, slotKey, cellaId, direzione) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) return;
+  var celle = ctx.pasto.celle;
+  var c = celle.find(function(x){ return x.id === cellaId; });
+  if (!c) return;
+
+  if (direzione === 'left') c.colonna = 'sx';
+  else if (direzione === 'right') c.colonna = 'dx';
+  else if (direzione === 'up') c.ordine = Math.max(1, (c.ordine||1) - 1);
+  else if (direzione === 'down') c.ordine = (c.ordine||1) + 1;
+
+  // Compatta gli ordini per evitare buchi
+  var perColonna = { sx: [], dx: [] };
+  celle.forEach(function(x){ perColonna[x.colonna || 'sx'].push(x); });
+  ['sx','dx'].forEach(function(col){
+    perColonna[col].sort(function(a,b){ return (a.ordine||1) - (b.ordine||1); });
+    perColonna[col].forEach(function(x, i){ x.ordine = i+1; });
+  });
+
+  _aggiornaPianoBox();
+  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+}
+
+function _aggiornaPianoBox() {
+  // Trova il piano nel DOM e aggiorna solo il render senza ricaricare nulla
+  var pianoEl = document.getElementById('piano-piano-box');
+  if (!pianoEl || !window._pianoCorrente) return;
+  var pianoAI = window._pianoCorrente;
+  var aiHtml = '<div style="margin-top:1.5rem;">';
+  pianoAI.forEach(function(g) {
+    aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
+    aiHtml += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;text-align:center;">' + g.giorno + '</div>';
+    aiHtml += '<div style="padding:.8rem 1rem;">';
+    var slots = [
+      { label: 'COLAZIONE', key: 'colazione' },
+      { label: 'SPUNTINO MATTINA', key: 'spuntino_mattina' },
+      { label: 'PRANZO', key: 'pranzo' },
+      { label: 'SPUNTINO POMERIGGIO', key: 'spuntino_pomeriggio' },
+      { label: 'CENA', key: 'cena' },
+      { label: 'PRE-NANNA', key: 'pre_nanna' }
+    ];
+    slots.forEach(function(s) {
+      var pasto = (g.pasti && g.pasti[s.key]) ? g.pasti[s.key] : g[s.key];
+      if (!pasto) return;
+      aiHtml += '<div style="margin-bottom:.7rem;font-size:.85rem;">';
+      aiHtml += '<div style="font-weight:700;color:var(--green);text-align:center;margin-bottom:.3rem">' + s.label + '</div>';
+      if (pasto.celle) aiHtml += _renderCelleHtml(pasto, s.key, g.giorno);
+      aiHtml += '</div>';
+    });
+    aiHtml += '</div></div>';
+  });
+  aiHtml += '</div>';
+  pianoEl.innerHTML = aiHtml;
+
+  // Ripristina pulsante PDF
+  if (window._pdfPaziente && window._pdfPiano) {
+    var btnPdf = document.createElement('button');
+    btnPdf.textContent = '📄 Scarica Piano PDF';
+    btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
+    pianoEl.appendChild(btnPdf);
+  }
 }
 
 function parseJSONSicuro(testo) {
