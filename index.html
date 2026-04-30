@@ -4592,14 +4592,14 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
       html += '<div style="background:#fafbfc;border:1px solid #eef0f3;border-radius:6px;padding:.4rem .5rem;min-height:34px">';
       if (cella && cella.alimenti && cella.alimenti.length) {
         var princ = cella.alimenti[0];
-        // PRINCIPALE
+        // PRINCIPALE — grammatura cliccabile
         html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
         html += '<strong style="font-size:.83rem">' + princ.n + '</strong>';
-        html += '<span style="color:var(--teal);font-size:.8rem;font-weight:600">' + princ.g + 'g</span>';
+        html += '<span class="gram-edit" data-giorno="'+giorno.replace(/"/g,'&quot;')+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.8rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px" title="Click per modificare">' + princ.g + 'g</span>';
         html += '</div>';
-        // ALTERNATIVE
-        cella.alimenti.slice(1).forEach(function(alt) {
-          html += '<div style="font-size:.73rem;color:var(--text3);font-style:italic;padding-left:.6rem;margin-top:1px">' + alt.n + ' ' + alt.g + 'g</div>';
+        // ALTERNATIVE — grammatura cliccabile
+        cella.alimenti.slice(1).forEach(function(alt, altIdx) {
+          html += '<div style="font-size:.73rem;color:var(--text3);font-style:italic;padding-left:.6rem;margin-top:1px">' + alt.n + ' <span class="gram-edit" data-giorno="'+giorno.replace(/"/g,'&quot;')+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+(altIdx+1)+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px" title="Click per modificare">' + alt.g + 'g</span></div>';
         });
         // CONTROLLI CELLA (frecce)
         var ordNum = Number(ord);
@@ -4653,6 +4653,47 @@ function cellaSposta(giorno, slotKey, cellaId, direzione) {
 
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+}
+
+function apriEditGrammatura(span) {
+  if (span._editing) return;
+  span._editing = true;
+  var giorno = span.getAttribute('data-giorno');
+  var slot = span.getAttribute('data-slot');
+  var cellId = span.getAttribute('data-cell');
+  var idx = parseInt(span.getAttribute('data-idx'));
+  var ctx = _trovaPasto(giorno, slot);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) { span._editing = false; return; }
+  var cella = ctx.pasto.celle.find(function(c){ return c.id === cellId; });
+  if (!cella || !cella.alimenti[idx]) { span._editing = false; return; }
+  var alimento = cella.alimenti[idx];
+  var oldG = alimento.g;
+
+  // Sostituisce span con input number
+  var input = document.createElement('input');
+  input.type = 'number';
+  input.value = oldG;
+  input.min = 0;
+  input.step = 5;
+  input.style.cssText = 'width:55px;font-size:inherit;font-weight:inherit;color:inherit;padding:1px 4px;border:1px solid var(--teal);border-radius:3px;text-align:center';
+  span.parentNode.replaceChild(input, span);
+  input.focus();
+  input.select();
+
+  function salva() {
+    var nuovo = parseInt(input.value);
+    if (isNaN(nuovo) || nuovo < 0) nuovo = oldG;
+    alimento.g = nuovo;
+    _aggiornaPianoBox();
+    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  }
+
+  input.addEventListener('blur', salva);
+  input.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') { input.blur(); }
+    else if (e.key === 'Escape') { input.value = oldG; input.blur(); }
+  });
 }
 
 function _aggiornaPianoBox() {
