@@ -751,6 +751,9 @@ main{flex:1;overflow-y:auto;}
       <option value="">Tutti i pazienti</option>
     </select>
   </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+    <button class="btn btn-d btn-sm" onclick="cancellaStoricoPiani()" style="font-size:.72rem">🗑 Cancella tutti i piani</button>
+  </div>
   <div id="storico-piani-list"></div>
 </div>
 <div class="page" id="page-impostazioni">
@@ -4143,6 +4146,14 @@ function renderStoricoPiani() {
       +(paz?'<div style="font-size:.72rem;color:var(--teal);">'+(paz.regime||'')+'</div>':'')
       +'</div></div>'
       +'<div style="display:flex;gap:.5rem;">'
+      +(function(){
+        try {
+          var _pj = JSON.parse(pl.pianoJSON);
+          var _isNuovo = Array.isArray(_pj) && _pj.length && _pj[0].pasti;
+          if (!_isNuovo) return '<span style="font-size:.68rem;color:#b45309;background:#fef3c7;padding:2px 6px;border-radius:4px;margin-right:.4rem">⚠ Formato vecchio</span>';
+        } catch(e) {}
+        return '';
+      })()
       +'<button class="btn btn-g btn-sm" onclick="riapriPiano(\''+pl.pazienteId+'\','+idxOriginale+')">📂 Riapri</button>'
       +'<button class="btn btn-d btn-sm" onclick="eliminaPiano('+idxOriginale+')">🗑</button>'
       +'</div>'
@@ -4156,6 +4167,16 @@ function eliminaPiano(idx) {
   save();
   renderStoricoPiani();
   notif('Piano eliminato');
+}
+
+function cancellaStoricoPiani() {
+  var tot = (db.piani||[]).length;
+  if (!tot) { notif('Nessun piano da cancellare'); return; }
+  if (!confirm('Eliminare tutti i ' + tot + ' piani salvati nello storico? Questa azione non è reversibile.')) return;
+  db.piani = [];
+  save();
+  renderStoricoPiani();
+  notif('✓ Storico piani cancellato');
 }
 
 // ── BUG3 FIX: helper centrale per scegliere target attivi ──
