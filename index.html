@@ -1891,8 +1891,6 @@ function editPaz(){
   ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
   ss2('p-orario-all',p.orarioAllenamento);ss2('p-cronotipo',p.cronotipo);ss2('p-orario-pasto',p.orarioPastoPrincipale);
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
-  const elCicl = document.getElementById('mac-ciclizzato');
-  if (elCicl) elCicl.checked = p.ciclizzato || false;
   const elRef = document.querySelector('input[name="mac-ref"][value="'+(p.rifCalcolo||'auto')+'"]');
   if(elRef) elRef.checked = true;
   aggiornaLabelMacros();
@@ -2118,7 +2116,6 @@ function salvaPaz(){
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
     giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
-    ciclizzato: document.getElementById('mac-ciclizzato')?.checked || false,
     circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
@@ -3517,10 +3514,6 @@ function renderPdMacros(p){
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
     </div>
   </div>
-  <div class="fg" style="margin-top:.4rem;display:flex;align-items:center;gap:8px;">
-    <input type="checkbox" id="mac-ciclizzato" style="accent-color:var(--teal);width:15px;height:15px;">
-    <label for="mac-ciclizzato" style="font-size:.82rem;color:var(--text2);cursor:pointer;">Piano ciclizzato — distingui giorni ON/OFF nel piano settimanale</label>
-  </div>
   <div class="fr">
     <div class="fg"><label>Cronotipo</label>
       <select id="p-cronotipo">
@@ -3685,8 +3678,6 @@ function renderPdMacros(p){
       if(el) el.checked=p.giorniAllenamento.includes(d);
     });
   }
-  const _cicEl=document.getElementById('mac-ciclizzato');
-  if(_cicEl) _cicEl.checked=!!(p.ciclizzato);
   const _rifVal=p.rifCalcolo||'auto';
   const _rifEl=document.getElementById('mac-ref-'+_rifVal);
   if(_rifEl) _rifEl.checked=true;
@@ -3942,7 +3933,7 @@ function pianoPazSelezionato(id){
     const carbG=_activeDisp?_activeDisp.carbG:Math.max(0,Math.round((kcalTarget-Math.round(1.8*ref)*4-Math.round(0.9*ref)*9)/4));
     const kcalDisp=_activeDisp?_activeDisp.kcal:kcalTarget;
     const kcalProt=protG*4;const kcalGrassi=grassiG*9;
-    const ciclizzatoBadge=p.ciclizzato?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">Piano ciclizzato attivo — giorni ON/OFF</div>':'';
+    const ciclizzatoBadge=(p.giorniAllenamento&&p.giorniAllenamento.length>0)?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">Piano ciclizzato attivo — giorni ON/OFF ('+( p.giorniAllenamento||[]).join(", ")+')</div>':'';
 
     macrosEl.innerHTML=`
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
@@ -4237,7 +4228,7 @@ ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
 }).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
 ${(function(){var _rp=p.regolePiano||{};var _leg=_rp.legumi!==undefined?_rp.legumi:3;if(_leg===0)return "Tutti i giorni pranzo: proteina principale senza legumi";if(_rp.legumi135!==false)return "Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi";return "Legumi "+_leg+"x/settimana distribuiti a pranzo nei giorni scelti";})()} 
-${!p.ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento e OFF ai giorni di riposo del paziente.'}
+${!(p.giorniAllenamento&&p.giorniAllenamento.length>0) ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento ('+( p.giorniAllenamento||[]).join(', ')+') e OFF agli altri giorni.'}
 
 REGOLE PERSONALIZZATE MEDICO
 ${(function(){
@@ -4406,7 +4397,7 @@ async function chiamaGeneraPiano(pazienteId) {
     notif('⚠ Nessun target macros salvato — vai in TDEE → Salva dati o completa un Ragionamento');
     throw new Error('Target macros non disponibili per il paziente');
   }
-  var ciclizzato = paz && paz.ciclizzato ? true : false;
+  var ciclizzato = (paz && paz.giorniAllenamento && paz.giorniAllenamento.length > 0) ? true : false;
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
   console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
   console.log('[Piano] _ragContextForPiano:', JSON.stringify(window._ragContextForPiano));
