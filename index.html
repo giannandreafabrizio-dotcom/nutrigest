@@ -1523,6 +1523,92 @@ const MACRO_SCHEMA = [
   {cat:'Obesità II – poco sportivo, dimagrimento',bmiLabel:'≥ 35',bmiMin:35,bmiMax:999,laf:[1.25,1.35],deltaMin:-700,deltaMax:-500,prot:[1.8,2.2],grassi:[1.0,1.2],useFFM:true,colore:'#791F1F',nota:'ipocalorica aggressiva'}
 ];
 
+// ── CATEGORIE FUNZIONALI ALIMENTI (Fase 1 refactor) ──
+// Mappa: nome esatto alimento → categoria funzionale per il sistema slot
+// Fallback: se non trovato, deduzione da categoria semaforo originale
+const CATEGORIE_FUNZIONALI = {
+  carbo:      {label: 'Carboidrati',  ordine: 1, color: '#D97706'},
+  proteine:   {label: 'Proteine',     ordine: 2, color: '#DC2626'},
+  legumi:     {label: 'Legumi',       ordine: 3, color: '#7C3AED'},
+  verdura:    {label: 'Verdura',      ordine: 4, color: '#059669'},
+  frutta:     {label: 'Frutta',       ordine: 5, color: '#D946EF'},
+  olio:       {label: 'Olio EVO',     ordine: 6, color: '#84CC16'},
+  grasso:     {label: 'Grassi buoni', ordine: 7, color: '#A16207'},
+  fit:        {label: 'Fit/Misti',    ordine: 8, color: '#0284C7'},
+  condimento: {label: 'Condimenti',   ordine: 9, color: '#6B7280'}
+};
+
+// Mappa categoria semaforo → categoria funzionale di default (fallback)
+const _CAT_SEMAFORO_TO_FUNZIONALE = {
+  'Cereali con Glutine': 'carbo',
+  'Cereali senza Glutine': 'carbo',
+  'Carne bianca': 'proteine',
+  'Carne rossa': 'proteine',
+  'Pesce & Molluschi': 'proteine',
+  'Affettati': 'proteine',
+  'Uova': 'proteine',
+  'Latticini': 'proteine',
+  'Legumi': 'legumi',
+  'Verdure & Ortaggi': 'verdura',
+  'Frutta': 'frutta',
+  'Frutta secca & Semi': 'grasso',
+  'Olio & Condimenti': 'olio',
+  'Dolcificanti & Conserve': 'condimento',
+  'Fit': 'fit'
+};
+
+// Override per alimenti specifici dove la categoria semaforo non basta
+const _ALIMENTI_OVERRIDE_CATEGORIA = {
+  'Olio EVO': 'olio',
+  'Aceto': 'condimento',
+  'Salsa di soia': 'condimento',
+  'Senape': 'condimento',
+  'Limone': 'condimento',
+  'Pancake proteico': 'fit',
+  'Cioccolato fondente': 'grasso',
+  'Cioccolato fondente 85%': 'grasso',
+  'Cioccolato fondente 90%': 'grasso',
+  'Verdura': 'verdura',
+  'Verdura media': 'verdura',
+  'Frutta': 'frutta',
+  'Frutta media': 'frutta',
+  'Frutta fresca': 'frutta',
+  'Frutta fresca (media)': 'frutta'
+};
+
+// Funzione helper: dato un nome alimento, restituisce la categoria funzionale
+function getCategoriaFunzionale(nomeAlimento) {
+  if (!nomeAlimento) return 'condimento';
+  // 1) Override esplicito per nome
+  if (_ALIMENTI_OVERRIDE_CATEGORIA[nomeAlimento]) {
+    return _ALIMENTI_OVERRIDE_CATEGORIA[nomeAlimento];
+  }
+  // 2) Cerca l'alimento nel database ALIMENTI per dedurre dalla categoria semaforo
+  if (typeof ALIMENTI === 'object' && ALIMENTI) {
+    for (const catSemaforo in ALIMENTI) {
+      const lista = ALIMENTI[catSemaforo];
+      if (Array.isArray(lista)) {
+        const trovato = lista.some(function(a){ return a.n === nomeAlimento; });
+        if (trovato && _CAT_SEMAFORO_TO_FUNZIONALE[catSemaforo]) {
+          return _CAT_SEMAFORO_TO_FUNZIONALE[catSemaforo];
+        }
+      }
+    }
+  }
+  // 3) Fallback euristico via parole chiave nel nome
+  const n = nomeAlimento.toLowerCase();
+  if (/(pasta|riso|pane|farro|quinoa|orzo|cuscus|patate|biscott|fett.|fiocchi|muesli|cereali)/.test(n)) return 'carbo';
+  if (/(pollo|tacchino|manzo|vitell|maiale|pesce|salmone|tonno|merluzzo|orata|spigola|gamber|seppia|polpo|uova|uovo|yogurt|skyr|ricotta|formaggio|fiocchi di latte|bresaola|prosciutto|salsiccia)/.test(n)) return 'proteine';
+  if (/(lentic|cec|fagioli|piselli|fave|legum|edamame)/.test(n)) return 'legumi';
+  if (/(verdur|insalata|spinaci|broccol|zucchin|melanz|peperoni|pomodor|cetriol|carota|finocchi|cavolo|rucola|lattuga|radicchio)/.test(n)) return 'verdura';
+  if (/(frutta|mela|pera|banana|arancia|kiwi|frutti di bosco|mirtill|fragol|pesca|albicocc|prugna|uva|ananas|melone|angur)/.test(n)) return 'frutta';
+  if (/(olio evo|olio extraverg)/.test(n)) return 'olio';
+  if (/(noci|mandorl|nocciol|pistacch|anacardi|semi|avocado|cioccolato fondente)/.test(n)) return 'grasso';
+  if (/(pancake proteic|barretta proteic)/.test(n)) return 'fit';
+  // 4) Default neutro
+  return 'condimento';
+}
+
 const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spuntino:'tag-green','post-workout':'tag-red'};
 
 // ════════════════════════════════════════════════════════════════
