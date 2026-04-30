@@ -1108,6 +1108,29 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>BMI</label><input type="number" id="ib-bmi" step="0.1"></div>
     <div class="fg"><label>Altezza (cm)</label><input type="number" id="ib-altezza" step="0.1" placeholder="es. 170"></div>
   </div>
+  <div class="fr">
+    <div class="fg"><label>Cintura/Fianchi</label><input type="number" id="ib-cint-fianchi" step="0.01" placeholder="es. 0.92"></div>
+  </div>
+  <div style="font-size:.72rem;font-weight:600;color:var(--teal2);margin:.6rem 0 .2rem;text-transform:uppercase;letter-spacing:.5px">Massa Magra Segmentale (kg)</div>
+  <div class="fr">
+    <div class="fg"><label>Braccio SX</label><input type="number" id="ib-ms-bracsx" step="0.01"></div>
+    <div class="fg"><label>Braccio DX</label><input type="number" id="ib-ms-bracdx" step="0.01"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Tronco</label><input type="number" id="ib-ms-tronco" step="0.01"></div>
+    <div class="fg"><label>Gamba SX</label><input type="number" id="ib-ms-gambsx" step="0.01"></div>
+    <div class="fg"><label>Gamba DX</label><input type="number" id="ib-ms-gambdx" step="0.01"></div>
+  </div>
+  <div style="font-size:.72rem;font-weight:600;color:var(--arancio,#E97B2A);margin:.6rem 0 .2rem;text-transform:uppercase;letter-spacing:.5px">Massa Grassa Segmentale (kg)</div>
+  <div class="fr">
+    <div class="fg"><label>Braccio SX</label><input type="number" id="ib-gs-bracsx" step="0.01"></div>
+    <div class="fg"><label>Braccio DX</label><input type="number" id="ib-gs-bracdx" step="0.01"></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label>Tronco</label><input type="number" id="ib-gs-tronco" step="0.01"></div>
+    <div class="fg"><label>Gamba SX</label><input type="number" id="ib-gs-gambsx" step="0.01"></div>
+    <div class="fg"><label>Gamba DX</label><input type="number" id="ib-gs-gambdx" step="0.01"></div>
+  </div>
   <div class="fg"><label>Note cliniche</label><textarea id="ib-note"></textarea></div>
   <div class="mf">
     <button class="btn btn-g" onclick="closeM('mo-inbody')">Annulla</button>
@@ -2814,7 +2837,19 @@ function costruisciContestoPaziente(p){
     +avvisoInbody;
 
   if(lastIb){
-    ctx+='\n\nInBody ('+lastIb.data+'): Peso '+(lastIb.peso||'—')+'kg · %Grassa '+(lastIb.pg||'—')+'% · Massa magra '+(lastIb.m||'—')+'kg · Muscolare '+(lastIb.musc||'—')+'kg · Acqua '+(lastIb.acqua||'—')+'L · BMI '+(lastIb.bmi||'—')+' · Viscerale '+(lastIb.visc||'—')+deltaIb;
+    let _ibCtx = '\n\nInBody ('+lastIb.data+'): Peso '+(lastIb.peso||'—')+'kg · %Grassa '+(lastIb.pg||'—')+'% · Massa magra '+(lastIb.m||'—')+'kg · Muscolare '+(lastIb.musc||'—')+'kg · Acqua '+(lastIb.acqua||'—')+'L · MB '+(lastIb.mb||'—')+'kcal · BMI '+(lastIb.bmi||'—')+' · Viscerale livello '+(lastIb.visc||'—');
+    if(lastIb.cintFianchi) _ibCtx += ' · Cintura/Fianchi '+lastIb.cintFianchi;
+    _ibCtx += deltaIb;
+    if(lastIb.magraSegm && lastIb.magraSegm.tronco){
+      const ms=lastIb.magraSegm;
+      _ibCtx += '\nMassa Magra Segmentale (kg): Br.SX '+( ms.bracSx||'—')+' · Br.DX '+(ms.bracDx||'—')+' · Tronco '+(ms.tronco||'—')+' · Gamb.SX '+(ms.gambSx||'—')+' · Gamb.DX '+(ms.gambDx||'—');
+    }
+    if(lastIb.grassaSegm && lastIb.grassaSegm.tronco){
+      const gs=lastIb.grassaSegm;
+      _ibCtx += '\nMassa Grassa Segmentale (kg): Br.SX '+(gs.bracSx||'—')+' · Br.DX '+(gs.bracDx||'—')+' · Tronco '+(gs.tronco||'—')+' · Gamb.SX '+(gs.gambSx||'—')+' · Gamb.DX '+(gs.gambDx||'—');
+      if(gs.tronco && lastIb.g) { const percTronco=Math.round(gs.tronco/lastIb.g*100); _ibCtx += ' [grasso tronco '+percTronco+'% del tot]'; }
+    }
+    ctx += _ibCtx;
   } else {
     ctx+='\n\nInBody: nessuna misurazione disponibile.';
   }
@@ -5108,7 +5143,7 @@ function generaPDF(paziente, giorni) {
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
-  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('mo-inbody').classList.add('open');
 }
 
@@ -5118,7 +5153,11 @@ function salvaInbody(){
   const ib={id:uid(),data:document.getElementById('ib-data').value||today(),
     peso:gn('ib-peso'),pg:gn('ib-pg'),g:gn('ib-g'),m:gn('ib-m'),
     musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
-    visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),note:document.getElementById('ib-note').value.trim()};
+    visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),
+    cintFianchi:gn('ib-cint-fianchi'),
+    magraSegm:{bracSx:gn('ib-ms-bracsx'),bracDx:gn('ib-ms-bracdx'),tronco:gn('ib-ms-tronco'),gambSx:gn('ib-ms-gambsx'),gambDx:gn('ib-ms-gambdx')},
+    grassaSegm:{bracSx:gn('ib-gs-bracsx'),bracDx:gn('ib-gs-bracdx'),tronco:gn('ib-gs-tronco'),gambSx:gn('ib-gs-gambsx'),gambDx:gn('ib-gs-gambdx')},
+    note:document.getElementById('ib-note').value.trim()};
   if(ib.altezza){p.altezza=ib.altezza;}  // aggiorna sempre altezza paziente da InBody
   if(!p.inbody)p.inbody=[];p.inbody.push(ib);
   save();closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
@@ -5833,7 +5872,7 @@ async function loadInbodyPDF(e) {
           max_tokens: 1000,
           messages: [{role:'user', content:[
             contentBlock,
-            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON: peso (kg), altezza (cm), percentuale_grassa (%), massa_grassa (kg), massa_magra (kg), massa_muscolare (kg), acqua_totale (L), metabolismo_basale (kcal), grasso_viscerale (livello 1-20), bmi. Se un valore non è presente metti null. Rispondi SOLO con il JSON.'}
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- cintura_fianchi (rapporto numerico es. 0.92)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
           ]}]
         })
       });
@@ -5845,6 +5884,21 @@ async function loadInbodyPDF(e) {
       s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
       s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza);
+      s('ib-cint-fianchi', ib.cintura_fianchi);
+      if(ib.magra_segmentale){
+        s('ib-ms-bracsx', ib.magra_segmentale.braccio_sx);
+        s('ib-ms-bracdx', ib.magra_segmentale.braccio_dx);
+        s('ib-ms-tronco', ib.magra_segmentale.tronco);
+        s('ib-ms-gambsx', ib.magra_segmentale.gamba_sx);
+        s('ib-ms-gambdx', ib.magra_segmentale.gamba_dx);
+      }
+      if(ib.grassa_segmentale){
+        s('ib-gs-bracsx', ib.grassa_segmentale.braccio_sx);
+        s('ib-gs-bracdx', ib.grassa_segmentale.braccio_dx);
+        s('ib-gs-tronco', ib.grassa_segmentale.tronco);
+        s('ib-gs-gambsx', ib.grassa_segmentale.gamba_sx);
+        s('ib-gs-gambdx', ib.grassa_segmentale.gamba_dx);
+      }
       // altezza ora gestita da salvaInbody() che aggiorna sempre p.altezza
       notif('✓ Dati estratti dal PDF InBody!');
     };
