@@ -4251,39 +4251,51 @@ function costruisciPrompt(pazienteId) {
   var nGiorni = isCeto ? 7 : 6;
   var nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
 
-  return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato e realistico.
+  // ── Calcolo distribuzione colori per regola 75/20/5 ──
+  var totAl = alimentiVerdi.length + alimentiArancioni.length + alimentiRossi.length;
+  var percV = totAl ? Math.round(alimentiVerdi.length/totAl*100) : 0;
+  var percA = totAl ? Math.round(alimentiArancioni.length/totAl*100) : 0;
+  var percR = totAl ? Math.round(alimentiRossi.length/totAl*100) : 0;
 
+  // ── Calcolo totale ricette per regola 75/20/5 ──
+  var totRicette = nGiorni === 7 ? 42 : 33; // 7gg cheto: 14x3=42 | 6gg: 11x3=33
+
+  return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.
 Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
 Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
 
 PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
 Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
-Allergie: ${p.allergie||'nessuna'} | Pref. proteica: ${p.prefProteina||'indifferente'}
-${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · Massa magra (FFM) ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · Massa muscolare ${lastIb.musc||'—'}kg · Acqua ${lastIb.acqua||'—'}L · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'} · Riferimento macros: ${_useFFMP?`FFM (${_ffmP}kg)`:`peso corporeo (${peso}kg)`}`:'INBODY: dati non disponibili'}
-${(p.giorniAllenamento||[]).length?`Giorni ON: ${p.giorniAllenamento.join(', ')} | Giorni OFF: ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].filter(g=>!(p.giorniAllenamento||[]).includes(g)).join(', ')||'nessuno'}`:''}
-${(p.oreAllenamento||p.tipoAllenamento||p.intensitaAllenamento)?`Allenamento: ${p.tipoAllenamento||'—'} · intensità ${p.intensitaAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett. · orario ${p.orarioAllenamento||'—'}${p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' ('+p.orarioAllenamentoNote+')':''}`:''}
-${(p.cronotipo||p.orarioPastoPrincipale)?`Cronotipo: ${p.cronotipo||'—'} | Pasto principale: ${p.orarioPastoPrincipale||'—'}`:''}
-${p.circonferenzaPolso?`Polso: ${p.circonferenzaPolso} cm`:''}
-Spuntini: ${(p.spuntM==='si'||p.spuntP==='si')?'Sì':'No'} | Pre-nanna: ${p.prenanna==='si'?'Sì':'No'}
+Allergie: ${p.allergie||'nessuna'}
+${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · FFM ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
+${(p.giorniAllenamento||[]).length?`Giorni allenamento (ON): ${p.giorniAllenamento.join(', ')}`:''}
+${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}
 
 GRAMMATURE FISSE
-Verdura: 200g/pasto | Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g${((p.regolePiano&&p.regolePiano.legumi!==undefined?p.regolePiano.legumi:3)>0)? " | Legumi barattolo: 120g":""} | Frutta secca: 20g
+Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g
 
-ALIMENTI (usa SOLO questi)
-Verdi: ${alimentiVerdi.length ? alimentiVerdi.join(', ') : 'nessuno specificato'}
-Arancioni: ${alimentiArancioni.length ? alimentiArancioni.join(', ') : 'nessuno'}
-Rossi: ${alimentiRossi.length ? alimentiRossi.join(', ') : 'nessuno'}
-Se verdi insufficienti per un pasto completo usa arancioni; se ancora insufficienti usa rossi con moderazione.
+ALIMENTI AUTORIZZATI — usa SOLO questi, mai inventarne altri
+Verdi (${alimentiVerdi.length}): ${alimentiVerdi.join(', ')||'nessuno specificato'}
+Arancioni (${alimentiArancioni.length}): ${alimentiArancioni.join(', ')||'nessuno'}
+Rossi (${alimentiRossi.length}): ${alimentiRossi.join(', ')||'nessuno'}
+Esclusi (mai usare): ${alimentiEsclusi.join(', ')||'nessuno'}
 
-STRUTTURA
+REGOLA DISTRIBUZIONE COLORI — CRITICA
+Su ${totRicette} ricette totali della settimana (pasti principali × 3 ricette per pasto):
+- 75% devono contenere alimenti VERDI come ingrediente principale
+- 20% possono contenere alimenti ARANCIONI come ingrediente principale  
+- 5% possono contenere alimenti ROSSI come ingrediente principale
+- 0% alimenti grigi o celesti (esclusi)
+Ogni pasto ha 3 ricette: ricetta 1 = solo verdi | ricetta 2 = verdi + arancioni | ricetta 3 = verdi + qualche rosso
+
+STRUTTURA PIANO
 ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
   var abbr={'Lunedì':'Lun','Martedì':'Mar','Mercoledì':'Mer','Giovedì':'Gio','Venerdì':'Ven','Sabato':'Sab','Domenica':'Dom'};
   var isON=(p.giorniAllenamento||[]).includes(abbr[n]);
   return (p.giorniAllenamento||[]).length ? n+(isON?' ON':' OFF') : n;
 }).join(', ')}
-Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa
-${(function(){var _rp=p.regolePiano||{};var _leg=_rp.legumi!==undefined?_rp.legumi:3;if(_leg===0)return "Tutti i giorni pranzo: proteina principale senza legumi";if(_rp.legumi135!==false)return "Giorni 1-3-5 pranzo: legumi 120g + proteina leggera | Giorni 2-4-6 pranzo: proteina principale senza legumi";return "Legumi "+_leg+"x/settimana distribuiti a pranzo nei giorni scelti";})()} 
+Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa, nessuna ricetta
 ${!(p.giorniAllenamento&&p.giorniAllenamento.length>0) ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento ('+( p.giorniAllenamento||[]).join(', ')+') e OFF agli altri giorni.'}
 
 REGOLE PERSONALIZZATE MEDICO
@@ -4299,40 +4311,42 @@ ${(function(){
   var legumi=r.legumi!==undefined?r.legumi:3;
   var pesceconsv=r.pesceconsv!==undefined?r.pesceconsv:1;
   righe.push('Pesce fresco: '+pesce+'x/settimana');
-  righe.push('Carne bianca (pollo/tacchino/coniglio): '+carnebianca+'x/settimana');
+  righe.push('Carne bianca: '+carnebianca+'x/settimana');
   righe.push('Carne rossa: '+carnerossa+'x/settimana');
   righe.push('Uova: '+uova+'x/settimana');
-  righe.push('Affettati magri (bresaola/prosciutto crudo sgrassato/tacchino): '+affettati+'x/settimana');
-  righe.push('Latticini (formaggi): '+latticini+'x/settimana');
-  righe.push(legumi===0?'LEGUMI: 0 volte a settimana — NON inserire mai legumi in nessun giorno del piano':'Legumi: '+legumi+'x/settimana');
-  righe.push('Pesce conservato (tonno/sgombro al naturale): '+pesceconsv+'x/settimana');
-  var legumi135=r.legumi135!==undefined?r.legumi135:true;
-  var sabatolibero=r.sabatolibero!==undefined?r.sabatolibero:true;
-  var rotazione=r.rotazione!==undefined?r.rotazione:true;
-  var verdura200=r.verdura200!==undefined?r.verdura200:true;
-  if(legumi135)righe.push('Legumi posizionati nei giorni Lunedi/Mercoledi/Venerdi a pranzo');
-  if(sabatolibero)righe.push('Sabato cena libera: '+( p.weekend||'pizza'));
-  if(rotazione)righe.push('Rotazione proteine: non ripetere la stessa proteina principale due giorni di fila');
-  if(verdura200)righe.push('Verdura sempre 200g a pranzo e a cena — usa le verdure selezionate nelle preferenze alimenti');
-  if(r.frsecca)righe.push('Frutta secca 20g ogni giorno (a colazione o spuntino)');
-  if(r.cenaleggera)righe.push('Cena leggera: nessun carboidrato complesso a cena, solo proteina + verdura + grassi');
-  if(r.uovanote)righe.push('Posizionamento uova specificato dal medico: '+r.uovanote);
-  if(r.ibs)righe.push('PROFILO IBS/COLON IRRITABILE: applica schema low FODMAP — escludi aglio e cipolla crudi, legumi in eccesso, latticini ad alto lattosio, fruttosio in eccesso');
-  if(r.antinf)righe.push('PROFILO ANTINFIAMMATORIO: privilegia omega-3 (pesce azzurro, salmone, noci), curcuma, zenzero, olio EVO — riduci zuccheri aggiunti e grassi saturi');
-  if(r.stip)righe.push('PROFILO ANTISTITICHEZZA: inserisci kiwi a colazione, prugne, alimenti integrali, alto contenuto di fibre');
-  if(r.ipert)righe.push('PROFILO IPERTENSIONE: sale ridotto, nessun affettato, nessun formaggio stagionato');
-  if(r.pcos)righe.push('PROFILO PCOS/INSULINO-RESISTENZA: carboidrati a basso indice glicemico, distribuiti nei pasti, evita zuccheri semplici');
+  righe.push('Affettati magri: '+affettati+'x/settimana');
+  righe.push('Latticini: '+latticini+'x/settimana');
+  righe.push(legumi===0?'LEGUMI: mai':'Legumi: '+legumi+'x/settimana');
+  righe.push('Pesce conservato: '+pesceconsv+'x/settimana');
+  var r2=p.regolePiano||{};
+  if(r2.legumi135!==false)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
+  if(r2.sabatolibero!==false)righe.push('Sabato cena libera: '+(p.weekend||'pizza'));
+  if(r2.rotazione!==false)righe.push('Rotazione proteine: non ripetere la stessa proteina due giorni di fila');
+  if(r2.verdura200!==false)righe.push('Verdura sempre 200g a pranzo e cena');
+  if(r2.frsecca)righe.push('Frutta secca 20g ogni giorno');
+  if(r2.cenaleggera)righe.push('Cena leggera: nessun carbo complesso a cena');
+  if(r2.uovanote)righe.push('Posizionamento uova: '+r2.uovanote);
+  if(r2.ibs)righe.push('PROFILO IBS: applica schema low FODMAP');
+  if(r2.antinf)righe.push('PROFILO ANTINFIAMMATORIO: privilegia omega-3, curcuma, olio EVO');
+  if(r2.stip)righe.push('PROFILO ANTISTITICHEZZA: kiwi a colazione, alto contenuto fibre');
+  if(r2.ipert)righe.push('PROFILO IPERTENSIONE: sale ridotto, nessun affettato, nessun formaggio stagionato');
+  if(r2.pcos)righe.push('PROFILO PCOS: carbo a basso indice glicemico, evita zuccheri semplici');
   return righe.join('\n');
 })()}
 
-3 ALTERNATIVE PRANZO E CENA
-Alt 1 (verde): prevalentemente verdi — scelta principale | Alt 2 (arancione): prevalentemente arancioni | Alt 3 (rosso): max 1-2 rossi
-Colazione, spuntini, pre-nanna: formato unico, nessuna alternativa.
+FORMATO OUTPUT — SOLO JSON valido, zero testo prima o dopo, zero markdown
+Il piano usa il nuovo formato con "pasti" e "celle" (slot Metadieta-style).
+Ogni cella ha: id (stringa unica), colonna ("sx" o "dx"), ordine (numero intero 1,2,3...), alimenti (array).
+Ogni alimento ha: n (nome), g (grammi), categoria (carbo|proteine|legumi|verdura|frutta|olio|grasso|fit|condimento), colore (verde|arancione|rosso).
+Il primo alimento di ogni cella è il principale, gli altri sono alternative.
+Per pranzo/cena: campo "ricette" con array di 3 stringhe descrittive (senza grammature, stile ristorante).
+Colazione/spuntini: campo "ricette" vuoto [].
+Disposizione default celle: pranzo → carbo sx ordine 1, proteine dx ordine 1, verdura sx ordine 2, olio dx ordine 2, frutta sx ordine 3. Cena → proteine sx ordine 1, carbo dx ordine 1 (se previsto), verdura sx ordine 2, olio dx ordine 2.
 
-OUTPUT: SOLO JSON valido, nessun testo prima o dopo.
-[{"g":"Lunedì ON","macros":{"kcal":0,"proteine":0,"carboidrati":0,"grassi":0},"col":{"p1":{"n":"","g":0},"p2":{"n":"","g":0}},"sm":{"p1":{"n":"","g":0}},"pr":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"olio":{"n":"Olio EVO","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0},{"n":"Olio EVO","g":0}],[{"n":"","g":0},{"n":"","g":0},{"n":"Olio EVO","g":0}],[{"n":"","g":0},{"n":"","g":0},{"n":"Olio EVO","g":0}]]},"sp":{"p1":{"n":"","g":0}},"ce":{"p1":{"n":"","g":0},"p2":{"n":"","g":0},"olio":{"n":"Olio EVO","g":0},"alt":[[{"n":"","g":0},{"n":"","g":0},{"n":"Olio EVO","g":0}],[{"n":"","g":0},{"n":"","g":0},{"n":"Olio EVO","g":0}],[{"n":"","g":0},{"n":"","g":0},{"n":"Olio EVO","g":0}]]},"pn":{"p1":{"n":"","g":0}}}]
+ESEMPIO FORMATO (un solo giorno, da espandere per tutti i giorni):
+[{"g":"Lunedì","macros":{"kcal":0,"proteine":0,"carboidrati":0,"grassi":0},"pasti":{"colazione":{"ricette":[],"celle":[{"id":"c1","colonna":"sx","ordine":1,"alimenti":[{"n":"Yogurt greco 0%","g":125,"categoria":"proteine","colore":"verde"},{"n":"Skyr","g":125,"categoria":"proteine","colore":"verde"}]},{"id":"c2","colonna":"dx","ordine":1,"alimenti":[{"n":"Noci","g":20,"categoria":"grasso","colore":"verde"}]},{"id":"c3","colonna":"sx","ordine":2,"alimenti":[{"n":"Fiocchi d'avena","g":40,"categoria":"carbo","colore":"verde"},{"n":"Muesli","g":40,"categoria":"carbo","colore":"verde"}]}]},"pranzo":{"ricette":["Pasta al pesto con petto di pollo e verdure grigliate","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"celle":[{"id":"c1","colonna":"sx","ordine":1,"alimenti":[{"n":"Pasta integrale","g":80,"categoria":"carbo","colore":"verde"},{"n":"Riso","g":70,"categoria":"carbo","colore":"verde"},{"n":"Farro","g":80,"categoria":"carbo","colore":"verde"}]},{"id":"c2","colonna":"dx","ordine":1,"alimenti":[{"n":"Petto di pollo","g":150,"categoria":"proteine","colore":"verde"},{"n":"Salmone","g":130,"categoria":"proteine","colore":"verde"},{"n":"Tonno al naturale","g":120,"categoria":"proteine","colore":"verde"}]},{"id":"c3","colonna":"sx","ordine":2,"alimenti":[{"n":"Verdura","g":200,"categoria":"verdura","colore":"verde"}]},{"id":"c4","colonna":"dx","ordine":2,"alimenti":[{"n":"Olio EVO","g":20,"categoria":"olio","colore":"verde"}]},{"id":"c5","colonna":"sx","ordine":3,"alimenti":[{"n":"Frutta","g":150,"categoria":"frutta","colore":"verde"}]}]}}}]
 
-Prima ricetta alt = verde, seconda = arancione, terza = rossa. Includi pn solo se previsto. Includi sm/sp solo se previsti. p2 null se non esiste. IMPORTANTE per il campo macros: calcola i valori REALI sommando tutti gli alimenti del giorno con i loro grammi effettivi usando valori nutrizionali standard italiani (non copiare il target). Includi sempre olio EVO nei pasti principali (pranzo e cena) nel campo "olio" con la grammatura indicata nelle GRAMMATURE FISSE. Ogni ricetta alternativa (alt) deve contenere olio EVO come ultimo elemento. Sono SEMPRE 3 alternative per pranzo e 3 per cena.`;
+Genera TUTTI i ${nGiorni} giorni completi. Includi spuntino_mattina e spuntino_pomeriggio solo se appropriati per il paziente. Includi pre_nanna solo se appropriato. IMPORTANTE per macros: calcola valori REALI sommando tutti gli alimenti usando valori nutrizionali standard italiani.`;
 }
 
 function toggleRegolePiano(){
