@@ -12,8 +12,12 @@
 .alt-ctrl:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
 .alt-ctrl.alt-x:hover{background:#dc2626;border-color:#dc2626}
 .alt-add{background:transparent;border:1px dashed #94a3b8;border-radius:4px;color:#64748b;font-size:.68rem;padding:2px 8px;cursor:pointer;transition:all .15s}
+.ric-tab{background:transparent;border:none;padding:.5rem .9rem;font-size:.8rem;cursor:pointer;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.ric-tab:hover{color:var(--teal2)}
+.ric-tab.ric-tab-active{color:var(--teal2);border-bottom-color:var(--teal)}
 .alt-add:hover{background:#f0f9f4;border-color:var(--teal);color:var(--teal)}
 .cell-ctrl:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
+.cell-ctrl.cell-del:hover{background:#dc2626;border-color:#dc2626}
 
 :root {
   --bg:#f7f4ef;--s1:#ffffff;--s2:#f0ece4;--s3:#e8e2d8;
@@ -4596,6 +4600,7 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
         // Left/Right
         if (col === 'dx') html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'left\')" title="Sposta a sinistra">←</button>';
         else html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'right\')" title="Sposta a destra">→</button>';
+        html += '<button class="cell-ctrl cell-del" onclick="cellaCancella(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\')" title="Cancella cella">🗑</button>';
         html += '</div>';
       } else {
         html += '<div style="font-size:.7rem;color:#cbd5e1;font-style:italic">— vuoto —</div>';
@@ -4640,6 +4645,25 @@ function cellaSposta(giorno, slotKey, cellaId, direzione) {
 
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+}
+
+function cellaCancella(giorno, slotKey, cellaId) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) return;
+  var idx = ctx.pasto.celle.findIndex(function(c){ return c.id === cellaId; });
+  if (idx === -1) return;
+  if (!confirm('Eliminare questa cella?')) return;
+  ctx.pasto.celle.splice(idx, 1);
+  // Compatta gli ordini per evitare buchi
+  var perColonna = { sx: [], dx: [] };
+  ctx.pasto.celle.forEach(function(x){ perColonna[x.colonna || 'sx'].push(x); });
+  ['sx','dx'].forEach(function(col){
+    perColonna[col].sort(function(a,b){ return (a.ordine||1) - (b.ordine||1); });
+    perColonna[col].forEach(function(x, i){ x.ordine = i+1; });
+  });
+  _aggiornaPianoBox();
+  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
 }
 
 function apriEditGrammatura(span) {
@@ -4819,12 +4843,122 @@ function apriEditRicetta(giorno, slotKey, idx) {
   var ctx = _trovaPasto(giorno, slotKey);
   if (!ctx || !ctx.pasto) return;
   if (!ctx.pasto.ricette) ctx.pasto.ricette = ['','',''];
-  var oldVal = ctx.pasto.ricette[idx] || '';
-  var nuovo = prompt('Modifica ricetta ' + (idx+1) + ':', oldVal);
-  if (nuovo === null) return;
-  ctx.pasto.ricette[idx] = nuovo.trim();
-  _aggiornaPianoBox();
-  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  _mostraPopupEditRicetta(giorno, slotKey, idx, ctx.pasto.ricette[idx] || '');
+}
+
+function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
+  // Rimuovi popup esistente
+  var existing = document.getElementById('popup-ric');
+  if (existing) existing.remove();
+  var existingBg = document.getElementById('popup-ric-bg');
+  if (existingBg) existingBg.remove();
+
+  // Mappa slotKey → categoria del ricettario (cat field)
+  var catMap = {colazione:'colazione',spuntino_mattina:'spuntino',pranzo:'pranzo',spuntino_pomeriggio:'spuntino',cena:'cena',pre_nanna:'pre_nanna'};
+  var catRic = catMap[slotKey] || slotKey;
+
+  var pop = document.createElement('div');
+  pop.id = 'popup-ric';
+  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:520px;max-height:80vh;display:flex;flex-direction:column';
+
+  var header = document.createElement('div');
+  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Ricetta ' + (idx+1) + ' — ' + giorno + ' / ' + (slotKey.replace(/_/g,' ')) + '</strong><button onclick="document.getElementById(\'popup-ric\').remove();document.getElementById(\'popup-ric-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  pop.appendChild(header);
+
+  // Tabs: Scrivi manualmente | Dal ricettario
+  var tabs = document.createElement('div');
+  tabs.style.cssText = 'display:flex;gap:6px;margin-bottom:.7rem;border-bottom:1px solid #e2e8f0';
+  tabs.innerHTML = '    <button id="ric-tab-write" class="ric-tab ric-tab-active">✏ Scrivi</button>    <button id="ric-tab-pick" class="ric-tab">📚 Ricettario</button>  ';
+  pop.appendChild(tabs);
+
+  // Tab 1: Scrivi
+  var paneWrite = document.createElement('div');
+  paneWrite.id = 'ric-pane-write';
+  paneWrite.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:.7rem';
+  paneWrite.innerHTML = '    <textarea id="ric-text-input" rows="3" style="width:100%;padding:.6rem .8rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;resize:vertical;box-sizing:border-box" placeholder="Es: Pasta al pesto con pollo grigliato e verdure miste"></textarea>    <button id="ric-text-save" class="btn btn-p" style="padding:.6rem">✓ Salva ricetta</button>  ';
+  pop.appendChild(paneWrite);
+  paneWrite.querySelector('#ric-text-input').value = valoreCorrente;
+
+  // Tab 2: Ricettario
+  var panePick = document.createElement('div');
+  panePick.id = 'ric-pane-pick';
+  panePick.style.cssText = 'flex:1;display:none;flex-direction:column;gap:.5rem;overflow:hidden';
+  panePick.innerHTML = '    <input id="ric-pick-search" type="text" placeholder="🔍 Cerca ricetta..." style="width:100%;padding:.5rem .7rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;box-sizing:border-box">    <div id="ric-pick-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;max-height:50vh"></div>  ';
+  pop.appendChild(panePick);
+
+  function renderRicettario(filtro) {
+    var listEl = panePick.querySelector('#ric-pick-list');
+    var ricette = (db.ricette||[]).filter(function(r){
+      if ((r.cat||'').toLowerCase() !== catRic) return false;
+      if (!filtro) return true;
+      var f = filtro.toLowerCase();
+      return (r.nome||'').toLowerCase().includes(f) || (r.ing||'').toLowerCase().includes(f);
+    });
+    if (!ricette.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.8rem">Nessuna ricetta nel ricettario per ' + catRic + '.<br>Aggiungile dalla sezione Ricette.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    ricette.forEach(function(r) {
+      var btn = document.createElement('button');
+      btn.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:.6rem .8rem;border:1px solid #e2e8f0;background:#fafbfc;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;width:100%';
+      btn.onmouseover = function(){ btn.style.background='#f0f9f4'; btn.style.borderColor='var(--teal)'; };
+      btn.onmouseout = function(){ btn.style.background='#fafbfc'; btn.style.borderColor='#e2e8f0'; };
+      btn.innerHTML = '<strong style="font-size:.85rem;color:#1e293b">' + r.nome + '</strong>' + (r.ing ? '<span style="font-size:.72rem;color:#64748b;line-height:1.4">' + r.ing.substring(0, 100) + (r.ing.length > 100 ? '...' : '') + '</span>' : '');
+      btn.onclick = function() {
+        salvaRicetta(r.nome);
+      };
+      listEl.appendChild(btn);
+    });
+  }
+
+  function salvaRicetta(testo) {
+    var ctx = _trovaPasto(giorno, slotKey);
+    if (!ctx || !ctx.pasto) return;
+    if (!ctx.pasto.ricette) ctx.pasto.ricette = ['','',''];
+    ctx.pasto.ricette[idx] = (testo||'').trim();
+    document.getElementById('popup-ric').remove();
+    document.getElementById('popup-ric-bg').remove();
+    _aggiornaPianoBox();
+    if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  }
+
+  // Tab switching
+  pop.querySelector('#ric-tab-write').onclick = function() {
+    pop.querySelector('#ric-tab-write').classList.add('ric-tab-active');
+    pop.querySelector('#ric-tab-pick').classList.remove('ric-tab-active');
+    paneWrite.style.display = 'flex';
+    panePick.style.display = 'none';
+  };
+  pop.querySelector('#ric-tab-pick').onclick = function() {
+    pop.querySelector('#ric-tab-pick').classList.add('ric-tab-active');
+    pop.querySelector('#ric-tab-write').classList.remove('ric-tab-active');
+    paneWrite.style.display = 'none';
+    panePick.style.display = 'flex';
+    renderRicettario('');
+    setTimeout(function(){ panePick.querySelector('#ric-pick-search').focus(); }, 50);
+  };
+
+  // Save da scrittura libera
+  pop.querySelector('#ric-text-save').onclick = function() {
+    var v = paneWrite.querySelector('#ric-text-input').value;
+    salvaRicetta(v);
+  };
+
+  // Search ricettario
+  panePick.querySelector('#ric-pick-search').addEventListener('input', function(e){
+    renderRicettario(e.target.value);
+  });
+
+  // Sfondo
+  var bg = document.createElement('div');
+  bg.id = 'popup-ric-bg';
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
+  bg.onclick = function(){ pop.remove(); bg.remove(); };
+
+  document.body.appendChild(bg);
+  document.body.appendChild(pop);
+  setTimeout(function(){ paneWrite.querySelector('#ric-text-input').focus(); }, 50);
 }
 
 function apriAggiungiCella(giorno, slotKey) {
