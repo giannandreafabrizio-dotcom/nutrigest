@@ -709,40 +709,9 @@ main{flex:1;overflow-y:auto;}
       </button>
     </div>
 
-    <!-- P2 — Correzione interattiva piano -->
-    <div id="p2-box" style="display:none;margin-top:1.5rem;">
-      <div style="font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.7rem;">✏️ Correggi il piano</div>
-      <textarea id="p2-input" rows="3" placeholder="Descrivi cosa vuoi cambiare... es: Cambia la cena di martedì con pesce"
-        style="width:100%;padding:.7rem .9rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--text1);background:var(--bg);resize:vertical;box-sizing:border-box;"></textarea>
-      <div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem;">
-        <button id="p2-mic" class="btn btn-g" style="flex-shrink:0;padding:.55rem .9rem;">🎤</button>
-        <button id="p2-genera" class="btn btn-p" style="flex:1;">✦ Applica correzione</button>
-      </div>
-      <div style="text-align:right;margin-top:.4rem;">
-        <a href="#" id="p2-open-chat" style="font-size:.8rem;color:var(--green);">Apri chat estesa ›</a>
-      </div>
-      <div id="p2-preview" style="display:none;margin-top:1rem;padding:1rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;">
-        <div style="font-size:.8rem;font-weight:700;color:#2e7d32;margin-bottom:.5rem;">Anteprima modifica:</div>
-        <div id="p2-preview-content" style="font-size:.84rem;color:var(--text1);margin-bottom:.8rem;"></div>
-        <div style="display:flex;gap:.6rem;">
-          <button id="p2-confirm" class="btn btn-p">✔ Conferma</button>
-          <button id="p2-cancel" class="btn btn-g">✕ Annulla</button>
-        </div>
-      </div>
-      <div id="p2-chat" style="display:none;margin-top:1rem;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:1rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
-          <span style="font-weight:700;font-size:.88rem;color:var(--text1);">Chat con il nutrizionista AI</span>
-          <a href="#" id="p2-close-chat" style="font-size:.8rem;color:var(--text3);">Chiudi chat ✕</a>
-        </div>
-        <div id="p2-chat-log" style="max-height:300px;overflow-y:auto;margin-bottom:.7rem;"></div>
-        <div style="display:flex;gap:.5rem;">
-          <input id="p2-chat-input" type="text" placeholder="Scrivi un messaggio..."
-            style="flex:1;padding:.55rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.84rem;background:var(--bg);color:var(--text1);">
-          <button id="p2-chat-mic" class="btn btn-g" style="flex-shrink:0;padding:.55rem .9rem;">🎤</button>
-          <button id="p2-chat-send" class="btn btn-p" style="flex-shrink:0;">Invia</button>
-        </div>
-      </div>
-      <button id="p2-save" style="display:none;margin-top:1.5rem;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
+    <!-- Salva piano definitivo -->
+    <div id="p2-box" style="display:none;margin-top:1rem;">
+      <button id="p2-save" style="display:block;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
     </div>
 
   </div>
@@ -4983,7 +4952,7 @@ function _aggiornaPianoBox() {
       var pasto = (g.pasti && g.pasti[s.key]) ? g.pasti[s.key] : g[s.key];
       if (!pasto) return;
       aiHtml += '<div style="margin-bottom:.7rem;font-size:.85rem;">';
-      aiHtml += '<div style="font-weight:700;color:var(--green);text-align:center;margin-bottom:.3rem">' + s.label + '</div>';
+      aiHtml += '<div style="font-weight:700;color:var(--green);text-align:center;margin-bottom:.3rem;font-size:.8rem;letter-spacing:.5px">' + s.label + '</div>';
       if (pasto.celle) aiHtml += _renderCelleHtml(pasto, s.key, g.giorno);
       aiHtml += '</div>';
     });
@@ -7246,12 +7215,9 @@ function applicaRicettaPasto(ricettaId) {
 function inizializzaP2(piano) {
   window._pianoCorrente = piano;
   window._storicoPiani = [];
-  window._chatHistoryP2 = [];
   window._pendingPatch = null;
   document.getElementById('p2-box').style.display = 'block';
   document.getElementById('p2-save').style.display = 'block';
-  document.getElementById('p2-preview').style.display = 'none';
-  document.getElementById('p2-chat').style.display = 'none';
 }
 
 function deepClone(obj) {
@@ -7287,207 +7253,6 @@ function applicaPatch(piano, patch) {
   giorno[chiaveCompatta] = pastoCompatto;
   return nuovo;
 }
-
-function renderAnteprima(patch) {
-  var pasto = patch.nuovoPasto;
-  var html = '<strong>' + patch.giorno + ' — ' + patch.pasto.toUpperCase() + '</strong><br>';
-  var p1 = pasto.principale1, p2 = pasto.principale2;
-  if (p1) html += '<strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
-  if (p2) html += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
-  var nd = pasto.nota_descrittiva || pasto.nota || '';
-  if (nd) html += '<br><em style="color:var(--text2);font-size:.8rem">' + nd + '</em>';
-  var alts = pasto.alternative || pasto.alternatives || [];
-  if (alts.length) {
-    var altLabel = {verde:'🟢', arancione:'🟠', rosso:'🔴'};
-    html += '<br>';
-    alts.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
-      var ic = altLabel[alt.colore] || '';
-      var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
-      html += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">' + ic + ' ' + alis + '</span><br>';
-    });
-  }
-  document.getElementById('p2-preview-content').innerHTML = html;
-}
-
-async function chiamaAICorrezione(testoRichiesta) {
-  var apiKey = localStorage.getItem('anthropicApiKey');
-  if (!apiKey) { notif('⚠ API key mancante'); return null; }
-  var id = document.getElementById('piano-select-paz').value;
-  var paz = (db.pazienti||[]).find(function(x){ return x.id === id; });
-  var al = paz ? (paz.alimenti||{}) : {};
-  var verdi = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
-  var arancioni = Object.entries(al).filter(function(e){return e[1]==='arancione';}).map(function(e){return e[0].split('__')[1];});
-  var rossi = Object.entries(al).filter(function(e){return e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
-  var _pianoEspanso = (typeof espandiPianoPerAI === 'function') ? espandiPianoPerAI(window._pianoCorrente) : window._pianoCorrente;
-  var prompt = 'Sei un nutrizionista clinico. Modifica SOLO il pasto indicato dalla richiesta. Non modificare gli altri pasti.\n\nPIANO ATTUALE (JSON):\n' + JSON.stringify(_pianoEspanso) + '\n\nRICHIESTA MEDICO: ' + testoRichiesta + '\n\nALIMENTI AUTORIZZATI - Verdi (preferiti): ' + verdi.join(', ') + ' | Arancioni: ' + arancioni.join(', ') + ' | Rossi (limitati): ' + rossi.join(', ') + '\n\nRispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown, zero backtick.\nFormato ESATTO (usa esattamente questi nomi campo):\n{"giorno":"nome giorno ESATTO come appare nel piano (es: Lunedì)","pasto":"uno tra: colazione spuntino_mattina pranzo spuntino_pomeriggio cena pre_nanna","nuovoPasto":{"nota_descrittiva":"breve descrizione","principale1":{"nome":"alimento","grammi":100},"principale2":{"nome":"alimento","grammi":50},"alternative":[{"posizione":1,"colore":"verde","alimenti":[{"nome":"alimento","grammi":100},{"nome":"Olio EVO","grammi":10}]},{"posizione":2,"colore":"arancione","alimenti":[{"nome":"alimento","grammi":100},{"nome":"Olio EVO","grammi":10}]},{"posizione":3,"colore":"rosso","alimenti":[{"nome":"alimento","grammi":100},{"nome":"Olio EVO","grammi":10}]}]}}';
-  var res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  if (!res.ok) throw new Error('Errore API ' + res.status);
-  var data = await res.json();
-  var testo = data.content && data.content[0] ? data.content[0].text : '';
-  return parseJSONSicuro(testo);
-}
-
-async function chiamaAIChat(messaggioUtente) {
-  var apiKey = localStorage.getItem('anthropicApiKey');
-  if (!apiKey) { notif('⚠ API key mancante'); return null; }
-  window._chatHistoryP2.push({ role: 'user', content: messaggioUtente });
-  var systemMsg = 'Sei un nutrizionista clinico. Stai revisionando questo piano: '
-    + JSON.stringify(window._pianoCorrente)
-    + '. Quando proponi una modifica specifica includila come JSON patch nel formato '
-    + '{"giorno":"...","pasto":"...","nuovoPasto":{...}} alla fine del messaggio. '
-    + 'Il campo nuovoPasto deve usare SEMPRE chiavi espanse: principale1 e principale2 (oggetti con campi nome e grammi), '
-    + 'nota_descrittiva (stringa), alternative (array di oggetti con campi posizione, colore, alimenti). '
-    + 'Altrimenti rispondi in italiano naturale.';
-  var res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1500,
-      system: systemMsg,
-      messages: window._chatHistoryP2
-    })
-  });
-  if (!res.ok) throw new Error('Errore API ' + res.status);
-  var data = await res.json();
-  var testo = data.content && data.content[0] ? data.content[0].text : '';
-  window._chatHistoryP2.push({ role: 'assistant', content: testo });
-  return testo;
-}
-
-function renderChatP2() {
-  var log = document.getElementById('p2-chat-log');
-  log.innerHTML = '';
-  (window._chatHistoryP2||[]).forEach(function(m) {
-    var div = document.createElement('div');
-    div.style.cssText = 'margin-bottom:10px;padding:8px 10px;border-radius:8px;font-size:.85rem;'
-      + (m.role==='user' ? 'background:#e8f5e9;text-align:right;' : 'background:#f5f5f5;');
-    div.textContent = m.content;
-    if (m.role==='assistant' && m.content.includes('"nuovoPasto"')) {
-      var btn = document.createElement('button');
-      btn.textContent = '✔ Applica questa modifica';
-      btn.className = 'btn btn-p';
-      btn.style.cssText = 'display:block;margin-top:6px;font-size:.75rem;';
-      btn.onclick = function() {
-        try {
-          var jsonMatch = m.content.match(/\{[\s\S]*"nuovoPasto"[\s\S]*\}/);
-          if (!jsonMatch) throw new Error();
-          var patch = JSON.parse(jsonMatch[0]);
-          window._storicoPiani.push(deepClone(window._pianoCorrente));
-          window._pianoCorrente = applicaPatch(window._pianoCorrente, patch);
-          renderPianoBox(window._pianoCorrente);
-          document.getElementById('p2-save').style.display = 'block';
-          notif('✓ Modifica applicata');
-        } catch(e) { notif('⚠ Errore nell\'applicare la modifica'); }
-      };
-      div.appendChild(btn);
-    }
-    log.appendChild(div);
-  });
-  log.scrollTop = log.scrollHeight;
-}
-
-var _p2VoiceRec = null;
-function startVoiceP2(targetId, btnId) {
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { notif('⚠ Il tuo browser non supporta il riconoscimento vocale. Usa Chrome.'); return; }
-  var btn = document.getElementById(btnId);
-  if (_p2VoiceRec) { _p2VoiceRec.stop(); _p2VoiceRec=null; btn.textContent='🎤'; btn.style.color=''; return; }
-  _p2VoiceRec = new SR();
-  _p2VoiceRec.lang = 'it-IT';
-  _p2VoiceRec.continuous = false;
-  _p2VoiceRec.interimResults = true;
-  btn.textContent = '⏹'; btn.style.color = 'var(--red)';
-  _p2VoiceRec.onresult = function(e) {
-    var t = Array.from(e.results).map(function(r){return r[0].transcript;}).join('');
-    document.getElementById(targetId).value = t;
-  };
-  _p2VoiceRec.onend = function() { btn.textContent='🎤'; btn.style.color=''; _p2VoiceRec=null; };
-  _p2VoiceRec.onerror = function(e) { btn.textContent='🎤'; btn.style.color=''; _p2VoiceRec=null; notif('⚠ Errore microfono: ' + e.error); };
-  _p2VoiceRec.start();
-}
-
-// Event listeners P2
-document.getElementById('p2-mic').onclick = function() { startVoiceP2('p2-input','p2-mic'); };
-document.getElementById('p2-chat-mic').onclick = function() { startVoiceP2('p2-chat-input','p2-chat-mic'); };
-
-document.getElementById('p2-genera').onclick = async function() {
-  var testo = document.getElementById('p2-input').value.trim();
-  if (!testo) { notif('⚠ Scrivi cosa vuoi cambiare'); return; }
-  var loadEl = document.getElementById('piano-load-msg');
-  if (!loadEl) { loadEl = document.createElement('div'); loadEl.id='piano-load-msg'; document.getElementById('p2-box').before(loadEl); }
-  loadEl.style.cssText = 'margin:.8rem 0;padding:.8rem 1.2rem;background:#f0fbf7;border:1.5px solid #1D9E75;border-radius:10px;font-size:.84rem;color:#1D9E75;text-align:center;';
-  loadEl.textContent = 'Sto correggendo il piano…';
-  try {
-    var patch = await chiamaAICorrezione(testo);
-    if (!patch) throw new Error('Risposta vuota');
-    window._pendingPatch = patch;
-    renderAnteprima(patch);
-    document.getElementById('p2-preview').style.display = 'block';
-  } catch(e) { notif('⚠ Errore nella correzione: ' + e.message); }
-  loadEl.innerHTML = '';
-};
-
-document.getElementById('p2-confirm').onclick = function() {
-  if (!window._pendingPatch) return;
-  window._storicoPiani.push(deepClone(window._pianoCorrente));
-  window._pianoCorrente = applicaPatch(window._pianoCorrente, window._pendingPatch);
-  renderPianoBox(window._pianoCorrente);
-  window._pendingPatch = null;
-  document.getElementById('p2-preview').style.display = 'none';
-  document.getElementById('p2-input').value = '';
-  document.getElementById('p2-save').style.display = 'block';
-  notif('✓ Piano aggiornato');
-};
-
-document.getElementById('p2-cancel').onclick = function() {
-  window._pendingPatch = null;
-  document.getElementById('p2-preview').style.display = 'none';
-};
-
-document.getElementById('p2-open-chat').onclick = function(e) {
-  e.preventDefault();
-  document.getElementById('p2-chat').style.display = 'block';
-  document.getElementById('p2-chat').scrollIntoView({behavior:'smooth'});
-};
-
-document.getElementById('p2-close-chat').onclick = function(e) {
-  e.preventDefault();
-  document.getElementById('p2-chat').style.display = 'none';
-};
-
-document.getElementById('p2-chat-send').onclick = async function() {
-  var input = document.getElementById('p2-chat-input');
-  var testo = input.value.trim();
-  if (!testo) return;
-  input.value = '';
-  try {
-    await chiamaAIChat(testo);
-    renderChatP2();
-  } catch(e) { notif('⚠ Errore chat: ' + e.message); }
-};
-
-document.getElementById('p2-chat-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') document.getElementById('p2-chat-send').click();
-});
 
 document.getElementById('p2-save').onclick = async function() {
   var id = document.getElementById('piano-select-paz').value;
