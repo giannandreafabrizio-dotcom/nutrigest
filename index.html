@@ -4566,11 +4566,12 @@ function espandiPiano(piano) {
 function _renderCelleHtml(pasto, slotKey, giorno) {
   if (!pasto || !pasto.celle) return '';
   var html = '';
-  // Ricette descrittive in cima (solo pranzo/cena)
+  // Ricette descrittive in cima (solo pranzo/cena) — cliccabili
+  var giornoEscR = giorno.replace(/"/g,'&quot;');
   if (pasto.ricette && pasto.ricette.length) {
-    html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.5;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
+    html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.7;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
     pasto.ricette.forEach(function(r, i) {
-      if (r) html += '<div><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> → ' + r + '</div>';
+      if (r) html += '<div class="ric-edit" onclick="apriEditRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" style="cursor:pointer;border-radius:4px;padding:1px 4px;transition:background .15s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'transparent\'" title="Click per modificare"><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> → ' + r + '</div>';
     });
     html += '</div>';
   }
@@ -4634,6 +4635,8 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
     });
     html += '</div>';
   });
+  // Pulsante per aggiungere una nuova cella al pasto
+  html += '<div style="margin-top:.5rem;text-align:center"><button class="alt-add" style="padding:4px 12px;font-size:.72rem" onclick="apriAggiungiCella(\''+giornoEscR+'\',\''+slotKey+'\')">+ Aggiungi alimento</button></div>';
   return html;
 }
 
@@ -4841,6 +4844,121 @@ function _mostraPopupAggiungiAlt(alimenti, gSugg, onScelto) {
   document.body.appendChild(bg);
   document.body.appendChild(pop);
   setTimeout(function(){ search.focus(); }, 50);
+}
+
+function apriEditRicetta(giorno, slotKey, idx) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto) return;
+  if (!ctx.pasto.ricette) ctx.pasto.ricette = ['','',''];
+  var oldVal = ctx.pasto.ricette[idx] || '';
+  var nuovo = prompt('Modifica ricetta ' + (idx+1) + ':', oldVal);
+  if (nuovo === null) return;
+  ctx.pasto.ricette[idx] = nuovo.trim();
+  _aggiornaPianoBox();
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+}
+
+function apriAggiungiCella(giorno, slotKey) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto) return;
+  if (!ctx.pasto.celle) ctx.pasto.celle = [];
+
+  // Trova paziente corrente
+  var pazId = window._pdfPaziente ? window._pdfPaziente.id : null;
+  var p = pazId ? db.pazienti.find(function(x){return x.id===pazId;}) : null;
+  if (!p) { alert('Paziente non trovato'); return; }
+
+  // Mostra popup di selezione categoria
+  _mostraPopupCategoria(function(cat) {
+    // Costruisci lista alimenti del paziente filtrati per categoria
+    var al = p.alimenti || {};
+    var compatibili = [];
+    Object.keys(al).forEach(function(key) {
+      var stato = al[key];
+      if (stato !== 'si' && stato !== 'verde' && stato !== 'arancione' && stato !== 'rosso' && stato !== 'no') return;
+      var nome = key.split('__')[1];
+      if (!nome) return;
+      var catFn = getCategoriaFunzionale(nome);
+      if (catFn !== cat) return;
+      var colore = (stato === 'si' || stato === 'verde') ? 'verde' : stato === 'arancione' ? 'arancione' : 'rosso';
+      compatibili.push({n: nome, cat: catFn, colore: colore});
+    });
+
+    if (!compatibili.length) {
+      alert('Nessun alimento "' + cat + '" disponibile nel profilo del paziente. Aggiungili nella sezione Alimenti.');
+      return;
+    }
+
+    var gSugg = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[cat] || 100;
+
+    _mostraPopupAggiungiAlt(compatibili, gSugg, function(scelto) {
+      // Crea nuova cella
+      var celle = ctx.pasto.celle;
+      // Trova ordine massimo nella colonna sx (default colonna nuova cella)
+      var ordsSx = celle.filter(function(c){return c.colonna==='sx';}).map(function(c){return c.ordine||1;});
+      var ordsDx = celle.filter(function(c){return c.colonna==='dx';}).map(function(c){return c.ordine||1;});
+      var maxSx = ordsSx.length ? Math.max.apply(null, ordsSx) : 0;
+      var maxDx = ordsDx.length ? Math.max.apply(null, ordsDx) : 0;
+      // Inserisci nella colonna meno piena
+      var colonnaNuova = (maxSx <= maxDx) ? 'sx' : 'dx';
+      var ordineNuovo = (colonnaNuova === 'sx' ? maxSx : maxDx) + 1;
+
+      var nuovoId = 'c' + Date.now();
+      celle.push({
+        id: nuovoId,
+        colonna: colonnaNuova,
+        ordine: ordineNuovo,
+        alimenti: [{n: scelto.n, g: gSugg, categoria: scelto.cat, colore: scelto.colore}]
+      });
+
+      _aggiornaPianoBox();
+      if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+      if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+    });
+  });
+}
+
+function _mostraPopupCategoria(onScelto) {
+  var existing = document.getElementById('popup-add-cat');
+  if (existing) existing.remove();
+  var existingBg = document.getElementById('popup-add-cat-bg');
+  if (existingBg) existingBg.remove();
+
+  var pop = document.createElement('div');
+  pop.id = 'popup-add-cat';
+  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:380px';
+
+  var header = document.createElement('div');
+  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem"><strong style="font-size:.95rem;color:var(--teal2)">Scegli categoria</strong><button onclick="document.getElementById(\'popup-add-cat\').remove();document.getElementById(\'popup-add-cat-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  pop.appendChild(header);
+
+  var grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+  Object.keys(CATEGORIE_FUNZIONALI).sort(function(a,b){
+    return CATEGORIE_FUNZIONALI[a].ordine - CATEGORIE_FUNZIONALI[b].ordine;
+  }).forEach(function(catKey) {
+    var cat = CATEGORIE_FUNZIONALI[catKey];
+    var btn = document.createElement('button');
+    btn.style.cssText = 'padding:.6rem .8rem;border:1px solid #e2e8f0;background:#fff;border-radius:6px;cursor:pointer;font-size:.82rem;color:#1e293b;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s';
+    btn.innerHTML = '<span style="width:10px;height:10px;border-radius:50%;background:'+cat.color+';flex-shrink:0"></span><span>'+cat.label+'</span>';
+    btn.onmouseover = function(){ btn.style.background='#f8fafc'; btn.style.borderColor=cat.color; };
+    btn.onmouseout = function(){ btn.style.background='#fff'; btn.style.borderColor='#e2e8f0'; };
+    btn.onclick = function() {
+      document.getElementById('popup-add-cat').remove();
+      document.getElementById('popup-add-cat-bg').remove();
+      onScelto(catKey);
+    };
+    grid.appendChild(btn);
+  });
+  pop.appendChild(grid);
+
+  var bg = document.createElement('div');
+  bg.id = 'popup-add-cat-bg';
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
+  bg.onclick = function(){ pop.remove(); bg.remove(); };
+
+  document.body.appendChild(bg);
+  document.body.appendChild(pop);
 }
 
 function _aggiornaPianoBox() {
