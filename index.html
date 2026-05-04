@@ -264,6 +264,21 @@ main{flex:1;overflow-y:auto;}
   .dash-2col{grid-template-columns:1fr!important;}
 }
 #p2-ric-panel.open { transform: translateX(0) !important; }
+
+/* ── Sincronizza con barra di caricamento (stile 2) ── */
+.sync-wrap{display:flex;flex-direction:column;gap:4px;margin-top:4px;}
+.btn-sync-main{width:100%;padding:.5rem .6rem;background:#16a070;color:#fff;font-weight:600;border:none;border-radius:8px;cursor:pointer;font-size:.78rem;font-family:'DM Sans',sans-serif;transition:background .2s;}
+.btn-sync-main:hover{background:#14906b;}
+.btn-sync-main:disabled{cursor:wait;}
+.btn-sync-main.is-ok{background:#16a070;}
+.btn-sync-main.is-err{background:#dc2626;}
+.sync-track{width:100%;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;opacity:0;transition:opacity .25s;}
+.sync-wrap.is-loading .sync-track,.sync-wrap.is-ok .sync-track,.sync-wrap.is-err .sync-track{opacity:1;}
+.sync-fill{height:100%;width:0%;border-radius:2px;background:linear-gradient(90deg,#fbbf24,#4ade80);transition:width .3s;}
+.sync-wrap.is-loading .sync-fill{animation:sync-fill-anim 2.4s ease-in-out infinite;}
+.sync-wrap.is-ok .sync-fill{width:100%;background:#4ade80;animation:none;}
+.sync-wrap.is-err .sync-fill{width:100%;background:#dc2626;animation:none;}
+@keyframes sync-fill-anim{0%{width:0%}50%{width:85%}100%{width:100%}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -302,13 +317,14 @@ main{flex:1;overflow-y:auto;}
   </nav>
   <div class="aside-foot">
     <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-txt">Sincronizzazione...</span></div>
+    <div class="sync-wrap" id="btn-sync-wrap">
+      <button id="btn-sync-tutto" class="btn-sync-main" onclick="sincronizzaTutto()">🔄 Sincronizza</button>
+      <div class="sync-track"><div class="sync-fill"></div></div>
+    </div>
     <div style="background:rgba(255,255,255,.1);border-radius:4px;height:4px;margin-bottom:5px;overflow:hidden;">
       <div id="sync-bar" style="height:4px;border-radius:4px;background:#4ade80;width:100%;transition:width .2s,background .3s;"></div>
     </div>
     <div id="syncTimestamp" style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:5px;"></div>
-    <button class="btn-aside" onclick="syncNow()">↺ Sincronizza</button>
-    <button class="btn-aside" onclick="esporta()">⬇ Backup</button>
-    <button id="btn-sync-tutto" class="btn-aside" onclick="sincronizzaTutto()" style="background:var(--teal);color:#fff;font-weight:600;border:none;margin-top:4px">🔄 Sincronizza tutto</button>
   </div>
 </aside>
 <main>
@@ -748,8 +764,6 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-p" onclick="salvaCfg()">Salva</button>
         <button class="btn btn-g" onclick="testConn()">🔌 Testa</button>
         <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
-        <button id="btn-sync-tutto-cfg" class="btn btn-p" onclick="sincronizzaTutto()" style="font-size:1rem;padding:.7rem 1.2rem">🔄 Sincronizza tutto</button>
-        <p style="font-size:.75rem;color:var(--text2);margin-top:.5rem">Premi <strong>Sincronizza tutto</strong> ogni volta che inizi e finisci di lavorare. Scarica i dati aggiornati da Google Sheets e li carica di nuovo, zero rischi di perdere dati.</p>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
     </div>
@@ -1736,9 +1750,10 @@ async function syncNow(){
   }
 }
 async function sincronizzaTutto(){
+  var wrap = document.getElementById('btn-sync-wrap');
   var btn = document.getElementById('btn-sync-tutto');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Sincronizzazione...'; }
-  notif('⏳ Sincronizzazione in corso...', 2000);
+  if(wrap){ wrap.classList.remove('is-ok','is-err'); wrap.classList.add('is-loading'); }
+  if(btn){ btn.disabled=true; btn.textContent='Sincronizzazione...'; }
   var pullOk = false;
   var pushOk = false;
   try {
@@ -1750,20 +1765,25 @@ async function sincronizzaTutto(){
   } catch(e) { console.error('[SyncTutto] push errore:', e); }
   var tsEl = document.getElementById('ss-ts');
   if(tsEl){ var now=new Date(); tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT'); }
-  if(btn){
-    btn.disabled = false;
-    if(pullOk && pushOk){
-      btn.textContent = '✅ Sincronizzato!';
-      notif('✅ Sincronizzazione completata — dati aggiornati con Google Sheets', 3000);
-    } else if(pullOk || pushOk){
-      btn.textContent = '⚠️ Parziale';
-      notif('⚠️ Sincronizzazione parziale', 4000);
-    } else {
-      btn.textContent = '❌ Errore';
-      notif('❌ Sincronizzazione fallita — controlla connessione e URL Apps Script', 4000);
-    }
-    setTimeout(function(){ if(btn) btn.textContent='🔄 Sincronizza tutto'; }, 3500);
+  if(wrap){ wrap.classList.remove('is-loading'); }
+  if(btn){ btn.disabled = false; }
+  if(pullOk && pushOk){
+    if(wrap) wrap.classList.add('is-ok');
+    if(btn) btn.textContent='✅ Sincronizzato';
+    notif('✅ Sincronizzazione completata', 2500);
+  } else if(pullOk || pushOk){
+    if(wrap) wrap.classList.add('is-err');
+    if(btn) btn.textContent='⚠️ Parziale';
+    notif('⚠️ Sincronizzazione parziale', 3500);
+  } else {
+    if(wrap) wrap.classList.add('is-err');
+    if(btn) btn.textContent='❌ Errore';
+    notif('❌ Sincronizzazione fallita', 3500);
   }
+  setTimeout(function(){
+    if(btn) btn.textContent='🔄 Sincronizza';
+    if(wrap){ wrap.classList.remove('is-ok','is-err'); }
+  }, 3000);
 }
 
 async function save(){saveLocal();await pushToSheets();}
