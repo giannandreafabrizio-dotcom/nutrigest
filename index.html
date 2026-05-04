@@ -4539,13 +4539,28 @@ function espandiPiano(piano) {
 function _renderCelleHtml(pasto, slotKey, giorno) {
   if (!pasto || !pasto.celle) return '';
   var html = '';
-  // Ricette descrittive in cima (solo pranzo/cena) — cliccabili
+  // Ricette descrittive in cima — cliccabili + cestino + bottone aggiungi
   var giornoEscR = giorno.replace(/"/g,'&quot;');
-  if (pasto.ricette && pasto.ricette.length) {
+  var maxRic = (slotKey === 'pranzo' || slotKey === 'cena') ? 4 : 1;
+  var ricetteArr = (pasto.ricette || []).filter(function(r){ return r != null; });
+  // Filtra le ricette davvero presenti (non-vuote)
+  var ricetteVisibili = ricetteArr.filter(function(r){ return (r||'').trim() !== ''; });
+  if (ricetteVisibili.length || maxRic > 0) {
     html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.7;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
-    pasto.ricette.forEach(function(r, i) {
-      if (r) html += '<div class="ric-edit" onclick="apriEditRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" style="cursor:pointer;border-radius:4px;padding:1px 4px;transition:background .15s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'transparent\'" title="Click per modificare"><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> → ' + r + '</div>';
+    ricetteArr.forEach(function(r, i) {
+      if (!r || !(r||'').trim()) return;
+      html += '<div style="display:flex;align-items:center;gap:6px;border-radius:4px;padding:1px 4px">';
+      html += '<span class="ric-edit" onclick="apriEditRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" style="flex:1;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'transparent\'" title="Click per modificare"><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> &rarr; ' + r + '</span>';
+      html += '<button class="alt-ctrl alt-x" onclick="rimuoviRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" title="Rimuovi ricetta" style="font-size:.7rem">🗑</button>';
+      html += '</div>';
     });
+    // Bottone aggiungi (visibile se non si è raggiunto il max)
+    if (ricetteVisibili.length < maxRic) {
+      var labelBtn = (slotKey === 'pranzo' || slotKey === 'cena')
+        ? (ricetteVisibili.length === 0 ? '+ Aggiungi ricetta' : '+ Aggiungi ' + (ricetteVisibili.length+1) + 'ª ricetta')
+        : '+ Aggiungi ricetta';
+      html += '<div style="margin-top:.3rem"><button class="alt-add" onclick="aggiungiRicetta(\''+giornoEscR+'\',\''+slotKey+'\')">'+labelBtn+'</button></div>';
+    }
     html += '</div>';
   }
   // Raggruppa celle per ordine e colonna
@@ -4842,8 +4857,35 @@ function _mostraPopupAggiungiAlt(alimenti, gSugg, onScelto) {
 function apriEditRicetta(giorno, slotKey, idx) {
   var ctx = _trovaPasto(giorno, slotKey);
   if (!ctx || !ctx.pasto) return;
-  if (!ctx.pasto.ricette) ctx.pasto.ricette = ['','',''];
+  if (!ctx.pasto.ricette) ctx.pasto.ricette = [];
+  // Garantisci lunghezza minima senza distruggere il contenuto esistente
+  while (ctx.pasto.ricette.length <= idx) ctx.pasto.ricette.push('');
   _mostraPopupEditRicetta(giorno, slotKey, idx, ctx.pasto.ricette[idx] || '');
+}
+
+function aggiungiRicetta(giorno, slotKey) {
+  // Aggiunge una nuova ricetta in coda all'array e apre subito il popup di modifica.
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto) return;
+  if (!ctx.pasto.ricette) ctx.pasto.ricette = [];
+  // Compatta eventuali stringhe vuote (legacy: pranzi/cene salvavano ['','',''])
+  ctx.pasto.ricette = ctx.pasto.ricette.filter(function(r){ return (r||'').trim() !== ''; });
+  var maxRic = (slotKey === 'pranzo' || slotKey === 'cena') ? 4 : 1;
+  if (ctx.pasto.ricette.length >= maxRic) return;
+  ctx.pasto.ricette.push('');
+  _aggiornaPianoBox();
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  // Apri direttamente il popup sulla nuova ricetta vuota
+  apriEditRicetta(giorno, slotKey, ctx.pasto.ricette.length - 1);
+}
+
+function rimuoviRicetta(giorno, slotKey, idx) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.ricette) return;
+  if (!confirm('Rimuovere questa ricetta?')) return;
+  ctx.pasto.ricette.splice(idx, 1);
+  _aggiornaPianoBox();
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
 }
 
 function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
@@ -4915,7 +4957,8 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   function salvaRicetta(testo) {
     var ctx = _trovaPasto(giorno, slotKey);
     if (!ctx || !ctx.pasto) return;
-    if (!ctx.pasto.ricette) ctx.pasto.ricette = ['','',''];
+    if (!ctx.pasto.ricette) ctx.pasto.ricette = [];
+    while (ctx.pasto.ricette.length <= idx) ctx.pasto.ricette.push('');
     ctx.pasto.ricette[idx] = (testo||'').trim();
     document.getElementById('popup-ric').remove();
     document.getElementById('popup-ric-bg').remove();
@@ -5572,294 +5615,361 @@ async function generaPiano(){
 // ─────────────────────────────────────────────────────────────────────────────
 
 function generaPDF(paziente, giorni) {
+  // Fase 3.2 — Layout stile foto target: 1 pagina/giorno, distribuzione uniforme,
+  // ricette '1.' bold + testo, label "Alternative:", layout 50/50 ariato.
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  var VERDE    = [29, 158, 117];
-  var VERDE_BG = [245, 253, 249];
-  var ARANCIO  = [239, 159, 39];
-  var ROSSO    = [226, 75, 74];
-  var GRIGIO   = [136, 136, 136];
-  var NERO     = [30, 30, 30];
-  var BIANCO   = [255, 255, 255];
+  // Palette
+  var NERO    = [30, 30, 30];
+  var GRIGIO  = [120, 120, 120];
+  var GRIGIO2 = [200, 200, 200];
+  var GRIGIO3 = [160, 160, 160];
+  var TEAL    = [29, 158, 117];
 
-  var W = 210, M = 15;
-  var colW = (W - M * 2) / 2;
+  // Geometria pagina (A4 portrait)
+  var W = 210, H = 297;
+  var M = 14;
+  var TOP_HEADER = 16;       // y header giorno
+  var TOP_CONTENT = 36;      // y di partenza dei pasti (dopo header + linea)
+  var BOTTOM = 282;          // limite inferiore contenuto (sopra footer)
+  var FOOTER_Y = 290;
+  var COL_GAP = 8;           // gap tra colonna sx e dx
+  var COL_W = (W - M * 2 - COL_GAP) / 2;  // larghezza colonna 50/50
+
   var nomePaz = ((paziente.nome || '') + ' ' + (paziente.cognome || '')).trim();
-  var giornoCorrente = '';
-  var y = 0;
+  var dataGen = (function(){
+    var d = new Date();
+    var dd = String(d.getDate()).padStart(2,'0');
+    var mm = String(d.getMonth()+1).padStart(2,'0');
+    return dd + '/' + mm + '/' + d.getFullYear();
+  })();
 
-  var slotLabel = { colazione:'COLAZIONE', spuntino_mattina:'SPUNTINO MATTINA', pranzo:'PRANZO', spuntino_pomeriggio:'SPUNTINO POMERIGGIO', cena:'CENA', pre_nanna:'PRE-NANNA' };
-  var slotKeys  = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  var slotLabel = {
+    colazione:'COLAZIONE',
+    spuntino_mattina:'SPUNTINO MATTINA',
+    pranzo:'PRANZO',
+    spuntino_pomeriggio:'SPUNTINO POMERIGGIO',
+    cena:'CENA',
+    pre_nanna:'PRE-NANNA'
+  };
+  var slotKeys = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
 
-  function drawHeader(giorno) {
-    doc.setFillColor(...VERDE);
-    doc.rect(0, 0, W, 28, 'F');
-    doc.setTextColor(...BIANCO);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.text(nomePaz, W / 2, 16, { align: 'center' });
-    doc.setFontSize(26);
-    doc.text(giorno, W - M, 23, { align: 'right' });
-    y = 34;
+  // ---------- helper ----------
+  function safe(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/\u2013/g, '-')
+      .replace(/\u2014/g, '-')
+      .replace(/\u2026/g, '...')
+      .replace(/\u00A0/g, ' ');
   }
 
-  function drawCompactHeader(giorno) {
-    doc.setFillColor(...VERDE);
-    doc.rect(0, 0, W, 12, 'F');
-    doc.setTextColor(...BIANCO);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    if (giorno) doc.text(giorno, W - M, 8, { align: 'right' });
-    y = 17;
+  function setFont(weight, size, color) {
+    doc.setFont('helvetica', weight || 'normal');
+    doc.setFontSize(size);
+    doc.setTextColor.apply(doc, color || NERO);
   }
 
-  function chk(h) {
-    if (y + h > 272) {
-      doc.addPage();
-      drawCompactHeader(giornoCorrente);
+  function measure(s, size, weight) {
+    doc.setFont('helvetica', weight || 'normal');
+    doc.setFontSize(size);
+    return doc.getTextWidth(safe(s));
+  }
+
+  function gramText(g) {
+    if (g == null || g === '') return '';
+    return g + ' g';
+  }
+
+  // Normalizza l'accesso al pasto (nuovo formato pasti.{slot} oppure legacy)
+  function pastoOf(g, key) {
+    if (g.pasti && g.pasti[key]) return g.pasti[key];
+    if (g[key]) return g[key];
+    return null;
+  }
+
+  // ---------- MISURAZIONE altezza pasto (per distribuzione uniforme) ----------
+  // Ritorna l'altezza in mm che il pasto occuperà (esclusi gap fra pasti)
+  function measurePasto(slotKey, pasto) {
+    if (!pasto) return 0;
+    var hasCelle = pasto.celle && pasto.celle.length;
+    var hasRicette = pasto.ricette && pasto.ricette.length;
+    var notaTesto = (typeof pasto === 'string') ? pasto : '';
+    if (!hasCelle && !hasRicette && !notaTesto) return 0;
+
+    var h = 0;
+    // Titolo pasto (slot label)
+    h += 5.2;
+
+    if (notaTesto) {
+      var lines = doc.splitTextToSize(safe(notaTesto), W - M * 2);
+      h += lines.length * 4.6 + 2;
+      return h;
     }
-  }
 
-  giorni.forEach(function(g, idx) {
-    giornoCorrente = g.giorno;
-    if (idx === 0) {
-      drawHeader(g.giorno);
-    } else {
-      doc.addPage();
-      drawHeader(g.giorno);
+    if (hasRicette) {
+      pasto.ricette.forEach(function(r) {
+        if (!r) return;
+        // misura con formato "1. {testo}" — il numero è bold
+        var prefixW = measure('1. ', 9.5, 'bold');
+        var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
+        h += lines.length * 4.6;
+      });
+      h += 2;
     }
 
-    var firstSlot = true;
+    if (hasCelle) {
+      var righe = groupCelleByOrdine(pasto.celle);
+      var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
+      ordKeys.forEach(function(ord) {
+        var hSx = cellHeight(righe[ord].sx);
+        var hDx = cellHeight(righe[ord].dx);
+        h += Math.max(hSx, hDx) + 2.5;  // gap tra righe celle
+      });
+    }
+    return h;
+  }
 
-    slotKeys.forEach(function(key) {
-      var pasto = g[key] || (g.pasti && g.pasti[key]);
-      if (!pasto) return;
+  function groupCelleByOrdine(celle) {
+    var righe = {};
+    (celle || []).forEach(function(c) {
+      var ord = c.ordine || 1;
+      if (!righe[ord]) righe[ord] = { sx: null, dx: null };
+      righe[ord][c.colonna || 'sx'] = c;
+    });
+    return righe;
+  }
 
-      var gap = firstSlot ? 2 : 6;
-      chk(gap + 8);
-      y += gap;
-      firstSlot = false;
+  // Altezza di una cella in mm
+  function cellHeight(c) {
+    if (!c || !c.alimenti || !c.alimenti.length) return 0;
+    var n = c.alimenti.length;
+    if (n === 1) return 5.5;
+    // 1 principale (5.5) + label "Alternative:" (3.8) + (n-1) alternative (4.2 cad)
+    return 5.5 + 3.8 + (n - 1) * 4.2 + 1;
+  }
 
-      var slotSigla = { colazione:'C', spuntino_mattina:'SM', pranzo:'P', spuntino_pomeriggio:'SP', cena:'CE', pre_nanna:'PN' };
-      var sigla = slotSigla[key] || key[0].toUpperCase();
-      doc.setFillColor(...VERDE);
-      doc.circle(M + 3.5, y - 3, 3.5, 'F');
-      doc.setTextColor(...BIANCO);
-      doc.setFontSize(sigla.length > 1 ? 5.5 : 7);
-      doc.setFont('helvetica', 'bold');
-      doc.text(sigla, M + 3.5, y - 1.8, { align: 'center' });
-      doc.setTextColor(...VERDE);
-      doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
-      doc.text(slotLabel[key] || key, M + 10, y);
-      y += 6;
+  // ---------- HEADER giorno + footer ----------
+  function drawDayHeader(giornoLabel, macros) {
+    setFont('bold', 16, NERO);
+    doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
 
-      if (typeof pasto === 'string') {
-        chk(10);
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(11);
-        doc.setTextColor(...NERO);
-        doc.splitTextToSize(pasto, W - M * 2).forEach(function(l) { chk(5); doc.text(l, M, y); y += 5; });
-        y += 2;
-        return;
-      }
+    if (macros && (macros.kcal || macros.proteine || macros.carboidrati || macros.grassi)) {
+      var parts = [];
+      if (macros.kcal != null) parts.push(Math.round(macros.kcal) + ' kcal');
+      if (macros.proteine != null) parts.push('P ' + Math.round(macros.proteine) + ' g');
+      if (macros.carboidrati != null) parts.push('C ' + Math.round(macros.carboidrati) + ' g');
+      if (macros.grassi != null) parts.push('G ' + Math.round(macros.grassi) + ' g');
+      setFont('normal', 9, GRIGIO);
+      doc.text(parts.join('   ·   '), W / 2, TOP_HEADER + 10, { align: 'center' });
+    }
 
-      var isPranzoOrCena = (key === 'pranzo' || key === 'cena');
-      var alts = (pasto.alternative || []).slice().sort(function(a, b) { return a.posizione - b.posizione; });
+    doc.setDrawColor.apply(doc, GRIGIO2);
+    doc.setLineWidth(0.2);
+    doc.line(M, TOP_HEADER + 13, W - M, TOP_HEADER + 13);
+  }
 
-      var ricette = [];
-      if (isPranzoOrCena) {
-        var notaPasto = pasto.nota_descrittiva || pasto.nota || '';
-        if (notaPasto) {
-          var parti = notaPasto.split(/\n|(?=\d\.)/g).map(function(s){ return s.trim(); }).filter(Boolean);
-          var colori = [VERDE, ARANCIO, ROSSO];
-          parti.forEach(function(p, i) {
-            ricette.push({ testo: p.replace(/^\d+\.\s*/,''), colore: colori[i] || VERDE });
-          });
-        }
-        if (!ricette.length && alts.length) {
-          var colori = [VERDE, ARANCIO, ROSSO];
-          alts.forEach(function(alt, i) {
-            var nomi = (alt.alimenti || []).map(function(a){ return a.nome; }).join(' con ');
-            if (nomi) ricette.push({ testo: nomi, colore: colori[i] || VERDE });
-          });
-        }
-      } else {
-        var nota = pasto.nota_descrittiva || pasto.nota || '';
-        if (nota) ricette.push({ testo: nota, colore: null });
-      }
+  // ---------- DISEGNO pasto (a partire da y dato) ----------
+  // Ritorna nuovo y dopo aver disegnato il pasto.
+  function drawPasto(slotKey, pasto, y) {
+    if (!pasto) return y;
+    var hasCelle = pasto.celle && pasto.celle.length;
+    var hasRicette = pasto.ricette && pasto.ricette.length;
+    var notaTesto = (typeof pasto === 'string') ? pasto : '';
+    if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-      if (ricette.some(function(r) { return r.testo; })) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        var boxH = 5;
-        ricette.forEach(function(r) {
-          if (!r.testo) return;
-          boxH += doc.splitTextToSize(r.testo, W - M * 2 - 12).length * 4.5 + 2;
-        });
-        boxH += 3;
+    // Titolo pasto: bold, dimensione 10.5, NERO (pulito, niente colore)
+    setFont('bold', 10.5, NERO);
+    doc.text(slotLabel[slotKey] || slotKey.toUpperCase(), M, y);
+    y += 5.2;
 
-        chk(boxH + 3);
-        doc.setFillColor(...VERDE_BG);
-        doc.rect(M, y, W - M * 2, boxH, 'F');
-        doc.setFillColor(...VERDE);
-        doc.rect(M, y, 1, boxH, 'F');
-
-        var by = y + 5;
-        ricette.forEach(function(r) {
-          if (!r.testo) return;
-          var lines = doc.splitTextToSize(r.testo, W - M * 2 - 12);
-          if (r.colore) {
-            doc.setFillColor(...r.colore);
-            doc.circle(M + 5, by - 1.2, 1.3, 'F');
-            doc.setTextColor(...NERO);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            lines.forEach(function(l) { doc.text(l, M + 10, by); by += 4.5; });
-          } else {
-            doc.setTextColor(...NERO);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            lines.forEach(function(l) { doc.text(l, M + 4, by); by += 4.5; });
-          }
-          by += 2;
-        });
-        y += boxH + 4;
-      }
-
-      var p1 = pasto.principale1, p2 = pasto.principale2;
-      var olioEvo = isPranzoOrCena && pasto.olio ? pasto.olio : null;
-      if (!p1 && !p2 && !alts.some(function(a) { return a.alimenti && a.alimenti.length; })) return;
-
-      if (p1 && p2) {
-        chk(9);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(...NERO);
-        doc.text(p1.nome || '', M, y);
-        if (p1.grammi != null) { doc.setTextColor(...VERDE); doc.text(p1.grammi + 'g', M + colW - 1, y, { align: 'right' }); }
-        doc.setTextColor(...NERO);
-        doc.text(p2.nome || '', M + colW + 2, y);
-        if (p2.grammi != null) { doc.setTextColor(...VERDE); doc.text(p2.grammi + 'g', W - M - 1, y, { align: 'right' }); }
-        if (olioEvo) { doc.setTextColor(...VERDE); doc.text((olioEvo.nome||'Olio EVO') + ' ' + (olioEvo.grammi||olioEvo.g||'') + 'g', M + colW + 2, y); doc.setTextColor(...NERO); }
-        y += 5;
-
-        doc.setDrawColor(...GRIGIO);
-        doc.setLineWidth(0.2);
-        doc.line(M, y, W - M, y);
-        y += 2;
-
-        var firstAlt = true;
-        alts.forEach(function(alt) {
-          var foods = alt.alimenti || [];
-          if (!foods.length) return;
-          if (firstAlt) { y += 2; firstAlt = false; }
-          chk(5);
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(9.5);
-          doc.setTextColor(...GRIGIO);
-          if (foods[0]) {
-            doc.text(foods[0].nome || '', M + 6, y);
-            if (foods[0].grammi != null) doc.text(foods[0].grammi + 'g', M + colW - 1, y, { align: 'right' });
-          }
-          if (foods[1]) {
-            doc.text(foods[1].nome || '', M + colW + 8, y);
-            if (foods[1].grammi != null) doc.text(foods[1].grammi + 'g', W - M - 1, y, { align: 'right' });
-          }
-          y += 4.5;
-        });
-
-      } else {
-        var p = p1 || p2;
-        if (p) {
-          chk(9);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(11);
-          doc.setTextColor(...NERO);
-          doc.text(p.nome || '', M, y);
-          if (p.grammi != null) { doc.setTextColor(...VERDE); doc.text(p.grammi + 'g', W - M - 1, y, { align: 'right' }); }
-          y += 5;
-
-          doc.setDrawColor(...GRIGIO);
-          doc.setLineWidth(0.2);
-          doc.line(M, y, W - M, y);
-          y += 2;
-
-          var firstAlt2 = true;
-          alts.forEach(function(alt) {
-            (alt.alimenti || []).forEach(function(f) {
-              if (firstAlt2) { y += 2; firstAlt2 = false; }
-              chk(5);
-              doc.setFont('helvetica', 'italic');
-              doc.setFontSize(9.5);
-              doc.setTextColor(...GRIGIO);
-              doc.text(f.nome || '', M + 6, y);
-              if (f.grammi != null) doc.text(f.grammi + 'g', W - M - 1, y, { align: 'right' });
-              y += 4.5;
-            });
-          });
-        } else {
-          alts.forEach(function(alt) {
-            (alt.alimenti || []).forEach(function(f) {
-              chk(6);
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(11);
-              doc.setTextColor(...NERO);
-              doc.text(f.nome || '', M, y);
-              if (f.grammi != null) { doc.setTextColor(...VERDE); doc.text(f.grammi + 'g', W - M - 1, y, { align: 'right' }); }
-              y += 5;
-            });
-          });
-        }
-      }
-
+    // Pasto in formato testo (legacy)
+    if (notaTesto) {
+      setFont('italic', 10, NERO);
+      doc.splitTextToSize(safe(notaTesto), W - M * 2).forEach(function(l) {
+        doc.text(l, M, y); y += 4.6;
+      });
       y += 2;
+      return y;
+    }
+
+    // Ricette descrittive: "1." bold + testo normale
+    if (hasRicette) {
+      var prefixW = measure('1. ', 9.5, 'bold');
+      pasto.ricette.forEach(function(r, i) {
+        if (!r) return;
+        var prefix = (i + 1) + '. ';
+        var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
+        // Prima riga: numero bold + testo normale
+        setFont('bold', 9.5, NERO);
+        doc.text(prefix, M, y);
+        setFont('normal', 9.5, NERO);
+        doc.text(lines[0] || '', M + prefixW, y);
+        y += 4.6;
+        // Righe successive (wrap): rientro
+        for (var k = 1; k < lines.length; k++) {
+          doc.text(lines[k], M + prefixW, y);
+          y += 4.6;
+        }
+      });
+      y += 2;
+    }
+
+    // Celle a 2 colonne 50/50
+    if (hasCelle) {
+      var righe = groupCelleByOrdine(pasto.celle);
+      var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
+      ordKeys.forEach(function(ord) {
+        var riga = righe[ord];
+        var hSx = cellHeight(riga.sx);
+        var hDx = cellHeight(riga.dx);
+        var hRow = Math.max(hSx, hDx);
+        drawCella(riga.sx, M, y, COL_W);
+        drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W);
+        y += hRow + 2.5;
+      });
+    }
+
+    return y;
+  }
+
+  // Disegna una cella alla posizione (x, yTop) con larghezza wCell
+  function drawCella(c, x, yTop, wCell) {
+    if (!c || !c.alimenti || !c.alimenti.length) return;
+    var ali = c.alimenti;
+    var princ = ali[0];
+
+    // PRINCIPALE: nome bold + grammatura bold a destra
+    setFont('bold', 10, NERO);
+    var nomeP = safe(princ.n || '');
+    var gP = gramText(princ.g);
+    var gPwidth = gP ? measure(gP, 10, 'bold') + 2 : 0;
+    var nomeMaxW = wCell - gPwidth;
+    var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
+    var nomeShown = nomeLines[0];
+    if (nomeLines.length > 1) {
+      while (nomeShown.length > 0 && measure(nomeShown + '...', 10, 'bold') > nomeMaxW) {
+        nomeShown = nomeShown.slice(0, -1);
+      }
+      nomeShown += '...';
+    }
+    doc.text(nomeShown, x, yTop + 3.6);
+    if (gP) doc.text(gP, x + wCell, yTop + 3.6, { align: 'right' });
+
+    // ALTERNATIVE
+    if (ali.length > 1) {
+      var ay = yTop + 8.4;
+      // Sub-label "Alternative:" piccolo grigio
+      setFont('italic', 7.5, GRIGIO3);
+      doc.text('Alternative:', x, ay);
+      ay += 3.6;
+
+      // Lista alternative
+      setFont('italic', 9, GRIGIO);
+      for (var i = 1; i < ali.length; i++) {
+        var alt = ali[i];
+        var nomeA = safe(alt.n || '');
+        var gA = gramText(alt.g);
+        var gAwidth = gA ? measure(gA, 9, 'italic') + 2 : 0;
+        var nomeAmaxW = wCell - gAwidth;
+        var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
+        var nomeAshown = nomeAlines[0];
+        if (nomeAlines.length > 1) {
+          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 9, 'italic') > nomeAmaxW) {
+            nomeAshown = nomeAshown.slice(0, -1);
+          }
+          nomeAshown += '...';
+        }
+        doc.text(nomeAshown, x, ay);
+        if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
+        ay += 4.2;
+      }
+    }
+  }
+
+  // ---------- CICLO PRINCIPALE: una pagina per giorno con distribuzione uniforme ----------
+  giorni.forEach(function(g, idx) {
+    if (idx > 0) doc.addPage();
+    var giornoLabel = g.giorno || g.g || '';
+    drawDayHeader(giornoLabel, g.macros);
+
+    // Calcola elenco pasti non vuoti e loro altezza
+    var pastiAttivi = [];
+    slotKeys.forEach(function(k) {
+      var p = pastoOf(g, k);
+      var h = measurePasto(k, p);
+      if (h > 0) pastiAttivi.push({ key: k, pasto: p, h: h });
+    });
+    if (!pastiAttivi.length) return;
+
+    // Spazio disponibile per i pasti
+    var hDisp = BOTTOM - TOP_CONTENT;
+    var hTot  = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
+
+    // Gap base tra pasti (minimo 4mm)
+    var gapMin = 4;
+    var nGaps = Math.max(pastiAttivi.length - 1, 1);
+    var spazioExtra = hDisp - hTot - gapMin * nGaps;
+    var gapExtra = 0;
+    if (spazioExtra > 0 && pastiAttivi.length > 1) {
+      // Distribuisci spazio extra come gap aggiuntivo, max 14mm per gap
+      gapExtra = Math.min(spazioExtra / nGaps, 14);
+    }
+    var gap = gapMin + gapExtra;
+
+    // Disegna pasti
+    var y = TOP_CONTENT;
+    pastiAttivi.forEach(function(p, i) {
+      y = drawPasto(p.key, p.pasto, y);
+      if (i < pastiAttivi.length - 1) y += gap;
     });
   });
 
+  // ---------- Concetti educativi (in coda, opzionali) ----------
   var concetti = paziente.concetti || [];
   if (concetti.length) {
     doc.addPage();
-    giornoCorrente = '';
-    doc.setFillColor(...VERDE);
-    doc.rect(0, 0, W, 28, 'F');
-    doc.setTextColor(...BIANCO);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('Consigli per te', W / 2, 17, { align: 'center' });
-    y = 38;
+    setFont('bold', 14, NERO);
+    doc.text('Consigli per te', W / 2, TOP_HEADER + 4, { align: 'center' });
+    doc.setDrawColor.apply(doc, GRIGIO2);
+    doc.setLineWidth(0.2);
+    doc.line(M, TOP_HEADER + 8, W - M, TOP_HEADER + 8);
+    var yc = TOP_HEADER + 14;
 
     concetti.forEach(function(c) {
       var titolo = (typeof c === 'string') ? '' : (c.titolo || '');
       var testo  = (typeof c === 'string') ? c  : (c.testo || c.titolo || '');
-      chk(12);
+      if (yc > BOTTOM - 12) { doc.addPage(); yc = TOP_HEADER + 4; }
       if (titolo) {
-        doc.setTextColor(...VERDE);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text(titolo, M, y);
-        y += 5;
+        setFont('bold', 10, TEAL);
+        doc.text(safe(titolo), M, yc);
+        yc += 5;
       }
       if (testo) {
-        doc.setTextColor(...NERO);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.splitTextToSize(testo, W - M * 2).forEach(function(r) { chk(5); doc.text(r, M, y); y += 4.8; });
+        setFont('normal', 9, NERO);
+        doc.splitTextToSize(safe(testo), W - M * 2).forEach(function(r) {
+          if (yc > BOTTOM) { doc.addPage(); yc = TOP_HEADER + 4; }
+          doc.text(r, M, yc); yc += 4.6;
+        });
       }
-      y += 5;
+      yc += 4;
     });
   }
 
+  // ---------- FOOTER ----------
   var totPagine = doc.internal.getNumberOfPages();
   for (var i = 1; i <= totPagine; i++) {
     doc.setPage(i);
-    doc.setFontSize(7.5);
-    doc.setTextColor(...GRIGIO);
-    doc.text('Pagina ' + i + ' di ' + totPagine + '  —  NutriGest © Dott. Fabrizio Giannandrea', W / 2, 290, { align: 'center' });
+    setFont('normal', 7.5, GRIGIO);
+    doc.text(safe(nomePaz), M, FOOTER_Y);
+    doc.text('Generato il ' + dataGen, W / 2, FOOTER_Y, { align: 'center' });
+    doc.text('Pag. ' + i + '/' + totPagine, W - M, FOOTER_Y, { align: 'right' });
   }
 
-  var nomefile = 'Regime alimentare — ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
+  var nomefile = 'Regime alimentare - ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
   doc.save(nomefile);
 }
 
