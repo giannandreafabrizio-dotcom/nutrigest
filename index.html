@@ -308,6 +308,7 @@ main{flex:1;overflow-y:auto;}
     <div id="syncTimestamp" style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:5px;"></div>
     <button class="btn-aside" onclick="syncNow()">↺ Sincronizza</button>
     <button class="btn-aside" onclick="esporta()">⬇ Backup</button>
+    <button id="btn-sync-tutto" class="btn-aside" onclick="sincronizzaTutto()" style="background:var(--teal);color:#fff;font-weight:600;border:none;margin-top:4px">🔄 Sincronizza tutto</button>
   </div>
 </aside>
 <main>
@@ -747,6 +748,8 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-p" onclick="salvaCfg()">Salva</button>
         <button class="btn btn-g" onclick="testConn()">🔌 Testa</button>
         <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
+        <button id="btn-sync-tutto-cfg" class="btn btn-p" onclick="sincronizzaTutto()" style="font-size:1rem;padding:.7rem 1.2rem">🔄 Sincronizza tutto</button>
+        <p style="font-size:.75rem;color:var(--text2);margin-top:.5rem">Premi <strong>Sincronizza tutto</strong> ogni volta che inizi e finisci di lavorare. Scarica i dati aggiornati da Google Sheets e li carica di nuovo — zero rischi di perdere dati.</p>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
     </div>
@@ -1732,6 +1735,57 @@ async function syncNow(){
     setTimeout(function(){if(bar)bar.style.width='100%';},1000);
   }
 }
+async function sincronizzaTutto(){
+  // 1. Mostra stato "in corso"
+  var btn = document.getElementById('btn-sync-tutto');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Sincronizzazione...'; }
+  notif('⏳ Sincronizzazione in corso...', 2000);
+
+  var pullOk = false;
+  var pushOk = false;
+  var errMsg = '';
+
+  // 2. PULL — scarica dati freschi da Google Sheets
+  try {
+    pullOk = await pullFromSheets();
+    if(pullOk){
+      renderPaz(); renderRic(); renderCal(); renderEntrate();
+    }
+  } catch(e) {
+    errMsg = 'Pull fallito: ' + e.message;
+    console.error('[SyncTutto] pull errore:', e);
+  }
+
+  // 3. PUSH — carica dati locali su Google Sheets (sempre, anche se pull ok)
+  try {
+    pushOk = await pushToSheets();
+  } catch(e) {
+    errMsg = (errMsg ? errMsg + ' | ' : '') + 'Push fallito: ' + e.message;
+    console.error('[SyncTutto] push errore:', e);
+  }
+
+  // 4. Aggiorna timestamp UI
+  var tsEl = document.getElementById('ss-ts');
+  if(tsEl){ var now=new Date(); tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT'); }
+
+  // 5. Feedback finale
+  if(btn){
+    btn.disabled = false;
+    if(pullOk && pushOk){
+      btn.textContent = '✅ Sincronizzato!';
+      notif('✅ Sincronizzazione completata — dati aggiornati con Google Sheets', 3000);
+    } else if(pullOk || pushOk){
+      btn.textContent = '⚠️ Parziale';
+      notif('⚠️ Sincronizzazione parziale — ' + (pullOk?'pull ok':'pull fallito') + ' / ' + (pushOk?'push ok':'push fallito'), 4000);
+    } else {
+      btn.textContent = '❌ Errore';
+      notif('❌ Sincronizzazione fallita — controlla la connessione e l'URL Apps Script', 4000);
+    }
+    // Ripristina testo dopo 3 secondi
+    setTimeout(function(){ if(btn) btn.textContent='🔄 Sincronizza tutto'; }, 3500);
+  }
+}
+
 async function save(){saveLocal();await pushToSheets();}
 
 function salvaCfg(){const u=document.getElementById('cfg-url').value.trim();if(!u){alert('Inserisci URL');return;}const c=getCfg();c.scriptUrl=u;saveCfgL(c);notif('✓ Configurazione salvata!');}
