@@ -1,197 +1,263 @@
-// patch.js — Sidebar pulita + nuovo Sincronizza con barra di caricamento (stile 2)
+// patch.js — Step 3.4: rifinitura estetica del PDF
+//   1. Rimuove la riga macros sotto il nome del giorno
+//   2. Aggiunge barra teal verticale a sinistra del nome pasto
+//   3. Aggiunge linea grigia sottile tra i pasti
+//   4. Font alimenti più grande (12pt invece di 10pt) — colonne più strette per compensare
 //
-// Cambiamenti:
-//  • Rimuove "↺ Sincronizza" e "⬇ Backup" dalla sidebar
-//  • Rinomina "🔄 Sincronizza tutto" → "🔄 Sincronizza"
-//  • Aggiunge barra di caricamento stile 2 (gradient giallo→verde) sotto il pulsante
-//  • Stati visivi: verde quando ok, rosso quando errore
-//  • Mantiene Backup nella pagina Impostazioni
-//  • Idempotente: puoi eseguirlo più volte senza creare duplicati
-//  • Verifica sintassi prima di scrivere
-//
-// Eseguire: node patch.js dalla cartella nutrigest
+// Idempotente + verifica sintassi.
+// Eseguire: node patch.js
 
 const fs = require('fs');
 const path = 'index.html';
 let src = fs.readFileSync(path, 'utf8');
 const original = src;
-
 console.log('Lunghezza iniziale:', src.length, 'bytes');
 
 // ============================================================
-// PARTE 1 — PULIZIA: rimuovo TUTTE le occorrenze esistenti
+// MOD 1 — drawDayHeader: rimuovi il blocco macros, sposta la linea più in alto
 // ============================================================
+const OLD_HEADER = `  function drawDayHeader(giornoLabel, macros) {
+    setFont('bold', 16, NERO);
+    doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
 
-// 1a. Rimuovi pulsante sidebar "Sincronizza" (vecchio, syncNow)
-src = src.replace(/\s*<button class="btn-aside" onclick="syncNow\(\)"[^>]*>[^<]*<\/button>/g, '');
+    if (macros && (macros.kcal || macros.proteine || macros.carboidrati || macros.grassi)) {
+      var parts = [];
+      if (macros.kcal != null) parts.push(Math.round(macros.kcal) + ' kcal');
+      if (macros.proteine != null) parts.push('P ' + Math.round(macros.proteine) + ' g');
+      if (macros.carboidrati != null) parts.push('C ' + Math.round(macros.carboidrati) + ' g');
+      if (macros.grassi != null) parts.push('G ' + Math.round(macros.grassi) + ' g');
+      setFont('normal', 9, GRIGIO);
+      doc.text(parts.join('   ·   '), W / 2, TOP_HEADER + 10, { align: 'center' });
+    }
 
-// 1b. Rimuovi pulsante sidebar "Backup" (esporta)
-src = src.replace(/\s*<button class="btn-aside" onclick="esporta\(\)"[^>]*>[^<]*<\/button>/g, '');
+    doc.setDrawColor.apply(doc, GRIGIO2);
+    doc.setLineWidth(0.2);
+    doc.line(M, TOP_HEADER + 13, W - M, TOP_HEADER + 13);
+  }`;
 
-// 1c. Rimuovi tutti i pulsanti "Sincronizza tutto" sidebar (anche duplicati)
-src = src.replace(/\s*<button id="btn-sync-tutto"[^>]*onclick="sincronizzaTutto\(\)"[^>]*>[^<]*<\/button>/g, '');
+const NEW_HEADER = `  function drawDayHeader(giornoLabel, macros) {
+    setFont('bold', 17, NERO);
+    doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
+    doc.setDrawColor.apply(doc, GRIGIO2);
+    doc.setLineWidth(0.2);
+    doc.line(M, TOP_HEADER + 8, W - M, TOP_HEADER + 8);
+  }`;
 
-// 1d. Rimuovi wrapper sidebar precedenti (se ne avevamo)
-src = src.replace(/\s*<div id="btn-sync-wrap"[\s\S]*?<\/div>\s*<\/div>/g, '');
-
-// 1e. Rimuovi pulsante Impostazioni "Sincronizza tutto"
-src = src.replace(/\s*<button id="btn-sync-tutto-cfg"[^>]*onclick="sincronizzaTutto\(\)"[^>]*>[^<]*<\/button>/g, '');
-
-// 1f. Rimuovi paragrafi istruzioni duplicati
-src = src.replace(/\s*<p style="font-size:\.75rem;color:var\(--text2\);margin-top:\.5rem">Premi <strong>Sincronizza tutto[\s\S]*?<\/p>/g, '');
-
-// 1g. Rimuovi tutte le funzioni async sincronizzaTutto esistenti
-const fnPattern = /async function sincronizzaTutto\(\)\{[\s\S]*?setTimeout\(function\(\)\{ if\(btn\) btn\.textContent='🔄 Sincronizza[^']*'; \}, 3500\);\s*\}\s*\}\s*/g;
-const fnMatches = src.match(fnPattern);
-console.log('Funzioni sincronizzaTutto trovate:', fnMatches ? fnMatches.length : 0);
-src = src.replace(fnPattern, '');
-
-console.log('Dopo pulizia:', src.length, 'bytes (rimossi', original.length - src.length, 'bytes)');
-
-// ============================================================
-// PARTE 2 — Aggiungi CSS per barra di caricamento stile 2
-// ============================================================
-// L'inietto subito prima della chiusura di un blocco <style>
-const CSS_NEW = `
-/* ── Sincronizza con barra di caricamento (stile 2) ── */
-.sync-wrap{display:flex;flex-direction:column;gap:4px;margin-top:4px;}
-.btn-sync-main{width:100%;padding:.5rem .6rem;background:#16a070;color:#fff;font-weight:600;border:none;border-radius:8px;cursor:pointer;font-size:.78rem;font-family:'DM Sans',sans-serif;transition:background .2s;}
-.btn-sync-main:hover{background:#14906b;}
-.btn-sync-main:disabled{cursor:wait;}
-.btn-sync-main.is-ok{background:#16a070;}
-.btn-sync-main.is-err{background:#dc2626;}
-.sync-track{width:100%;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;opacity:0;transition:opacity .25s;}
-.sync-wrap.is-loading .sync-track,.sync-wrap.is-ok .sync-track,.sync-wrap.is-err .sync-track{opacity:1;}
-.sync-fill{height:100%;width:0%;border-radius:2px;background:linear-gradient(90deg,#fbbf24,#4ade80);transition:width .3s;}
-.sync-wrap.is-loading .sync-fill{animation:sync-fill-anim 2.4s ease-in-out infinite;}
-.sync-wrap.is-ok .sync-fill{width:100%;background:#4ade80;animation:none;}
-.sync-wrap.is-err .sync-fill{width:100%;background:#dc2626;animation:none;}
-@keyframes sync-fill-anim{0%{width:0%}50%{width:85%}100%{width:100%}}
-`;
-const STYLE_CLOSE = '</style>';
-const firstStyleClose = src.indexOf(STYLE_CLOSE);
-if (firstStyleClose === -1) {
-  console.error('ERRORE: tag </style> non trovato'); process.exit(1);
-}
-// Inietto solo se non già presente
-if (!src.includes('.btn-sync-main')) {
-  src = src.slice(0, firstStyleClose) + CSS_NEW + src.slice(firstStyleClose);
-  console.log('[1/4] CSS barra di caricamento aggiunto');
+if (!src.includes(OLD_HEADER)) {
+  console.log('[1/4] SKIP — drawDayHeader già modificato (o non trovato esattamente)');
 } else {
-  console.log('[1/4] CSS già presente, skip');
+  src = src.replace(OLD_HEADER, NEW_HEADER);
+  console.log('[1/4] OK — drawDayHeader: rimossa riga macros, header più compatto');
 }
 
 // ============================================================
-// PARTE 3 — Aggiungi pulsante in sidebar al posto di quelli rimossi
+// MOD 2 — TOP_CONTENT: ora il content parte più in alto (header più piccolo)
 // ============================================================
-// Cerco il riferimento "sync-pill" (è subito prima dei pulsanti aside) per posizionarmi
-const SIDEBAR_ANCHOR = '<div class="sync-pill">';
-const idxPill = src.indexOf(SIDEBAR_ANCHOR);
-if (idxPill === -1) {
-  console.error('ERRORE: ancora sync-pill non trovata'); process.exit(1);
-}
-// Trova la chiusura del div sync-pill
-const pillClose = src.indexOf('</div>', idxPill);
-if (pillClose === -1) {
-  console.error('ERRORE: chiusura sync-pill non trovata'); process.exit(1);
-}
-// Inserisci il nuovo wrapper dopo </div> della sync-pill
-const SIDEBAR_NEW = `</div>
-    <div class="sync-wrap" id="btn-sync-wrap">
-      <button id="btn-sync-tutto" class="btn-sync-main" onclick="sincronizzaTutto()">🔄 Sincronizza</button>
-      <div class="sync-track"><div class="sync-fill"></div></div>
-    </div>`;
-
-// Sostituisco solo la prima </div> dopo sync-pill
-const before = src.slice(0, pillClose);
-const after = src.slice(pillClose + '</div>'.length);
-// Verifico che non ci sia già il wrapper
-if (!src.includes('id="btn-sync-wrap"')) {
-  src = before + SIDEBAR_NEW + after;
-  console.log('[2/4] Pulsante sidebar aggiunto');
+const OLD_TOP = "var TOP_CONTENT = 36;      // y di partenza dei pasti (dopo header + linea)";
+const NEW_TOP = "var TOP_CONTENT = 26;      // y di partenza dei pasti (header senza macros)";
+if (src.includes(OLD_TOP)) {
+  src = src.replace(OLD_TOP, NEW_TOP);
+  console.log('[2/4] OK — TOP_CONTENT spostato a 26mm (header più compatto)');
+} else if (src.includes(NEW_TOP)) {
+  console.log('[2/4] SKIP — TOP_CONTENT già aggiornato');
 } else {
-  console.log('[2/4] Pulsante sidebar già presente, skip');
+  console.log('[2/4] SKIP — TOP_CONTENT non trovato esattamente');
 }
 
 // ============================================================
-// PARTE 4 — Funzione sincronizzaTutto() pulita (con feedback barra)
+// MOD 3 — drawPasto: aggiungi barra teal a sx del nome pasto + font label più grande
 // ============================================================
-const ANCHOR_SAVE = 'async function save(){saveLocal();await pushToSheets();}';
-if (!src.includes(ANCHOR_SAVE)) {
-  console.error('ERRORE: ancora save() non trovata'); process.exit(1);
+const OLD_LABEL = `    // Titolo pasto: bold, dimensione 10.5, NERO (pulito, niente colore)
+    setFont('bold', 10.5, NERO);
+    doc.text(slotLabel[slotKey] || slotKey.toUpperCase(), M, y);
+    y += 5.2;`;
+
+const NEW_LABEL = `    // Titolo pasto: barra teal verticale + label bold 11pt nero
+    doc.setFillColor.apply(doc, TEAL);
+    doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
+    setFont('bold', 11, NERO);
+    doc.text(slotLabel[slotKey] || slotKey.toUpperCase(), M + 2.6, y);
+    y += 5.6;`;
+
+if (!src.includes(OLD_LABEL)) {
+  console.log('[3/4] SKIP — label pasto già modificato (o non trovato esattamente)');
+} else {
+  src = src.replace(OLD_LABEL, NEW_LABEL);
+  console.log('[3/4] OK — barra teal verticale + label 11pt aggiunti');
 }
 
-const NEW_FN = `async function sincronizzaTutto(){
-  var wrap = document.getElementById('btn-sync-wrap');
-  var btn = document.getElementById('btn-sync-tutto');
-  if(wrap){ wrap.classList.remove('is-ok','is-err'); wrap.classList.add('is-loading'); }
-  if(btn){ btn.disabled=true; btn.textContent='Sincronizzazione...'; }
-  var pullOk = false;
-  var pushOk = false;
-  try {
-    pullOk = await pullFromSheets();
-    if(pullOk){ renderPaz(); renderRic(); renderCal(); renderEntrate(); }
-  } catch(e) { console.error('[SyncTutto] pull errore:', e); }
-  try {
-    pushOk = await pushToSheets();
-  } catch(e) { console.error('[SyncTutto] push errore:', e); }
-  var tsEl = document.getElementById('ss-ts');
-  if(tsEl){ var now=new Date(); tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT'); }
-  if(wrap){ wrap.classList.remove('is-loading'); }
-  if(btn){ btn.disabled = false; }
-  if(pullOk && pushOk){
-    if(wrap) wrap.classList.add('is-ok');
-    if(btn) btn.textContent='✅ Sincronizzato';
-    notif('✅ Sincronizzazione completata', 2500);
-  } else if(pullOk || pushOk){
-    if(wrap) wrap.classList.add('is-err');
-    if(btn) btn.textContent='⚠️ Parziale';
-    notif('⚠️ Sincronizzazione parziale', 3500);
-  } else {
-    if(wrap) wrap.classList.add('is-err');
-    if(btn) btn.textContent='❌ Errore';
-    notif('❌ Sincronizzazione fallita', 3500);
-  }
-  setTimeout(function(){
-    if(btn) btn.textContent='🔄 Sincronizza';
-    if(wrap){ wrap.classList.remove('is-ok','is-err'); }
-  }, 3000);
+// ============================================================
+// MOD 4 — Font alimenti più grande nelle celle (10pt → 12pt principale, 9pt → 10.5pt alt)
+// ============================================================
+// Principale
+const OLD_PRINC1 = `    setFont('bold', 10, NERO);
+    var nomeP = safe(princ.n || '');
+    var gP = gramText(princ.g);
+    var gPwidth = gP ? measure(gP, 10, 'bold') + 2 : 0;
+    var nomeMaxW = wCell - gPwidth;
+    var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
+    var nomeShown = nomeLines[0];
+    if (nomeLines.length > 1) {
+      while (nomeShown.length > 0 && measure(nomeShown + '...', 10, 'bold') > nomeMaxW) {
+        nomeShown = nomeShown.slice(0, -1);
+      }
+      nomeShown += '...';
+    }
+    doc.text(nomeShown, x, yTop + 3.6);
+    if (gP) doc.text(gP, x + wCell, yTop + 3.6, { align: 'right' });`;
+
+const NEW_PRINC1 = `    setFont('bold', 12, NERO);
+    var nomeP = safe(princ.n || '');
+    var gP = gramText(princ.g);
+    var gPwidth = gP ? measure(gP, 12, 'bold') + 2 : 0;
+    var nomeMaxW = wCell - gPwidth;
+    var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
+    var nomeShown = nomeLines[0];
+    if (nomeLines.length > 1) {
+      while (nomeShown.length > 0 && measure(nomeShown + '...', 12, 'bold') > nomeMaxW) {
+        nomeShown = nomeShown.slice(0, -1);
+      }
+      nomeShown += '...';
+    }
+    doc.text(nomeShown, x, yTop + 3.8);
+    if (gP) doc.text(gP, x + wCell, yTop + 3.8, { align: 'right' });`;
+
+if (!src.includes(OLD_PRINC1)) {
+  console.log('[4a/4] SKIP — drawCella principale già modificato');
+} else {
+  src = src.replace(OLD_PRINC1, NEW_PRINC1);
+  console.log('[4a/4] OK — principale: font 12pt');
 }
 
-`;
+// Alternative
+const OLD_ALT1 = `      var ay = yTop + 8.4;
+      // Sub-label "Alternative:" piccolo grigio
+      setFont('italic', 7.5, GRIGIO3);
+      doc.text('Alternative:', x, ay);
+      ay += 3.6;
 
-src = src.replace(ANCHOR_SAVE, NEW_FN + ANCHOR_SAVE);
-console.log('[3/4] Funzione sincronizzaTutto aggiunta');
+      // Lista alternative
+      setFont('italic', 9, GRIGIO);
+      for (var i = 1; i < ali.length; i++) {
+        var alt = ali[i];
+        var nomeA = safe(alt.n || '');
+        var gA = gramText(alt.g);
+        var gAwidth = gA ? measure(gA, 9, 'italic') + 2 : 0;
+        var nomeAmaxW = wCell - gAwidth;
+        var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
+        var nomeAshown = nomeAlines[0];
+        if (nomeAlines.length > 1) {
+          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 9, 'italic') > nomeAmaxW) {
+            nomeAshown = nomeAshown.slice(0, -1);
+          }
+          nomeAshown += '...';
+        }
+        doc.text(nomeAshown, x, ay);
+        if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
+        ay += 4.2;
+      }`;
+
+const NEW_ALT1 = `      var ay = yTop + 9.2;
+      // Sub-label "Alternative:" piccolo grigio
+      setFont('italic', 8, GRIGIO3);
+      doc.text('Alternative:', x, ay);
+      ay += 4;
+
+      // Lista alternative
+      setFont('italic', 10.5, GRIGIO);
+      for (var i = 1; i < ali.length; i++) {
+        var alt = ali[i];
+        var nomeA = safe(alt.n || '');
+        var gA = gramText(alt.g);
+        var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
+        var nomeAmaxW = wCell - gAwidth;
+        var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
+        var nomeAshown = nomeAlines[0];
+        if (nomeAlines.length > 1) {
+          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 10.5, 'italic') > nomeAmaxW) {
+            nomeAshown = nomeAshown.slice(0, -1);
+          }
+          nomeAshown += '...';
+        }
+        doc.text(nomeAshown, x, ay);
+        if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
+        ay += 4.6;
+      }`;
+
+if (!src.includes(OLD_ALT1)) {
+  console.log('[4b/4] SKIP — drawCella alternative già modificato');
+} else {
+  src = src.replace(OLD_ALT1, NEW_ALT1);
+  console.log('[4b/4] OK — alternative: font 10.5pt');
+}
+
+// Aggiorno cellHeight per le nuove dimensioni
+const OLD_CH = `  function cellHeight(c) {
+    if (!c || !c.alimenti || !c.alimenti.length) return 0;
+    var n = c.alimenti.length;
+    if (n === 1) return 5.5;
+    // 1 principale (5.5) + label "Alternative:" (3.8) + (n-1) alternative (4.2 cad)
+    return 5.5 + 3.8 + (n - 1) * 4.2 + 1;
+  }`;
+const NEW_CH = `  function cellHeight(c) {
+    if (!c || !c.alimenti || !c.alimenti.length) return 0;
+    var n = c.alimenti.length;
+    if (n === 1) return 6.2;
+    // 1 principale (6.2) + label "Alternative:" (4) + (n-1) alternative (4.6 cad)
+    return 6.2 + 4 + (n - 1) * 4.6 + 1;
+  }`;
+if (src.includes(OLD_CH)) {
+  src = src.replace(OLD_CH, NEW_CH);
+  console.log('[4c/4] OK — cellHeight aggiornata per nuove dimensioni');
+} else {
+  console.log('[4c/4] SKIP — cellHeight già aggiornata');
+}
 
 // ============================================================
-// PARTE 5 — In Impostazioni: lasciamo Backup esistente e Sincronizza vecchio
-//          (Backup è già lì, non tocco nulla)
+// MOD 5 — Linea grigia sottile tra i pasti (nel ciclo principale)
 // ============================================================
-console.log('[4/4] Impostazioni: Backup mantenuto, nessuna modifica');
+const OLD_CICLO = `    // Disegna pasti
+    var y = TOP_CONTENT;
+    pastiAttivi.forEach(function(p, i) {
+      y = drawPasto(p.key, p.pasto, y);
+      if (i < pastiAttivi.length - 1) y += gap;
+    });`;
+
+const NEW_CICLO = `    // Disegna pasti con linea separatrice grigia sottile tra di loro
+    var y = TOP_CONTENT;
+    pastiAttivi.forEach(function(p, i) {
+      y = drawPasto(p.key, p.pasto, y);
+      if (i < pastiAttivi.length - 1) {
+        y += gap / 2;
+        doc.setDrawColor.apply(doc, [232, 232, 232]);
+        doc.setLineWidth(0.15);
+        doc.line(M, y, W - M, y);
+        y += gap / 2;
+      }
+    });`;
+
+if (!src.includes(OLD_CICLO)) {
+  console.log('[5/5] SKIP — ciclo principale già modificato');
+} else {
+  src = src.replace(OLD_CICLO, NEW_CICLO);
+  console.log('[5/5] OK — linea separatrice tra pasti aggiunta');
+}
 
 // ============================================================
-// VERIFICA SINTASSI prima di scrivere
+// VERIFICA SINTASSI
 // ============================================================
 const scriptRe = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
 let m, fullJs = '';
-while ((m = scriptRe.exec(src)) !== null) {
-  fullJs += m[1] + '\n';
-}
+while ((m = scriptRe.exec(src)) !== null) { fullJs += m[1] + '\n'; }
 try {
   new Function(fullJs);
   console.log('\n✅ Sintassi JS valida');
 } catch (e) {
   console.error('\n❌ ERRORE sintassi JS:', e.message);
-  console.error('NON SCRIVO IL FILE per sicurezza. File invariato.');
+  console.error('NON SCRIVO IL FILE per sicurezza.');
   process.exit(1);
 }
 
-// ============================================================
-// Scrittura
-// ============================================================
 fs.writeFileSync(path, src, 'utf8');
 console.log('Lunghezza finale:', src.length, 'bytes (delta:', src.length - original.length, ')');
-console.log('\nDone! Cambiamenti applicati:');
-console.log('  • Sidebar: rimossi vecchi Sincronizza e Backup');
-console.log('  • Sidebar: nuovo "🔄 Sincronizza" con barra di caricamento');
-console.log('  • Impostazioni: Backup mantenuto');
+console.log('\nDone!');

@@ -5685,7 +5685,7 @@ function generaPDF(paziente, giorni) {
   var W = 210, H = 297;
   var M = 14;
   var TOP_HEADER = 16;       // y header giorno
-  var TOP_CONTENT = 36;      // y di partenza dei pasti (dopo header + linea)
+  var TOP_CONTENT = 26;      // y di partenza dei pasti (header senza macros)
   var BOTTOM = 282;          // limite inferiore contenuto (sopra footer)
   var FOOTER_Y = 290;
   var COL_GAP = 8;           // gap tra colonna sx e dx
@@ -5801,29 +5801,18 @@ function generaPDF(paziente, giorni) {
   function cellHeight(c) {
     if (!c || !c.alimenti || !c.alimenti.length) return 0;
     var n = c.alimenti.length;
-    if (n === 1) return 5.5;
-    // 1 principale (5.5) + label "Alternative:" (3.8) + (n-1) alternative (4.2 cad)
-    return 5.5 + 3.8 + (n - 1) * 4.2 + 1;
+    if (n === 1) return 6.2;
+    // 1 principale (6.2) + label "Alternative:" (4) + (n-1) alternative (4.6 cad)
+    return 6.2 + 4 + (n - 1) * 4.6 + 1;
   }
 
   // ---------- HEADER giorno + footer ----------
   function drawDayHeader(giornoLabel, macros) {
-    setFont('bold', 16, NERO);
+    setFont('bold', 17, NERO);
     doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
-
-    if (macros && (macros.kcal || macros.proteine || macros.carboidrati || macros.grassi)) {
-      var parts = [];
-      if (macros.kcal != null) parts.push(Math.round(macros.kcal) + ' kcal');
-      if (macros.proteine != null) parts.push('P ' + Math.round(macros.proteine) + ' g');
-      if (macros.carboidrati != null) parts.push('C ' + Math.round(macros.carboidrati) + ' g');
-      if (macros.grassi != null) parts.push('G ' + Math.round(macros.grassi) + ' g');
-      setFont('normal', 9, GRIGIO);
-      doc.text(parts.join('   ·   '), W / 2, TOP_HEADER + 10, { align: 'center' });
-    }
-
     doc.setDrawColor.apply(doc, GRIGIO2);
     doc.setLineWidth(0.2);
-    doc.line(M, TOP_HEADER + 13, W - M, TOP_HEADER + 13);
+    doc.line(M, TOP_HEADER + 8, W - M, TOP_HEADER + 8);
   }
 
   // ---------- DISEGNO pasto (a partire da y dato) ----------
@@ -5835,10 +5824,12 @@ function generaPDF(paziente, giorni) {
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    // Titolo pasto: bold, dimensione 10.5, NERO (pulito, niente colore)
-    setFont('bold', 10.5, NERO);
-    doc.text(slotLabel[slotKey] || slotKey.toUpperCase(), M, y);
-    y += 5.2;
+    // Titolo pasto: barra teal verticale + label bold 11pt nero
+    doc.setFillColor.apply(doc, TEAL);
+    doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
+    setFont('bold', 11, NERO);
+    doc.text(slotLabel[slotKey] || slotKey.toUpperCase(), M + 2.6, y);
+    y += 5.6;
 
     // Pasto in formato testo (legacy)
     if (notaTesto) {
@@ -5897,49 +5888,49 @@ function generaPDF(paziente, giorni) {
     var princ = ali[0];
 
     // PRINCIPALE: nome bold + grammatura bold a destra
-    setFont('bold', 10, NERO);
+    setFont('bold', 12, NERO);
     var nomeP = safe(princ.n || '');
     var gP = gramText(princ.g);
-    var gPwidth = gP ? measure(gP, 10, 'bold') + 2 : 0;
+    var gPwidth = gP ? measure(gP, 12, 'bold') + 2 : 0;
     var nomeMaxW = wCell - gPwidth;
     var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
     var nomeShown = nomeLines[0];
     if (nomeLines.length > 1) {
-      while (nomeShown.length > 0 && measure(nomeShown + '...', 10, 'bold') > nomeMaxW) {
+      while (nomeShown.length > 0 && measure(nomeShown + '...', 12, 'bold') > nomeMaxW) {
         nomeShown = nomeShown.slice(0, -1);
       }
       nomeShown += '...';
     }
-    doc.text(nomeShown, x, yTop + 3.6);
-    if (gP) doc.text(gP, x + wCell, yTop + 3.6, { align: 'right' });
+    doc.text(nomeShown, x, yTop + 3.8);
+    if (gP) doc.text(gP, x + wCell, yTop + 3.8, { align: 'right' });
 
     // ALTERNATIVE
     if (ali.length > 1) {
-      var ay = yTop + 8.4;
+      var ay = yTop + 9.2;
       // Sub-label "Alternative:" piccolo grigio
-      setFont('italic', 7.5, GRIGIO3);
+      setFont('italic', 8, GRIGIO3);
       doc.text('Alternative:', x, ay);
-      ay += 3.6;
+      ay += 4;
 
       // Lista alternative
-      setFont('italic', 9, GRIGIO);
+      setFont('italic', 10.5, GRIGIO);
       for (var i = 1; i < ali.length; i++) {
         var alt = ali[i];
         var nomeA = safe(alt.n || '');
         var gA = gramText(alt.g);
-        var gAwidth = gA ? measure(gA, 9, 'italic') + 2 : 0;
+        var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
         var nomeAmaxW = wCell - gAwidth;
         var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
         var nomeAshown = nomeAlines[0];
         if (nomeAlines.length > 1) {
-          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 9, 'italic') > nomeAmaxW) {
+          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 10.5, 'italic') > nomeAmaxW) {
             nomeAshown = nomeAshown.slice(0, -1);
           }
           nomeAshown += '...';
         }
         doc.text(nomeAshown, x, ay);
         if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
-        ay += 4.2;
+        ay += 4.6;
       }
     }
   }
@@ -5974,11 +5965,17 @@ function generaPDF(paziente, giorni) {
     }
     var gap = gapMin + gapExtra;
 
-    // Disegna pasti
+    // Disegna pasti con linea separatrice grigia sottile tra di loro
     var y = TOP_CONTENT;
     pastiAttivi.forEach(function(p, i) {
       y = drawPasto(p.key, p.pasto, y);
-      if (i < pastiAttivi.length - 1) y += gap;
+      if (i < pastiAttivi.length - 1) {
+        y += gap / 2;
+        doc.setDrawColor.apply(doc, [232, 232, 232]);
+        doc.setLineWidth(0.15);
+        doc.line(M, y, W - M, y);
+        y += gap / 2;
+      }
     });
   });
 
