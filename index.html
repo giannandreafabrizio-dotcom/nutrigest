@@ -1782,7 +1782,7 @@ async function sincronizzaTutto(){
       notif('⚠️ Sincronizzazione parziale — ' + (pullOk?'pull ok':'pull fallito') + ' / ' + (pushOk?'push ok':'push fallito'), 4000);
     } else {
       btn.textContent = '❌ Errore';
-      notif('❌ Sincronizzazione fallita — controlla la connessione e l'URL Apps Script', 4000);
+      notif('❌ Sincronizzazione fallita — controlla la connessione e URL Apps Script', 4000);
     }
     // Ripristina testo dopo 3 secondi
     setTimeout(function(){ if(btn) btn.textContent='🔄 Sincronizza tutto'; }, 3500);
