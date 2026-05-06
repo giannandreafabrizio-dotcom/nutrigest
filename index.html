@@ -1268,58 +1268,50 @@ main{flex:1;overflow-y:auto;}
 const ALIMENTI = {
   'Cereali con Glutine': {items:[
     {n:'Pasta',g:90,gl:true},{n:'Pasta integrale',g:90,gl:true},{n:'Pane comune',g:110,gl:true},{n:'Pane integrale',g:100,gl:true},
-    {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:90,gl:true},{n:'Orzo',g:90,gl:true},
-    {n:'Grano',g:90,gl:true},{n:'Frisella',g:40,gl:true},{n:'Tarallini',g:30,gl:true},
+    {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:90,gl:true},{n:'Orzo',g:90,gl:true},{n:'Frisella',g:40,gl:true},{n:'Tarallini',g:30,gl:true},
     {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:50,gl:true},
     {n:'Wasa (contiene glutine)',g:20,gl:true},{n:'Spaghetti Shirataki Konjac',g:200,gl:false},
     {n:'Spätzle',g:80,gl:true},{n:'Biscotti integrali',g:40,gl:true},
     {n:'Muesli',g:40,gl:true},{n:'Fette biscottate integrali',g:30,gl:true}
   ]},
   'Cereali senza Glutine': {items:[
-    {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},
-    {n:'Riso rosso',g:90,gl:false},{n:'Riso nero',g:90,gl:false},{n:'Quinoa',g:90,gl:false},
-    {n:'Mais',g:90,gl:false},{n:'Mais dolce in scatola',g:120,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
+    {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},{n:'Quinoa',g:90,gl:false},{n:'Mais dolce in scatola',g:120,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
     {n:'Patate dolci',g:250,gl:false},{n:'Gnocchi di patate',g:200,gl:false},
     {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:20,gl:false},
-    {n:'Fiocchi di mais',g:30,gl:false},{n:'Pasta di riso',g:90,gl:false},
+    {n:'Cornflakes',g:30,gl:false},
     {n:'Pasta di mais',g:90,gl:false},{n:'Grano saraceno',g:90,gl:false},{n:"Fiocchi d'avena",g:40,gl:false}
   ]},
   'Carne Bianca': {items:[
     {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Ala di pollo',g:180},
-    {n:'Pollo intero con pelle',g:220},{n:'Pollo pronto al forno',g:200},
-    {n:'Petto di tacchino',g:200},{n:'Fesa di tacchino',g:100}
+    {n:'Pollo intero',g:220},{n:'Pollo pronto al forno',g:200},
+    {n:'Petto di tacchino',g:200}
   ]},
   'Carne Rossa': {items:[
     {n:'Vitellone tagli magri',g:240},{n:'Vitello carne semigrassa',g:220},
     {n:'Cavallo magro',g:240},{n:'Maiale arista',g:220},{n:'Agnello',g:200},
-    {n:'Hamburger di manzo',g:180},{n:'Macinato di manzo',g:180},
-    {n:'Fegato',g:150},{n:'Cuore',g:150}
+    {n:'Hamburger di manzo',g:180},{n:'Macinato di manzo',g:180}
   ]},
   'Pesce (Pranzo)': {items:[
-    {n:'Tonno sottolio sgocciolato',g:120},{n:'Tonno al naturale',g:120},
-    {n:'Salmone affumicato',g:100},{n:'Salmone al naturale',g:120},
-    {n:'Gamberetti',g:150},{n:'Sgombro sottolio',g:120}
+    {n:'Tonno sottolio sgocciolato',g:120},{n:'Tonno al naturale',g:120},{n:'Salmone al naturale',g:120},{n:'Sgombro sottolio',g:120}
   ]},
   'Pesce (Cena)': {items:[
-    {n:'Merluzzo/nasello surgelato',g:250},{n:'Orata fresca',g:300},{n:'Sarago',g:280},
+    {n:'Filetti di merluzzo/nasello',g:250},{n:'Orata',g:300},{n:'Sarago',g:280},
     {n:'Spigola',g:300},{n:'Salmone fresco',g:200},
     {n:'Tonno rosso',g:200},{n:'Pesce spada',g:250},{n:'Sgombro',g:200},
     {n:'Polpo',g:350},{n:'Seppia',g:280},{n:'Cozze',g:300},{n:'Vongole',g:250},
-    {n:'Trota',g:250},{n:'Persico',g:250},
+    {n:'Trota',g:250},
     {n:"Tonno sott'olio",g:120},{n:'Gamberetti',g:150},{n:'Salmone affumicato',g:100}
   ]},
   'Insaccati & Salumi': {items:[
     {n:'Bresaola',g:80},{n:'Prosciutto crudo magro',g:80},{n:'Prosciutto cotto',g:80},
     {n:'Carpaccio',g:80},{n:'Speck',g:60},{n:'Fesa di tacchino',g:100},
-    {n:'Mortadella',g:60},{n:'Salame',g:50},{n:'Nduja',g:30}
+    {n:'Mortadella',g:60},{n:'Salame',g:50}
   ]},
   'Legumi': {items:[
-    {n:'Ceci (secchi)',g:80},{n:'Ceci (barattolo)',g:120},{n:'Ceci neri (barattolo)',g:120},
+    {n:'Ceci (secchi)',g:80},{n:'Ceci (barattolo)',g:120},
     {n:'Fagioli borlotti (secchi)',g:80},{n:'Fagioli borlotti (barattolo)',g:120},
-    {n:'Fagioli neri (barattolo)',g:120},{n:'Fagioli rossi (barattolo)',g:120},
-    {n:'Lenticchie (secche)',g:80},{n:'Lenticchie (barattolo)',g:120},{n:'Lenticchie rosse (barattolo)',g:120},
-    {n:'Piselli (barattolo)',g:120},{n:'Piselli surgelati',g:150},
-    {n:'Soia (barattolo)',g:120},{n:'Soia surgelata (edamame)',g:150},
+    {n:'Lenticchie (secche)',g:80},{n:'Lenticchie (barattolo)',g:120},
+    {n:'Piselli (barattolo)',g:120},{n:'Piselli surgelati',g:150},{n:'Soia surgelata (edamame)',g:150},
     {n:'Lupini',g:80},{n:'Fave (barattolo)',g:120},
     {n:'Tofu',g:120},{n:'Seitan',g:100}
   ]},
@@ -1327,10 +1319,10 @@ const ALIMENTI = {
     {n:'Uovo intero',g:120},{n:'Albumi',g:100},{n:'Tuorlo',g:60}
   ]},
   'Latte & Derivati': {items:[
-    {n:'Yogurt',g:125},{n:'Yogurt parzialmente scremato',g:125},{n:'Yogurt greco 0-2%',g:125},
+    {n:'Yogurt',g:125},{n:'Yogurt parzialmente scremato',g:125},{n:'Yogurt greco 2%',g:125},
     {n:'Ricotta di vacca',g:120},{n:'Ricotta di pecora',g:120},
     {n:'Fiocchi di latte',g:150},{n:'Mozzarella di vacca',g:100},
-    {n:'Mozzarella Proteinella',g:100},{n:'Philadelphia light',g:80},
+    {n:'Mozzarella Protinella',g:100},{n:'Philadelphia light',g:80},
     {n:'Feta',g:70},{n:'Stracchino',g:60},{n:'Scamorza',g:60},
     {n:'Parmigiano',g:50},{n:'Grana padano',g:50},{n:'Pecorino',g:40},
     {n:'Robiola',g:60},{n:'Cacioricotta',g:60},{n:'Burrata',g:100},
@@ -1339,15 +1331,14 @@ const ALIMENTI = {
   ]},
   'Latte Vegetale': {items:[
     {n:'Latte di mandorla',g:200},{n:'Latte di cocco',g:200},{n:'Latte di soia',g:200},
-    {n:'Latte di riso',g:200},{n:'Latte di nocciola',g:200},{n:'Latte di avena',g:200},
-    {n:'Latte di noci',g:200},{n:'Latte di farro',g:200},{n:'Latte di piselli',g:200}
+    {n:'Latte di riso',g:200},{n:'Latte di nocciola',g:200},{n:'Latte di avena',g:200}
   ]},
   'Frutta Secca & Semi': {items:[
+    {n:'Frutta secca mista',g:25},
     {n:'Noci',g:20},{n:'Mandorle',g:20},{n:'Nocciole',g:20},{n:'Pistacchi',g:20},
     {n:'Anacardi',g:20},{n:'Pinoli',g:15},{n:'Arachidi',g:20},{n:'Datteri',g:30},
     {n:'Prugne secche',g:30},{n:'Burro arachidi',g:30},{n:'Burro mandorle',g:30},
-    {n:'Semi di chia',g:10},{n:'Semi di zucca',g:15},{n:'Semi di lino',g:10},
-    {n:'Semi di girasole',g:15},{n:'Semi di sesamo',g:10},{n:'Tahina',g:20}
+    {n:'Semi di chia',g:10},{n:'Semi di zucca',g:15},{n:'Tahina',g:20}
   ]},
   'Superfoods': {items:[
     {n:'Bacche di goji',g:15},{n:'Gomasio',g:10},{n:'Berberina',g:5},
@@ -1356,6 +1347,7 @@ const ALIMENTI = {
     {n:'Cioccolato fondente 85%',g:15},{n:'Acai in polvere',g:10},{n:'Moringa',g:5}
   ]},
   'Verdura': {items:[
+    {n:'Verdura mista',g:200},
     {n:'Spinaci',g:200},{n:'Zucchine',g:200},{n:'Carote',g:200},{n:'Broccoli',g:200},
     {n:'Finocchio',g:200},{n:'Insalata mista',g:200},{n:'Pomodori',g:200},
     {n:'Melanzane',g:200},{n:'Peperoni rossi',g:200},{n:'Peperoni verdi',g:200},
@@ -1364,20 +1356,16 @@ const ALIMENTI = {
     {n:'Sedano',g:100},{n:'Cicoria',g:200},{n:'Radicchio',g:150},{n:'Rucola',g:80},
     {n:'Zucca',g:200},{n:'Barbabietola',g:150},{n:'Verza',g:200},{n:'Cavolo cappuccio',g:200},
     {n:'Cavolo nero',g:200},{n:'Bieta',g:200},{n:'Porro',g:100},{n:'Cipolla',g:80},
-    {n:'Funghi champignon',g:150},{n:'Funghi porcini',g:150},{n:'Piselli freschi',g:150},
-    {n:'Germogli misti',g:80},{n:'Topinambur',g:150}
+    {n:'Funghi champignon',g:150},{n:'Funghi porcini',g:150},{n:'Piselli freschi',g:150},{n:'Topinambur',g:150}
   ]},
   'Frutta': {items:[
+    {n:'Frutta mista',g:150},
     {n:'Mela',g:150},{n:'Pera',g:150},{n:'Banana',g:150},{n:'Arancia',g:150},
     {n:'Mandarino',g:150},{n:'Kiwi',g:150},{n:'Fragole',g:150},{n:'Uva',g:150},
     {n:'Anguria',g:200},{n:'Melone',g:200},{n:'Albicocca',g:150},{n:'Pesca',g:150},
     {n:'Ciliegia',g:150},{n:'Fichi',g:100},{n:'Melograno',g:150},{n:'Avocado',g:100},
-    {n:'Ananas',g:150},{n:'Mango',g:100},{n:'Papaya',g:150},{n:'Cocco fresco',g:80},
-    {n:'Limone',g:50},{n:'Lime',g:50},{n:'Pompelmo',g:150},{n:'Clementina',g:100},
-    {n:'Frutti rossi misti',g:150},{n:'Mirtilli',g:150},{n:'Lamponi',g:150},
-    {n:'More',g:150},{n:'Ribes',g:100},{n:'Susine',g:150},{n:'Prugne',g:150},
-    {n:'Kaki',g:150},{n:'Nespole',g:100},{n:'Maracuja',g:100},{n:'Litchi',g:100},
-    {n:'Guava',g:100},{n:'Carambola',g:100}
+    {n:'Ananas',g:150},{n:'Mango',g:100},{n:'Papaya',g:150},{n:'Cocco fresco',g:80},{n:'Clementina',g:100},{n:'Mirtilli',g:150},{n:'Lamponi',g:150},{n:'Susine',g:150},{n:'Prugne',g:150},
+    {n:'Kaki',g:150},{n:'Nespole',g:100}
   ]},
   'Spezie': {items:[
     {n:'Pepe nero',g:2},{n:'Curcuma',g:3},{n:'Paprika',g:3},{n:'Peperoncino',g:2},
@@ -1395,10 +1383,286 @@ const ALIMENTI = {
     {n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},{n:'Eritritolo',g:5},{n:'Dolcificante',g:2}
   ]},
   'Olio & Condimenti': {items:[
-    {n:'Olio EVO',g:10},{n:'Aceto di vino',g:10},{n:'Salsa di soia',g:10},
-    {n:'Senape',g:10},{n:'Limone',g:20}
+    {n:'Olio EVO',g:10},{n:'Salsa di soia',g:10},{n:'Limone',g:20}
   ]}
 };;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CREA_ALIMENTI — database nutrizionale per 100g (fonte: tabelle CREA-INRAN)
+// Usato da calcolaMacrosPiano() per calcolo macros reali del piano alimentare.
+// 3 alimenti generici: Verdura mista, Frutta mista, Frutta secca mista
+// Eccezioni nei generici: banana, avocado, cocco, datteri, cioccolato fondente, olio di cocco
+// ═══════════════════════════════════════════════════════════════════════════
+const CREA_ALIMENTI = {
+  // CEREALI CON GLUTINE
+  'Pasta': {kcal:353, p:10.9, c:79.1, g:1.4},
+  'Pasta integrale': {kcal:319, p:11.9, c:67.8, g:1.9},
+  'Pane comune': {kcal:275, p:8.1, c:63.5, g:0.5},
+  'Pane integrale': {kcal:224, p:7.5, c:48.5, g:1.3},
+  'Pane di segale': {kcal:219, p:8.3, c:45.4, g:1.7},
+  'Farro': {kcal:335, p:15.1, c:67.1, g:2.5},
+  'Orzo': {kcal:319, p:10.4, c:70.5, g:1.4},
+  'Frisella': {kcal:377, p:10.7, c:87.1, g:0.8},
+  'Tarallini': {kcal:428, p:9.4, c:80.1, g:10.0},
+  'Grissini': {kcal:431, p:12.3, c:68.4, g:13.9},
+  'Crackers': {kcal:428, p:9.4, c:80.1, g:10.0},
+  'Panbauletto integrale': {kcal:224, p:7.5, c:48.5, g:1.3},
+  'Wasa (contiene glutine)': {kcal:348, p:10.5, c:78.8, g:1.2},
+  'Spaghetti Shirataki Konjac': {kcal:8, p:0.2, c:1.0, g:0.0},
+  'Spätzle': {kcal:366, p:13.0, c:77.9, g:2.4},
+  'Biscotti integrali': {kcal:425, p:7.8, c:70.8, g:14.3},
+  'Muesli': {kcal:364, p:9.7, c:72.2, g:6.0},
+  'Fette biscottate integrali': {kcal:379, p:14.2, c:62.0, g:10.0},
+  'Riso': {kcal:332, p:6.7, c:80.4, g:0.4},
+  'Riso basmati': {kcal:332, p:6.7, c:80.4, g:0.4},
+  'Riso integrale': {kcal:337, p:7.5, c:77.4, g:1.9},
+  'Quinoa': {kcal:368, p:14.1, c:64.2, g:6.1},
+  'Mais dolce in scatola': {kcal:98, p:3.4, c:19.5, g:1.3},
+  'Polenta': {kcal:362, p:8.7, c:80.8, g:2.7},
+  'Patate': {kcal:85, p:2.1, c:17.9, g:1.0},
+  'Patate dolci': {kcal:86, p:1.6, c:20.1, g:0.1},
+  'Gnocchi di patate': {kcal:160, p:3.5, c:33.0, g:1.5},
+  'Gallette di riso': {kcal:352, p:6.0, c:85.0, g:1.0},
+  'Popcorn': {kcal:378, p:12.0, c:77.9, g:4.2},
+  'Cornflakes': {kcal:361, p:6.6, c:87.4, g:0.8},
+  'Pasta di mais': {kcal:353, p:10.9, c:79.1, g:1.4},
+  'Grano saraceno': {kcal:314, p:12.4, c:62.5, g:3.3},
+  "Fiocchi d'avena": {kcal:373, p:8.0, c:72.8, g:7.5},
+  // CARNE BIANCA
+  'Petto di pollo': {kcal:100, p:23.3, c:0.0, g:0.8},
+  'Sovraccoscio di pollo': {kcal:196, p:17.4, c:0.0, g:14.0},
+  'Ala di pollo': {kcal:196, p:16.7, c:0.0, g:14.3},
+  'Pollo intero': {kcal:171, p:19.0, c:0.0, g:10.6},
+  'Pollo pronto al forno': {kcal:200, p:27.1, c:0.0, g:10.2},
+  'Petto di tacchino': {kcal:107, p:24.0, c:0.0, g:1.2},
+  // CARNE ROSSA
+  'Vitellone tagli magri': {kcal:103, p:21.8, c:0.0, g:1.8},
+  'Vitello carne semigrassa': {kcal:107, p:20.7, c:0.0, g:2.7},
+  'Cavallo magro': {kcal:143, p:19.8, c:0.6, g:6.8},
+  'Maiale arista': {kcal:146, p:20.7, c:0.0, g:7.0},
+  'Agnello': {kcal:159, p:20.0, c:0.0, g:8.8},
+  'Hamburger di manzo': {kcal:171, p:19.7, c:0.0, g:10.2},
+  'Macinato di manzo': {kcal:108, p:21.5, c:0.0, g:2.4},
+  // PESCE PRANZO
+  'Tonno sottolio sgocciolato': {kcal:192, p:25.2, c:0.0, g:10.1},
+  'Tonno al naturale': {kcal:103, p:25.1, c:0.0, g:0.3},
+  'Salmone affumicato': {kcal:147, p:25.4, c:1.2, g:4.5},
+  'Salmone al naturale': {kcal:192, p:21.1, c:1.0, g:11.5},
+  'Gamberetti': {kcal:85, p:16.5, c:2.9, g:0.9},
+  'Sgombro sottolio': {kcal:177, p:19.3, c:0.0, g:11.1},
+  // PESCE CENA
+  'Filetti di merluzzo/nasello': {kcal:75, p:17.3, c:0.0, g:0.6},
+  'Orata': {kcal:121, p:20.7, c:1.0, g:3.8},
+  'Sarago': {kcal:101, p:21.0, c:0.0, g:1.9},
+  'Spigola': {kcal:82, p:16.5, c:0.6, g:1.5},
+  'Salmone fresco': {kcal:185, p:18.4, c:1.0, g:12.0},
+  'Tonno rosso': {kcal:159, p:21.5, c:0.1, g:8.1},
+  'Pesce spada': {kcal:145, p:19.2, c:0.0, g:7.6},
+  'Sgombro': {kcal:170, p:17.0, c:0.5, g:11.1},
+  'Polpo': {kcal:57, p:10.6, c:1.4, g:1.0},
+  'Seppia': {kcal:72, p:14.0, c:0.7, g:1.5},
+  'Cozze': {kcal:84, p:11.7, c:3.4, g:2.7},
+  'Vongole': {kcal:72, p:10.2, c:2.2, g:2.5},
+  'Trota': {kcal:86, p:14.7, c:0.0, g:3.0},
+  "Tonno sott'olio": {kcal:192, p:25.2, c:0.0, g:10.1},
+  // INSACCATI
+  'Bresaola': {kcal:151, p:32.0, c:0.0, g:2.6},
+  'Prosciutto crudo magro': {kcal:145, p:27.5, c:0.0, g:3.9},
+  'Prosciutto cotto': {kcal:215, p:19.8, c:0.9, g:14.7},
+  'Carpaccio': {kcal:151, p:32.0, c:0.0, g:2.6},
+  'Speck': {kcal:303, p:28.3, c:0.5, g:20.9},
+  'Fesa di tacchino': {kcal:107, p:24.0, c:0.0, g:1.2},
+  'Mortadella': {kcal:317, p:14.7, c:1.5, g:28.1},
+  'Salame': {kcal:392, p:26.7, c:1.5, g:31.1},
+  // LEGUMI
+  'Ceci (secchi)': {kcal:316, p:20.9, c:46.9, g:6.3},
+  'Ceci (barattolo)': {kcal:100, p:6.7, c:13.9, g:2.3},
+  'Fagioli borlotti (secchi)': {kcal:278, p:20.2, c:47.7, g:2.0},
+  'Fagioli borlotti (barattolo)': {kcal:91, p:6.7, c:15.9, g:0.5},
+  'Lenticchie (secche)': {kcal:291, p:22.7, c:51.1, g:1.0},
+  'Lenticchie (barattolo)': {kcal:82, p:5.0, c:15.4, g:0.5},
+  'Piselli (barattolo)': {kcal:68, p:5.3, c:11.1, g:0.6},
+  'Piselli surgelati': {kcal:48, p:5.4, c:6.4, g:0.3},
+  'Soia surgelata (edamame)': {kcal:122, p:11.0, c:9.0, g:5.2},
+  'Lupini': {kcal:114, p:16.4, c:7.1, g:2.4},
+  'Fave (barattolo)': {kcal:80, p:8.0, c:11.0, g:0.4},
+  'Tofu': {kcal:76, p:8.0, c:1.9, g:4.8},
+  'Seitan': {kcal:121, p:24.0, c:4.0, g:2.0},
+  // UOVA
+  'Uovo intero': {kcal:128, p:12.4, c:0.0, g:8.7},
+  'Albumi': {kcal:43, p:10.7, c:0.0, g:0.0},
+  'Tuorlo': {kcal:325, p:15.8, c:0.0, g:29.1},
+  // LATTE & DERIVATI
+  'Yogurt': {kcal:66, p:3.8, c:4.3, g:3.9},
+  'Yogurt parzialmente scremato': {kcal:43, p:3.4, c:3.8, g:1.7},
+  'Yogurt greco 2%': {kcal:60, p:10.0, c:4.0, g:2.0},
+  'Ricotta di vacca': {kcal:146, p:8.8, c:3.5, g:10.9},
+  'Ricotta di pecora': {kcal:157, p:9.5, c:4.2, g:11.5},
+  'Fiocchi di latte': {kcal:115, p:9.7, c:3.2, g:7.1},
+  'Mozzarella di vacca': {kcal:253, p:18.7, c:0.7, g:19.5},
+  'Mozzarella Protinella': {kcal:131, p:23.0, c:1.0, g:4.0},
+  'Philadelphia light': {kcal:179, p:9.2, c:3.1, g:14.5},
+  'Feta': {kcal:250, p:15.6, c:1.5, g:20.2},
+  'Stracchino': {kcal:300, p:18.5, c:0.0, g:25.1},
+  'Scamorza': {kcal:334, p:25.0, c:1.0, g:25.6},
+  'Parmigiano': {kcal:387, p:33.5, c:0.0, g:28.1},
+  'Grana padano': {kcal:406, p:33.7, c:3.7, g:28.5},
+  'Pecorino': {kcal:392, p:25.8, c:0.2, g:32.0},
+  'Robiola': {kcal:338, p:20.0, c:2.3, g:27.7},
+  'Cacioricotta': {kcal:384, p:24.5, c:1.8, g:31.0},
+  'Burrata': {kcal:330, p:17.0, c:1.0, g:28.0},
+  'Latte vaccino intero': {kcal:64, p:3.3, c:4.9, g:3.6},
+  'Latte vaccino p.scremato': {kcal:46, p:3.5, c:5.0, g:1.5},
+  'Latte vaccino scremato': {kcal:36, p:3.6, c:5.3, g:0.2},
+  'Kefir': {kcal:55, p:3.5, c:4.5, g:2.5},
+  'Yogurt greco intero': {kcal:115, p:6.4, c:2.0, g:9.1},
+  // LATTE VEGETALE
+  'Latte di mandorla': {kcal:13, p:0.5, c:0.6, g:1.0},
+  'Latte di cocco': {kcal:20, p:0.2, c:2.0, g:1.2},
+  'Latte di soia': {kcal:32, p:2.9, c:0.8, g:1.9},
+  'Latte di riso': {kcal:47, p:0.3, c:9.5, g:1.0},
+  'Latte di nocciola': {kcal:30, p:0.4, c:3.0, g:1.6},
+  'Latte di avena': {kcal:45, p:1.0, c:6.7, g:1.5},
+  // FRUTTA SECCA
+  'Datteri': {kcal:253, p:2.7, c:63.1, g:0.6},
+  'Cioccolato fondente 85%': {kcal:550, p:8.0, c:30.0, g:42.0},
+  'Olio di cocco': {kcal:899, p:0.0, c:0.0, g:99.9},
+  'Frutta secca mista': {kcal:615, p:18.0, c:7.0, g:55.0},
+  'Burro arachidi': {kcal:588, p:25.0, c:20.0, g:50.0},
+  'Burro mandorle': {kcal:614, p:21.0, c:19.0, g:55.0},
+  'Semi di chia': {kcal:486, p:16.5, c:42.1, g:30.7},
+  'Semi di zucca': {kcal:559, p:30.2, c:10.7, g:49.0},
+  'Tahina': {kcal:595, p:17.0, c:21.2, g:53.8},
+  'Prugne secche': {kcal:220, p:2.2, c:55.0, g:0.5},
+  // VERDURA
+  'Verdura mista': {kcal:25, p:2.0, c:4.0, g:0.3},
+  // FRUTTA
+  'Frutta mista': {kcal:50, p:0.8, c:12.0, g:0.2},
+  'Banana': {kcal:65, p:1.2, c:15.4, g:0.3},
+  'Avocado': {kcal:231, p:4.4, c:1.8, g:23.0},
+  'Cocco fresco': {kcal:364, p:3.5, c:9.4, g:35.0},
+  // FIT
+  'Pancake proteico': {kcal:200, p:15.0, c:25.0, g:4.0},
+  // DOLCIFICANTI
+  'Marmellata rid. zucchero': {kcal:130, p:0.5, c:30.0, g:0.0},
+  'Miele': {kcal:304, p:0.6, c:80.3, g:0.0},
+  'Eritritolo': {kcal:0, p:0.0, c:0.0, g:0.0},
+  'Dolcificante': {kcal:0, p:0.0, c:0.0, g:0.0},
+  // OLIO & CONDIMENTI
+  'Olio EVO': {kcal:899, p:0.0, c:0.0, g:99.9},
+  'Salsa di soia': {kcal:66, p:8.7, c:8.3, g:0.0},
+  'Limone': {kcal:11, p:0.6, c:2.3, g:0.0},
+};
+
+// Lookup CREA con fallback su generici per categoria funzionale
+function getValoriCREA(nomeAlimento, categoriaFunzionale) {
+  if (!nomeAlimento) return null;
+  if (CREA_ALIMENTI[nomeAlimento]) return CREA_ALIMENTI[nomeAlimento];
+  if (categoriaFunzionale === 'verdura') return CREA_ALIMENTI['Verdura mista'];
+  if (categoriaFunzionale === 'frutta') return CREA_ALIMENTI['Frutta mista'];
+  if (categoriaFunzionale === 'grasso') return CREA_ALIMENTI['Frutta secca mista'];
+  return null;
+}
+
+// Helper paziente corrente nel Generatore (legge dal select)
+function getCurrentPaziente() {
+  if (typeof document === 'undefined' || typeof db === 'undefined' || !db || !db.pazienti) return null;
+  const sel = document.getElementById('piano-select-paz');
+  const id = sel && sel.value;
+  if (!id) return null;
+  return db.pazienti.find(p => p.id === id) || null;
+}
+
+// Calcolo macros REALI del piano (somma alimenti principali per cella)
+function calcolaMacrosPiano(piano) {
+  if (!Array.isArray(piano)) return null;
+  const giornalieri = [];
+  const nonTrovati = new Set();
+  let wKcal = 0, wP = 0, wC = 0, wG = 0;
+
+  piano.forEach(g => {
+    let dKcal = 0, dP = 0, dC = 0, dG = 0;
+    const pasti = g.pasti || {};
+    Object.values(pasti).forEach(pasto => {
+      const celle = pasto.celle || [];
+      celle.forEach(cella => {
+        const al = cella.alimenti && cella.alimenti[0];
+        if (!al) return;
+        const cat = al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
+        const vals = getValoriCREA(al.n, cat);
+        if (!vals) {
+          nonTrovati.add(al.n);
+          return;
+        }
+        const grammi = parseFloat(al.g) || 0;
+        const f = grammi / 100;
+        dKcal += vals.kcal * f; dP += vals.p * f; dC += vals.c * f; dG += vals.g * f;
+      });
+    });
+    giornalieri.push({
+      giorno: g.giorno || g.g,
+      kcal: Math.round(dKcal),
+      p: Math.round(dP * 10) / 10,
+      c: Math.round(dC * 10) / 10,
+      g: Math.round(dG * 10) / 10,
+    });
+    wKcal += dKcal; wP += dP; wC += dC; wG += dG;
+  });
+
+  const n = giornalieri.length || 1;
+  return {
+    giornalieri,
+    settimanale: { kcal: Math.round(wKcal), p: Math.round(wP*10)/10, c: Math.round(wC*10)/10, g: Math.round(wG*10)/10 },
+    medio:       { kcal: Math.round(wKcal/n), p: Math.round(wP/n*10)/10, c: Math.round(wC/n*10)/10, g: Math.round(wG/n*10)/10 },
+    alimentiNonTrovati: Array.from(nonTrovati),
+  };
+}
+
+// Badge "Macros reali vs Target"
+function renderBadgeMacrosReali(piano, target) {
+  if (!piano || !target) return '';
+  const calc = calcolaMacrosPiano(piano);
+  if (!calc) return '';
+  const m = calc.medio;
+  const tKcal = target.kcal || 0;
+  const tP = target.protG || target.P || 0;
+  const tC = target.carbG || target.C || 0;
+  const tG = target.grassiG || target.G || 0;
+  function pct(r, t) { return t ? Math.round((r/t)*100) + '%' : '—'; }
+  function color(r, t) {
+    if (!t) return '#94a3b8';
+    const ratio = r / t;
+    if (ratio >= 0.90 && ratio <= 1.10) return '#16a34a';
+    if (ratio >= 0.80 && ratio <= 1.20) return '#ea580c';
+    return '#dc2626';
+  }
+  const warn = calc.alimentiNonTrovati.length > 0
+    ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#92400e;background:#fef3c7;padding:0.3rem 0.6rem;border-radius:6px;">⚠ Alimenti non nel DB CREA (esclusi dal calcolo): ' + calc.alimentiNonTrovati.join(', ') + '</div>'
+    : '';
+  return '<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:0.7rem 0.9rem;margin:0.6rem 0;">' +
+    '<div style="font-size:0.78rem;font-weight:600;color:#0f766e;margin-bottom:0.4rem;">📊 Macros reali del piano (media giornaliera)</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;font-size:0.82rem;">' +
+      '<div><div style="font-weight:700;color:' + color(m.kcal, tKcal) + ';">' + m.kcal + ' kcal</div><div style="font-size:0.7rem;color:#64748b;">target ' + tKcal + ' (' + pct(m.kcal, tKcal) + ')</div></div>' +
+      '<div><div style="font-weight:700;color:' + color(m.p, tP) + ';">' + m.p + 'g P</div><div style="font-size:0.7rem;color:#64748b;">target ' + tP + ' (' + pct(m.p, tP) + ')</div></div>' +
+      '<div><div style="font-weight:700;color:' + color(m.c, tC) + ';">' + m.c + 'g C</div><div style="font-size:0.7rem;color:#64748b;">target ' + tC + ' (' + pct(m.c, tC) + ')</div></div>' +
+      '<div><div style="font-weight:700;color:' + color(m.g, tG) + ';">' + m.g + 'g G</div><div style="font-size:0.7rem;color:#64748b;">target ' + tG + ' (' + pct(m.g, tG) + ')</div></div>' +
+    '</div>' +
+    warn +
+  '</div>';
+}
+
+// Scrive il badge macros nel DOM (chiamato dopo ogni modifica al piano)
+function renderBadgeMacrosReali_DOM(piano) {
+  const el = document.getElementById('piano-badge-macros');
+  if (!el) return;
+  if (!piano) { el.innerHTML = ''; return; }
+  const paz = getCurrentPaziente();
+  const target = paz && typeof _getActiveMacrosTarget === 'function' ? _getActiveMacrosTarget(paz) : null;
+  if (!target) { el.innerHTML = ''; return; }
+  el.innerHTML = renderBadgeMacrosReali(piano, target);
+}
+
+
 
 const ANALISI = {
   'Base — Consigliate a tutti':[
@@ -4833,6 +5097,7 @@ function cellaSposta(giorno, slotKey, cellaId, direzione) {
 
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
 }
 
 function cellaCancella(giorno, slotKey, cellaId) {
@@ -4851,6 +5116,7 @@ function cellaCancella(giorno, slotKey, cellaId) {
   });
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
 }
 
@@ -4885,6 +5151,7 @@ function apriEditGrammatura(span) {
     alimento.g = nuovo;
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
     if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
   }
 
@@ -4906,6 +5173,7 @@ function cellaSwap(giorno, slotKey, cellaId, altIdx) {
   cella.alimenti[altIdx] = tmp;
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
 }
 
@@ -4917,6 +5185,7 @@ function cellaRimuoviAlt(giorno, slotKey, cellaId, altIdx) {
   cella.alimenti.splice(altIdx, 1);
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
 }
 
@@ -4964,6 +5233,7 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
     cella.alimenti.push({n: scelto.n, g: gSugg, categoria: scelto.cat, colore: scelto.colore});
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
     if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
   });
 }
@@ -5232,6 +5502,7 @@ function apriAggiungiCella(giorno, slotKey) {
 
       _aggiornaPianoBox();
       if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
       if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
     });
   });
@@ -5543,6 +5814,11 @@ async function generaPiano(){
     var _badgeEl = document.createElement('div');
     _badgeEl.id = 'piano-badge-75';
     document.getElementById('piano-btn-genera').parentNode.appendChild(_badgeEl);
+  }
+  if (!document.getElementById('piano-badge-macros')) {
+    var _badgeMacrosEl = document.createElement('div');
+    _badgeMacrosEl.id = 'piano-badge-macros';
+    document.getElementById('piano-btn-genera').parentNode.appendChild(_badgeMacrosEl);
   }
   let pianoEl = document.getElementById('piano-piano-box');
   if(!pianoEl){
