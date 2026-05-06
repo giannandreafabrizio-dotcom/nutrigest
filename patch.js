@@ -1,410 +1,182 @@
 const fs = require('fs');
 let html = fs.readFileSync('index.html', 'utf8');
 
-// ═════════════════════════════════════════════════════════════════════════════
-// 1. RIMUOVO la pagina dedicata routine dal PDF (ora va accanto ai titoli pasto)
-// ═════════════════════════════════════════════════════════════════════════════
-const PDF_PAGINA_DEDICATA_START = `  // ---------- ROUTINE GIORNALIERA — pagina verde menta ----------`;
-const PDF_PAGINA_DEDICATA_END = `  // ---------- Concetti educativi (in coda, opzionali) ----------
-  var concetti = paziente.concetti || [];`;
+const SUPABASE_URL = 'https://zrhmspylnlklppvhgplp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaG1zcHlsbmxrbHBwdmhncGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDA0NDQsImV4cCI6MjA5MzY3NjQ0NH0.imawIV00emURjzLAWyrHdQ0VsRC_3pey4-D-6z8Y5Jg';
 
-const startIdx = html.indexOf(PDF_PAGINA_DEDICATA_START);
-const endIdx = html.indexOf(PDF_PAGINA_DEDICATA_END);
-if (startIdx === -1 || endIdx === -1) {
-  console.error('❌ Non trovo la pagina dedicata routine PDF da rimuovere');
-  process.exit(1);
-}
-html = html.substring(0, startIdx) + PDF_PAGINA_DEDICATA_END + html.substring(endIdx + PDF_PAGINA_DEDICATA_END.length);
-console.log('✅ Pagina dedicata routine PDF rimossa');
-
-// ═════════════════════════════════════════════════════════════════════════════
-// 2. RISCRIVO IL BLOCCO renderPdRoutine() E FUNZIONI CORRELATE
-// ═════════════════════════════════════════════════════════════════════════════
-const OLD_BLOCK_START = `function renderPdRoutine(p) {`;
-const OLD_BLOCK_END_MARKER = `function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save();}`;
-
-const oldStartIdx = html.indexOf(OLD_BLOCK_START);
-const oldEndIdx = html.indexOf(OLD_BLOCK_END_MARKER);
-if (oldStartIdx === -1 || oldEndIdx === -1) {
-  console.error('❌ Non trovo il blocco renderPdRoutine da sostituire');
-  process.exit(1);
-}
-
-const NEW_ROUTINE_BLOCK = `function renderPdRoutine(p) {
-  const el = document.getElementById('pd-routine');
-  if (!el) return;
-  const routine = p.routineGiornaliera || [];
-
-  const tipoLabel = { integratore:'INTEGR.', spezia:'SPEZIA', superfood:'SUPERFOOD' };
-  const slotLabelUI = { 
-    colazione:'Colazione', 
-    spuntino_mattina:'Sp. mattina', 
-    pranzo:'Pranzo', 
-    spuntino_pomeriggio:'Sp. pomeriggio', 
-    cena:'Cena', 
-    pre_nanna:'Pre-nanna' 
-  };
-
-  function cardHTML(voce, idx) {
-    const tipoClass = 'routine-tipo-' + voce.tipo;
-    const tipoTxt = tipoLabel[voce.tipo] || voce.tipo;
-    return \`<div class="routine-card">
-      <div class="rc-body" style="flex:1">
-        <div class="rc-nome"><span class="routine-tipo-badge \${tipoClass}">\${tipoTxt}</span>\${voce.nome} · <span style="font-weight:400;color:var(--text2)">\${voce.dose||''}</span></div>
-        <div style="display:flex;gap:.5rem;margin-top:6px;flex-wrap:wrap;align-items:center">
-          <select onchange="updateRoutineCampo(\${idx},'quandoRif',this.value)" style="padding:.2rem .4rem;border:1px solid #a8ddc7;border-radius:5px;font-size:.7rem;background:#f0faf6">
-            <option value="prima"\${voce.quandoRif==='prima'?' selected':''}>Prima di</option>
-            <option value="durante"\${voce.quandoRif==='durante'?' selected':''}>Durante</option>
-            <option value="dopo"\${voce.quandoRif==='dopo'?' selected':''}>Dopo</option>
-          </select>
-          <select onchange="updateRoutineCampo(\${idx},'pastoRif',this.value)" style="padding:.2rem .4rem;border:1px solid #a8ddc7;border-radius:5px;font-size:.7rem;background:#f0faf6">
-            <option value="">— Scegli pasto —</option>
-            <option value="colazione"\${voce.pastoRif==='colazione'?' selected':''}>Colazione</option>
-            <option value="spuntino_mattina"\${voce.pastoRif==='spuntino_mattina'?' selected':''}>Spuntino mattina</option>
-            <option value="pranzo"\${voce.pastoRif==='pranzo'?' selected':''}>Pranzo</option>
-            <option value="spuntino_pomeriggio"\${voce.pastoRif==='spuntino_pomeriggio'?' selected':''}>Spuntino pomeriggio</option>
-            <option value="cena"\${voce.pastoRif==='cena'?' selected':''}>Cena</option>
-            <option value="pre_nanna"\${voce.pastoRif==='pre_nanna'?' selected':''}>Pre-nanna</option>
-          </select>
-          \${!voce.pastoRif?'<span style="font-size:.68rem;color:#c2410c">⚠ Non apparirà nel PDF</span>':'<span style="font-size:.68rem;color:#15803d">✓ Apparirà nel PDF</span>'}
-        </div>
-        \${voce.razionale?\`<div class="rc-razionale" style="margin-top:5px">\${voce.razionale}</div>\`:''}
-        <div style="font-size:.66rem;color:var(--text3);margin-top:3px;font-style:italic">\${voce.quando||''}</div>
-      </div>
-      <div class="rc-actions">
-        <button class="btn btn-g btn-sm" title="Rimuovi" onclick="removeRoutineVoce(\${idx})">✕</button>
-      </div>
-    </div>\`;
-  }
-
-  const tipiIcone = { integratore:'Integratori', spezia:'Spezie terapeutiche', superfood:'Superfood' };
-  const perTipo = { integratore:[], spezia:[], superfood:[] };
-  routine.forEach((v,i) => { if(perTipo[v.tipo]) perTipo[v.tipo].push({v,i}); });
-
-  let riepilogoHTML = '';
-  Object.keys(perTipo).forEach(tipo => {
-    if (!perTipo[tipo].length) return;
-    riepilogoHTML += \`<div style="margin-bottom:1rem"><div style="font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem">\${tipiIcone[tipo]}</div>\`;
-    perTipo[tipo].forEach(({v,i}) => { riepilogoHTML += cardHTML(v, i); });
-    riepilogoHTML += '</div>';
-  });
-
-  el.innerHTML = \`
-  <div style="margin-bottom:1rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem">
-      <div>
-        <div style="font-family:'DM Serif Display',serif;font-size:1rem;margin-bottom:2px">Routine giornaliera terapeutica</div>
-        <div style="font-size:.74rem;color:var(--text2)">Le voci appariranno nel PDF accanto al titolo del pasto associato</div>
-      </div>
-      <button class="btn btn-p btn-sm" onclick="openModalRoutine()">+ Aggiungi voce</button>
-    </div>
-    \${routine.length ? riepilogoHTML : \`<div class="empty" style="padding:1.5rem;text-align:center;color:var(--text2);font-size:.82rem;background:#f0faf6;border-radius:10px;border:1px dashed #a8ddc7">
-      Nessuna voce aggiunta.<br><span style="font-size:.75rem">Clicca "+ Aggiungi voce" per personalizzare la routine di \${p.nome}</span>
-    </div>\`}
-  </div>
-
-  <!-- MODALE AGGIUNTA VOCE inline -->
-  <div id="routine-modal" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:1.1rem;margin-bottom:1rem">
-    <div style="font-weight:600;font-size:.88rem;margin-bottom:.8rem">+ Aggiungi voce alla routine</div>
-    
-    <div style="margin-bottom:.7rem">
-      <div style="font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:.4rem">Dalla libreria predefinita</div>
-      <div style="margin-bottom:.4rem;display:flex;gap:.4rem;flex-wrap:wrap">
-        <button class="btn btn-g btn-sm" onclick="filtroLibreria('tutti')" id="flt-tutti" style="border-color:var(--teal);color:var(--teal)">Tutti</button>
-        <button class="btn btn-g btn-sm" onclick="filtroLibreria('integratore')" id="flt-integratore">Integratori</button>
-        <button class="btn btn-g btn-sm" onclick="filtroLibreria('spezia')" id="flt-spezia">Spezie</button>
-        <button class="btn btn-g btn-sm" onclick="filtroLibreria('superfood')" id="flt-superfood">Superfood</button>
-      </div>
-      <div id="routine-lib-grid" class="routine-lib-grid"></div>
-    </div>
-
-    <div style="border-top:1px solid var(--border);padding-top:.7rem;margin-top:.4rem">
-      <div style="font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:.5rem">Oppure aggiungi manuale</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem">
-        <div><label style="font-size:.73rem;color:var(--text2)">Nome *</label><input id="rt-nome" class="fg-inp" placeholder="es. Ashwagandha" style="width:100%"></div>
-        <div><label style="font-size:.73rem;color:var(--text2)">Dose</label><input id="rt-dose" class="fg-inp" placeholder="es. 300 mg" style="width:100%"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem">
-        <div><label style="font-size:.73rem;color:var(--text2)">Tipo</label>
-          <select id="rt-tipo" style="width:100%;padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem">
-            <option value="integratore">Integratore</option>
-            <option value="spezia">Spezia</option>
-            <option value="superfood">Superfood</option>
-          </select>
-        </div>
-        <div><label style="font-size:.73rem;color:var(--text2)">Quando assumerlo (testo libero)</label><input id="rt-quando" class="fg-inp" placeholder="es. A colazione" style="width:100%"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem">
-        <div><label style="font-size:.73rem;color:var(--text2)">Quando rispetto al pasto</label>
-          <select id="rt-quandoRif" style="width:100%;padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem">
-            <option value="prima">Prima di</option>
-            <option value="durante">Durante</option>
-            <option value="dopo">Dopo</option>
-          </select>
-        </div>
-        <div><label style="font-size:.73rem;color:var(--text2)">Pasto di riferimento</label>
-          <select id="rt-pastoRif" style="width:100%;padding:.3rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem">
-            <option value="">— Scegli pasto —</option>
-            <option value="colazione">Colazione</option>
-            <option value="spuntino_mattina">Spuntino mattina</option>
-            <option value="pranzo">Pranzo</option>
-            <option value="spuntino_pomeriggio">Spuntino pomeriggio</option>
-            <option value="cena">Cena</option>
-            <option value="pre_nanna">Pre-nanna</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-bottom:.5rem"><label style="font-size:.73rem;color:var(--text2)">Razionale clinico</label>
-        <input id="rt-razionale" class="fg-inp" placeholder="es. Migliora sensibilità insulinica" style="width:100%">
-      </div>
-      <div style="display:flex;gap:.5rem;justify-content:flex-end">
-        <button class="btn btn-g btn-sm" onclick="document.getElementById('routine-modal').style.display='none'">Annulla</button>
-        <button class="btn btn-p btn-sm" onclick="salvaRoutineVoce()">Aggiungi</button>
+// 1. UI IMPOSTAZIONI
+const OLD_SETTINGS = `  <div class="card">
+    <div class="card-hd"><h3>🔗 Google Sheets</h3></div>
+    <div class="card-bd">
+      <div class="fg"><label>URL Apps Script</label><input id="cfg-url" placeholder="https://script.google.com/macros/s/..."></div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="salvaCfg()">Salva</button>
+        <button class="btn btn-g" onclick="testConn()">🔌 Testa</button>
+        <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
+        <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
     </div>
   </div>
-  \`;
+  <div class="card" style="background:var(--bg2,rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.08);margin-top:.75rem">
+    <div class="card-hd"><h3>☁️ Stato sincronizzazione</h3></div>
+    <div class="card-bd" style="padding:12px;display:flex;flex-direction:column;gap:6px;font-size:.8rem">
+      <div>URL Script: <span id="ss-url" style="font-weight:600"></span></div>
+      <div>Stato: <span id="ss-stato" style="font-weight:600"></span></div>
+      <div>Ultima sincronizzazione: <span id="ss-ts" style="font-weight:600"></span></div>
+      <div>Record in memoria: <span id="ss-rec" style="font-weight:600;color:var(--text3)"></span></div>
+    </div>
+  </div>`;
 
-  renderLibreriaGrid('tutti');
+const NEW_SETTINGS = `  <div class="card">
+    <div class="card-hd"><h3>☁️ Supabase</h3></div>
+    <div class="card-bd" style="display:flex;flex-direction:column;gap:6px;font-size:.8rem">
+      <div>Progetto: <span style="font-weight:600;color:var(--teal)">nutrigest</span></div>
+      <div>Stato: <span id="ss-stato" style="font-weight:600"></span></div>
+      <div>Ultima sincronizzazione: <span id="ss-ts" style="font-weight:600"></span></div>
+      <div>Pazienti in DB: <span id="ss-rec" style="font-weight:600;color:var(--teal)"></span></div>
+      <div style="margin-top:.4rem;display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn btn-g btn-sm" onclick="syncNow()">↺ Sincronizza ora</button>
+        <button class="btn btn-g btn-sm" onclick="testConnSupabase()">🔌 Testa connessione</button>
+        <span id="cfg-res" style="font-size:.75rem;color:var(--text3);margin-left:.3rem"></span>
+      </div>
+    </div>
+  </div>`;
+
+if (html.includes(OLD_SETTINGS)) {
+  html = html.replace(OLD_SETTINGS, NEW_SETTINGS);
+  console.log('OK: UI impostazioni aggiornata');
+} else {
+  console.error('FAIL: UI impostazioni non trovata');
+  process.exit(1);
 }
 
-function updateRoutineCampo(idx, campo, valore) {
-  const p = db.pazienti.find(x => x.id === currentPazId);
-  if (!p || !p.routineGiornaliera || !p.routineGiornaliera[idx]) return;
-  p.routineGiornaliera[idx][campo] = valore;
-  save();
-  renderPdRoutine(p);
+// 2. SOSTITUISCI BLOCCO SYNC
+const SYNC_START = 'function _hashDb(str){';
+const SYNC_END   = 'async function save(){saveLocal();await pushToSheets();}';
+
+const si = html.indexOf(SYNC_START);
+const se = html.indexOf(SYNC_END);
+if (si === -1 || se === -1) {
+  console.error('FAIL: blocco sync non trovato si=' + si + ' se=' + se);
+  process.exit(1);
 }
 
-function suggerisciPastoEQuando(testoQuando) {
-  const t = (testoQuando || '').toLowerCase();
-  if (/sera|prima di dormire|pre[ -]?nanna|notte|notturn/.test(t)) return { quandoRif:'prima', pastoRif:'pre_nanna' };
-  if (/mattin|appena svegli|risveglio|stomaco vuoto.*mattin/.test(t)) return { quandoRif:'prima', pastoRif:'colazione' };
-  if (/colazione/.test(t)) {
-    if (/prima/.test(t)) return { quandoRif:'prima', pastoRif:'colazione' };
-    if (/dopo/.test(t)) return { quandoRif:'dopo', pastoRif:'colazione' };
-    return { quandoRif:'durante', pastoRif:'colazione' };
+const NEW_SYNC = `// ════ SYNC SUPABASE ════════════════════════════════════════════════════════
+const SUPA_URL = '${SUPABASE_URL}';
+const SUPA_KEY = '${SUPABASE_KEY}';
+const META_KEY = 'meta_collections';
+
+function supaHeaders(){
+  return {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'};
+}
+
+async function pushToSheets(){
+  try{
+    for(const p of db.pazienti){
+      const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:new Date().toISOString()})});
+      if(!r.ok&&r.status!==200&&r.status!==201) throw new Error('err paz '+p.id+' status '+r.status);
+    }
+    const meta={ricette:db.ricette||[],eventi:db.eventi||[],entrate:db.entrate||[],disponibilita:db.disponibilita||{},piani:db.piani||[]};
+    const rm=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
+    if(!rm.ok&&rm.status!==200&&rm.status!==201) throw new Error('err meta status '+rm.status);
+    localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    console.log('[Supabase] push OK — '+db.pazienti.length+' pazienti');
+    return true;
+  }catch(e){
+    console.error('[Supabase] push ERRORE:',e);setSyncStatus(false);
+    notif('⚠ Sync fallito — dati salvati solo in locale',3500);return false;
   }
-  if (/met[aà] mattin|mid[ -]morning|spuntino.*mattin/.test(t)) return { quandoRif:'durante', pastoRif:'spuntino_mattina' };
-  if (/pranzo/.test(t)) {
-    if (/prima/.test(t)) return { quandoRif:'prima', pastoRif:'pranzo' };
-    if (/dopo/.test(t)) return { quandoRif:'dopo', pastoRif:'pranzo' };
-    return { quandoRif:'durante', pastoRif:'pranzo' };
+}
+
+async function pullFromSheets(){
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data',{method:'GET',headers:supaHeaders()});
+    if(!r.ok) throw new Error('status '+r.status);
+    const rows=await r.json();
+    if(!rows||!rows.length) return false;
+    const pr=rows.filter(row=>row.id!==META_KEY);
+    const mr=rows.find(row=>row.id===META_KEY);
+    if(!pr.length) return false;
+    db.pazienti=pr.map(row=>row.data);
+    if(mr&&mr.data){db.ricette=mr.data.ricette||[];db.eventi=mr.data.eventi||[];db.entrate=mr.data.entrate||[];db.disponibilita=mr.data.disponibilita||{};db.piani=mr.data.piani||[];}
+    ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
+    if(!db.disponibilita)db.disponibilita={};
+    saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    console.log('[Supabase] pull OK — '+db.pazienti.length+' pazienti');
+    return true;
+  }catch(e){
+    console.error('[Supabase] pull ERRORE:',e);setSyncStatus(false);return false;
   }
-  if (/pomerigg|met[aà] pomer/.test(t)) return { quandoRif:'durante', pastoRif:'spuntino_pomeriggio' };
-  if (/cena|pasto serale/.test(t)) {
-    if (/prima/.test(t)) return { quandoRif:'prima', pastoRif:'cena' };
-    if (/dopo/.test(t)) return { quandoRif:'dopo', pastoRif:'cena' };
-    return { quandoRif:'durante', pastoRif:'cena' };
-  }
-  if (/prima.*pasti principali/.test(t)) return { quandoRif:'prima', pastoRif:'pranzo' };
-  if (/pasto principale/.test(t)) return { quandoRif:'durante', pastoRif:'pranzo' };
-  return { quandoRif:'durante', pastoRif:'' };
 }
 
-let _fltLibreria = 'tutti';
-function filtroLibreria(tipo) {
-  _fltLibreria = tipo;
-  ['tutti','integratore','spezia','superfood'].forEach(t => {
-    const b = document.getElementById('flt-' + t);
-    if (b) { b.style.borderColor = t===tipo ? 'var(--teal)' : ''; b.style.color = t===tipo ? 'var(--teal)' : ''; }
-  });
-  renderLibreriaGrid(tipo);
+async function syncNow(){
+  const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
+  const bar=document.getElementById('sync-bar');
+  if(bar){bar.style.width='0%';bar.style.background='#facc15';}
+  var barPct=0;var barIv=setInterval(function(){barPct+=8;if(bar&&barPct<90)bar.style.width=barPct+'%';},100);
+  const p=await pullFromSheets();
+  if(p){renderPaz();renderRic();renderCal();renderEntrate();}
+  await pushToSheets();
+  clearInterval(barIv);
+  if(bar){bar.style.width='100%';bar.style.background=_syncOk?'#4ade80':'#f87171';}
 }
 
-function renderLibreriaGrid(tipo) {
-  const p = db.pazienti.find(x => x.id === currentPazId);
-  const routine = p ? (p.routineGiornaliera || []) : [];
-  const nomiGiaPresenti = new Set(routine.map(v => v.nome.toLowerCase()));
-  const grid = document.getElementById('routine-lib-grid');
-  if (!grid) return;
-  const filtrati = LIBRERIA_ROUTINE.filter(v => tipo === 'tutti' || v.tipo === tipo);
-  grid.innerHTML = filtrati.map(v => {
-    const presente = nomiGiaPresenti.has(v.nome.toLowerCase());
-    const realIdx = LIBRERIA_ROUTINE.indexOf(v);
-    return \`<div class="routine-lib-item\${presente?' selected':''}" 
-      \${presente?'':\`onclick="aggiungiDaLibreriaIdx(\${realIdx})"\`}
-      title="\${(v.razionale||'').replace(/"/g,'&quot;')}" 
-      style="\${presente?'opacity:.55;cursor:default':''}">
-      <strong>\${v.nome}</strong><br>
-      <span style="font-size:.7rem;color:var(--text2)">\${v.dose} · \${v.quando.substring(0,35)}\${v.quando.length>35?'...':''}</span>
-      \${presente?'<br><span style="font-size:.67rem;color:var(--teal)">✓ già aggiunta</span>':''}
-    </div>\`;
-  }).join('');
+async function sincronizzaTutto(){
+  var wrap=document.getElementById('btn-sync-wrap');var btn=document.getElementById('btn-sync-tutto');
+  if(wrap){wrap.classList.remove('is-ok','is-err');wrap.classList.add('is-loading');}
+  if(btn){btn.disabled=true;btn.textContent='Sincronizzazione...';}
+  var pullOk=false,pushOk=false;
+  try{pullOk=await pullFromSheets();if(pullOk){renderPaz();renderRic();renderCal();renderEntrate();}}catch(e){}
+  try{pushOk=await pushToSheets();}catch(e){}
+  const tsEl=document.getElementById('ss-ts');
+  if(tsEl){const now=new Date();tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT');}
+  const recEl=document.getElementById('ss-rec');if(recEl)recEl.textContent=db.pazienti.length+' pazienti';
+  if(wrap)wrap.classList.remove('is-loading');if(btn)btn.disabled=false;
+  if(pullOk&&pushOk){if(wrap)wrap.classList.add('is-ok');if(btn)btn.textContent='✅ Sincronizzato';notif('✅ Sincronizzazione completata',2500);}
+  else if(pullOk||pushOk){if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='⚠️ Parziale';notif('⚠️ Sincronizzazione parziale',3500);}
+  else{if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='❌ Errore';notif('❌ Sincronizzazione fallita',3500);}
+  setTimeout(function(){if(btn)btn.textContent='🔄 Sincronizza';if(wrap){wrap.classList.remove('is-ok','is-err');}},3000);
 }
 
-function aggiungiDaLibreriaIdx(idx) {
-  const voceLib = LIBRERIA_ROUTINE[idx];
-  if (!voceLib) { notif('⚠ Voce non trovata'); return; }
-  const p = db.pazienti.find(x => x.id === currentPazId);
-  if (!p) return;
-  if (!p.routineGiornaliera) p.routineGiornaliera = [];
-  if (p.routineGiornaliera.find(v => v.nome.toLowerCase() === voceLib.nome.toLowerCase())) {
-    notif('⚠ ' + voceLib.nome + ' è già nella routine');
-    return;
-  }
-  const sugg = suggerisciPastoEQuando(voceLib.quando);
-  const voce = Object.assign({}, voceLib, { 
-    attivo: true, 
-    quandoRif: sugg.quandoRif, 
-    pastoRif: sugg.pastoRif 
-  });
-  p.routineGiornaliera.push(voce);
-  save();
-  renderPdRoutine(p);
-  const m = document.getElementById('routine-modal');
-  if (m) m.style.display = 'block';
-  notif('✓ ' + voce.nome + ' aggiunto!');
+async function testConnSupabase(){
+  const res=document.getElementById('cfg-res');if(res)res.textContent='⏳ Test...';
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id&limit=1',{headers:supaHeaders()});
+    if(r.ok){if(res){res.style.color='var(--teal)';res.textContent='✓ Supabase connesso!';}}
+    else throw new Error('status '+r.status);
+  }catch(e){if(res){res.style.color='var(--red)';res.textContent='✗ Errore connessione';}}
 }
 
-function openModalRoutine() {
-  const m = document.getElementById('routine-modal');
-  if (!m) return;
-  m.style.display = m.style.display === 'none' ? 'block' : 'none';
-  if (m.style.display === 'block') renderLibreriaGrid(_fltLibreria);
-}
-
-function salvaRoutineVoce() {
-  const nome = (document.getElementById('rt-nome').value || '').trim();
-  if (!nome) { notif('⚠ Inserisci almeno il nome'); return; }
-  const voce = {
-    nome,
-    dose: document.getElementById('rt-dose').value.trim(),
-    tipo: document.getElementById('rt-tipo').value,
-    quando: document.getElementById('rt-quando').value.trim(),
-    quandoRif: document.getElementById('rt-quandoRif').value,
-    pastoRif: document.getElementById('rt-pastoRif').value,
-    razionale: document.getElementById('rt-razionale').value.trim(),
-    attivo: true
-  };
-  const p = db.pazienti.find(x => x.id === currentPazId);
-  if (!p) return;
-  if (!p.routineGiornaliera) p.routineGiornaliera = [];
-  p.routineGiornaliera.push(voce);
-  save();
-  renderPdRoutine(p);
-  ['rt-nome','rt-dose','rt-quando','rt-razionale'].forEach(id => {
-    const e = document.getElementById(id); if (e) e.value = '';
-  });
-  notif('✓ ' + nome + ' aggiunto!');
-}
-
-function removeRoutineVoce(idx) {
-  const p = db.pazienti.find(x => x.id === currentPazId);
-  if (!p || !p.routineGiornaliera) return;
-  const nome = p.routineGiornaliera[idx]?.nome || '';
-  p.routineGiornaliera.splice(idx, 1);
-  save();
-  renderPdRoutine(p);
-  notif('✓ ' + nome + ' rimosso');
-}
-
+async function save(){saveLocal();await pushToSheets();}
 `;
 
-html = html.substring(0, oldStartIdx) + NEW_ROUTINE_BLOCK + html.substring(oldEndIdx);
-console.log('✅ Blocco renderPdRoutine + funzioni correlate sostituito');
+html = html.substring(0, si) + NEW_SYNC + html.substring(se + SYNC_END.length);
+console.log('OK: blocco sync sostituito');
 
-// ═════════════════════════════════════════════════════════════════════════════
-// 3. AGGIUNGO LE RIGHE ROUTINE NEL PDF accanto al titolo pasto
-// ═════════════════════════════════════════════════════════════════════════════
-const OLD_DRAWPASTO_TITLE = `    // Titolo pasto: barra teal verticale + label bold 11pt nero
-    doc.setFillColor.apply(doc, TEAL);
-    doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
-    setFont('bold', 11, NERO);
-    doc.text(slotLabel[slotKey] || slotKey.toUpperCase(), M + 2.6, y);
-    y += 5.6;`;
+// 3. AGGIORNA setSyncStatus testo
+html = html.replace(
+  "statoEl.textContent=_syncOk?'✓ Connesso a Google Sheets':'✗ Non connesso';",
+  "statoEl.textContent=_syncOk?'✓ Connesso a Supabase':'✗ Non connesso';"
+);
+console.log('OK: setSyncStatus aggiornato');
 
-const NEW_DRAWPASTO_TITLE = `    // Titolo pasto: barra teal verticale + label bold 11pt nero
-    doc.setFillColor.apply(doc, TEAL);
-    doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
-    setFont('bold', 11, NERO);
-    var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
-    doc.text(titoloPasto, M + 2.6, y);
+// 4. Rimuovi cfg-url dalla inizializzazione impostazioni
+html = html.replace(
+  "const el=document.getElementById('cfg-url');if(el)el.value=getUrl();initAntCard();",
+  "initAntCard();"
+);
 
-    // ── ROUTINE: voci associate a questo pasto, accanto al titolo a destra ──
-    var routineDelPasto = ((paziente.routineGiornaliera || []).filter(function(v){
-      return v.attivo !== false && v.pastoRif === slotKey;
-    }));
-    var hRoutineExtra = 0;
-    if (routineDelPasto.length) {
-      var quandoLbl = { prima:'Prima:', durante:'Durante:', dopo:'Dopo:' };
-      var perQuando = { prima:[], durante:[], dopo:[] };
-      routineDelPasto.forEach(function(v){
-        var q = v.quandoRif || 'durante';
-        if (perQuando[q]) perQuando[q].push(v);
-      });
-      var righeRoutine = [];
-      ['prima','durante','dopo'].forEach(function(q){
-        if (!perQuando[q].length) return;
-        perQuando[q].forEach(function(v){
-          var txt = '+ ' + quandoLbl[q] + ' ' + safe(v.nome);
-          if (v.dose) txt += ' ' + safe(v.dose);
-          righeRoutine.push(txt);
-        });
-      });
-      var VERDE_MENTA_SCURO = [15, 92, 66];
-      setFont('normal', 7.5, VERDE_MENTA_SCURO);
-      var titoloW = doc.getTextWidth(titoloPasto);
-      var xRoutineStart = M + 2.6 + titoloW + 6;
-      var maxW = W - M - xRoutineStart;
-      var rigaCorrente = '';
-      var righeFinali = [];
-      righeRoutine.forEach(function(r){
-        var test = rigaCorrente ? (rigaCorrente + '   ' + r) : r;
-        if (doc.getTextWidth(test) <= maxW) {
-          rigaCorrente = test;
-        } else {
-          if (rigaCorrente) righeFinali.push(rigaCorrente);
-          rigaCorrente = r;
-        }
-      });
-      if (rigaCorrente) righeFinali.push(rigaCorrente);
-      var righeStampate = righeFinali.slice(0, 2);
-      righeStampate.forEach(function(r, i){
-        doc.text(r, xRoutineStart, y + (i * 3.6));
-      });
-      hRoutineExtra = Math.max(0, righeStampate.length * 3.6 - 5.6);
-    }
-    y += 5.6 + hRoutineExtra;`;
+// 5. Aggiorna salvaCfg e testConn
+html = html.replace(
+  "function salvaCfg(){const u=document.getElementById('cfg-url').value.trim();if(!u){alert('Inserisci URL');return;}const c=getCfg();c.scriptUrl=u;saveCfgL(c);notif('✓ Configurazione salvata!');}",
+  "function salvaCfg(){ notif('NutriGest usa Supabase — nessuna configurazione necessaria'); }"
+);
+console.log('OK: salvaCfg aggiornato');
 
-if (html.indexOf(OLD_DRAWPASTO_TITLE) === -1) {
-  console.error('❌ Non trovo il blocco "Titolo pasto" in drawPasto');
-  process.exit(1);
-}
-html = html.replace(OLD_DRAWPASTO_TITLE, NEW_DRAWPASTO_TITLE);
-console.log('✅ drawPasto modificato per disegnare routine accanto al titolo');
-
-// ═════════════════════════════════════════════════════════════════════════════
-// 4. AGGIORNO measurePasto per tener conto dell'altezza extra delle righe routine
-// ═════════════════════════════════════════════════════════════════════════════
-const OLD_MEASURE_TITLE = `    var h = 0;
-    // Titolo pasto (slot label)
-    h += 5.2;`;
-
-const NEW_MEASURE_TITLE = `    var h = 0;
-    // Titolo pasto (slot label) + eventuale altezza extra per righe routine
-    h += 5.2;
-    var routineDelPastoMis = ((paziente.routineGiornaliera || []).filter(function(v){
-      return v.attivo !== false && v.pastoRif === slotKey;
-    }));
-    if (routineDelPastoMis.length > 3) h += 3.6;`;
-
-if (html.indexOf(OLD_MEASURE_TITLE) === -1) {
-  console.error('❌ Non trovo il blocco titolo in measurePasto');
-  process.exit(1);
-}
-html = html.replace(OLD_MEASURE_TITLE, NEW_MEASURE_TITLE);
-console.log('✅ measurePasto aggiornato per tener conto altezza routine');
-
-// ═════════════════════════════════════════════════════════════════════════════
-// 5. SCRITTURA FINALE
-// ═════════════════════════════════════════════════════════════════════════════
+// 6. Scrivi
 fs.writeFileSync('index.html', html, 'utf8');
 console.log('');
-console.log('🎉 PATCH v2 APPLICATA CON SUCCESSO');
-console.log('   ✅ Click libreria fixato (uso indice invece di JSON)');
-console.log('   ✅ Menu Quando/Pasto aggiunto a ogni voce routine');
-console.log('   ✅ Suggerimento automatico pastoRif dal testo "quando"');
-console.log('   ✅ Routine nel PDF accanto al titolo pasto (verde menta scuro)');
-console.log('   ✅ Pagina dedicata routine PDF rimossa');
-console.log('   ✅ Reset campi form dopo "Aggiungi manuale"');
+console.log('MIGRAZIONE SUPABASE COMPLETATA');
+console.log('  push/pull riscritta con API Supabase diretta');
+console.log('  Niente piu chunking hash retry timeout');
+console.log('  UI impostazioni aggiornata');

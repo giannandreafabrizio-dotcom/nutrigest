@@ -776,24 +776,17 @@ main{flex:1;overflow-y:auto;}
 <div class="page" id="page-impostazioni">
   <div class="page-hd"><div><h2>Impostazioni</h2><p>Configurazione e sincronizzazione</p></div></div>
   <div class="card">
-    <div class="card-hd"><h3>🔗 Google Sheets</h3></div>
-    <div class="card-bd">
-      <div class="fg"><label>URL Apps Script</label><input id="cfg-url" placeholder="https://script.google.com/macros/s/..."></div>
-      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-p" onclick="salvaCfg()">Salva</button>
-        <button class="btn btn-g" onclick="testConn()">🔌 Testa</button>
-        <button class="btn btn-g" onclick="syncNow()">↺ Sincronizza</button>
-        <span id="cfg-res" style="font-size:.75rem;color:var(--text3)"></span>
-      </div>
-    </div>
-  </div>
-  <div class="card" style="background:var(--bg2,rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.08);margin-top:.75rem">
-    <div class="card-hd"><h3>☁️ Stato sincronizzazione</h3></div>
-    <div class="card-bd" style="padding:12px;display:flex;flex-direction:column;gap:6px;font-size:.8rem">
-      <div>URL Script: <span id="ss-url" style="font-weight:600"></span></div>
+    <div class="card-hd"><h3>☁️ Supabase</h3></div>
+    <div class="card-bd" style="display:flex;flex-direction:column;gap:6px;font-size:.8rem">
+      <div>Progetto: <span style="font-weight:600;color:var(--teal)">nutrigest</span></div>
       <div>Stato: <span id="ss-stato" style="font-weight:600"></span></div>
       <div>Ultima sincronizzazione: <span id="ss-ts" style="font-weight:600"></span></div>
-      <div>Record in memoria: <span id="ss-rec" style="font-weight:600;color:var(--text3)"></span></div>
+      <div>Pazienti in DB: <span id="ss-rec" style="font-weight:600;color:var(--teal)"></span></div>
+      <div style="margin-top:.4rem;display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn btn-g btn-sm" onclick="syncNow()">↺ Sincronizza ora</button>
+        <button class="btn btn-g btn-sm" onclick="testConnSupabase()">🔌 Testa connessione</button>
+        <span id="cfg-res" style="font-size:.75rem;color:var(--text3);margin-left:.3rem"></span>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -1957,7 +1950,7 @@ function aggiornaStatoSync(){
     urlEl.style.color=hasUrl?'#4ade80':'#f87171';
   }
   if(statoEl){
-    statoEl.textContent=_syncOk?'✓ Connesso a Google Sheets':'✗ Non connesso';
+    statoEl.textContent=_syncOk?'✓ Connesso a Supabase':'✗ Non connesso';
     statoEl.style.color=_syncOk?'#4ade80':'#f87171';
   }
   if(tsEl){
@@ -1983,225 +1976,96 @@ function setSyncStatus(ok){
   aggiornaStatoSync();
 }
 // ─── Hash deterministico (FNV-1a 32 bit) per verifica integrita ──────────
-function _hashDb(str){
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < str.length; i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h.toString(36);
+// ════ SYNC SUPABASE ════════════════════════════════════════════════════════
+const SUPA_URL = 'https://zrhmspylnlklppvhgplp.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaG1zcHlsbmxrbHBwdmhncGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDA0NDQsImV4cCI6MjA5MzY3NjQ0NH0.imawIV00emURjzLAWyrHdQ0VsRC_3pey4-D-6z8Y5Jg';
+const META_KEY = 'meta_collections';
+
+function supaHeaders(){
+  return {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'};
 }
 
-// ─── Encoding sicuro per Unicode (accenti italiani, emoji, ecc.) ──────────
-function _b64encode(str){
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-// ─── Verifica via GET che il server abbia salvato l'hash atteso ───────────
-async function _verifyHash(url, expectedHash){
-  try{
-    const r = await fetch(url + '?action=getHash', {method:'GET', mode:'cors'});
-    if(!r.ok) return false;
-    const data = await r.json();
-    return data && data.hash === expectedHash;
-  }catch(e){
-    console.error('[Sync] verifyHash errore:', e);
-    return false;
-  }
-}
-
-// ─── Push singolo (legacy, per db piccoli) ────────────────────────────────
-async function _pushSingle(url, jsonStr){
-  await fetch(url, {
-    method:'POST', mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body: jsonStr
-  });
-}
-
-// ─── Push chunked: divide in pezzi da 20KB e verifica via hash ────────────
-async function _pushChunked(url, jsonStr, expectedHash){
-  const encoded = _b64encode(jsonStr);
-  const CHUNK_SIZE = 20000; // 20KB per chunk (sotto soglia ~30KB di Chrome)
-  const chunks = [];
-  for (let i = 0; i < encoded.length; i += CHUNK_SIZE){
-    chunks.push(encoded.slice(i, i + CHUNK_SIZE));
-  }
-  const tot = chunks.length;
-  const sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-
-  console.log('[Sync] push chunked: ' + tot + ' chunk da ~20KB, sessionId=' + sessionId);
-
-  // Init sessione (resetta eventuali chunk parziali precedenti)
-  await fetch(url, {
-    method:'POST', mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'chunkInit', sessionId, tot, hash: expectedHash})
-  });
-
-  // Invio sequenziale dei chunk
-  for (let i = 0; i < tot; i++){
-    await fetch(url, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({action:'chunk', sessionId, idx:i, data: chunks[i]})
-    });
-    // Piccola pausa per non saturare (Apps Script ha limiti di concorrenza)
-    if (i < tot - 1) await new Promise(r => setTimeout(r, 50));
-  }
-
-  // Commit: server riassembla, valida JSON, scrive A1
-  await fetch(url, {
-    method:'POST', mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({action:'chunkCommit', sessionId})
-  });
-}
-
-// ─── pushToSheets — versione affidabile con verifica hash ─────────────────
 async function pushToSheets(){
-  const url = getUrl();
-  if(!url){ setSyncStatus(false); return false; }
-
-  const jsonStr = JSON.stringify(db);
-  const sizeKB = Math.round(jsonStr.length / 1024);
-  const expectedHash = _hashDb(jsonStr);
-  console.log('[Sync] push: db ' + sizeKB + 'KB, hash=' + expectedHash);
-
-  // Soglia: db < 25KB usa POST singolo, altrimenti chunked
-  const SOGLIA_KB = 25;
-
   try{
-    if (sizeKB < SOGLIA_KB){
-      await _pushSingle(url, jsonStr);
-    } else {
-      await _pushChunked(url, jsonStr, expectedHash);
+    for(const p of db.pazienti){
+      const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:new Date().toISOString()})});
+      if(!r.ok&&r.status!==200&&r.status!==201) throw new Error('err paz '+p.id+' status '+r.status);
     }
-
-    // VERIFICA via GET che il server abbia davvero ricevuto i dati
-    // Attendi ~800ms per dare tempo al server di completare la scrittura
-    await new Promise(r => setTimeout(r, 800));
-    let ok = await _verifyHash(url, expectedHash);
-
-    // Un retry se la prima verifica fallisce
-    if (!ok){
-      console.warn('[Sync] verifica hash fallita, retry tra 1.5s...');
-      await new Promise(r => setTimeout(r, 1500));
-      ok = await _verifyHash(url, expectedHash);
-    }
-
-    if (ok){
-      localStorage.setItem('lastSync', Date.now());
-      setSyncStatus(true);
-      console.log('[Sync] push OK (hash verificato)');
-      return true;
-    } else {
-      // Retry completo: forza chunked anche se db piccolo
-      console.warn('[Sync] hash mismatch dopo retry, tento chunked forzato...');
-      await _pushChunked(url, jsonStr, expectedHash);
-      await new Promise(r => setTimeout(r, 1500));
-      ok = await _verifyHash(url, expectedHash);
-      if (ok){
-        localStorage.setItem('lastSync', Date.now());
-        setSyncStatus(true);
-        console.log('[Sync] push OK al secondo tentativo');
-        return true;
-      }
-      await new Promise(r => setTimeout(r, 2500));
-      ok = await _verifyHash(url, expectedHash);
-      if (ok){
-        localStorage.setItem('lastSync', Date.now());
-        setSyncStatus(true);
-        console.log('[Sync] push OK dopo verifica estesa');
-        return true;
-      }
-      console.warn('[Sync] chunked completato ma hash mismatch persistente — accetto come riuscito');
-      localStorage.setItem('lastSync', Date.now());
-      setSyncStatus(true);
-      return true;
-    }
-  } catch(e){
-    setSyncStatus(false);
-    notif('⚠ Sync fallito — dati salvati solo in locale', 3500);
-    console.error('[Sync] push ERRORE:', e);
-    return false;
+    const meta={ricette:db.ricette||[],eventi:db.eventi||[],entrate:db.entrate||[],disponibilita:db.disponibilita||{},piani:db.piani||[]};
+    const rm=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
+    if(!rm.ok&&rm.status!==200&&rm.status!==201) throw new Error('err meta status '+rm.status);
+    localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    console.log('[Supabase] push OK — '+db.pazienti.length+' pazienti');
+    return true;
+  }catch(e){
+    console.error('[Supabase] push ERRORE:',e);setSyncStatus(false);
+    notif('⚠ Sync fallito — dati salvati solo in locale',3500);return false;
   }
 }
+
 async function pullFromSheets(){
-  const url=getUrl();
-  console.log('[Sync] pullFromSheets — URL:', url||'⚠ MANCANTE');
-  if(!url)return false;
   try{
-    const r=await fetch(url+'?action=get',{method:'GET',mode:'cors'});
-    console.log('[Sync] pull risposta status:', r.status, r.ok?'OK':'NON OK');
-    if(!r.ok)throw new Error('status '+r.status);
-    const data=await r.json();
-    console.log('[Sync] pull data.pazienti:', data&&data.pazienti?data.pazienti.length+' pazienti':'campo pazienti assente');
-    if(data&&data.pazienti){db=data;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};saveLocal();localStorage.setItem('lastSync',Date.now());return true;}
-    return false;
-  }catch(e){console.error('[Sync] pull ERRORE:',e);return false;}
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data',{method:'GET',headers:supaHeaders()});
+    if(!r.ok) throw new Error('status '+r.status);
+    const rows=await r.json();
+    if(!rows||!rows.length) return false;
+    const pr=rows.filter(row=>row.id!==META_KEY);
+    const mr=rows.find(row=>row.id===META_KEY);
+    if(!pr.length) return false;
+    db.pazienti=pr.map(row=>row.data);
+    if(mr&&mr.data){db.ricette=mr.data.ricette||[];db.eventi=mr.data.eventi||[];db.entrate=mr.data.entrate||[];db.disponibilita=mr.data.disponibilita||{};db.piani=mr.data.piani||[];}
+    ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
+    if(!db.disponibilita)db.disponibilita={};
+    saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    console.log('[Supabase] pull OK — '+db.pazienti.length+' pazienti');
+    return true;
+  }catch(e){
+    console.error('[Supabase] pull ERRORE:',e);setSyncStatus(false);return false;
+  }
 }
+
 async function syncNow(){
-  console.log('sync avviata');
-  console.log('[Sync] URL configurato:', getUrl()||'⚠ MANCANTE — vai in Impostazioni e salva l\'URL');
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
   const bar=document.getElementById('sync-bar');
   if(bar){bar.style.width='0%';bar.style.background='#facc15';}
-  var barPct=0;
-  var barIv=setInterval(function(){
-    barPct+=6;
-    if(bar&&barPct<90)bar.style.width=barPct+'%';
-  },120);
+  var barPct=0;var barIv=setInterval(function(){barPct+=8;if(bar&&barPct<90)bar.style.width=barPct+'%';},100);
   const p=await pullFromSheets();
-  if(!p)await pushToSheets();
-  else{renderPaz();renderRic();renderCal();renderEntrate();}
+  if(p){renderPaz();renderRic();renderCal();renderEntrate();}
+  await pushToSheets();
   clearInterval(barIv);
-  if(bar){
-    bar.style.width='100%';
-    bar.style.background=_syncOk?'#4ade80':'#f87171';
-    setTimeout(function(){if(bar)bar.style.width='100%';},1000);
-  }
+  if(bar){bar.style.width='100%';bar.style.background=_syncOk?'#4ade80':'#f87171';}
 }
+
 async function sincronizzaTutto(){
-  var wrap = document.getElementById('btn-sync-wrap');
-  var btn = document.getElementById('btn-sync-tutto');
-  if(wrap){ wrap.classList.remove('is-ok','is-err'); wrap.classList.add('is-loading'); }
-  if(btn){ btn.disabled=true; btn.textContent='Sincronizzazione...'; }
-  var pullOk = false;
-  var pushOk = false;
-  try {
-    pullOk = await pullFromSheets();
-    if(pullOk){ renderPaz(); renderRic(); renderCal(); renderEntrate(); }
-  } catch(e) { console.error('[SyncTutto] pull errore:', e); }
-  try {
-    pushOk = await pushToSheets();
-  } catch(e) { console.error('[SyncTutto] push errore:', e); }
-  var tsEl = document.getElementById('ss-ts');
-  if(tsEl){ var now=new Date(); tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT'); }
-  if(wrap){ wrap.classList.remove('is-loading'); }
-  if(btn){ btn.disabled = false; }
-  if(pullOk && pushOk){
-    if(wrap) wrap.classList.add('is-ok');
-    if(btn) btn.textContent='✅ Sincronizzato';
-    notif('✅ Sincronizzazione completata', 2500);
-  } else if(pullOk || pushOk){
-    if(wrap) wrap.classList.add('is-err');
-    if(btn) btn.textContent='⚠️ Parziale';
-    notif('⚠️ Sincronizzazione parziale', 3500);
-  } else {
-    if(wrap) wrap.classList.add('is-err');
-    if(btn) btn.textContent='❌ Errore';
-    notif('❌ Sincronizzazione fallita', 3500);
-  }
-  setTimeout(function(){
-    if(btn) btn.textContent='🔄 Sincronizza';
-    if(wrap){ wrap.classList.remove('is-ok','is-err'); }
-  }, 3000);
+  var wrap=document.getElementById('btn-sync-wrap');var btn=document.getElementById('btn-sync-tutto');
+  if(wrap){wrap.classList.remove('is-ok','is-err');wrap.classList.add('is-loading');}
+  if(btn){btn.disabled=true;btn.textContent='Sincronizzazione...';}
+  var pullOk=false,pushOk=false;
+  try{pullOk=await pullFromSheets();if(pullOk){renderPaz();renderRic();renderCal();renderEntrate();}}catch(e){}
+  try{pushOk=await pushToSheets();}catch(e){}
+  const tsEl=document.getElementById('ss-ts');
+  if(tsEl){const now=new Date();tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT');}
+  const recEl=document.getElementById('ss-rec');if(recEl)recEl.textContent=db.pazienti.length+' pazienti';
+  if(wrap)wrap.classList.remove('is-loading');if(btn)btn.disabled=false;
+  if(pullOk&&pushOk){if(wrap)wrap.classList.add('is-ok');if(btn)btn.textContent='✅ Sincronizzato';notif('✅ Sincronizzazione completata',2500);}
+  else if(pullOk||pushOk){if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='⚠️ Parziale';notif('⚠️ Sincronizzazione parziale',3500);}
+  else{if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='❌ Errore';notif('❌ Sincronizzazione fallita',3500);}
+  setTimeout(function(){if(btn)btn.textContent='🔄 Sincronizza';if(wrap){wrap.classList.remove('is-ok','is-err');}},3000);
+}
+
+async function testConnSupabase(){
+  const res=document.getElementById('cfg-res');if(res)res.textContent='⏳ Test...';
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id&limit=1',{headers:supaHeaders()});
+    if(r.ok){if(res){res.style.color='var(--teal)';res.textContent='✓ Supabase connesso!';}}
+    else throw new Error('status '+r.status);
+  }catch(e){if(res){res.style.color='var(--red)';res.textContent='✗ Errore connessione';}}
 }
 
 async function save(){saveLocal();await pushToSheets();}
 
-function salvaCfg(){const u=document.getElementById('cfg-url').value.trim();if(!u){alert('Inserisci URL');return;}const c=getCfg();c.scriptUrl=u;saveCfgL(c);notif('✓ Configurazione salvata!');}
+
+function salvaCfg(){ notif('NutriGest usa Supabase — nessuna configurazione necessaria'); }
 async function testConn(){
   const url=document.getElementById('cfg-url').value.trim();const res=document.getElementById('cfg-res');
   if(!url){res.textContent='⚠ Inserisci URL';return;}res.textContent='⏳ Test...';
@@ -2259,7 +2123,7 @@ function goTo(name,btn){
   if(name==='concetti')renderConcettiPage();
   if(name==='piano')renderPianoPage();
   if(name==='storico-piani')renderStoricoPiani();
-  if(name==='impostazioni'){const el=document.getElementById('cfg-url');if(el)el.value=getUrl();initAntCard();}
+  if(name==='impostazioni'){initAntCard();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
