@@ -141,11 +141,20 @@ main{flex:1;overflow-y:auto;}
 .al-tog.no{background:var(--red-bg);border-color:#f5c6c2;color:var(--red);text-decoration:line-through;}
 .al-tog.arancione{background:#fff3e0;border-color:#e08000;color:#a04a00;}
 .al-tog.rosso{background:#fdecea;border-color:#e57373;color:#c62828;}
-.al-tog.grigioScuro{background:#eeeeee;border-color:#9e9e9e;color:#616161;text-decoration:line-through;}
-.al-tog.celeste{background:#e3f2fd;border-color:#64b5f6;color:#1565c0;border-style:dashed;}
-.al-tog.grigio-scuro{background:#9ca3af;color:#fff;opacity:.8;}
-.al-tog.grigio-scuro-2{background:#6b7280;color:#fff;opacity:.9;}
-.al-tog.celeste-2{background:#7dd3fc;color:#0369a1;border:1px solid #38bdf8;font-weight:600;}
+.al-tog.grigioScuro{background:#eceff1;border-color:#78909c;color:#37474f;border-style:solid;}
+.al-tog.celeste{background:#e3f2fd;border-color:#1976d2;color:#0d47a1;border-style:dashed;border-width:2px;}
+.al-tog.grigio-scuro{background:#eceff1;border-color:#78909c;color:#37474f;}
+.al-tog.grigio-scuro-2{background:#cfd8dc;border-color:#546e7a;color:#263238;font-weight:500;}
+.al-tog.celeste-2{background:#bbdefb;border-color:#1565c0;color:#0d47a1;font-weight:600;border-width:2px;}
+.al-tog.conflitto{background:#fff8e1;border-color:#f59f00;color:#7c5f00;border-style:solid;border-width:2px;}
+/* Badge motivazione semaforo */
+.sem-badges{display:inline-flex;flex-wrap:wrap;gap:2px;margin-left:4px;vertical-align:middle;}
+.sem-badge{display:inline-block;font-size:9.5px;padding:1px 5px;border-radius:8px;font-weight:600;line-height:1.4;white-space:nowrap;}
+.sem-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 1px;vertical-align:middle;}
+/* Legenda semaforo */
+.sem-legenda{display:flex;flex-wrap:wrap;gap:6px;padding:.5rem .75rem;background:var(--s1);border:1px solid var(--border);border-radius:8px;margin-bottom:.75rem;font-size:.7rem;}
+.sem-leg-item{display:flex;align-items:center;gap:3px;color:var(--text2);}
+.sem-leg-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0;}
 /* CALENDARIO */
 .cal-wrap{background:var(--s1);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;}
 .cal-hdr{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid var(--border);}
@@ -2468,6 +2477,7 @@ function salvaPaz(){
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
+  window._alMotivazioni=pd.motivazioniSemaforo||{};window._alStato=pd.alimenti||{};
   save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');if(document.getElementById('pd-macros'))renderPdMacros(pd);
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
@@ -3332,8 +3342,9 @@ const REGOLE_SEMAFORO = [
   }
 ];
 
-// Applica tutte le regole semaforo al paziente — chiamata ad ogni salvataggio
-function applicaRegoloSemaforo(p){
+// DEPRECATA — sostituita da applicaRegoloSemaforo nel blocco checkSemaforo
+// Mantenuta solo per compatibilità con REGOLE_SEMAFORO globali
+function _applicaRegoloSemaforoLEGACY(p){
   if(!p.alimenti)p.alimenti={};
 
   // Pulisce stati automatici (vecchio e nuovo sistema) — non tocca i colori manuali
@@ -3380,7 +3391,7 @@ function resetSemaforoAuto(p){
   Object.keys(p.alimenti).forEach(function(k){
     if(coloriAuto.includes(p.alimenti[k]))delete p.alimenti[k];
   });
-  applicaRegoloSemaforo(p);
+  _applicaRegoloSemaforoLEGACY(p);
   save();
   notif('✓ Semaforo automatico ricalcolato!');
 }
@@ -6813,38 +6824,135 @@ Regole:
 // ════════════════════════════════════════════════════════════════
 // ALIMENTI EDITOR
 // ════════════════════════════════════════════════════════════════
+// ── MAPPA COLORI CONDIZIONI SEMAFORO ─────────────────────────────────────────
+const SEMAFORO_COLORI={
+  'Nichel':       {c:'#9e9e9e', t:'#fff', a:'Nic'},
+  'Lattosio':     {c:'#d4b896', t:'#5c3d1e', a:'Lat'},
+  'Glutine':      {c:'#c8a96e', t:'#fff', a:'Glu'},
+  'Steatosi':     {c:'#795548', t:'#fff', a:'Ste'},
+  'Hashimoto':    {c:'#7b5ea7', t:'#fff', a:'Has'},
+  'Ipotiroidismo':{c:'#7b5ea7', t:'#fff', a:'Ipo'},
+  'Ipertiroidismo':{c:'#7b5ea7',t:'#fff', a:'Ipe'},
+  'Tiroide':      {c:'#7b5ea7', t:'#fff', a:'Tir'},
+  'Colesterolo':  {c:'#ef6c00', t:'#fff', a:'Col'},
+  'Istamina':     {c:'#7b1c2e', t:'#fff', a:'Ist'},
+  'Diabete':      {c:'#1565c0', t:'#fff', a:'Dia'},
+  'Ipertensione': {c:'#c62828', t:'#fff', a:'Ipe'},
+  'Intestino irritabile':{c:'#00796b',t:'#fff',a:'IBS'},
+  'PCOS':         {c:'#c2185b', t:'#fff', a:'PCS'},
+  'Reflusso':     {c:'#f9a825', t:'#5c3d00', a:'Ref'},
+  'Gotta':        {c:'#689f38', t:'#fff', a:'Got'},
+  'Celiachia':    {c:'#ff8f00', t:'#fff', a:'Cel'},
+  'Gravidanza':   {c:'#e91e8c', t:'#fff', a:'Gra'},
+  'Allattamento': {c:'#f06292', t:'#fff', a:'All'},
+  'Menopausa':    {c:'#9575cd', t:'#fff', a:'Men'},
+  'Massa muscolare':{c:'#2e7d32',t:'#fff',a:'Mas'},
+  'Ritenzione idrica':{c:'#0288d1',t:'#fff',a:'Rit'},
+  'Gonfiore':     {c:'#8d6e63', t:'#fff', a:'Gon'},
+  'Stitichezza':  {c:'#8d6e63', t:'#fff', a:'Sti'},
+  'Diarrea':      {c:'#8d6e63', t:'#fff', a:'Dia'},
+  'Sostenibilità':{c:'#43a047', t:'#fff', a:'Sos'},
+  'Morbo di Crohn':{c:'#d84315',t:'#fff',a:'Crh'},
+  'Uova':         {c:'#fbc02d', t:'#5c3d00', a:'Uov'},
+  'Pesce':        {c:'#0097a7', t:'#fff', a:'Pes'},
+  'Frutta secca': {c:'#a1887f', t:'#fff', a:'FSc'},
+  'Crostacei':    {c:'#f4511e', t:'#fff', a:'Cro'},
+  'Soia':         {c:'#558b2f', t:'#fff', a:'Soi'}
+};
+
+// Costruisce i badge motivazione (nome completo / abbreviato / pallini)
+function buildSemBadges(condizioni){
+  if(!condizioni||!condizioni.length)return'';
+  const n=condizioni.length;
+  if(n<=3){
+    // Nome completo (1) o abbreviato (2-3)
+    return'<span class="sem-badges">'+condizioni.map(function(cond){
+      const info=SEMAFORO_COLORI[cond]||{c:'#9e9e9e',t:'#fff',a:cond.substring(0,3)};
+      const label=n===1?cond:info.a;
+      return'<span class="sem-badge" style="background:'+info.c+';color:'+info.t+'">'+label+'</span>';
+    }).join('')+'</span>';
+  }else{
+    // 4+ → solo pallini colorati
+    return'<span class="sem-badges">'+condizioni.map(function(cond){
+      const info=SEMAFORO_COLORI[cond]||{c:'#9e9e9e',t:'#fff',a:'?'};
+      return'<span class="sem-dot" style="background:'+info.c+'" title="'+cond+'"></span>';
+    }).join('')+'</span>';
+  }
+}
+
+// Costruisce la legenda delle condizioni attive
+function buildSemLegenda(condizioniAttive){
+  if(!condizioniAttive||!condizioniAttive.length)return'';
+  const uniche=[...new Set(condizioniAttive)];
+  const items=uniche.map(function(cond){
+    const info=SEMAFORO_COLORI[cond]||{c:'#9e9e9e',t:'#fff',a:cond};
+    return'<span class="sem-leg-item"><span class="sem-leg-dot" style="background:'+info.c+'"></span>'+cond+'</span>';
+  }).join('');
+  return'<div class="sem-legenda">'
+    +'<span style="display:flex;align-items:center;gap:4px;margin-right:8px"><span style="display:inline-block;width:14px;height:14px;background:#eceff1;border:1.5px solid #78909c;border-radius:3px"></span><span style="color:var(--text2)">✕ Sconsigliato</span></span>'
+    +'<span style="display:flex;align-items:center;gap:4px;margin-right:12px"><span style="display:inline-block;width:14px;height:14px;background:#e3f2fd;border:2px dashed #1976d2;border-radius:3px"></span><span style="color:var(--text2)">★ Consigliato</span></span>'
+    +'<strong style="color:var(--text2);margin-right:4px">Condizioni:</strong>'+items
+    +'</div>';
+}
+
 function renderAlEditor(){
   const c=document.getElementById('al-editor');
   if(!c)return;
-  let html='';
+  const coloriAuto=['grigioScuro','celeste','grigio_scuro_1','grigio_scuro_2','celeste_1','celeste_2'];
+  const _motAll=window._alMotivazioni||{};
+  const tutteCondizioni=[];
+  Object.values(_motAll).forEach(function(m){
+    (m.grigi||[]).forEach(function(cn){if(!tutteCondizioni.includes(cn))tutteCondizioni.push(cn);});
+    (m.luci||[]).forEach(function(cn){if(!tutteCondizioni.includes(cn))tutteCondizioni.push(cn);});
+  });
+  let html=buildSemLegenda(tutteCondizioni);
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
     const sc=cat.replace(/'/g,"\\'");
-    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">✓ Tutti</button>`;
+    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">\u2713 Tutti</button>`;
     html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4><div style="display:flex;gap:4px;align-items:center">${btns}</div></div><div class="al-grid">`;
     items.forEach(item=>{
       const key=cat+'__'+item.n;
       const s=window._alStato[key]||'';
       const gl=item.gl===true?' <span class="gluten">[G]</span>':item.gl===false?' <span class="gluten">[SG]</span>':'';
       const sk=key.replace(/'/g,"\\'");const sn=item.n.replace(/'/g,"\\'");
-      var _mot=(window._alMotivazioni&&window._alMotivazioni[key])||{};
-      var _conflitto=_mot.conflitto;
-      var _tooltipHtml='';
-      if(_conflitto){var _cG=(_mot.grigi||[]).join(', ');var _cL=(_mot.luci||[]).join(', ');_tooltipHtml=` title="Controindicato per: ${_cG} — Consigliato per: ${_cL}"`;}
-      var _simbolo=_conflitto?'⚡ ':(s==='si'?'✓ ':s==='arancione'?'◐ ':s==='rosso'?'↓ ':s==='grigioScuro'?'✕ ':s==='celeste'?'★ ':'');
-      html+=`<span class="al-tog ${s}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')"`+_tooltipHtml+`>${_simbolo}${item.n}${gl}</span>`;
+      var _m=(_motAll&&_motAll[key])||{};
+      var _conflitto=_m.conflitto;
+      var _isAuto=coloriAuto.includes(s)||_conflitto;
+      var _badgeHtml='';
+      if(_isAuto){
+        if(_conflitto){
+          var allCond=[...(_m.grigi||[]),...(_m.luci||[])];
+          _badgeHtml=buildSemBadges(allCond);
+        } else if(s==='grigioScuro'||s==='grigio_scuro_1'||s==='grigio_scuro_2'){
+          _badgeHtml=buildSemBadges(_m.grigi||[]);
+        } else {
+          _badgeHtml=buildSemBadges(_m.luci||[]);
+        }
+      }
+      var _cls=s;
+      if(s==='grigio_scuro_1')_cls='grigio-scuro';
+      if(s==='grigio_scuro_2')_cls='grigio-scuro-2';
+      if(s==='celeste_1')_cls='celeste';
+      if(s==='celeste_2')_cls='celeste-2';
+      var _simbolo=_conflitto?'\u26a1 ':(s==='si'?'\u2713 ':s==='arancione'?'\u25d0 ':s==='rosso'?'\u2193 ':(s==='grigioScuro'||s==='grigio_scuro_1'||s==='grigio_scuro_2')?'\u2715 ':(s==='celeste'||s==='celeste_1'||s==='celeste_2')?'\u2605 ':'');
+      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}</span>`;
     });
     html+='</div></div>';
   });
   c.innerHTML=html;
 }
 function togAl(el,key,nome){
+  const coloriAuto=['grigioScuro','celeste','grigio_scuro_1','grigio_scuro_2','celeste_1','celeste_2'];
   const s=window._alStato[key]||'';
-  const n=s===''?'si':s==='si'?'arancione':s==='arancione'?'rosso':'';
+  // Se è colore automatico, il click manuale lo porta a 'si' (il medico decide di usarlo)
+  const base=coloriAuto.includes(s)?'':s;
+  const n=base===''?'si':base==='si'?'arancione':base==='arancione'?'rosso':'';
   if(n==='')delete window._alStato[key];else window._alStato[key]=n;
   el.className='al-tog '+n;
+  // Ricrea il contenuto senza badge (il medico ha deciso manualmente)
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
-  el.innerHTML=(n==='si'?'✓ ':n==='arancione'?'◐ ':n==='rosso'?'↓ ':n==='grigioScuro'?'✕ ':n==='celeste'?'★ ':'')+nome+glH;
+  el.innerHTML=(n==='si'?'✓ ':n==='arancione'?'◐ ':n==='rosso'?'↓ ':'')+nome+glH;
 }
 function selCatAl(cat,stato){
   const data=ALIMENTI[cat];if(!data)return;
