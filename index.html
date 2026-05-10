@@ -1055,12 +1055,9 @@ main{flex:1;overflow-y:auto;}
     <div class="fr">
       <div class="fg"><label>Dove consumi i pasti?</label>
         <div class="chip-group" style="margin-top:.3rem">
-          <label class="chip-pill"><input type="checkbox" id="dove-casa"> Casa</label>
-          <label class="chip-pill"><input type="checkbox" id="dove-lavoro"> Lavoro</label>
-          <label class="chip-pill"><input type="checkbox" id="dove-fuori"> Fuori (ristorante)</label>
-          <label class="chip-pill"><input type="checkbox" id="dove-mensa"> Mensa</label>
-          <label class="chip-pill"><input type="checkbox" id="dove-scuola"> Merenda a scuola</label>
-          <label class="chip-pill"><input type="checkbox" id="dove-merlav"> Merenda al lavoro</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-lavoro"> Pranzo a lavoro</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-merenda"> Merenda fuori casa</label>
+          <label class="chip-pill"><input type="checkbox" id="dove-fuori"> Cena fuori abituale</label>
         </div>
       </div>
     </div>
@@ -1072,17 +1069,7 @@ main{flex:1;overflow-y:auto;}
     <div class="fr">
       <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Alimentazione abitudinaria</label><select id="p-abit"><option value="si">Sì</option><option value="no">No</option><option value="mista">Mista</option></select></div>
-      <div class="fg"><label>Preferisce</label>
-        <select id="p-pref-proteina">
-          <option value="">— Indifferente —</option>
-          <option value="più carne">Più carne</option>
-          <option value="più pesce">Più pesce</option>
-          <option value="entrambi">Entrambi uguale</option>
-        </select>
-      </div>
-    </div>
+
     <div class="fg"><label>Cibi preferiti</label><textarea id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></textarea></div>
     <div class="fr">
       <div class="fg"><label>Sabato sera</label>
@@ -2271,10 +2258,10 @@ function editPaz(){
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
   s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
   setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);setPatologieFromStr(p.patologie||'');setAllergieFromStr(p.allergie||'');setSdvFromStr(p.sdv||'');setCspFromStr(p.condSpeciali||'');
-  ss('p-prenanna',p.prenanna);ss('p-pref-proteina',p.prefProteina);
+  ss('p-prenanna',p.prenanna);
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
-  ss('p-abit',p.abit);ss('p-var',p.var);ss('p-cheto',p.cheto);
+  ss('p-var',p.var);ss('p-cheto',p.cheto);
   window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
@@ -2481,8 +2468,8 @@ function salvaPaz(){
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
     regime:gs('mac-regime')||gs('p-regime'),
-    pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prefProteina:gs('p-pref-proteina'),prenanna:gs('p-prenanna'),
-    weekend:gs('p-weekend'),crisi:g('p-crisi'),abit:gs('p-abit'),
+    pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prenanna:gs('p-prenanna'),
+    weekend:gs('p-weekend'),crisi:g('p-crisi'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
@@ -3502,7 +3489,7 @@ function costruisciContestoPaziente(p){
     +avvisoInbody;
 
   if(lastIb){
-    let _ibCtx = '\n\nInBody ('+lastIb.data+'): Peso '+(lastIb.peso||'—')+'kg · %Grassa '+(lastIb.pg||'—')+'% · Massa magra '+(lastIb.m||'—')+'kg · Muscolare '+(lastIb.musc||'—')+'kg · Acqua '+(lastIb.acqua||'—')+'L · MB '+(lastIb.mb||'—')+'kcal · BMI '+(lastIb.bmi||'—')+' · Viscerale livello '+(lastIb.visc||'—');
+    let _ibCtx = '\n\nInBody ('+lastIb.data+'): Peso '+(lastIb.peso||'—')+'kg · %Grassa '+(lastIb.pg||'—')+'% · Massa magra '+(lastIb.m||'—')+'kg · Muscolare '+(lastIb.musc||'—')+'kg · Acqua tot. '+(lastIb.acqua||'—')+'L'+(lastIb.acqua&&lastIb.acqua<30?' ⚠️ bassa':lastIb.acqua&&lastIb.acqua>=35?' ✅':'')+' · MB '+(lastIb.mb||'—')+'kcal · BMI '+(lastIb.bmi||'—')+' · Viscerale livello '+(lastIb.visc||'—');
     if(lastIb.cintFianchi) _ibCtx += ' · Cintura/Fianchi '+lastIb.cintFianchi;
     _ibCtx += deltaIb;
     if(lastIb.magraSegm && lastIb.magraSegm.tronco){
@@ -6004,7 +5991,7 @@ async function generaPiano(){
     alimentiRossi: alimentiRossi.length?alimentiRossi.join(', '):'—',
     spuntini: (p.spuntM==='si'||p.spuntP==='si')?'Sì':'No',
     sabatosera: p.weekend||'—',
-    prefProteica: p.prefProteina||'—'
+    prefProteica: ''
   };
 
   console.log('=== DATI PAZIENTE PER PIANO ===');
@@ -6032,7 +6019,7 @@ async function generaPiano(){
     +'<b>❌ Alimenti rossi:</b> '+dati.alimentiRossi+'<br>'
     +'<b>Spuntini:</b> '+dati.spuntini+'<br>'
     +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
-    +'<b>Preferenza proteica:</b> '+dati.prefProteica;
+
 
   if (!document.getElementById('piano-badge-75')) {
     var _badgeEl = document.createElement('div');
@@ -6092,7 +6079,7 @@ async function generaPiano(){
     +"- Allergie/intolleranze: "+(p.allergie||'nessuna')+"\n"
     +"- Alimenti preferiti: "+(preferiti.length?preferiti.join(', '):'nessuno specificato')+"\n"
     +"- Alimenti scartati: "+(scartati.length?scartati.join(', '):'nessuno specificato')+"\n"
-    +"- Preferenza proteica: "+(p.prefProteina||'indifferente')+"\n"
+
     +"REGOLE:\n"
     +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
     +"- Rispetta le kcal e i macronutrienti target\n"
@@ -8084,12 +8071,12 @@ function eliminaPaz(id){
 // getDove / setDove helper
 // ═══════════════════════════════════════
 function getDove(){
-  const opts = ['casa','lavoro','fuori','mensa','scuola','merlav'];
+  const opts = ['lavoro','merenda','fuori'];
   return opts.filter(o=>document.getElementById('dove-'+o)?.checked).join(', ');
 }
 function setDove(val){
   const vals = (val||'').split(',').map(v=>v.trim().toLowerCase());
-  ['casa','lavoro','fuori','mensa','scuola','merlav'].forEach(o=>{
+  ['lavoro','merenda','fuori'].forEach(o=>{
     const el=document.getElementById('dove-'+o);
     if(el) el.checked=vals.includes(o);
   });
