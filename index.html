@@ -309,6 +309,29 @@ main{flex:1;overflow-y:auto;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+
+<!-- ── SCHERMATA LOGIN ── -->
+<div id="ng-login-screen">
+  <div class="login-box">
+    <div class="login-logo">NutriGest</div>
+    <div class="login-sub">Studio Giannandrea · Accesso riservato</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="la-tua@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')eseguiLogin()">
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <button class="login-btn" id="login-btn" onclick="eseguiLogin()">Accedi</button>
+    <div class="login-spinner" id="login-spinner" style="display:none">⏳ Accesso in corso...</div>
+  </div>
+</div>
+
+<!-- ── APP PRINCIPALE ── -->
+<div id="ng-app-shell">
 <div class="shell">
 <aside>
   <div class="brand"><h1>NutriGest</h1></div>
@@ -351,6 +374,7 @@ main{flex:1;overflow-y:auto;}
       <div id="sync-bar" style="height:4px;border-radius:4px;background:#4ade80;width:100%;transition:width .2s,background .3s;"></div>
     </div>
     <div id="syncTimestamp" style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:5px;"></div>
+    <button onclick="eseguiLogout()" style="background:none;border:none;color:rgba(255,255,255,.35);font-size:10px;cursor:pointer;padding:2px 0;font-family:'DM Sans',sans-serif;transition:color .15s;" onmouseover="this.style.color='rgba(255,255,255,.7)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">⎋ Esci</button>
   </div>
 </aside>
 <main>
@@ -8072,6 +8096,105 @@ function setDove(val){
 }
 
 // ════════════════════════════════════════════════════════════════
+// AUTH — SUPABASE LOGIN
+// ════════════════════════════════════════════════════════════════
+
+const NG_SESSION_KEY = 'ng_auth_session';
+
+function getSessioneSalvata() {
+  try {
+    const s = localStorage.getItem(NG_SESSION_KEY);
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    if (parsed.expires_at && Date.now() / 1000 > parsed.expires_at) {
+      localStorage.removeItem(NG_SESSION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch(e) { return null; }
+}
+
+function salvaSessione(session) {
+  if (!session) return;
+  localStorage.setItem(NG_SESSION_KEY, JSON.stringify({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at,
+    user_email: session.user ? session.user.email : ''
+  }));
+}
+
+function cancellaSessione() {
+  localStorage.removeItem(NG_SESSION_KEY);
+}
+
+async function eseguiLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd = document.getElementById('login-pwd').value;
+  const err = document.getElementById('login-err');
+  const btn = document.getElementById('login-btn');
+  const spinner = document.getElementById('login-spinner');
+  err.textContent = '';
+  if (!email || !pwd) { err.textContent = 'Inserisci email e password'; return; }
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  try {
+    const r = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+      body: JSON.stringify({ email, password: pwd })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.access_token) {
+      err.textContent = data.error_description || data.msg || 'Email o password errati';
+      btn.disabled = false; spinner.style.display = 'none';
+      return;
+    }
+    salvaSessione(data);
+    mostraApp();
+  } catch(e) {
+    err.textContent = 'Errore di connessione. Riprova.';
+    btn.disabled = false; spinner.style.display = 'none';
+  }
+}
+
+async function eseguiLogout() {
+  const sess = getSessioneSalvata();
+  if (sess && sess.access_token) {
+    try {
+      await fetch(SUPA_URL + '/auth/v1/logout', {
+        method: 'POST',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + sess.access_token }
+      });
+    } catch(e) {}
+  }
+  cancellaSessione();
+  document.getElementById('ng-login-screen').classList.remove('hidden');
+  document.getElementById('ng-app-shell').classList.remove('visible');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pwd').value = '';
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-spinner').style.display = 'none';
+}
+
+function mostraApp() {
+  document.getElementById('ng-login-screen').classList.add('hidden');
+  const shell = document.getElementById('ng-app-shell');
+  shell.classList.add('visible');
+  shell.style.cssText = 'display:flex;width:100%;height:100vh;flex-direction:row;';
+}
+
+function verificaSessioneEAvvia() {
+  const sess = getSessioneSalvata();
+  if (sess && sess.access_token) {
+    mostraApp();
+    return true;
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════
 window._alStato={};
@@ -8116,13 +8239,16 @@ renderPaz();
 renderCal();
 renderDashboard();
 const savedUrl=getUrl();
-if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;setTimeout(()=>syncNow(),800);}
-else setSyncStatus(false);
+if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;}
 setSyncStatus(!!localStorage.getItem('lastSync'));
 aggiornaStatoSync();
 pulisciAgendaVecchia();
 renderAgendaDx();
 initAntCard();
+
+// Verifica sessione — avvia app o mostra login
+const _sessAvviata = verificaSessioneEAvvia();
+if(_sessAvviata){setTimeout(()=>syncNow(),800);}
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
 
@@ -8311,5 +8437,6 @@ document.getElementById('p2-save').onclick = async function() {
   <div id="p2-ric-slot-label" style="font-size:.7rem;color:var(--teal);font-weight:500;text-transform:uppercase;letter-spacing:.6px;padding:.4rem 1rem;background:var(--teal-bg);border-bottom:1px solid var(--border);"></div>
   <div id="p2-ric-list" style="flex:1;overflow-y:auto;padding:.6rem;"></div>
 </div>
+</div><!-- /ng-app-shell -->
 </body>
 </html>
