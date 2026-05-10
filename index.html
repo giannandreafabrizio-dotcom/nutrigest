@@ -945,35 +945,57 @@ main{flex:1;overflow-y:auto;}
       </div>
     </div>
     <div class="fg">
-      <label>Integratori che GIA' prende</label>
-      <div class="chip-group">
-        <label class="chip-pill"><input type="checkbox" id="int-omega3"> Omega-3</label>
-        <label class="chip-pill"><input type="checkbox" id="int-magpot"> Magnesio + Potassio</label>
-        <label class="chip-pill"><input type="checkbox" id="int-mag"> Solo Magnesio</label>
-        <label class="chip-pill"><input type="checkbox" id="int-multi"> Multivitaminico</label>
-        <label class="chip-pill"><input type="checkbox" id="int-prob"> Probiotici</label>
-        <label class="chip-pill"><input type="checkbox" id="int-creat"> Creatina</label>
-        <label class="chip-pill"><input type="checkbox" id="int-ferro"> Ferro</label>
-        <label class="chip-pill"><input type="checkbox" id="int-vitd"> Vitamina D</label>
-        <label class="chip-pill"><input type="checkbox" id="int-prot"> Proteine in polvere</label>
-        <label class="chip-pill"><input type="checkbox" id="int-bcaa"> BCAA (ramificati)</label>
-        <label class="chip-pill"><input type="checkbox" id="int-eaa"> EAA (essenziali)</label>
+      <label>Integratori</label>
+      <div style="display:flex;gap:12px;align-items:center;margin:.4rem 0 .6rem;font-size:.72rem;color:var(--text2)">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:var(--teal);display:inline-block"></span> Prende già</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:#BA7517;display:inline-block"></span> Vorrebbe prendere</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;border:1px solid var(--border);display:inline-block"></span> Nessuno</span>
       </div>
-    </div>
-    <div class="fg">
-      <label style="color:var(--teal)">Integratori che VORREBBE prendere</label>
-      <div class="chip-group">
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-omega3"> Omega-3</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-magpot"> Magnesio + Potassio</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-mag"> Solo Magnesio</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-multi"> Multivitaminico</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-prob"> Probiotici</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-creat"> Creatina</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-ferro"> Ferro</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-vitd"> Vitamina D</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-prot"> Proteine in polvere</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-bcaa"> BCAA (ramificati)</label>
-        <label class="chip-pill teal-outline"><input type="checkbox" id="inw-eaa"> EAA (essenziali)</label>
+      <div class="chip-group" id="int-dual-group">
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-omega3" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-omega3" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Omega-3
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-magpot" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-magpot" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Magnesio + Potassio
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-mag" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-mag" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Solo Magnesio
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-multi" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-multi" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Multivitaminico
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-prob" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-prob" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Probiotici
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-creat" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-creat" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Creatina
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-ferro" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-ferro" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Ferro
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-vitd" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-vitd" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Vitamina D
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-prot" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-prot" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Proteine in polvere
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-bcaa" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-bcaa" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          BCAA (ramificati)
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-eaa" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-eaa" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          EAA (essenziali)
+        </div>
       </div>
     </div>
     <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
@@ -1064,9 +1086,6 @@ main{flex:1;overflow-y:auto;}
     <div class="fr">
       <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
-      <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
-    </div>
-    <div class="fr">
       <div class="fg"><label>Sabato sera</label>
         <select id="p-weekend">
           <option value="Pizza">Pizza</option>
@@ -1076,6 +1095,9 @@ main{flex:1;overflow-y:auto;}
           <option value="Sushi o Poke">Sushi o Poke</option>
         </select>
       </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
       <div class="fg"><label>Cibi preferiti</label><input id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></div>
     </div>
   </div>
