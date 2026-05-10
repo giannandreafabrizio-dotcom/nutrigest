@@ -3399,7 +3399,7 @@ function resetSemaforoAuto(p){
 // ── RAGIONAMENTO CLINICO — 4 FLUSSI PARALLELI ─────────────────────────────
 
 let _ragMessages=[], _ragPazId=null, _ragRiassunto=null, _ragLoading=false;
-let _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+let _ragFlussi={f1:'',f3:'',loading:[]};
 
 const RAG_SYSTEM_PROMPT=`Sei un assistente clinico specializzato in dietologia che affianca il Dott. Fabrizio Giannandrea, dietologo con studio a Napoli (Magic e Centro Curae).
 
@@ -3521,6 +3521,21 @@ function costruisciContestoPaziente(p){
   if(_intPrende.length)ctx+='\nIntegratori attualmente in uso: '+_intPrende.join(', ');
   else ctx+='\nIntegratori attualmente in uso: nessuno';
   if(_intVuole.length)ctx+='\nIntegratori che vorrebbe prendere: '+_intVuole.join(', ');
+
+  // Analisi del sangue — passa i valori inseriti all'AI
+  if(p.analisiSangue){
+    const _asVoci=[];
+    Object.entries(p.analisiSangue).forEach(function([k,v]){
+      if(k.endsWith('_check')&&v===true){
+        const nome=k.replace(/_check$/,'').replace(/_/g,' ');
+        const valKey=k.replace(/_check$/,'_val');
+        const valore=p.analisiSangue[valKey];
+        _asVoci.push(nome+(valore?' '+valore:''));
+      }
+    });
+    if(_asVoci.length)ctx+='\n\nAnalisi del sangue disponibili: '+_asVoci.join(' · ');
+  }
+
   if(p.ragionamentoClinico)ctx+='\n\nRagionamento clinico precedente ('+p.ragionamentoClinico.data+'):\n'+p.ragionamentoClinico.testo;
 
   return ctx;
@@ -3530,8 +3545,8 @@ async function avviaF1(p,apiKey){
   const _ct=calcolaTDEE(p);
   const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
   const kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea. Analizza i dati del paziente e produci un ragionamento completo sui macronutrienti.\n\nSTRUTTURA OBBLIGATORIA (usa esattamente questi titoli):\n\nPUNTO DI PARTENZA\nMostra: MB · LAF · TDEE · regime · delta calorico · kcal target iniziale\n\nANALISI COMPOSIZIONE CORPOREA\nCommenta massa magra, % grassa, massa viscerale, delta vs misurazione precedente. Cosa dice la composizione corporea sul piano da costruire?\n\nRAGIONAMENTO KCAL\nIl target calorico calcolato e corretto per questo paziente? Considera: contesto emotivo e motivazionale, patologie presenti, trend InBody, obiettivo peso, sostenibilita. Proponi aggiustamenti motivati se necessario.\n\nPROPOSTA MACROS\nProteine: g/kg scelto e motivazione specifica (eta, massa magra, patologie renali, sport)\nCarboidrati: calcolo residuo e commento clinico\nGrassi: g/kg scelto e motivazione\nNumeri finali chiari: Kcal: X · P: Xg · C: Xg · G: Xg\n\nFLAG CLINICI\nLista puntata di tutto cio che il medico deve tenere a mente (farmaci che interferiscono, patologie che modificano i macros, dati mancanti o vecchi)\n\nPROPOSTA ALTERNATIVA\nSolo se il profilo lo giustifica: ciclizzazione ON/OFF o altro. Altrimenti ometti questa sezione.\n\nTONO: collega clinico esperto, diretto, conciso. Ragiona su questo paziente specifico, non in modo generico.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1200,system:system,messages:[{role:'user',content:(()=>{
+  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nPRODUCI ESATTAMENTE questo formato — niente di piu, niente di meno:\n\n📊 MACROS DECISI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — motiva in 5 parole]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 LETTURA CLINICA\n[3-5 righe di ragionamento genuino su questo paziente specifico.\nRispondi a: il target calcolato e giusto o va aggiustato? Perche?\nCosa dicono i dati InBody sul percorso? C\u2019e qualcosa da tenere d\u2019occhio?\nSe ci sono analisi del sangue anomale, commentale in chiave nutrizionale.\nSe profilo semplice e nella norma, dillo chiaramente senza inventare problemi.]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚡ FLAG RAPIDI  [SOLO se presenti — altrimenti ometti]\n• [flag 1]\n• [flag 2]\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli.';
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:900,system:system,messages:[{role:'user',content:(()=>{
     const _ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
     const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
     const _bmi=_ib&&_ib.bmi?parseFloat(_ib.bmi):null;
@@ -3540,75 +3555,43 @@ async function avviaF1(p,apiKey){
     const _ref=_useFFM?_ffm:(_ib?_ib.peso:(p.peso||null));
     const _rifLabel=_useFFM?'FFM ('+_ffm+'kg)':'peso corporeo ('+_ref+'kg)';
     const _kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
-    let extra='\n\nRIFERIMENTO CALCOLO MACROS: '+_rifLabel+(_useFFM?' — calcolo su massa magra perche BMI '+(_bmi?_bmi.toFixed(1):'')+(p.rifCalcolo==='ffm'?' (forzato dal medico)':' >= 25'):'');
+    let extra='\n\nRIFERIMENTO CALCOLO: '+_rifLabel+(_useFFM?' — BMI '+(_bmi?_bmi.toFixed(1):'')+(p.rifCalcolo==='ffm'?' (forzato)':' >= 25, uso FFM'):'');
     if(_ref&&_kcalBase){
       const _pMin=Math.round(1.6*_ref),_pMax=Math.round(2.0*_ref);
       const _lMin=Math.round(0.8*_ref),_lMax=Math.round(1.0*_ref);
-      extra+='\nRange proteine indicativo: '+_pMin+'-'+_pMax+'g ('+Number((1.6).toFixed(1))+'-'+Number((2.0).toFixed(1))+' g/kg '+(_useFFM?'FFM':'peso')+')';
-      extra+='\nRange lipidi indicativo: '+_lMin+'-'+_lMax+'g ('+Number((0.8).toFixed(1))+'-'+Number((1.0).toFixed(1))+' g/kg '+(_useFFM?'FFM':'peso')+')';
-      extra+='\nKcal target indicativo: '+_kcalBase+' kcal (TDEE '+_ct.tdee+' + delta regime '+(_kcalBase-_ct.tdee)+')';
+      extra+='\nRange P: '+_pMin+'-'+_pMax+'g · Range G: '+_lMin+'-'+_lMax+'g · Kcal indicativo: '+_kcalBase+' (TDEE '+_ct.tdee+' '+(_kcalBase-_ct.tdee>0?'+':'')+(_kcalBase-_ct.tdee)+')';
     }
-    return costruisciContestoPaziente(p)+extra+'\n\nAnalizza i macronutrienti per questo paziente. Usa il riferimento '+_rifLabel+' per il calcolo di proteine e lipidi.';
+    return costruisciContestoPaziente(p)+extra+'\n\nProduci la scheda macros per questo paziente nel formato esatto indicato.';
   })()}]})});
   if(!r.ok)throw new Error('F1 errore '+r.status);
   const data=await r.json();
   return data.content?.[0]?.text||'';
 }
 
-async function avviaF2(p,apiKey,testoF1){
-  const al=p.alimenti||{};
-  const verdi=Object.entries(al).filter(function(e){return e[1]==='si'||e[1]==='verde'||e[1]==='verdeC';}).map(function(e){return e[0].split('__')[1];});
-  const arancioni=Object.entries(al).filter(function(e){return e[1]==='arancione'||e[1]==='arancioneC';}).map(function(e){return e[0].split('__')[1];});
-  const rossi=Object.entries(al).filter(function(e){return e[1]==='no'||e[1]==='rosso';}).map(function(e){return e[0].split('__')[1];});
-  const esclusi=Object.entries(al).filter(function(e){return e[1]==='grigio'||e[1]==='grigio_scuro_1'||e[1]==='grigio_scuro_2';}).map(function(e){return e[0].split('__')[1];});
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea. Sulla base dei macronutrienti definiti e del profilo del paziente, indica quali alimenti sono piu indicati per costruire il piano alimentare.\n\nSTRUTTURA OBBLIGATORIA:\n\nPROTEINE CONSIGLIATE\nAlimenti proteici piu adatti con frequenza suggerita (alta/media/bassa) e motivazione breve\n\nCARBOIDRATI CONSIGLIATI\nFonti di carboidrati piu adatte con frequenza e motivazione\n\nGRASSI CONSIGLIATI\nFonti di grassi piu adatte\n\nVERDURE E FIBRE\nIndicazioni specifiche in base al profilo (alvo, patologie, obiettivi)\n\nALIMENTI DA LIMITARE\nCosa ridurre e perche — non ripetere gli esclusi da semaforo\n\nNOTE PRATICHE\nDistribuzione nei pasti, abitudini lavorative, orari\n\nTONO: pratico e diretto. Concentrati sugli alimenti piu utili per questo paziente specifico.';
-  const userMsg=costruisciContestoPaziente(p)
-    +'\n\nSEMAFORO ALIMENTI:\nAlta frequenza (verde): '+(verdi.length?verdi.join(', '):'nessuno selezionato')
-    +'\nMedia frequenza (arancione): '+(arancioni.length?arancioni.join(', '):'nessuno')
-    +'\nBassa frequenza (rosso): '+(rossi.length?rossi.join(', '):'nessuno')
-    +'\nEsclusi (grigio): '+(esclusi.length?esclusi.join(', '):'nessuno')
-    +(testoF1?'\n\nDECISIONI F1 MACRONUTRIENTI (tieni conto di questi numeri):\n'+testoF1.substring(0,500):'')
-    +'\n\nIndica gli alimenti piu indicati per costruire il piano di questo paziente.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:900,system:system,messages:[{role:'user',content:userMsg}]})});
-  if(!r.ok)throw new Error('F2 errore '+r.status);
-  const data=await r.json();
-  return data.content?.[0]?.text||'';
-}
 
 async function avviaF3(p,apiKey){
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea. Analizza il profilo clinico del paziente e identifica tutte le condizioni che richiedono attenzione specifica nel piano alimentare.\n\nSTRUTTURA OBBLIGATORIA:\n\nCONDIZIONI ATTIVE\nPer ogni condizione rilevante: cosa significa per il piano alimentare, cosa fare, cosa evitare\n\nINTERAZIONI FARMACI-NUTRIENTI\nSe il paziente prende farmaci, segnala le interazioni rilevanti (metformina e B12, levotiroxina e calcio, statine e pompelmo, anticoagulanti e vitamina K, ecc.)\n\nAVVISI PRIORITARI\nMassimo 3 cose che il medico deve assolutamente tenere a mente per questo paziente\n\nSe non ci sono condizioni rilevanti scrivi: "Nessuna condizione clinica specifica rilevata nel profilo — piano standard applicabile."\n\nTONO: preciso, clinico, essenziale. Solo cio che e rilevante per questo paziente.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,system:system,messages:[{role:'user',content:costruisciContestoPaziente(p)+'\n\nAnalizza le condizioni cliniche rilevanti per il piano alimentare di questo paziente.'}]})});
+  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nAnalizza il profilo clinico e produci SOLO una lista di flag nel formato:\n\n🏥 FLAG CLINICI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Per ogni condizione/farmaco rilevante:]\n⚠️ [NOME CONDIZIONE]\n   → [vincolo diretto sul piano: cosa fare o evitare — 1 riga]\n   → [seconda indicazione se serve — 1 riga]\n\n[Per ogni interazione farmaco-nutriente:]\n💊 [FARMACO]\n   → [interazione nutrizionale rilevante — 1 riga]\n\n🔴 AVVISI PRIORITARI\n   1. [cosa piu importante da tenere a mente]\n   2. [seconda priorita se esiste]\n\nSe non ci sono condizioni rilevanti scrivi SOLO:\n✅ Profilo standard — nessun vincolo clinico specifico.\n\nREGOLE: niente testo narrativo. Solo flag e frecce. Massimo 15 righe totali.';
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:450,system:system,messages:[{role:'user',content:costruisciContestoPaziente(p)+'\n\nProduci i flag clinici per il piano di questo paziente.'}]})});
   if(!r.ok)throw new Error('F3 errore '+r.status);
   const data=await r.json();
   return data.content?.[0]?.text||'';
 }
 
-async function avviaF4(p,apiKey){
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea. Sulla base dei dati InBody, delle patologie, dello stile di vita e dell attivita fisica, proponi gli integratori piu utili per questo paziente.\n\nSTRUTTURA OBBLIGATORIA:\n\nINTEGRATORI GIA IN USO\nCommenta brevemente se quelli che prende sono appropriati per il suo profilo\n\nINTEGRATORI CONSIGLIATI\nPer ognuno: nome · motivazione clinica basata sui dati del paziente · dosaggio indicativo · quando assumerlo\n\nINTEGRATORI DA EVITARE O MONITORARE\nSe ci sono controindicazioni specifiche per questo paziente\n\nSe il profilo e nella norma e non emergono carenze evidenti, dillo chiaramente senza inventare integratori.\n\nTONO: clinico e motivato. Ogni proposta deve avere una ragione specifica legata ai dati di questo paziente.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,system:system,messages:[{role:'user',content:costruisciContestoPaziente(p)+'\n\nProponi gli integratori piu indicati per questo paziente.'}]})});
-  if(!r.ok)throw new Error('F4 errore '+r.status);
-  const data=await r.json();
-  return data.content?.[0]?.text||'';
-}
 
 async function avviaAnalisiParallela(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
   if(!p)return;
   const apiKey=localStorage.getItem('anthropicApiKey')||'';
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
-  _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:['f1','f2','f3','f4']};
+  _ragFlussi={f1:'',f3:'',loading:['f1','f3']};
   renderPdRagionamento(p);
-  notif('⏳ Analisi in corso — 4 flussi paralleli avviati...');
-  const risultati=await Promise.allSettled([avviaF1(p,apiKey),avviaF2(p,apiKey,''),avviaF3(p,apiKey),avviaF4(p,apiKey)]);
+  notif('⏳ Analisi in corso — 2 flussi paralleli avviati...');
+  const risultati=await Promise.allSettled([avviaF1(p,apiKey),avviaF3(p,apiKey)]);
   _ragFlussi.loading=[];
   if(risultati[0].status==='fulfilled')_ragFlussi.f1=risultati[0].value;
   else _ragFlussi.f1='⚠ Errore F1: '+risultati[0].reason.message;
-  if(risultati[1].status==='fulfilled')_ragFlussi.f2=risultati[1].value;
-  else _ragFlussi.f2='⚠ Errore F2: '+risultati[1].reason.message;
-  if(risultati[2].status==='fulfilled')_ragFlussi.f3=risultati[2].value;
-  else _ragFlussi.f3='⚠ Errore F3: '+risultati[2].reason.message;
-  if(risultati[3].status==='fulfilled')_ragFlussi.f4=risultati[3].value;
-  else _ragFlussi.f4='⚠ Errore F4: '+risultati[3].reason.message;
+  if(risultati[1].status==='fulfilled')_ragFlussi.f3=risultati[1].value;
+  else _ragFlussi.f3='⚠ Errore F3: '+risultati[1].reason.message;
   renderPdRagionamento(p);
   notif('✓ Analisi completata!');
 }
@@ -3639,7 +3622,7 @@ function renderPdRagionamento(p){
     // ── BUG3 FIX: ricarica flussi salvati invece di azzerarli ──
     const _rc=p.ragionamentoClinico;
     if(_rc&&_rc.flussi){
-      _ragFlussi={f1:_rc.flussi.f1||'',f2:_rc.flussi.f2||'',f3:_rc.flussi.f3||'',f4:_rc.flussi.f4||'',loading:[]};
+      _ragFlussi={f1:_rc.flussi.f1||'',f3:_rc.flussi.f3||'',loading:[]};
       // Ricarica anche il riassunto salvato così è subito visibile
       _ragRiassunto=_rc.testo||null;
     } else {
@@ -3661,17 +3644,15 @@ function renderPdRagionamento(p){
   }
 
   const isLoading=_ragFlussi.loading.length>0;
-  const hasAnyFlusso=_ragFlussi.f1||_ragFlussi.f2||_ragFlussi.f3||_ragFlussi.f4;
+  const hasAnyFlusso=_ragFlussi.f1||_ragFlussi.f3;
   html+='<div style="margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">'
     +'<button class="btn" style="background:var(--teal);color:#fff;font-size:.82rem;padding:.45rem 1.1rem;border-radius:8px;border:none;cursor:'+(isLoading?'not-allowed':'pointer')+';opacity:'+(isLoading?'.6':'1')+'" onclick="'+(isLoading?'':'avviaAnalisiParallela()')+'" '+(isLoading?'disabled':'')+'>'+( isLoading?'⏳ Analisi in corso...':'▶ Avvia Analisi')+'</button>'
     +(hasAnyFlusso&&!isLoading?'<button class="btn btn-g btn-sm" onclick="avviaAnalisiParallela()">🔄 Rianalizza</button>':'')
-    +'<span style="font-size:.72rem;color:var(--text3)">Lancia 4 analisi parallele su questo paziente</span>'
+    +'<span style="font-size:.72rem;color:var(--text3)">Lancia 2 analisi parallele su questo paziente</span>'
     +'</div>';
 
-  html+=_renderFlussoPanel('f1','🔢','F1 — Macronutrienti',_ragFlussi.f1,_ragFlussi.loading);
-  html+=_renderFlussoPanel('f2','🥗','F2 — Scelta Alimenti',_ragFlussi.f2,_ragFlussi.loading);
-  html+=_renderFlussoPanel('f3','⚕️','F3 — Regole Cliniche',_ragFlussi.f3,_ragFlussi.loading);
-  html+=_renderFlussoPanel('f4','💊','F4 — Integratori',_ragFlussi.f4,_ragFlussi.loading);
+  html+=_renderFlussoPanel('f1','📊','F1 — Macros & Composizione',_ragFlussi.f1,_ragFlussi.loading);
+  html+=_renderFlussoPanel('f3','🏥','F3 — Flag Clinici',_ragFlussi.f3,_ragFlussi.loading);
 
   const userCount=_ragMessages.filter(function(m){return m.role==='user';}).length;
   const msgs=_ragMessages.map(function(m){
@@ -3726,10 +3707,10 @@ async function inviaMessaggioRag(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});if(!p)return;
   const apiKey=localStorage.getItem('anthropicApiKey')||'';
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
-  const contestoFlussi=(_ragFlussi.f1||_ragFlussi.f2||_ragFlussi.f3||_ragFlussi.f4)
+  const contestoFlussi=(_ragFlussi.f1||_ragFlussi.f3)
     ?'\n\nANALISI GIA PRODOTTA:\n'
-      +(_ragFlussi.f1?'--- F1 MACRONUTRIENTI ---\n'+_ragFlussi.f1.substring(0,600)+'\n':'')
-      +(_ragFlussi.f3?'--- F3 REGOLE CLINICHE ---\n'+_ragFlussi.f3.substring(0,400)+'\n':'')
+      +(_ragFlussi.f1?'--- F1 MACROS ---\n'+_ragFlussi.f1.substring(0,700)+'\n':'')
+      +(_ragFlussi.f3?'--- F3 FLAG CLINICI ---\n'+_ragFlussi.f3.substring(0,400)+'\n':'')
     :'';
   _ragMessages.push({role:'user',content:msg});
   _ragLoading=true;renderPdRagionamento(p);
@@ -3751,10 +3732,8 @@ async function concludiERiassumi(){
   const apiKey=localStorage.getItem('anthropicApiKey')||'';
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
   notif('⏳ Elaborazione riassunto clinico...');
-  const flussiTesto=(_ragFlussi.f1?'F1 MACRONUTRIENTI:\n'+_ragFlussi.f1+'\n\n':'')
-    +(_ragFlussi.f2?'F2 ALIMENTI:\n'+_ragFlussi.f2+'\n\n':'')
-    +(_ragFlussi.f3?'F3 REGOLE CLINICHE:\n'+_ragFlussi.f3+'\n\n':'')
-    +(_ragFlussi.f4?'F4 INTEGRATORI:\n'+_ragFlussi.f4+'\n\n':'');
+  const flussiTesto=(_ragFlussi.f1?'F1 MACROS & COMPOSIZIONE:\n'+_ragFlussi.f1+'\n\n':'')
+    +(_ragFlussi.f3?'F3 FLAG CLINICI:\n'+_ragFlussi.f3+'\n\n':'');
   const conv=_ragMessages.length?_ragMessages.map(function(m){return (m.role==='user'?'Dott. Fabrizio':'Claude')+': '+m.content;}).join('\n\n'):'';
   const promptRiass='Sei un assistente clinico. Leggi l analisi prodotta e la conversazione di raffinamento riguardo al paziente '+p.nome+' '+p.cognome+'. Estrai SOLO le decisioni cliniche finali. Produci un riassunto strutturato con: Obiettivo, Kcal decise, Macros definitivi (scrivi esattamente: Proteine: Xg, Carboidrati: Xg, Grassi: Xg), Note cliniche importanti, Integratori consigliati se decisi, Prossimo controllo se menzionato. Sii preciso e conciso.\n\nANALISI PRODOTTA:\n'+flussiTesto+(conv?'\n\nCONVERSAZIONE DI RAFFINAMENTO:\n'+conv:'');
   try{
@@ -3777,7 +3756,7 @@ function salvaRagionamento(){
   const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
   const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
   const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'f1'}:null;
-  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{f1:_ragFlussi.f1,f2:_ragFlussi.f2,f3:_ragFlussi.f3,f4:_ragFlussi.f4}};
+  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{f1:_ragFlussi.f1,f3:_ragFlussi.f3}};
   save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
 
@@ -3790,7 +3769,7 @@ function apriGeneratoreDaRag(){
 }
 
 function nuovaSessioneRag(){
-  _ragMessages=[];_ragRiassunto=null;_ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+  _ragMessages=[];_ragRiassunto=null;_ragFlussi={f1:'',f3:'',loading:[]};
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
   if(p)renderPdRagionamento(p);
 }
