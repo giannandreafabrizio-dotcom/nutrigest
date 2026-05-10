@@ -331,7 +331,7 @@ main{flex:1;overflow-y:auto;}
 </div>
 
 <!-- ── APP PRINCIPALE ── -->
-<div id="ng-app-shell" style="display:none;width:100%;height:100vh;flex-direction:row;">
+<div id="ng-app-shell" style="display:none;">
 <div class="shell">
 <aside>
   <div class="brand"><h1>NutriGest</h1></div>
@@ -1060,18 +1060,11 @@ main{flex:1;overflow-y:auto;}
           <label class="chip-pill"><input type="checkbox" id="dove-fuori"> Cena fuori abituale</label>
         </div>
       </div>
-    </div>
-
-    <div class="fr">
       <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
     </div>
     <div class="fr">
       <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
-    </div>
-
-    <div class="fg"><label>Cibi preferiti</label><textarea id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></textarea></div>
-    <div class="fr">
       <div class="fg"><label>Sabato sera</label>
         <select id="p-weekend">
           <option value="Pizza">Pizza</option>
@@ -1081,6 +1074,7 @@ main{flex:1;overflow-y:auto;}
           <option value="Sushi o Poke">Sushi o Poke</option>
         </select>
       </div>
+      <div class="fg"><label>Cibi preferiti</label><input id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></div>
     </div>
   </div>
 
@@ -8171,11 +8165,7 @@ async function eseguiLogout() {
 
 function mostraApp() {
   document.getElementById('ng-login-screen').style.display = 'none';
-  const shell = document.getElementById('ng-app-shell');
-  shell.style.display = 'flex';
-  shell.style.width = '100%';
-  shell.style.height = '100vh';
-  shell.style.flexDirection = 'row';
+  document.getElementById('ng-app-shell').style.display = 'block';
 }
 
 function verificaSessioneEAvvia() {
