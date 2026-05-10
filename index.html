@@ -1052,19 +1052,21 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Pre-nanna</label><select id="p-prenanna"><option value="no">No</option><option value="si">Sì</option></select></div>
     </div>
     <div class="sec-title">Abitudini alimentari</div>
-    <div class="fr">
+    <div class="fr" style="align-items:flex-start">
       <div class="fg"><label>Dove consumi i pasti?</label>
-        <div class="chip-group" style="margin-top:.3rem">
+        <div class="chip-group" style="margin-top:.3rem;flex-wrap:nowrap;gap:6px">
           <label class="chip-pill"><input type="checkbox" id="dove-lavoro"> Pranzo a lavoro</label>
           <label class="chip-pill"><input type="checkbox" id="dove-merenda"> Merenda fuori casa</label>
           <label class="chip-pill"><input type="checkbox" id="dove-fuori"> Cena fuori abituale</label>
         </div>
       </div>
-      <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
-      <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
     </div>
     <div class="fr">
+      <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
+      <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
       <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
+    </div>
+    <div class="fr">
       <div class="fg"><label>Sabato sera</label>
         <select id="p-weekend">
           <option value="Pizza">Pizza</option>
