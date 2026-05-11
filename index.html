@@ -308,6 +308,35 @@ main{flex:1;overflow-y:auto;}
 
 #piano-container{max-width:900px;}
 @media(max-width:768px){#piano-container{max-width:100%;}}
+/* Layout generatore con pannello laterale */
+#piano-outer-wrap{display:flex;gap:1rem;align-items:flex-start;max-width:1220px;margin:0 auto;}
+#piano-container{flex:1;min-width:0;max-width:900px;}
+#panel-macros-giorno{width:280px;flex-shrink:0;position:sticky;top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;}
+#panel-macros-giorno.visible{display:block;}
+.pmg-head{background:var(--green);color:#fff;padding:.55rem .9rem;font-size:.78rem;font-weight:700;}
+.pmg-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--s1);}
+.pmg-tab{flex:1;padding:.38rem .2rem;font-size:.7rem;text-align:center;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;transition:color .15s;}
+.pmg-tab.active{color:var(--green);border-bottom-color:var(--green);font-weight:600;}
+.pmg-body{padding:.6rem .7rem;max-height:calc(100vh - 180px);overflow-y:auto;}
+.pmg-section{margin-bottom:.7rem;}
+.pmg-section-title{font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;padding:.3rem 0 .2rem;border-bottom:1px solid var(--border);margin-bottom:.3rem;}
+.pmg-alim-row{display:grid;grid-template-columns:1fr 42px 38px 28px 28px 28px;gap:2px;align-items:center;padding:2px 0;}
+.pmg-alim-row.princ{background:var(--green-bg);border-radius:4px;padding:2px 3px;}
+.pmg-alim-row.alt{padding-left:10px;opacity:.85;}
+.pmg-alim-name{font-size:.71rem;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pmg-alim-name.alt-name{color:var(--text3);font-style:italic;font-size:.68rem;}
+.pmg-gram-input{width:38px;font-size:.7rem;text-align:center;border:1px solid var(--border);border-radius:3px;padding:1px 2px;color:var(--teal);font-weight:600;background:var(--bg);cursor:pointer;}
+.pmg-gram-input:focus{outline:none;border-color:var(--teal);background:#f0fdfa;}
+.pmg-mac{font-size:.68rem;text-align:right;color:var(--text2);}
+.pmg-mac.prot{color:#0F6E56;}
+.pmg-mac.gras{color:#854F0B;}
+.pmg-col-hdr{display:grid;grid-template-columns:1fr 42px 38px 28px 28px 28px;gap:2px;padding:1px 0 3px;margin-bottom:1px;}
+.pmg-col-hdr span{font-size:.6rem;color:var(--text3);text-align:right;text-transform:uppercase;}
+.pmg-col-hdr span:first-child{text-align:left;}
+.pmg-totale{background:var(--green-bg);border-radius:6px;padding:.45rem .6rem;margin-top:.5rem;}
+.pmg-totale-row{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text2);margin-bottom:.1rem;}
+.pmg-totale-row span:last-child{font-weight:600;color:var(--text1);}
+@media(max-width:1050px){#panel-macros-giorno{display:none!important;}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -655,7 +684,8 @@ main{flex:1;overflow-y:auto;}
   <div class="page-hd">
     <div><h2>Generatore Piani Alimentari</h2><p>Crea piani settimanali personalizzati nel tuo stile</p></div>
   </div>
-  <div id="piano-container" style="max-width:900px;margin:2rem auto;display:flex;flex-direction:column;gap:1.2rem;">
+  <div id="piano-outer-wrap">
+  <div id="piano-container" style="margin:2rem auto;display:flex;flex-direction:column;gap:1.2rem;">
 
     <!-- Selezione paziente -->
     <div class="card" style="padding:1.2rem 1.4rem;">
@@ -798,7 +828,18 @@ main{flex:1;overflow-y:auto;}
       <button id="p2-save" style="display:block;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
     </div>
 
+  </div><!-- fine piano-container -->
+
+  <!-- PANNELLO LATERALE MACROS GIORNO -->
+  <div id="panel-macros-giorno">
+    <div class="pmg-head">📊 Dettaglio giorno</div>
+    <div class="pmg-tabs" id="pmg-tabs"></div>
+    <div class="pmg-body" id="pmg-body">
+      <div style="font-size:.75rem;color:var(--text3);padding:.5rem 0;">Genera un piano per vedere i dettagli nutrizionali.</div>
+    </div>
   </div>
+
+  </div><!-- fine piano-outer-wrap -->
 </div>
 
 <!-- IMPOSTAZIONI -->
@@ -1620,17 +1661,20 @@ function calcolaMacrosPiano(piano) {
     Object.values(pasti).forEach(pasto => {
       const celle = pasto.celle || [];
       celle.forEach(cella => {
-        const al = cella.alimenti && cella.alimenti[0];
-        if (!al) return;
-        const cat = al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
-        const vals = getValoriCREA(al.n, cat);
-        if (!vals) {
-          nonTrovati.add(al.n);
-          return;
-        }
-        const grammi = parseFloat(al.g) || 0;
-        const f = grammi / 100;
-        dKcal += vals.kcal * f; dP += vals.p * f; dC += vals.c * f; dG += vals.g * f;
+        if (!cella.alimenti || !cella.alimenti.length) return;
+        // Pesi 40/30/30 sulle prime 3 alternative
+        var pesi = [0.40, 0.30, 0.30];
+        var alArr = cella.alimenti.slice(0, 3);
+        alArr.forEach(function(al, ai) {
+          if (!al) return;
+          var peso = alArr.length === 1 ? 1 : (pesi[ai] || 0);
+          var cat = al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
+          var vals = getValoriCREA(al.n, cat);
+          if (!vals) { nonTrovati.add(al.n); return; }
+          var grammi = parseFloat(al.g) || 0;
+          var f = grammi / 100 * peso;
+          dKcal += vals.kcal * f; dP += vals.p * f; dC += vals.c * f; dG += vals.g * f;
+        });
       });
     });
     giornalieri.push({
@@ -5408,8 +5452,162 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _toggleWrap1.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
     pianoEl.appendChild(_toggleWrap1);
     pianoEl.appendChild(btn);
+    // Aggiorna pannello laterale macros
+    if (typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(g);
   };
   window._renderGiornoGen();
+}
+
+// ═══════════════════════════════════════════
+// PANNELLO LATERALE — DETTAGLIO MACROS GIORNO
+// ═══════════════════════════════════════════
+function renderPanelMacrosGiorno(giornoObj) {
+  var panel = document.getElementById('panel-macros-giorno');
+  var tabsEl = document.getElementById('pmg-tabs');
+  var bodyEl = document.getElementById('pmg-body');
+  if (!panel || !tabsEl || !bodyEl || !giornoObj) return;
+
+  panel.classList.add('visible');
+
+  var slots = [
+    {label:'Col.',key:'colazione'},
+    {label:'Sp.M',key:'spuntino_mattina'},
+    {label:'Pranzo',key:'pranzo'},
+    {label:'Sp.P',key:'spuntino_pomeriggio'},
+    {label:'Cena',key:'cena'},
+    {label:'Nanna',key:'pre_nanna'}
+  ];
+
+  // Trova i pasti presenti
+  var pastiPresenti = slots.filter(function(s){
+    var p = giornoObj[s.key] || (giornoObj.pasti && giornoObj.pasti[s.key]);
+    return p && p.celle && p.celle.length;
+  });
+  if (!pastiPresenti.length) {
+    bodyEl.innerHTML = '<div style="font-size:.75rem;color:var(--text3);padding:.5rem 0;">Nessun alimento trovato per questo giorno.</div>';
+    tabsEl.innerHTML = '';
+    return;
+  }
+
+  // Tab attivo default
+  if (!window._pmgTabAttivo || !pastiPresenti.find(function(s){return s.key===window._pmgTabAttivo;})) {
+    window._pmgTabAttivo = pastiPresenti[0].key;
+  }
+
+  // Render tabs
+  tabsEl.innerHTML = pastiPresenti.map(function(s){
+    var act = s.key === window._pmgTabAttivo;
+    return '<button class="pmg-tab'+(act?' active':'')+'" onclick="window._pmgTabAttivo=\''+s.key+'\';renderPanelMacrosGiorno(window._pmgGiornoCorrente);">'+s.label+'</button>';
+  }).join('');
+
+  window._pmgGiornoCorrente = giornoObj;
+
+  // Render body per il tab attivo
+  var slotAttivo = pastiPresenti.find(function(s){return s.key===window._pmgTabAttivo;});
+  if (!slotAttivo) { window._pmgTabAttivo = pastiPresenti[0].key; slotAttivo = pastiPresenti[0]; }
+
+  var pasto = giornoObj[slotAttivo.key] || (giornoObj.pasti && giornoObj.pasti[slotAttivo.key]);
+  if (!pasto || !pasto.celle) { bodyEl.innerHTML = ''; return; }
+
+  var html = '';
+  var totKcal = 0, totP = 0, totC = 0, totG = 0;
+
+  // Header colonne
+  html += '<div class="pmg-col-hdr"><span>Alimento</span><span>g</span><span>kcal</span><span>P</span><span>C</span><span>G</span></div>';
+
+  // Raggruppa per categoria (usiamo la prima cella come riferimento)
+  var celle = (pasto.celle||[]).slice().sort(function(a,b){return (a.ordine||1)-(b.ordine||1);});
+
+  celle.forEach(function(cella) {
+    if (!cella.alimenti || !cella.alimenti.length) return;
+
+    // Sezione titolo cella (categoria)
+    var cat = cella.alimenti[0].categoria || '';
+    if (cat) {
+      html += '<div class="pmg-section-title">'+cat+'</div>';
+    } else {
+      html += '<div style="border-top:1px solid var(--border);margin:.3rem 0;"></div>';
+    }
+
+    cella.alimenti.slice(0,3).forEach(function(al, ai) {
+      if (!al) return;
+      var isPrinc = ai === 0;
+      var vals = getValoriCREA(al.n, al.categoria || null);
+      var grammi = parseFloat(al.g) || 0;
+      var f = grammi / 100;
+      var kcal = vals ? Math.round(vals.kcal * f) : 0;
+      var p = vals ? Math.round(vals.p * f * 10)/10 : 0;
+      var c = vals ? Math.round(vals.c * f * 10)/10 : 0;
+      var g = vals ? Math.round(vals.g * f * 10)/10 : 0;
+
+      // Somma solo per il principale (peso 40% se ci sono alternative, 100% se solo principale)
+      if (isPrinc) {
+        var nAlt = Math.min(cella.alimenti.length, 3);
+        var pesoPrinc = nAlt === 1 ? 1 : 0.40;
+        totKcal += (vals ? vals.kcal * f : 0) * pesoPrinc;
+        totP += (vals ? vals.p * f : 0) * pesoPrinc;
+        totC += (vals ? vals.c * f : 0) * pesoPrinc;
+        totG += (vals ? vals.g * f : 0) * pesoPrinc;
+      } else {
+        var pesoAlt = cella.alimenti.length >= 3 ? 0.30 : 0.60;
+        totKcal += (vals ? vals.kcal * f : 0) * pesoAlt;
+        totP += (vals ? vals.p * f : 0) * pesoAlt;
+        totC += (vals ? vals.c * f : 0) * pesoAlt;
+        totG += (vals ? vals.g * f : 0) * pesoAlt;
+      }
+
+      var nomeDisplay = al.n.length > 18 ? al.n.slice(0,17)+'…' : al.n;
+      var giornoPmg = (giornoObj.giorno||giornoObj.g||'');
+      var giornoPmgEsc = giornoPmg.replace(/"/g,'&quot;');
+
+      html += '<div class="pmg-alim-row'+(isPrinc?' princ':' alt')+'">';
+      html += '<span class="pmg-alim-name'+(isPrinc?'':' alt-name')+'" title="'+al.n+'">'+(isPrinc?'':'\u21b3 ')+nomeDisplay+'</span>';
+      // Input grammatura bidirezionale
+      html += '<input class="pmg-gram-input" type="number" min="0" step="5" value="'+grammi+'" '
+        +'data-giorno="'+giornoPmgEsc+'" data-slot="'+slotAttivo.key+'" data-cell="'+cella.id+'" data-idx="'+ai+'" '
+        +'onchange="pmgCambiaGrammi(this)" title="Modifica grammatura">';
+      html += '<span class="pmg-mac">'+(vals?kcal:'—')+'</span>';
+      html += '<span class="pmg-mac prot">'+(vals?p+'g':'—')+'</span>';
+      html += '<span class="pmg-mac">'+(vals?c+'g':'—')+'</span>';
+      html += '<span class="pmg-mac gras">'+(vals?g+'g':'—')+'</span>';
+      html += '</div>';
+    });
+  });
+
+  // Totale pasto (ponderato 40/30/30)
+  html += '<div class="pmg-totale">';
+  html += '<div style="font-size:.63rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem;">Totale pasto (40/30/30)</div>';
+  html += '<div class="pmg-totale-row"><span>Kcal</span><span>'+Math.round(totKcal)+'</span></div>';
+  html += '<div class="pmg-totale-row"><span>Proteine</span><span style="color:#0F6E56">'+Math.round(totP*10)/10+'g</span></div>';
+  html += '<div class="pmg-totale-row"><span>Carboidrati</span><span>'+Math.round(totC*10)/10+'g</span></div>';
+  html += '<div class="pmg-totale-row"><span>Grassi</span><span style="color:#854F0B">'+Math.round(totG*10)/10+'g</span></div>';
+  html += '</div>';
+
+  bodyEl.innerHTML = html;
+}
+
+// Callback bidirezionale: modifica grammatura dal pannello → aggiorna piano e viceversa
+function pmgCambiaGrammi(input) {
+  var giorno = input.getAttribute('data-giorno');
+  var slot = input.getAttribute('data-slot');
+  var cellId = input.getAttribute('data-cell');
+  var idx = parseInt(input.getAttribute('data-idx'));
+  var nuovoG = parseInt(input.value);
+  if (isNaN(nuovoG) || nuovoG < 0) return;
+
+  var ctx = _trovaPasto(giorno, slot);
+  if (!ctx || !ctx.pasto || !ctx.pasto.celle) return;
+  var cella = ctx.pasto.celle.find(function(c){return c.id===cellId;});
+  if (!cella || !cella.alimenti[idx]) return;
+  cella.alimenti[idx].g = nuovoG;
+
+  // Aggiorna piano principale (ri-render giorno senza toccare il pannello — evita loop)
+  _aggiornaPianoBox();
+  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  // Ri-render solo il pannello (non il giorno intero per non perdere il focus)
+  if (window._pmgGiornoCorrente) renderPanelMacrosGiorno(window._pmgGiornoCorrente);
 }
 
 function riapriPiano(pazId, idx) {
@@ -6028,6 +6226,7 @@ function apriEditGrammatura(span) {
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
     if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+    if (window._pmgGiornoCorrente && typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(window._pmgGiornoCorrente);
   }
 
   input.addEventListener('blur', salva);
@@ -6050,6 +6249,7 @@ function cellaSwap(giorno, slotKey, cellaId, altIdx) {
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  if (window._pmgGiornoCorrente && typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(window._pmgGiornoCorrente);
 }
 
 function cellaRimuoviAlt(giorno, slotKey, cellaId, altIdx) {
@@ -6062,6 +6262,7 @@ function cellaRimuoviAlt(giorno, slotKey, cellaId, altIdx) {
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+  if (window._pmgGiornoCorrente && typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(window._pmgGiornoCorrente);
 }
 
 function cellaAggiungiAlt(giorno, slotKey, cellaId) {
