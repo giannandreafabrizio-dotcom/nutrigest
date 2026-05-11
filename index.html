@@ -4932,29 +4932,38 @@ function riapriPiano(pazId, idx) {
         window._pianoTargetsOFF = {kcal:_kcalOFF,p:_protOFF,c:_carbOFF,g:_grasOFF,source:'calcolo-off',laf:_lafOFF};
       }
     }
+    // Naviga alla pagina piano e seleziona il paziente (crea piano-piano-box)
     goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
-    // setTimeout: aspetta che goTo renderizzi il DOM della pagina piano
+    var _selPaz = document.getElementById('piano-select-paz');
+    if (_selPaz) {
+      _selPaz.value = pazId;
+      if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId);
+    }
     setTimeout(function() {
-      var pianoEl = document.getElementById('piano-output');
-      if (!pianoEl) { notif('⚠ Errore: pagina piano non trovata'); return; }
-      pianoEl.style.opacity='1';
+      // piano-piano-box viene creato da pianoPazSelezionato
+      var pianoEl = document.getElementById('piano-piano-box');
+      if (!pianoEl) {
+        pianoEl = document.createElement('div');
+        pianoEl.id = 'piano-piano-box';
+        var parentBtn = document.getElementById('piano-btn-genera');
+        if (parentBtn) parentBtn.parentNode.appendChild(pianoEl);
+      }
+      if (!pianoEl) { notif('\u26a0 Errore: contenitore piano non trovato'); return; }
       var loadEl = document.getElementById('piano-load-msg');
-      if (loadEl) loadEl.style.display='none';
-      // Imposta globals necessari per _renderGiornoGen
+      if (loadEl) loadEl.style.display = 'none';
+      // Imposta globals per _renderGiornoGen (pill tabs)
       window._pdfPaziente = p;
       window._pdfPiano = pianoAI;
       window._pianoCorrente = pianoAI;
       window._pianoGiornoCorrente = 0;
-      // Usa lo stesso renderer pill-tabs del generatore
       if (typeof window._renderGiornoGen === 'function') {
         window._renderGiornoGen();
       } else {
-        // Fallback minimale se la funzione non è ancora definita
-        pianoEl.innerHTML = '<div style="padding:1rem;color:var(--text2);">Piano caricato — clicca Genera Piano per visualizzarlo.</div>';
+        pianoEl.innerHTML = '<div style="padding:1rem;color:var(--text2);">Piano caricato.</div>';
       }
       inizializzaP2(pianoAI);
       notif('\u2713 Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
-    }, 120);
+    }, 200);
   } catch(e) {
     notif('⚠ Errore nel riaprire il piano: '+e.message);
   }
