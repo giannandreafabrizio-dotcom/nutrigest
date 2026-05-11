@@ -769,11 +769,17 @@ main{flex:1;overflow-y:auto;}
     </div>
 
     <!-- Pulsante Genera Piano -->
-    <div style="text-align:center;padding-top:.4rem;">
+    <div style="text-align:center;padding-top:.4rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;">
       <button id="piano-btn-genera" class="btn" disabled
         style="background:#b2dfbe;border:none;color:#fff;padding:.75rem 2.2rem;font-size:.9rem;border-radius:8px;cursor:not-allowed;transition:all .2s;"
         onclick="generaPiano()">
         ✦ Genera Piano
+      </button>
+      <button id="piano-btn-rigenera" class="btn" disabled
+        style="background:#b2dfbe;border:none;color:#fff;padding:.75rem 1.4rem;font-size:.85rem;border-radius:8px;cursor:not-allowed;transition:all .2s;"
+        title="Ignora la cache e rigenera sempre un nuovo piano"
+        onclick="generaPiano(true)">
+        🔄 Rigenera
       </button>
     </div>
 
@@ -2096,6 +2102,80 @@ async function testConnSupabase(){
 }
 
 async function save(){saveLocal();await pushToSheets();}
+
+// ── CACHE PIANI SU SUPABASE ──────────────────────────────────────────────────
+// Genera una chiave deterministica dai parametri chiave del piano.
+// Se i parametri non cambiano → riusa il piano salvato senza chiamare l'AI.
+function _pianoCacheKey(pazienteId) {
+  const p = (db.pazienti||[]).find(x => x.id === pazienteId);
+  if (!p) return null;
+  const act = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
+  const kcal = act ? act.kcal : '';
+  const prot = act ? act.protG : '';
+  const carb = act ? act.carbG : '';
+  const gras = act ? act.grassiG : '';
+  // Includi preferenze e regime nella chiave
+  const verdi  = (p.alimentiVerdi||[]).slice().sort().join(',');
+  const rossi  = (p.alimentiRossi||[]).slice().sort().join(',');
+  const esclusi= (p.alimentiEsclusi||[]).slice().sort().join(',');
+  const regime = p.regime||'';
+  const giorniVeg = p.giorniVegetariani||0;
+  const raw = [pazienteId, regime, kcal, prot, carb, gras, verdi, rossi, esclusi, giorniVeg].join('|');
+  // Hash semplice (djb2) per chiave compatta
+  let hash = 5381;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) + hash) ^ raw.charCodeAt(i);
+    hash = hash >>> 0; // unsigned 32bit
+  }
+  return 'piano_cache_' + pazienteId + '_' + hash;
+}
+
+async function _salvaPianoCache(pazienteId, pianoEspanso) {
+  try {
+    const key = _pianoCacheKey(pazienteId);
+    if (!key) return;
+    const payload = {
+      id: key,
+      data: { piano: pianoEspanso, pazienteId, createdAt: new Date().toISOString() },
+      updated_at: new Date().toISOString()
+    };
+    await fetch(SUPA_URL + '/rest/v1/pazienti', {
+      method: 'POST',
+      headers: supaHeaders(),
+      body: JSON.stringify(payload)
+    });
+    console.log('[Cache Piano] salvato con chiave:', key);
+  } catch(e) {
+    console.warn('[Cache Piano] errore salvataggio:', e);
+  }
+}
+
+async function _caricaPianoCache(pazienteId) {
+  try {
+    const key = _pianoCacheKey(pazienteId);
+    if (!key) return null;
+    const r = await fetch(SUPA_URL + '/rest/v1/pazienti?id=eq.' + encodeURIComponent(key) + '&select=data,updated_at', {
+      headers: supaHeaders()
+    });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    if (!rows || !rows.length) return null;
+    const row = rows[0];
+    // Scade dopo 30 giorni
+    const MAX_AGE_DAYS = 30;
+    const updatedAt = new Date(row.updated_at);
+    const ageMs = Date.now() - updatedAt.getTime();
+    if (ageMs > MAX_AGE_DAYS * 24 * 3600 * 1000) {
+      console.log('[Cache Piano] scaduta (>30gg), rigenero');
+      return null;
+    }
+    console.log('[Cache Piano] HIT — carico da Supabase, risparmio chiamata AI');
+    return row.data ? row.data.piano : null;
+  } catch(e) {
+    console.warn('[Cache Piano] errore caricamento:', e);
+    return null;
+  }
+}
 
 
 function salvaCfg(){ notif('NutriGest usa Supabase — nessuna configurazione necessaria'); }
@@ -4875,8 +4955,12 @@ function pianoPazSelezionato(id){
     const _activeChk=_getActiveMacrosTarget(p);
     if(_activeChk){
       btn.disabled=false;btn.style.background='var(--green)';btn.style.cursor='pointer';
+      var _btnRig=document.getElementById('piano-btn-rigenera');
+      if(_btnRig){_btnRig.disabled=false;_btnRig.style.background='#6366f1';_btnRig.style.cursor='pointer';}
     } else {
       btn.disabled=true;btn.style.background='#b2dfbe';btn.style.cursor='not-allowed';
+      var _btnRig=document.getElementById('piano-btn-rigenera');
+      if(_btnRig){_btnRig.disabled=true;_btnRig.style.background='#b2dfbe';_btnRig.style.cursor='not-allowed';}
     }
   }
 
@@ -6097,7 +6181,7 @@ function parseJSONSicuro(testo) {
   }
 }
 
-async function chiamaGeneraPiano(pazienteId) {
+async function chiamaGeneraPiano(pazienteId, forceRegen) {
   var paz = db.pazienti.find(function(x){ return x.id === pazienteId; });
   // BUG3 STEP2: barriera anti-generazione se mancano target
   if(paz && typeof _getActiveMacrosTarget==='function' && !_getActiveMacrosTarget(paz)){
@@ -6108,6 +6192,14 @@ async function chiamaGeneraPiano(pazienteId) {
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
   console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
   console.log('[Piano] _ragContextForPiano:', JSON.stringify(window._ragContextForPiano));
+
+  // ── CACHE CHECK ────────────────────────────────────────────────────────────
+  // forceRegen=true salta la cache (pulsante "Rigenera")
+  const _pianoCached = forceRegen ? null : await _caricaPianoCache(pazienteId);
+  if (_pianoCached) {
+    notif('⚡ Piano caricato dalla cache (parametri invariati)', 3000);
+    return { ok: true, piano: _pianoCached, fromCache: true };
+  }
 
   const prompt = costruisciPrompt(pazienteId);
   if (!prompt) throw new Error('Paziente non trovato');
@@ -6126,7 +6218,7 @@ async function chiamaGeneraPiano(pazienteId) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 16000,
+      max_tokens: 12000,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -6180,6 +6272,9 @@ async function chiamaGeneraPiano(pazienteId) {
     } catch(e) { console.warn('Note descrittive non generate:', e); }
   }
 
+  // ── SALVA IN CACHE ─────────────────────────────────────────────────────────
+  _salvaPianoCache(pazienteId, pianoEspanso); // fire-and-forget
+
   return { ok: true, piano: pianoEspanso };
 }
 
@@ -6207,7 +6302,7 @@ function mostraLoadingSteps(loadEl){
   return iv;
 }
 
-async function generaPiano(){
+async function generaPiano(forceRegen){
   const id=document.getElementById('piano-select-paz').value;
   if(!id){notif('⚠ Seleziona prima un paziente');return;}
 
@@ -6401,7 +6496,7 @@ async function generaPiano(){
   window._pianoGiorniON = (p.giorniAllenamento||[]);
 
   try {
-    const risultato = await chiamaGeneraPiano(p.id);
+    const risultato = await chiamaGeneraPiano(p.id, !!forceRegen);
     if (risultato && risultato.ok) {
       console.log('Piano generato con successo');
     } else {
