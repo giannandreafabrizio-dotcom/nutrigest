@@ -783,6 +783,16 @@ main{flex:1;overflow-y:auto;}
       </button>
     </div>
 
+    <!-- Box dati piano (verde) -->
+    <div id="piano-dati-box" style="display:none;"></div>
+
+    <!-- Badge 75/20/5 e macros reali -->
+    <div id="piano-badge-75"></div>
+    <div id="piano-badge-macros"></div>
+
+    <!-- Piano piano box (contenitore piano generato) -->
+    <div id="piano-piano-box"></div>
+
     <!-- Salva piano definitivo -->
     <div id="p2-box" style="display:none;margin-top:1rem;">
       <button id="p2-save" style="display:block;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
@@ -5439,14 +5449,9 @@ function riapriPiano(pazId, idx) {
     var _sp = document.getElementById('piano-select-paz');
     if (_sp) { _sp.value = pazId; if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId); }
     window._pdfPaziente = p; window._pdfPiano = pianoAI; window._pianoGiornoCorrente = 0;
-    // Crea subito piano-piano-box se non esiste (non aspettare pianoPazSelezionato)
+    // piano-piano-box e' statico nell'HTML
     var _pianoEl = document.getElementById('piano-piano-box');
-    if (!_pianoEl) {
-      _pianoEl = document.createElement('div');
-      _pianoEl.id = 'piano-piano-box';
-      var _pb = document.getElementById('piano-btn-genera');
-      if (_pb) _pb.parentNode.appendChild(_pianoEl);
-    }
+    if (!_pianoEl) return;
     renderPianoConPillTabs(pianoAI, _pianoEl);
     inizializzaP2(pianoAI);
     notif('✓ Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
@@ -6724,13 +6729,10 @@ async function generaPiano(forceRegen){
   console.log('=== DATI PAZIENTE PER PIANO ===');
   console.log(dati);
 
-  // Riquadro verde sotto il pulsante
+  // Riquadro verde sotto il pulsante (statico nell'HTML)
   let box=document.getElementById('piano-dati-box');
-  if(!box){
-    box=document.createElement('div');
-    box.id='piano-dati-box';
-    document.getElementById('piano-btn-genera').parentNode.appendChild(box);
-  }
+  if(!box) return;
+  box.style.display='block';
   box.style.cssText='margin-top:1rem;padding:.7rem 1.1rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.82rem;color:#2e7d32;';
   var _nV=(dati.alimentiVerdi&&dati.alimentiVerdi!=='—')?dati.alimentiVerdi.split(',').length:0;
   var _nA=(dati.alimentiArancioni&&dati.alimentiArancioni!=='—')?dati.alimentiArancioni.split(',').length:0;
@@ -6754,22 +6756,9 @@ async function generaPiano(forceRegen){
     +'</div>'
 
 
-  if (!document.getElementById('piano-badge-75')) {
-    var _badgeEl = document.createElement('div');
-    _badgeEl.id = 'piano-badge-75';
-    document.getElementById('piano-btn-genera').parentNode.appendChild(_badgeEl);
-  }
-  if (!document.getElementById('piano-badge-macros')) {
-    var _badgeMacrosEl = document.createElement('div');
-    _badgeMacrosEl.id = 'piano-badge-macros';
-    document.getElementById('piano-btn-genera').parentNode.appendChild(_badgeMacrosEl);
-  }
+  // Badges e piano-piano-box sono statici nell'HTML
   let pianoEl = document.getElementById('piano-piano-box');
-  if(!pianoEl){
-    pianoEl = document.createElement('div');
-    pianoEl.id = 'piano-piano-box';
-    document.getElementById('piano-btn-genera').parentNode.appendChild(pianoEl);
-  }
+  if(!pianoEl) return;
 
   // ── Costruzione struttura piano ──────────────────────────────────────────
   const haSp = (p.spuntM==='si'||p.spuntP==='si');
