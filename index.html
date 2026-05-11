@@ -6454,7 +6454,7 @@ async function generaPiano(){
         var pasto = g[s.key] || (g.pasti && g.pasti[s.key]);
         if (!pasto) return;
         dayHtml += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
-        dayHtml += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(''+nomeGiorno+'',''+s.key+'')">'+s.label+'</span>';
+        dayHtml += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')">' + s.label + '</span>';
         if (typeof pasto === 'string') {
           dayHtml += ' — ' + pasto;
         } else if (pasto.celle) {
