@@ -1921,6 +1921,56 @@ function suggerisciGrEquivalente(nPrinc, gPrinc, nAlt, cat) {
 }
 // ── FINE PRIORITA' 2A ────────────────────────────────────────────────────────
 
+
+// ── PRIORITA' 2B: PORZIONI DISCRETE COMMERCIALI ───────────────────────────────
+// Per alimenti a porzionamento forzato, arrotonda alla porzione commerciale
+// piu' vicina. Ritorna il valore arrotondato (o il valore originale se non applicabile).
+var PORZIONI_DISCRETE = {
+  // Latticini
+  'Yogurt':                     [125, 150, 200, 250],
+  'Yogurt greco 2%':            [150, 200],
+  'Mozzarella di vacca':        [100, 125, 200],
+  'Mozzarella Protinella':      [100, 125],
+  'Philadelphia light':         [30, 60, 100],
+  'Ricotta di vacca':           [100, 125, 200],
+  'Fiocchi di latte':           [150],
+  // Pesce
+  'Tonno al naturale':          [60, 120],
+  'Tonno sottolio sgocciolato': [60, 120],
+  'Sgombro al naturale':        [90, 120],
+  'Salmone affumicato':         [80, 100],
+  // Pane e sostituti
+  'Pane comune':                [50, 80, 100],
+  'Pane integrale':             [50, 80, 100],
+  'Pane di segale':             [50, 80, 100],
+  'Gallette di riso':           [20, 40, 60],
+  'Wasa (contiene glutine)':    [10, 20, 30],
+  'Frisella':                   [40, 80],
+  'Fette biscottate integrali': [6, 12, 18, 24, 30, 36],
+  'Crackers':                   [25, 50],
+  'Piadina':                    [70, 100, 140],
+  // Uova
+  'Uovo intero':                [50, 100, 150],
+  'Albumi':                     [33, 66, 100],
+  'Tuorlo':                     [18, 36],
+  // Proteine vegetali
+  'Tofu':                       [125, 200, 250],
+  'Seitan':                     [180, 250],
+};
+
+function arrotondaPorzioneDiscreta(nomeAlimento, grammiCalcolati) {
+  var porzioni = PORZIONI_DISCRETE[nomeAlimento];
+  if (!porzioni || !porzioni.length) return grammiCalcolati;
+  var best = porzioni[0];
+  var bestDist = Math.abs(grammiCalcolati - best);
+  for (var i = 1; i < porzioni.length; i++) {
+    var dist = Math.abs(grammiCalcolati - porzioni[i]);
+    if (dist < bestDist) { best = porzioni[i]; bestDist = dist; }
+  }
+  return best;
+}
+// ── FINE PRIORITA' 2B ─────────────────────────────────────────────────────────
+
 // Funzione helper: dato un nome alimento, restituisce la categoria funzionale
 function getCategoriaFunzionale(nomeAlimento) {
   if (!nomeAlimento) return 'condimento';
@@ -6086,9 +6136,13 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
       var btn = document.createElement('button');
       // Calcola grammatura equivalente se possibile
       var eqResult = nPrinc ? suggerisciGrEquivalente(nPrinc, gPrinc, a.n, catPrinc) : null;
-      var grMostrato = eqResult ? eqResult.gr : gSuggFallback;
+      var grRaw = eqResult ? eqResult.gr : gSuggFallback;
+      var grMostrato = arrotondaPorzioneDiscreta(a.n, grRaw);
       var labelCriterio = eqResult ? (eqResult.criterio === 'carbo' ? 'carbo' : eqResult.criterio === 'proteine' ? 'prot' : 'kcal') : 'std';
-      var labelEq = eqResult ? grMostrato+'g <span style="font-size:.6rem;opacity:.7">(eq.'+labelCriterio+')</span>' : grMostrato+'g';
+      var wasRounded = (grMostrato !== grRaw);
+      var labelEq = eqResult
+        ? grMostrato+'g <span style="font-size:.6rem;opacity:.7">'+(wasRounded?'porzione':'eq.')+labelCriterio+'</span>'
+        : grMostrato+'g';
       btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.5rem .7rem;border:1px solid '+bg+';background:'+bg+';border-radius:6px;cursor:pointer;font-size:.83rem;color:#1e293b;text-align:left;transition:all .15s';
       btn.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+c+';flex-shrink:0"></span><span style="flex:1">'+a.n+'</span><span style="color:'+c+';font-size:.7rem;font-weight:600">'+labelEq+'</span>';
       var _grFinal = grMostrato;
