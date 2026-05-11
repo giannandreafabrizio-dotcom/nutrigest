@@ -6357,28 +6357,37 @@ async function generaPiano(){
     loadEl.style.display='none';
     pianoEl.style.opacity = '1';
 
-    let aiHtml = '<div style="margin-top:1.5rem;">';
-    pianoAI.forEach(function(g, idx) {
+    // ── Salva piano e imposta stato globale ──
+    window._pdfPaziente = p;
+    window._pdfPiano = pianoAI;
+    window._pianoCorrente = pianoAI;
+    window._storicoPiani = [];
+    window._pianoGiornoCorrente = 0;
+
+    function _renderGiornoGen() {
+      var idx = window._pianoGiornoCorrente;
+      var g = pianoAI[idx];
+      if (!g) return;
+      var nomeGiorno = g.giorno || g.g || 'Giorno ' + (idx + 1);
+      var totGiorni = pianoAI.length;
+
+      // Calcolo macros per badge semaforo
       var tgts = window._pianoTargets || {};
       var mac = g.macros || {};
       var hasMac = mac.kcal > 0 && mac.proteine > 0 && mac.carboidrati > 0 && mac.grassi > 0;
       var hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
-      console.log('[MacroCheck] '+g.giorno+' | macros dal piano:', JSON.stringify(mac), '| targets:', JSON.stringify(tgts), '| hasMac:', hasMac, '| hasTgts:', hasTgts);
-      var isCiclizzato = /\b(ON|OFF)\b/i.test(g.giorno) || g.ciclizzato === true;
+      var isCiclizzato = /\b(ON|OFF)\b/i.test(nomeGiorno) || g.ciclizzato === true;
       if (isCiclizzato) {
-        var _isOFF = /\bOFF\b/i.test(g.giorno);
+        var _isOFF = /\bOFF\b/i.test(nomeGiorno);
         var _giorniON = window._pianoGiorniON || [];
-        var _mapGiorno = {'lunedì':'Lun','martedì':'Mar','mercoledì':'Mer','giovedì':'Gio','venerdì':'Ven','sabato':'Sab','domenica':'Dom'};
-        var _nomeBase = (g.giorno||'').toLowerCase().replace(/\s*(on|off)\s*/gi,'').trim();
-        var _abbr = _mapGiorno[_nomeBase] || '';
-        if (_abbr && _giorniON.length) _isOFF = !_giorniON.includes(_abbr);
+        var _mapG = {'lunedì':'Lun','martedì':'Mar','mercoledì':'Mer','giovedì':'Gio','venerdì':'Ven','sabato':'Sab','domenica':'Dom'};
+        var _nb = nomeGiorno.toLowerCase().replace(/\s*(on|off)\s*/gi,'').trim();
+        var _ab = _mapG[_nb] || '';
+        if (_ab && _giorniON.length) _isOFF = !_giorniON.includes(_ab);
         if (_isOFF && window._pianoTargetsOFF) tgts = window._pianoTargetsOFF;
         hasTgts = tgts.kcal > 0 && tgts.p > 0 && tgts.c > 0 && tgts.g > 0;
       }
-      var tgtSource = tgts.source === 'ragionamento' ? ' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da ragionamento clinico)</span>'
-        : tgts.source === 'calcolo-off' ? ' <span style="font-size:.68rem;color:#2980b9;font-weight:600;">(giorno OFF)</span>'
-        : isCiclizzato ? ' <span style="font-size:.68rem;color:#27ae60;font-weight:600;">(giorno ON)</span>' : '';
-      var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile per questo giorno</div>';
+      var semColor = '#aaa', semIcon = '?', macroPanel = '<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile</div>';
       if (hasMac && hasTgts) {
         var rows = [
           {lbl:'Kcal', a:Math.round(mac.kcal), t:tgts.kcal, u:'kcal'},
@@ -6388,83 +6397,99 @@ async function generaPiano(){
         ];
         var deltas = rows.map(function(r){return Math.abs(r.a-r.t)/r.t*100;});
         var deltaKcal = deltas[0];
-        console.log('[MacroCheck] '+g.giorno+' | deltas%:', deltas.map(function(d){return d.toFixed(1)+'%';}), '| deltaKcal:', deltaKcal.toFixed(1)+'% | source:', tgts.source);
         semColor = deltaKcal>30?'#c0392b':deltaKcal>15?'#e07840':'#1D9E75';
-        semIcon = deltaKcal>30?'✗':deltaKcal>15?'!':'✓';
+        semIcon = deltaKcal>30?'\u2717':deltaKcal>15?'!':'\u2713';
+        var tgtSource = tgts.source==='ragionamento'?' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da ragionamento clinico)</span>'
+          :tgts.source==='calcolo-off'?' <span style="font-size:.68rem;color:#2980b9;font-weight:600;">(giorno OFF)</span>'
+          :isCiclizzato?' <span style="font-size:.68rem;color:#27ae60;font-weight:600;">(giorno ON)</span>':'';
         macroPanel = '<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem;">Target'+tgtSource+'</div>'
           +rows.map(function(r,i){
-            var d=deltas[i], diff=r.a-r.t, dStr=(diff>=0?'+':'')+Math.round(diff);
+            var d=deltas[i],diff=r.a-r.t,dStr=(diff>=0?'+':'')+Math.round(diff);
             var dc=d<=15?'#1D9E75':d<=30?'#e07840':'#c0392b';
             return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;">'
               +'<span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span>'
-              +'<span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'"> '+dStr+r.u+'</strong></span>'
+              +'<span>'+r.a+' '+r.u+' <span style="color:var(--text3)"> / target '+r.t+r.u+'</span> <strong style="color:'+dc+'"> '+dStr+r.u+'</strong></span>'
               +'</div>';
           }).join('');
       }
       var panBg = semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
-      var tid = 'mtp'+idx;
-      aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
-      aiHtml += '<div onclick="var d=document.getElementById(\''+tid+'\');d.style.display=d.style.display===\'block\'?\'none\':\'block\';"'
-        +' style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">'
-        +'<span>'+g.giorno+'</span>'
+
+      // Barra navigazione frecce
+      var navHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;padding:.4rem 0;">';
+      navHtml += '<button onclick="window._pianoGiornoCorrente=Math.max(0,window._pianoGiornoCorrente-1);window._renderGiornoGen();" '
+        +(idx===0?'disabled ':'')
+        +'style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:'+(idx===0?'default':'pointer')+';font-size:1.1rem;display:flex;align-items:center;justify-content:center;opacity:'+(idx===0?'.3':'1')+';">&#8592;</button>';
+      navHtml += '<div style="text-align:center;">'
+        +'<div style="font-size:1rem;font-weight:700;color:var(--text1);">'+nomeGiorno+'</div>'
+        +'<div style="display:flex;gap:5px;justify-content:center;margin-top:5px;">';
+      for (var di=0;di<totGiorni;di++) {
+        navHtml += '<div style="width:7px;height:7px;border-radius:50%;background:'+(di===idx?'var(--green)':'var(--border)')+'"></div>';
+      }
+      navHtml += '</div></div>';
+      navHtml += '<button onclick="window._pianoGiornoCorrente=Math.min(pianoAI.length-1,window._pianoGiornoCorrente+1);window._renderGiornoGen();" '
+        +(idx===totGiorni-1?'disabled ':'')
+        +'style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:'+(idx===totGiorni-1?'default':'pointer')+';font-size:1.1rem;display:flex;align-items:center;justify-content:center;opacity:'+(idx===totGiorni-1?'.3':'1')+';">&#8594;</button>';
+      navHtml += '</div>';
+
+      // Card giorno con header cliccabile per macros
+      var dayHtml = '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;">';
+      dayHtml += '<div onclick="var el=document.getElementById('mtp_gen');el.style.display=el.style.display==='block'?'none':'block';" '
+        +'style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">'
+        +'<span>'+nomeGiorno+'</span>'
         +'<span title="Clicca per verifica macros" style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.25);">'+semIcon+'</span>'
         +'</div>';
-      aiHtml += '<div id="'+tid+'" style="display:none;padding:.65rem 1rem;background:'+panBg+';border-bottom:2px solid '+semColor+';">'
+      dayHtml += '<div id="mtp_gen" style="display:none;padding:.65rem 1rem;background:'+panBg+';border-bottom:2px solid '+semColor+';">'
         +'<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:'+semColor+';font-weight:700;margin-bottom:.45rem;">Verifica macros giornalieri</div>'
-        +macroPanel
-        +'</div>';
-      aiHtml += '<div style="padding:.8rem 1rem;">';
+        +macroPanel+'</div>';
+      dayHtml += '<div style="padding:.8rem 1rem;">';
       var slots = [
-        { label: 'COLAZIONE', key: 'colazione' },
-        { label: 'SPUNTINO MATTINA', key: 'spuntino_mattina' },
-        { label: 'PRANZO', key: 'pranzo' },
-        { label: 'SPUNTINO POMERIGGIO', key: 'spuntino_pomeriggio' },
-        { label: 'CENA', key: 'cena' },
-        { label: 'PRE-NANNA', key: 'pre_nanna' }
+        {label:'COLAZIONE',key:'colazione'},
+        {label:'SPUNTINO MATTINA',key:'spuntino_mattina'},
+        {label:'PRANZO',key:'pranzo'},
+        {label:'SPUNTINO POMERIGGIO',key:'spuntino_pomeriggio'},
+        {label:'CENA',key:'cena'},
+        {label:'PRE-NANNA',key:'pre_nanna'}
       ];
       slots.forEach(function(s) {
         var pasto = g[s.key] || (g.pasti && g.pasti[s.key]);
         if (!pasto) return;
-        aiHtml += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
-        aiHtml += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+g.giorno+'\',\''+s.key+'\')">' + s.label + '</span>';
+        dayHtml += '<div style="margin-bottom:.6rem;font-size:.85rem;">';
+        dayHtml += '<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(''+nomeGiorno+'',''+s.key+'')">'+s.label+'</span>';
         if (typeof pasto === 'string') {
-          aiHtml += ' — ' + pasto;
+          dayHtml += ' — ' + pasto;
         } else if (pasto.celle) {
-          // ── NUOVO FORMATO SLOT/CELLE ──
-          aiHtml += _renderCelleHtml(pasto, s.key, g.giorno);
+          dayHtml += _renderCelleHtml(pasto, s.key, nomeGiorno);
         } else {
-          // ── VECCHIO FORMATO (retrocompatibilità) ──
           var nota = pasto.nota_descrittiva || pasto.nota || '';
-          if (nota) aiHtml += '<br><em style="color:var(--text2);font-size:.8rem;">' + nota + '</em>';
-          var p1 = pasto.principale1, p2 = pasto.principale2;
-          if (p1) aiHtml += '<br><strong>' + p1.nome + '</strong> ' + (p1.grammi||'') + 'g';
-          if (p2) aiHtml += ' &nbsp;·&nbsp; <strong>' + p2.nome + '</strong> ' + (p2.grammi||'') + 'g';
-          if (pasto.alternative && pasto.alternative.length) {
-            aiHtml += '<br>';
-            pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt) {
-              var alis = (alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
-              aiHtml += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">→ ' + alis + '</span><br>';
+          if (nota) dayHtml += '<br><em style="color:var(--text2);font-size:.8rem;">'+nota+'</em>';
+          var p1=pasto.principale1, p2=pasto.principale2;
+          if (p1) dayHtml += '<br><strong>'+p1.nome+'</strong> '+(p1.grammi||'')+'g';
+          if (p2) dayHtml += ' &nbsp;·&nbsp; <strong>'+p2.nome+'</strong> '+(p2.grammi||'')+'g';
+          if (pasto.alternative&&pasto.alternative.length) {
+            dayHtml += '<br>';
+            pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt){
+              var alis=(alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ');
+              dayHtml += '<span style="color:var(--text3);font-size:.74rem;font-style:italic;">→ '+alis+'</span><br>';
             });
           }
         }
-        aiHtml += '</div>';
+        dayHtml += '</div>';
       });
-      aiHtml += '</div></div>';
-    });
-    aiHtml += '</div>';
-    pianoEl.innerHTML = aiHtml;
+      dayHtml += '</div></div>';
 
-    // Aggiungo pulsante Genera PDF
-    var btnPdf = document.createElement('button');
-    btnPdf.textContent = '📄 Scarica Piano PDF';
-    btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
-    btnPdf.onclick = function() { generaPDF(p, pianoAI); };
-    pianoEl.appendChild(btnPdf);
-    window._pdfPaziente = p;
-    window._pdfPiano = pianoAI;
+      pianoEl.innerHTML = '<div style="margin-top:1.5rem;">' + navHtml + dayHtml + '</div>';
+
+      // Pulsante PDF
+      var btnPdf = document.createElement('button');
+      btnPdf.textContent = '\ud83d\udcc4 Scarica Piano PDF';
+      btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
+      pianoEl.appendChild(btnPdf);
+    }
+
+    window._renderGiornoGen = _renderGiornoGen;
+    _renderGiornoGen();
     renderBadge75_20_5(pianoAI);
-    window._pianoCorrente = pianoAI;
-    window._storicoPiani = [];
     inizializzaP2(pianoAI);
 
   } catch(e) {
