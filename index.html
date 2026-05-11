@@ -4933,38 +4933,28 @@ function riapriPiano(pazId, idx) {
       }
     }
     goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
-    var pianoEl = document.getElementById('piano-output');
-    if (pianoEl) {
+    // setTimeout: aspetta che goTo renderizzi il DOM della pagina piano
+    setTimeout(function() {
+      var pianoEl = document.getElementById('piano-output');
+      if (!pianoEl) { notif('⚠ Errore: pagina piano non trovata'); return; }
       pianoEl.style.opacity='1';
       var loadEl = document.getElementById('piano-load-msg');
       if (loadEl) loadEl.style.display='none';
-      var aiHtml = '<div style="margin-top:1.5rem;">';
-      pianoAI.forEach(function(g,idx2){
-        var tgts = window._pianoTargets||{};
-        var mac = g.macros||{};
-        var hasMac = mac.kcal>0&&mac.proteine>0&&mac.carboidrati>0&&mac.grassi>0;
-        var hasTgts = tgts.kcal>0&&tgts.p>0&&tgts.c>0&&tgts.g>0;
-        var isCiclizzato = /\b(ON|OFF)\b/i.test(g.giorno||g.g||'');
-        if (isCiclizzato) {
-          var _isOFF2=/\bOFF\b/i.test(g.giorno||g.g||'');
-          var _map2={'lunedì':'Lun','martedì':'Mar','mercoledì':'Mer','giovedì':'Gio','venerdì':'Ven','sabato':'Sab','domenica':'Dom'};
-          var _nb2=(g.giorno||g.g||'').toLowerCase().replace(/\s*(on|off)\s*/gi,'').trim();
-          var _ab2=_map2[_nb2]||'';
-          if(_ab2&&(window._pianoGiorniON||[]).length) _isOFF2=!(window._pianoGiorniON||[]).includes(_ab2);
-          if(_isOFF2&&window._pianoTargetsOFF) tgts=window._pianoTargetsOFF;
-          hasTgts=tgts.kcal>0&&tgts.p>0&&tgts.c>0&&tgts.g>0;
-        }
-        var nomeGiorno = g.giorno||g.g||'Giorno '+(idx2+1);
-        aiHtml+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
-        aiHtml+='<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;">'+nomeGiorno+'</div>';
-        aiHtml+='<div style="padding:.8rem 1rem;font-size:.82rem;color:var(--text2);">Piano riaperto — clicca "Genera Piano" per rigenerare o usa P2 per correggere.</div>';
-        aiHtml+='</div>';
-      });
-      aiHtml+='</div>';
-      pianoEl.innerHTML=aiHtml;
+      // Imposta globals necessari per _renderGiornoGen
+      window._pdfPaziente = p;
+      window._pdfPiano = pianoAI;
+      window._pianoCorrente = pianoAI;
+      window._pianoGiornoCorrente = 0;
+      // Usa lo stesso renderer pill-tabs del generatore
+      if (typeof window._renderGiornoGen === 'function') {
+        window._renderGiornoGen();
+      } else {
+        // Fallback minimale se la funzione non è ancora definita
+        pianoEl.innerHTML = '<div style="padding:1rem;color:var(--text2);">Piano caricato — clicca Genera Piano per visualizzarlo.</div>';
+      }
       inizializzaP2(pianoAI);
-      notif('✓ Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
-    }
+      notif('\u2713 Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
+    }, 120);
   } catch(e) {
     notif('⚠ Errore nel riaprire il piano: '+e.message);
   }
