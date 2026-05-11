@@ -2407,63 +2407,74 @@ function applicaRegoloSemaforo(p){
     },
 
     'pat-ibs':{
-      // IBS / Colon irritabile - Fonte: AIGO 2015 (regola generale, non protocollo FODMAP completo)
+      // IBS / Colon irritabile - Fonte: AIGO/SICCR 2015-2020, BDA 2022
       grigi:[
         'Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)',
-        'Broccoli','Cavolfiore','Cipolla','Porro','Cime di rapa',
+        'Broccoli','Cavolfiore','Cipolla','Porro','Cime di rapa','Carciofi',
         'Latte vaccino intero','Latte vaccino p.scremato',
         'Mela','Pera','Anguria',
-        'Farro','Pasta integrale'
+        'Farro','Pasta integrale','Pane integrale'
       ],
       celesti:[
-        'Riso basmati','Riso','Patate','Carote','Zucchine','Cetriolo','Finocchio',
+        'Riso basmati','Riso','Patate','Carote','Zucchine','Spinaci',
         'Petto di pollo','Petto di tacchino','Filetti di merluzzo/nasello','Orata',
-        'Uovo intero',
-        'Banana','Fragole','Arancia','Clementina','Mirtilli',
+        'Uovo intero','Tofu',
+        'Parmigiano','Grana padano',
+        'Banana','Fragole','Melone','Pesca',
         'Yogurt','Kefir',
         'Olio EVO','Zenzero fresco','Curcuma'
       ]
     },
 
     'pat-reflusso':{
-      // Reflusso gastroesofageo / GERD - Fonte: AIGO, ACG Guidelines GERD 2022
+      // Reflusso gastroesofageo / GERD - Fonte: ACG Guidelines GERD 2022, AIGO
       grigi:[
-        'Pomodori','Peperoni rossi','Peperoni verdi',
+        'Pomodori','Peperoni rossi','Peperoni verdi','Cipolla',
         'Cioccolato fondente 85%','Cacao amaro',
         'Peperoncino','Curry','Paprika','Pepe nero',
         'Salsa di soia',
-        'Latte vaccino intero','Latte di cocco','Burrata',
-        'Mortadella','Salame','Nduja','Speck',
-        'Arancia','Limone','Mandarino','Clementina','Kiwi'
+        'Latte vaccino intero','Latte di cocco','Burrata','Parmigiano','Grana padano',
+        'Mortadella','Salame','Nduja','Speck','Salmone affumicato',
+        'Arancia','Limone','Mandarino','Clementina','Kiwi','Ananas'
       ],
       celesti:[
-        'Zucchine','Finocchio','Carote','Patate','Patate dolci','Cetriolo',
-        'Petto di pollo','Petto di tacchino','Filetti di merluzzo/nasello',
-        'Yogurt','Fiocchi di latte','Ricotta di vacca',
-        'Riso','Riso basmati','Pane integrale',
+        'Zucchine','Carote','Patate','Patate dolci','Spinaci','Broccoli',
+        'Petto di pollo','Petto di tacchino','Filetti di merluzzo/nasello','Orata','Spigola',
+        'Uovo intero',
+        'Yogurt','Fiocchi di latte','Ricotta di vacca','Latte vaccino p.scremato',
+        'Riso','Riso basmati','Pasta integrale',
         'Banana','Mela','Pera','Melone',
         'Olio EVO','Zenzero fresco'
       ]
     },
 
     'pat-irc':{
-      // Insufficienza renale cronica - Fonte: KDIGO 2012/2024
+      // Insufficienza renale cronica stadi 3-4 - Fonte: KDIGO 2024, ESPEN 2021
       grigi:[
+        // Alto fosforo
         'Parmigiano','Grana padano','Pecorino','Feta',
-        'Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)',
-        'Soia surgelata (edamame)','Tofu','Seitan',
-        'Banana','Arancia','Kiwi','Pomodori','Patate',
-        'Noci','Mandorle','Pistacchi','Anacardi','Arachidi',
-        'Salame','Mortadella','Nduja','Speck',
-        'Salsa di soia','Dado da brodo'
+        'Yogurt','Yogurt greco 2%','Latte vaccino intero','Latte vaccino p.scremato',
+        'Noci','Mandorle','Pistacchi','Anacardi','Arachidi','Semi di zucca',
+        'Cacao amaro','Cioccolato fondente 85%',
+        // Alto potassio
+        'Spinaci','Pomodori','Patate','Barbabietola',
+        'Banana','Arancia','Kiwi','Albicocca','Avocado',
+        // Alto sodio
+        'Salame','Mortadella','Nduja','Speck','Bresaola',
+        'Salsa di soia','Dado da brodo',
+        // Proteine animali eccessive
+        'Vitellone carne semigrassa','Maiale arista','Agnello',
+        'Soia surgelata (edamame)','Seitan'
       ],
       celesti:[
+        // Basso fosforo/potassio
         'Riso','Riso basmati','Pasta','Pane comune',
+        'Cavolfiore','Peperoni rossi','Zucchine','Cetriolo','Carote',
+        'Mela','Pera','Fragole','Mirtilli','Ananas',
+        // Proteine magre moderate
         'Petto di pollo','Petto di tacchino',
-        'Uovo intero','Albumi',
+        'Albumi',
         'Filetti di merluzzo/nasello','Orata',
-        'Mela','Pera','Fragole','Mirtilli','Anguria',
-        'Carote','Zucchine','Cetriolo','Peperoni rossi',
         'Olio EVO','Limone'
       ]
     },
