@@ -2592,69 +2592,106 @@ function applicaRegoloSemaforo(p){
     },
 
     'all-fodmap':{
-      // Low-FODMAP fase eliminazione - Fonte: Monash University + Dott. Gallo (documento progetto)
+      // Low-FODMAP fase 1 eliminazione (6-8 settimane) - Fonte: Monash University 2023, BDA 2022, Dott. Gallo
+      // Semaforo = fase eliminazione totale. Fasi 2-3 (reintroduzione) gestite clinicamente.
       grigi:[
-        'Farro','Orzo','Pane comune','Pasta',
+        // Cereali alto-FODMAP (fruttani)
+        'Pasta','Pane comune','Pane integrale','Farro','Orzo',
+        // Verdure alto-FODMAP
         'Cipolla','Porro','Aglio in polvere','Cipolla in polvere',
-        'Broccoli','Cavolfiore','Carciofi','Finocchio',
+        'Broccoli','Cavolfiore','Carciofi','Finocchio','Asparagi','Sedano',
         'Funghi champignon','Funghi porcini',
         'Piselli (barattolo)','Piselli surgelati',
+        // Legumi alto-FODMAP (GOS)
         'Ceci (secchi)','Ceci (barattolo)',
         'Fagioli borlotti (secchi)','Fagioli borlotti (barattolo)',
         'Lenticchie (secche)','Lenticchie (barattolo)',
-        'Soia surgelata (edamame)','Tofu',
-        'Mela','Pera','Anguria','Uva','Mango','Kaki','Fichi',
-        'Albicocca','Pesca','Ciliegia','Susine','Prugne',
+        // Frutta alto-FODMAP (fruttosio/polioli)
+        'Mela','Pera','Mango','Kaki','Fichi',
+        'Albicocca','Pesca','Ciliegia','Susine','Prugne','Anguria',
+        // Latticini con lattosio
         'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
-        'Ricotta di vacca','Fiocchi di latte','Stracchino','Burrata',
+        'Ricotta di vacca','Fiocchi di latte','Stracchino','Burrata','Yogurt',
+        // Dolcificanti polioli
         'Miele','Marmellata rid. zucchero'
       ],
       celesti:[
+        // Cereali low-FODMAP
         'Riso','Riso basmati','Riso integrale','Quinoa',
         'Patate','Patate dolci','Mais dolce in scatola','Polenta',
         'Gallette di riso','Pasta di riso','Pasta di mais',
+        // Verdure low-FODMAP
         'Zucchine','Carote','Cetriolo','Melanzane','Peperoni rossi','Zucca',
-        'Spinaci','Pomodori','Radicchio','Rucola',
-        'Banana','Fragole','Mirtilli','Arancia','Mandarino','Clementina',
-        'Kiwi','Ananas','Melone','Lamponi',
+        'Spinaci','Pomodori','Radicchio','Rucola','Lattuga',
+        // Frutta low-FODMAP
+        'Banana','Fragole','Arancia','Mandarino','Clementina',
+        'Kiwi','Ananas','Melone','Lamponi','Uva',
+        // Proteine (tutte ok)
         'Petto di pollo','Petto di tacchino','Vitellone tagli magri',
         'Orata','Spigola','Filetti di merluzzo/nasello','Salmone fresco',
         'Tonno al naturale','Uovo intero','Albumi',
+        // Latticini senza lattosio / stagionati
         'Parmigiano','Grana padano','Feta','Yogurt greco 2%',
-        'Latte di mandorla','Latte di riso',
+        'Latte di mandorla','Latte di riso','Latte di soia',
+        // Tofu e tempeh (low-FODMAP)
+        'Tofu',
         'Olio EVO','Noci','Mandorle'
       ]
     },
 
     'csp-gravidanza':{
-      // Gravidanza - Fonte: ISS, ACOG, documento clinico Fabrizio
+      // Gravidanza - Fonte: ISS Decalogo gravidanza, ACOG 2023, WHO
+      // Caffeina <200mg/die, alcol zero, attenzione Listeria/Toxoplasma/Salmonella/mercurio
       grigi:[
+        // Alto mercurio
         'Pesce spada','Tonno rosso','Salmone affumicato',
+        // Listeria / Toxoplasma (crudi o poco cotti)
         'Prosciutto crudo magro','Bresaola','Carpaccio','Salame','Speck','Mortadella','Nduja',
-        'Feta','Stracchino','Robiola','Burrata','Philadelphia light',
+        // Formaggi molli non pastorizzati (Listeria)
+        'Stracchino','Robiola','Burrata','Philadelphia light',
+        'Ricotta di vacca','Fiocchi di latte',
+        // Caffeina
         'Cacao amaro','Cioccolato fondente 85%'
       ],
       celesti:[
-        'Spinaci','Broccoli','Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
+        // Folati (400-600mcg/die)
+        'Spinaci','Broccoli','Lenticchie (barattolo)','Ceci (barattolo)',
+        'Arancia','Patate',
+        // Omega-3 DHA (mercurio basso)
         'Salmone fresco','Sgombro','Orata','Spigola',
-        'Yogurt','Yogurt greco 2%','Latte vaccino intero','Parmigiano','Grana padano','Ricotta di vacca',
-        'Uovo intero','Vitellone tagli magri',
-        'Filetti di merluzzo/nasello'
+        // Calcio (1000-1200mg/die)
+        'Yogurt','Yogurt greco 2%','Latte vaccino intero','Parmigiano','Grana padano','Feta',
+        // Ferro (27mg/die)
+        'Vitellone tagli magri','Uovo intero','Lenticchie (barattolo)',
+        // Iodio (250mcg/die)
+        'Filetti di merluzzo/nasello','Orata'
       ]
     },
 
     'csp-allattamento':{
-      // Allattamento - Fonte: ISS, WHO
+      // Allattamento - Fonte: WHO, ISS, ACOG 2023
+      // Caffeina <300mg/die, alcol zero, idratazione 2.5-3L/die
       grigi:[
+        // Alto mercurio (passa nel latte)
         'Pesce spada','Tonno rosso','Salmone affumicato',
-        'Cacao amaro','Cioccolato fondente 85%'
+        // Caffeina (irrequietezza neonato)
+        'Cacao amaro','Cioccolato fondente 85%',
+        // Gas/coliche neonato (se problema)
+        'Cipolla','Cavolo cappuccio','Cime di rapa'
       ],
       celesti:[
-        'Salmone fresco','Sgombro','Orata',
-        'Yogurt','Latte vaccino intero','Parmigiano','Ricotta di vacca',
-        'Uovo intero','Vitellone tagli magri','Petto di pollo',
+        // Omega-3 DHA (sviluppo neurale neonato)
+        'Salmone fresco','Sgombro','Orata','Spigola',
+        // Calcio (1000-1300mg/die)
+        'Yogurt','Yogurt greco 2%','Latte vaccino intero','Parmigiano','Grana padano','Ricotta di vacca',
+        // Proteine +19g/die
+        'Petto di pollo','Petto di tacchino','Uovo intero',
+        'Vitellone tagli magri',
         'Ceci (barattolo)','Lenticchie (barattolo)',
-        'Zucchine','Cetriolo','Anguria'
+        // Ferro e folati
+        'Spinaci','Broccoli',
+        // Idratazione
+        'Zucchine','Cetriolo','Anguria','Arancia'
       ]
     }
 
