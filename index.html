@@ -12,6 +12,16 @@
 .alt-ctrl:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
 .alt-ctrl.alt-x:hover{background:#dc2626;border-color:#dc2626}
 .alt-add{background:transparent;border:1px dashed #94a3b8;border-radius:4px;color:#64748b;font-size:.68rem;padding:2px 8px;cursor:pointer;transition:all .15s}
+.cella-menu-wrap{position:relative;display:inline-block;flex-shrink:0;}
+.cella-menu-btn{background:transparent;border:0.5px solid transparent;border-radius:4px;width:22px;height:22px;cursor:pointer;color:var(--text3);font-size:1rem;font-weight:700;letter-spacing:1px;line-height:1;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
+.cella-menu-btn:hover{background:var(--s2);border-color:var(--border);color:var(--text2);}
+.cella-dropdown{position:absolute;right:0;top:25px;background:var(--s1);border:1px solid var(--border);border-radius:8px;min-width:170px;z-index:999;padding:3px 0;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+.cella-dropdown.open{display:block;}
+.cella-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:.76rem;color:var(--text2);cursor:pointer;white-space:nowrap;transition:background .1s;}
+.cella-dd-item:hover{background:var(--teal-bg);color:var(--teal2);}
+.cella-dd-item.danger{color:var(--red);}
+.cella-dd-item.danger:hover{background:var(--red-bg);}
+.cella-dd-sep{height:1px;background:var(--border);margin:3px 0;}
 .ric-tab{background:transparent;border:none;padding:.5rem .9rem;font-size:.8rem;cursor:pointer;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
 .ric-tab:hover{color:var(--teal2)}
 .ric-tab.ric-tab-active{color:var(--teal2);border-bottom-color:var(--teal)}
@@ -6090,43 +6100,47 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
 
   ordKeys.forEach(function(ord) {
     var riga = righe[ord];
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem;margin-bottom:.4rem;align-items:start">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .6rem;margin-bottom:.35rem;align-items:start">';
     ['sx','dx'].forEach(function(col) {
       var cella = riga[col];
-      html += '<div style="background:#fafbfc;border:1px solid #eef0f3;border-radius:6px;padding:.4rem .5rem;min-height:34px">';
+      html += '<div style="background:#fafbfc;border:1px solid #eef0f3;border-radius:7px;padding:.38rem .5rem;min-height:30px">';
       if (cella && cella.alimenti && cella.alimenti.length) {
         var princ = cella.alimenti[0];
         var giornoEsc = giorno.replace(/"/g,'&quot;');
-        // PRINCIPALE — grammatura cliccabile
-        html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
-        html += '<strong style="font-size:.83rem">' + princ.n + '</strong>';
-        html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.8rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px" title="Click per modificare">' + princ.g + 'g</span>';
+        var menuId = 'cmenu_' + cella.id;
+        var ordNum = Number(ord);
+        // Riga principale: nome + grammatura + pulsante ⋯
+        html += '<div style="display:flex;align-items:center;gap:4px;">';
+        html += '<span style="font-size:.82rem;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+princ.n+'">'+princ.n+'</span>';
+        html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.76rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px;white-space:nowrap;" title="Modifica grammatura">'+princ.g+'g</span>';
+        // Pulsante ⋯
+        html += '<div class="cella-menu-wrap">';
+        html += '<button class="cella-menu-btn" onclick="toggleCellaMenu(\''+menuId+'\')" title="Opzioni">&#8943;</button>';
+        html += '<div class="cella-dropdown" id="'+menuId+'">';
+        // Aggiungi alternativa
+        if (cella.alimenti.length < 5) {
+          html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaAggiungiAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\')">+ Aggiungi alternativa</div>';
+          html += '<div class="cella-dd-sep"></div>';
+        }
+        // Spostamenti
+        if (ordNum > 1) html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'up\')">↑ Sposta su</div>';
+        if (ordNum < maxOrd) html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'down\')">↓ Sposta giù</div>';
+        if (col === 'dx') html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'left\')">← Sposta a sinistra</div>';
+        else html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'right\')">→ Sposta a destra</div>';
+        html += '<div class="cella-dd-sep"></div>';
+        html += '<div class="cella-dd-item danger" onclick="closeAllCellaMenus();cellaCancella(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\')">🗑 Elimina</div>';
+        html += '</div></div>';
         html += '</div>';
-        // ALTERNATIVE — con pulsanti swap (⇄) e rimuovi (×)
+        // Alternative — compatte, una per riga
         cella.alimenti.slice(1).forEach(function(alt, altIdx) {
           var idx1 = altIdx + 1;
-          html += '<div style="display:flex;align-items:center;gap:4px;font-size:.73rem;color:var(--text3);padding-left:.6rem;margin-top:1px">';
-          html += '<span style="font-style:italic;flex:1">' + alt.n + ' <span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+idx1+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px" title="Click per modificare">' + alt.g + 'g</span></span>';
-          html += '<button class="alt-ctrl" onclick="cellaSwap(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Promuovi a principale">⇄</button>';
-          html += '<button class="alt-ctrl alt-x" onclick="cellaRimuoviAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Rimuovi alternativa">×</button>';
+          html += '<div style="display:flex;align-items:center;gap:3px;font-size:.71rem;color:var(--text3);padding-left:.5rem;margin-top:2px;">';
+          html += '<span style="font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+alt.n+'">↳ '+alt.n+'</span>';
+          html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+idx1+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px;white-space:nowrap;font-size:.7rem;" title="Modifica">'+alt.g+'g</span>';
+          html += '<button class="alt-ctrl" onclick="cellaSwap(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Promuovi a principale" style="width:16px;height:16px;font-size:.6rem;">⇄</button>';
+          html += '<button class="alt-ctrl alt-x" onclick="cellaRimuoviAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;">×</button>';
           html += '</div>';
         });
-        // BOTTONE + alt
-        if (cella.alimenti.length < 5) {
-          html += '<div style="margin-top:.3rem"><button class="alt-add" onclick="cellaAggiungiAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\')">+ alternativa</button></div>';
-        }
-        // CONTROLLI CELLA (frecce)
-        var ordNum = Number(ord);
-        html += '<div style="display:flex;gap:3px;margin-top:.4rem;flex-wrap:wrap">';
-        // Up
-        if (ordNum > 1) html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'up\')" title="Sposta su">↑</button>';
-        // Down
-        if (ordNum < maxOrd) html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'down\')" title="Sposta giù">↓</button>';
-        // Left/Right
-        if (col === 'dx') html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'left\')" title="Sposta a sinistra">←</button>';
-        else html += '<button class="cell-ctrl" onclick="cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'right\')" title="Sposta a destra">→</button>';
-        html += '<button class="cell-ctrl cell-del" onclick="cellaCancella(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\')" title="Cancella cella">🗑</button>';
-        html += '</div>';
       } else {
         html += '<div style="font-size:.7rem;color:#cbd5e1;font-style:italic">— vuoto —</div>';
       }
@@ -6138,6 +6152,19 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
   html += '<div style="margin-top:.5rem;text-align:center"><button class="alt-add" style="padding:4px 12px;font-size:.72rem" onclick="apriAggiungiCella(\''+giornoEscR+'\',\''+slotKey+'\')">+ Aggiungi alimento</button></div>';
   return html;
 }
+
+// ── MENU ⋯ CELLE ──
+function toggleCellaMenu(id) {
+  var isOpen = document.getElementById(id) && document.getElementById(id).classList.contains('open');
+  closeAllCellaMenus();
+  if (!isOpen && document.getElementById(id)) document.getElementById(id).classList.add('open');
+}
+function closeAllCellaMenus() {
+  document.querySelectorAll('.cella-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+}
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.cella-menu-wrap')) closeAllCellaMenus();
+});
 
 // ── FASE 2 — funzioni di manipolazione celle ──
 function _trovaPasto(giorno, slotKey) {
