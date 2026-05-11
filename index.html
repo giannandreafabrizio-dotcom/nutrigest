@@ -6433,7 +6433,7 @@ async function generaPiano(){
 
       // Card giorno con header cliccabile per macros
       var dayHtml = '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;">';
-      dayHtml += '<div onclick="var el=document.getElementById('mtp_gen');el.style.display=el.style.display==='block'?'none':'block';" '
+      dayHtml += '<div onclick="var el=document.getElementById(\'mtp_gen\');el.style.display=el.style.display===\'block\'?\'none\':\'block\';" '
         +'style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">'
         +'<span>'+nomeGiorno+'</span>'
         +'<span title="Clicca per verifica macros" style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.25);">'+semIcon+'</span>'
