@@ -2162,7 +2162,7 @@ async function _caricaPianoCache(pazienteId) {
     if (!rows || !rows.length) return null;
     const row = rows[0];
     // Scade dopo 30 giorni
-    const MAX_AGE_DAYS = 30;
+    const MAX_AGE_DAYS = 90;
     const updatedAt = new Date(row.updated_at);
     const ageMs = Date.now() - updatedAt.getTime();
     if (ageMs > MAX_AGE_DAYS * 24 * 3600 * 1000) {
