@@ -759,15 +759,7 @@ main{flex:1;overflow-y:auto;}
             <input type="text" id="rp-uova-note" placeholder="es. Martedi pranzo 2 uova, Venerdi pranzo 2 uova" oninput="salvaRegolePiano()" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.76rem;background:var(--bg);">
           </div>
 
-          <!-- SEZIONE 3: Adattamenti clinici -->
-          <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Adattamenti clinici</div>
-          <div style="display:flex;flex-direction:column;gap:.45rem;">
-            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-ibs" onchange="salvaRegolePiano()"> Profilo IBS / Colon irritabile (low FODMAP)</label>
-            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-antinf" onchange="salvaRegolePiano()"> Profilo antinfiammatorio</label>
-            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-stip" onchange="salvaRegolePiano()"> Profilo antistitichezza</label>
-            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-ipert" onchange="salvaRegolePiano()"> Profilo ipertensione (sale ridotto, no affettati)</label>
-            <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-pcos" onchange="salvaRegolePiano()"> Profilo PCOS / insulino-resistenza</label>
-          </div>
+
 
         </div>
       </div>
@@ -5206,11 +5198,7 @@ ${(function(){
   if(r2.frsecca)righe.push('Frutta secca 20g ogni giorno');
   if(r2.cenaleggera)righe.push('Cena leggera: nessun carbo complesso a cena');
   if(r2.uovanote)righe.push('Posizionamento uova: '+r2.uovanote);
-  if(r2.ibs)righe.push('PROFILO IBS: applica schema low FODMAP');
-  if(r2.antinf)righe.push('PROFILO ANTINFIAMMATORIO: privilegia omega-3, curcuma, olio EVO');
-  if(r2.stip)righe.push('PROFILO ANTISTITICHEZZA: kiwi a colazione, alto contenuto fibre');
-  if(r2.ipert)righe.push('PROFILO IPERTENSIONE: sale ridotto, nessun affettato, nessun formaggio stagionato');
-  if(r2.pcos)righe.push('PROFILO PCOS: carbo a basso indice glicemico, evita zuccheri semplici');
+
   return righe.join('\n');
 })()}
 
@@ -5276,8 +5264,7 @@ function salvaRegolePiano(){
     rotazione:gc('rp-rotazione'),verdura200:gc('rp-verdura200'),
     frsecca:gc('rp-frsecca'),cenaleggera:gc('rp-cenaleggera'),
     uovanote:gt('rp-uova-note'),
-    ibs:gc('rp-ibs'),antinf:gc('rp-antinf'),stip:gc('rp-stip'),
-    ipert:gc('rp-ipert'),pcos:gc('rp-pcos')
+
   };
   save();
 }
@@ -5294,8 +5281,7 @@ function caricaRegolePiano(p){
   sc('rp-rotazione',r.rotazione,true);sc('rp-verdura200',r.verdura200,true);
   sc('rp-frsecca',r.frsecca,false);sc('rp-cenaleggera',r.cenaleggera,false);
   st('rp-uova-note',r.uovanote);
-  sc('rp-ibs',r.ibs,false);sc('rp-antinf',r.antinf,false);sc('rp-stip',r.stip,false);
-  sc('rp-ipert',r.ipert,false);sc('rp-pcos',r.pcos,false);
+
 }
 
 function getAnthropicKey() {
@@ -5955,11 +5941,33 @@ function _aggiornaPianoBox() {
   var pianoEl = document.getElementById('piano-piano-box');
   if (!pianoEl || !window._pianoCorrente) return;
   var pianoAI = window._pianoCorrente;
-  var aiHtml = '<div style="margin-top:1.5rem;">';
-  pianoAI.forEach(function(g) {
-    aiHtml += '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:1rem;overflow:hidden;">';
-    aiHtml += '<div style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;text-align:center;">' + g.giorno + '</div>';
-    aiHtml += '<div style="padding:.8rem 1rem;">';
+
+  // ── Navigazione giorni con frecce ──
+  window._pianoGiornoCorrente = window._pianoGiornoCorrente || 0;
+  if (window._pianoGiornoCorrente >= pianoAI.length) window._pianoGiornoCorrente = 0;
+
+  function _renderGiornoAttivo() {
+    var idx = window._pianoGiornoCorrente;
+    var g = pianoAI[idx];
+    if (!g) return;
+
+    var nomeGiorno = g.giorno || g.g || 'Giorno ' + (idx + 1);
+    var totGiorni = pianoAI.length;
+
+    // Barra navigazione
+    var navHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;padding:.5rem .2rem;">';
+    navHtml += '<button onclick="window._pianoGiornoCorrente=Math.max(0,window._pianoGiornoCorrente-1);_renderGiornoAttivo();" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;" ' + (idx===0?'disabled style="opacity:.35;cursor:default;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);"':'') + '>&#8592;</button>';
+    navHtml += '<div style="text-align:center;">';
+    navHtml += '<div style="font-size:1rem;font-weight:700;color:var(--text1);">' + nomeGiorno + '</div>';
+    navHtml += '<div style="display:flex;gap:5px;justify-content:center;margin-top:5px;">';
+    for (var d = 0; d < totGiorni; d++) {
+      navHtml += '<div style="width:7px;height:7px;border-radius:50%;background:' + (d===idx?'var(--green)':'var(--border)') + ';"></div>';
+    }
+    navHtml += '</div></div>';
+    navHtml += '<button onclick="window._pianoGiornoCorrente=Math.min(pianoAI.length-1,window._pianoGiornoCorrente+1);_renderGiornoAttivo();" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;" ' + (idx===totGiorni-1?'disabled style="opacity:.35;cursor:default;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);"':'') + '>&#8594;</button>';
+    navHtml += '</div>';
+
+    // Contenuto giorno
     var slots = [
       { label: 'COLAZIONE', key: 'colazione' },
       { label: 'SPUNTINO MATTINA', key: 'spuntino_mattina' },
@@ -5968,27 +5976,34 @@ function _aggiornaPianoBox() {
       { label: 'CENA', key: 'cena' },
       { label: 'PRE-NANNA', key: 'pre_nanna' }
     ];
+    var dayHtml = '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;">';
+    dayHtml += '<div style="padding:.8rem 1rem;">';
     slots.forEach(function(s) {
       var pasto = (g.pasti && g.pasti[s.key]) ? g.pasti[s.key] : g[s.key];
       if (!pasto) return;
-      aiHtml += '<div style="margin-bottom:.7rem;font-size:.85rem;">';
-      aiHtml += '<div style="font-weight:700;color:var(--green);text-align:center;margin-bottom:.3rem;font-size:.8rem;letter-spacing:.5px">' + s.label + '</div>';
-      if (pasto.celle) aiHtml += _renderCelleHtml(pasto, s.key, g.giorno);
-      aiHtml += '</div>';
+      dayHtml += '<div style="margin-bottom:.7rem;font-size:.85rem;">';
+      dayHtml += '<div style="font-weight:700;color:var(--green);text-align:center;margin-bottom:.3rem;font-size:.8rem;letter-spacing:.5px">' + s.label + '</div>';
+      if (pasto.celle) dayHtml += _renderCelleHtml(pasto, s.key, nomeGiorno);
+      dayHtml += '</div>';
     });
-    aiHtml += '</div></div>';
-  });
-  aiHtml += '</div>';
-  pianoEl.innerHTML = aiHtml;
+    dayHtml += '</div></div>';
 
-  // Ripristina pulsante PDF
-  if (window._pdfPaziente && window._pdfPiano) {
-    var btnPdf = document.createElement('button');
-    btnPdf.textContent = '📄 Scarica Piano PDF';
-    btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
-    btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
-    pianoEl.appendChild(btnPdf);
+    pianoEl.innerHTML = '<div style="margin-top:1.5rem;">' + navHtml + dayHtml + '</div>';
+
+    // Ripristina pulsante PDF dopo render
+    if (window._pdfPaziente && window._pdfPiano) {
+      var btnPdf = document.createElement('button');
+      btnPdf.textContent = '\ud83d\udcc4 Scarica Piano PDF';
+      btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
+      pianoEl.appendChild(btnPdf);
+    }
   }
+
+  window._renderGiornoAttivo = _renderGiornoAttivo;
+  window._pianoGiornoCorrente = 0;
+  _renderGiornoAttivo();
+
 }
 
 function parseJSONSicuro(testo) {
