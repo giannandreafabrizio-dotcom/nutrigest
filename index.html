@@ -305,6 +305,9 @@ main{flex:1;overflow-y:auto;}
 .sync-wrap.is-ok .sync-fill{width:100%;background:#4ade80;animation:none;}
 .sync-wrap.is-err .sync-fill{width:100%;background:#dc2626;animation:none;}
 @keyframes sync-fill-anim{0%{width:0%}50%{width:85%}100%{width:100%}}
+
+#piano-container{max-width:900px;}
+@media(max-width:768px){#piano-container{max-width:100%;}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -652,7 +655,7 @@ main{flex:1;overflow-y:auto;}
   <div class="page-hd">
     <div><h2>Generatore Piani Alimentari</h2><p>Crea piani settimanali personalizzati nel tuo stile</p></div>
   </div>
-  <div style="max-width:600px;margin:2rem auto;display:flex;flex-direction:column;gap:1.2rem;">
+  <div id="piano-container" style="max-width:900px;margin:2rem auto;display:flex;flex-direction:column;gap:1.2rem;">
 
     <!-- Selezione paziente -->
     <div class="card" style="padding:1.2rem 1.4rem;">
@@ -6265,21 +6268,27 @@ async function generaPiano(){
     box.id='piano-dati-box';
     document.getElementById('piano-btn-genera').parentNode.appendChild(box);
   }
-  box.style.cssText='margin-top:1rem;padding:1rem 1.2rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.82rem;color:#2e7d32;line-height:1.9;';
-  box.innerHTML='<strong style="font-size:.9rem;">âœ“ Dati paziente caricati correttamente</strong><br>'
-    +'<b>Nome:</b> '+dati.nome+' '+dati.cognome+'<br>'
-    +'<b>Regime:</b> '+dati.regime+'<br>'
-    +'<b>TDEE:</b> '+dati.tdee+'<br>'
-    +'<b>Kcal target:</b> '+dati.kcalTarget+'<br>'
-    +'<b>Proteine target:</b> '+dati.proteineTarget+'<br>'
-    +'<b>Carboidrati target:</b> '+dati.carboidratiTarget+'<br>'
-    +'<b>Grassi target:</b> '+dati.grassiTarget+'<br>'
-    +'<b>Allergie:</b> '+dati.allergie+'<br>'
-    +'<b>âœ… Alimenti verdi:</b> '+dati.alimentiVerdi+'<br>'
-    +'<b>ğŸŸ  Alimenti arancioni:</b> '+dati.alimentiArancioni+'<br>'
-    +'<b>âŒ Alimenti rossi:</b> '+dati.alimentiRossi+'<br>'
-    +'<b>Spuntini:</b> '+dati.spuntini+'<br>'
-    +'<b>Sabato sera:</b> '+dati.sabatosera+'<br>'
+  box.style.cssText='margin-top:1rem;padding:.7rem 1.1rem;background:#e8f5e9;border:1.5px solid #66bb6a;border-radius:10px;font-size:.82rem;color:#2e7d32;';
+  var _nV=(dati.alimentiVerdi&&dati.alimentiVerdi!=='â€”')?dati.alimentiVerdi.split(',').length:0;
+  var _nA=(dati.alimentiArancioni&&dati.alimentiArancioni!=='â€”')?dati.alimentiArancioni.split(',').length:0;
+  var _nR=(dati.alimentiRossi&&dati.alimentiRossi!=='â€”')?dati.alimentiRossi.split(',').length:0;
+  var _badge='âœ… '+_nV+' verdi';
+  if(_nA>0)_badge+=' Â· í ½í¿  '+_nA+' arancioni';
+  if(_nR>0)_badge+=' Â· âŒ '+_nR+' rossi';
+  var _sum='<strong style="font-size:.88rem;">âœ“ '+dati.nome+' '+dati.cognome+'</strong>'
+    +' Â· '+dati.regime+' Â· '+dati.kcalTarget+' kcal'
+    +' Â· P '+dati.proteineTarget+'g C '+dati.carboidratiTarget+'g G '+dati.grassiTarget+'g';
+  if(dati.allergie&&dati.allergie!=='â€”')_sum+=' Â· <span style="color:#c0392b;">âš  '+dati.allergie+'</span>';
+  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;cursor:pointer;" onclick="var d=document.getElementById(\'pd-det\');d.style.display=d.style.display===\'block\'?\'none\':\'block\';">'
+    +'<div style="line-height:1.6;">'+_sum+'</div>'
+    +'<div style="font-size:.72rem;white-space:nowrap;flex-shrink:0;">'+_badge+' â–¾</div>'
+    +'</div>'
+    +'<div id="pd-det" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #a8ddb5;font-size:.78rem;line-height:1.8;">'
+    +'<b>âœ… Verdi:</b> '+dati.alimentiVerdi+'<br>'
+    +'<b>í ½í¿  Arancioni:</b> '+dati.alimentiArancioni+'<br>'
+    +'<b>âŒ Rossi:</b> '+dati.alimentiRossi+'<br>'
+    +'<b>Spuntini:</b> '+dati.spuntini+' Â· <b>Sabato:</b> '+dati.sabatosera
+    +'</div>'
 
 
   if (!document.getElementById('piano-badge-75')) {
