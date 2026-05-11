@@ -6434,6 +6434,13 @@ function _mostraPopupCategoria(onScelto) {
 }
 
 function _aggiornaPianoBox() {
+  // Se siamo nel generatore (pill tabs), usa _renderGiornoGen
+  if (typeof window._renderGiornoGen === 'function' && document.getElementById('piano-select-paz')) {
+    window._renderGiornoGen();
+    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+    return;
+  }
   // Trova il piano nel DOM e aggiorna solo il render senza ricaricare nulla
   var pianoEl = document.getElementById('piano-piano-box');
   if (!pianoEl || !window._pianoCorrente) return;
