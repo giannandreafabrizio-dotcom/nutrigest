@@ -1004,20 +1004,13 @@ main{flex:1;overflow-y:auto;}
     <div class="fg">
       <label>Patologie comuni</label>
       <div class="chip-group">
-        <label class="chip-pill"><input type="checkbox" id="pat-diabete"> Diabete T2</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-ir"> Insulino-resistenza</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-diabete"> Diabete / IR / PCOS</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-lipidi"> Profilo lipidico alterato</label>
         <label class="chip-pill"><input type="checkbox" id="pat-ipert"> Ipertensione</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-colest"> Colesterolo alto</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-trig"> Trigliceridi alti</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-tiroid"> Ipotiroidismo</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-hashim"> Hashimoto</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-pcos"> PCOS</label>
         <label class="chip-pill"><input type="checkbox" id="pat-ibs"> IBS / Colon irritabile</label>
         <label class="chip-pill"><input type="checkbox" id="pat-reflusso"> Reflusso</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-gotta"> Gotta / Iperuricemia</label>
         <label class="chip-pill"><input type="checkbox" id="pat-irc"> IRC / Patologia renale</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-meno"> Menopausa</label>
-        <label class="chip-pill"><input type="checkbox" id="pat-steat"> Steatosi epatica</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-tiroid"> Ipotiroidismo / Hashimoto</label>
       </div>
       <textarea id="p-patologie" style="margin-top:.5rem" placeholder="Altre patologie / note..."></textarea>
     </div>
@@ -1027,36 +1020,16 @@ main{flex:1;overflow-y:auto;}
       <div class="chip-group">
         <label class="chip-pill"><input type="checkbox" id="all-glutine"> Glutine / Celiachia</label>
         <label class="chip-pill"><input type="checkbox" id="all-lattosio"> Lattosio</label>
-        <label class="chip-pill"><input type="checkbox" id="all-latte"> Latte (proteine)</label>
-        <label class="chip-pill"><input type="checkbox" id="all-uova"> Uova</label>
-        <label class="chip-pill"><input type="checkbox" id="all-pesce"> Pesce</label>
-        <label class="chip-pill"><input type="checkbox" id="all-crost"> Crostacei</label>
-        <label class="chip-pill"><input type="checkbox" id="all-soia"> Soia</label>
-        <label class="chip-pill"><input type="checkbox" id="all-fruttasec"> Frutta a guscio</label>
-        <label class="chip-pill"><input type="checkbox" id="all-arachidi"> Arachidi</label>
         <label class="chip-pill"><input type="checkbox" id="all-nichel"> Nichel</label>
-        <label class="chip-pill"><input type="checkbox" id="all-istamina"> Istamina</label>
-        <label class="chip-pill"><input type="checkbox" id="all-fruttosio"> Fruttosio</label>
+        <label class="chip-pill"><input type="checkbox" id="all-fodmap"> Low-FODMAP</label>
       </div>
       <textarea id="p-allergie" style="margin-top:.5rem" placeholder="Altre allergie / intolleranze..."></textarea>
-    </div>
-    <div class="fg" style="margin-top:.4rem">
-      <label>Situazioni particolari</label>
-      <div class="chip-group">
-        <label class="chip-pill"><input type="checkbox" id="sdv-ritenzione"> Ritenzione idrica</label>
-        <label class="chip-pill"><input type="checkbox" id="sdv-gonfiore"> Gonfiore / flatulenza</label>
-        <label class="chip-pill"><input type="checkbox" id="sdv-stitichezza"> Stitichezza</label>
-        <label class="chip-pill"><input type="checkbox" id="sdv-diarrea"> Diarrea frequente</label>
-        <label class="chip-pill"><input type="checkbox" id="sdv-sostenibilita"> Sostenibilità alimentare</label>
-      </div>
     </div>
     <div class="fg" style="margin-top:.4rem">
       <label>Condizioni speciali</label>
       <div class="chip-group">
         <label class="chip-pill"><input type="checkbox" id="csp-gravidanza"> Gravidanza</label>
         <label class="chip-pill"><input type="checkbox" id="csp-allattamento"> Allattamento</label>
-        <label class="chip-pill"><input type="checkbox" id="csp-menopausa"> Menopausa / perimenopausa</label>
-        <label class="chip-pill"><input type="checkbox" id="csp-massa"> Obiettivo massa muscolare</label>
       </div>
     </div>
   </div>
@@ -2301,7 +2274,7 @@ function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
   ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
   toggleOrarioNote();
@@ -2330,7 +2303,7 @@ function editPaz(){
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
-  ['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
+  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
   s('p-dove',p.dove);setDove(p.dove);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
@@ -2366,15 +2339,179 @@ function applicaRegoloSemaforo(p){
   const al=p.alimenti||{};
 
   // Regole: [chiave_checkbox, [grigi], [celesti]]
+  // Revisione clinica P3 - 11 maggio 2026
+  // 13 condizioni: 7 patologie + 4 allergie/intolleranze + 2 condizioni speciali
   const REGOLE={
-    'all-lattosio':{
-      grigi:['Yogurt','Yogurt parzialmente scremato','Yogurt greco 0-2%','Ricotta di vacca','Ricotta di pecora','Fiocchi di latte','Mozzarella di vacca','Mozzarella Proteinella','Philadelphia light','Feta','Stracchino','Scamorza','Parmigiano','Grana padano','Pecorino','Robiola','Cacioricotta','Burrata','Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato','Kefir'],
-      celesti:['Latte di mandorla','Latte di soia','Latte di riso','Latte di avena','Latte di nocciola','Tofu']
+
+    'pat-diabete':{
+      // Diabete T2 / Insulino-resistenza / PCOS - Fonte: ADA 2024, AACE PCOS Guidelines
+      grigi:[
+        'Marmellata rid. zucchero','Miele','Biscotti integrali','Fette biscottate integrali',
+        'Pane comune','Riso','Patate','Mais dolce in scatola','Popcorn','Cornflakes',
+        'Uva','Fichi','Datteri','Kaki','Mango','Banana',
+        'Salame','Mortadella','Nduja'
+      ],
+      celesti:[
+        'Spinaci','Broccoli','Zucchine','Carote','Finocchio','Cavolfiore','Cavolo nero',
+        'Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
+        'Quinoa','Riso basmati','Riso integrale',
+        'Mela','Fragole','Mirtilli',
+        'Sgombro','Salmone fresco','Orata',
+        'Uovo intero','Noci','Mandorle','Semi di chia','Semi di lino',
+        'Olio EVO','Curcuma','Cannella','Zenzero fresco'
+      ]
     },
+
+    'pat-lipidi':{
+      // Colesterolo + Trigliceridi + Steatosi epatica - Fonte: ESC/EAS 2019, EASL NAFLD 2016
+      grigi:[
+        'Burro arachidi','Burro mandorle',
+        'Parmigiano','Grana padano','Pecorino','Burrata','Stracchino',
+        'Salame','Mortadella','Nduja','Speck',
+        'Vitello carne semigrassa','Maiale arista','Agnello',
+        'Miele','Marmellata rid. zucchero','Uva','Fichi','Datteri','Mango',
+        'Cioccolato fondente 85%','Cacao amaro'
+      ],
+      celesti:[
+        'Sgombro','Salmone fresco','Tonno al naturale','Orata','Spigola',
+        'Noci','Mandorle','Semi di lino','Semi di chia','Semi di zucca',
+        'Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
+        'Quinoa','Riso integrale',
+        'Mela','Frutti rossi misti','Mirtilli',
+        'Spinaci','Broccoli','Cavolo nero','Carote',
+        'Olio EVO','Aglio in polvere','Curcuma'
+      ]
+    },
+
+    'pat-ipert':{
+      // Ipertensione - Fonte: ESH Guidelines 2023, dieta DASH
+      grigi:[
+        'Bresaola','Prosciutto crudo magro','Prosciutto cotto','Speck',
+        'Mortadella','Salame','Nduja','Carpaccio',
+        'Parmigiano','Grana padano','Pecorino',
+        'Salsa di soia','Dado da brodo',
+        'Crackers','Grissini','Tarallini'
+      ],
+      celesti:[
+        'Spinaci','Cavolo nero','Bieta','Zucchine','Sedano','Barbabietola',
+        'Banana','Patate','Patate dolci','Arancia','Kiwi',
+        'Sgombro','Salmone fresco','Orata',
+        'Ceci (barattolo)','Lenticchie (barattolo)',
+        'Noci','Mandorle','Semi di lino',
+        'Olio EVO','Aglio in polvere','Curcuma'
+      ]
+    },
+
+    'pat-ibs':{
+      // IBS / Colon irritabile - Fonte: AIGO 2015 (regola generale, non protocollo FODMAP completo)
+      grigi:[
+        'Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)',
+        'Broccoli','Cavolfiore','Cipolla','Porro','Cime di rapa',
+        'Latte vaccino intero','Latte vaccino p.scremato',
+        'Mela','Pera','Anguria',
+        'Farro','Pasta integrale'
+      ],
+      celesti:[
+        'Riso basmati','Riso','Patate','Carote','Zucchine','Cetriolo','Finocchio',
+        'Petto di pollo','Petto di tacchino','Filetti di merluzzo/nasello','Orata',
+        'Uovo intero',
+        'Banana','Fragole','Arancia','Clementina','Mirtilli',
+        'Yogurt','Kefir',
+        'Olio EVO','Zenzero fresco','Curcuma'
+      ]
+    },
+
+    'pat-reflusso':{
+      // Reflusso gastroesofageo / GERD - Fonte: AIGO, ACG Guidelines GERD 2022
+      grigi:[
+        'Pomodori','Peperoni rossi','Peperoni verdi',
+        'Cioccolato fondente 85%','Cacao amaro',
+        'Peperoncino','Curry','Paprika','Pepe nero',
+        'Salsa di soia',
+        'Latte vaccino intero','Latte di cocco','Burrata',
+        'Mortadella','Salame','Nduja','Speck',
+        'Arancia','Limone','Mandarino','Clementina','Kiwi'
+      ],
+      celesti:[
+        'Zucchine','Finocchio','Carote','Patate','Patate dolci','Cetriolo',
+        'Petto di pollo','Petto di tacchino','Filetti di merluzzo/nasello',
+        'Yogurt','Fiocchi di latte','Ricotta di vacca',
+        'Riso','Riso basmati','Pane integrale',
+        'Banana','Mela','Pera','Melone',
+        'Olio EVO','Zenzero fresco'
+      ]
+    },
+
+    'pat-irc':{
+      // Insufficienza renale cronica - Fonte: KDIGO 2012/2024
+      grigi:[
+        'Parmigiano','Grana padano','Pecorino','Feta',
+        'Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)',
+        'Soia surgelata (edamame)','Tofu','Seitan',
+        'Banana','Arancia','Kiwi','Pomodori','Patate',
+        'Noci','Mandorle','Pistacchi','Anacardi','Arachidi',
+        'Salame','Mortadella','Nduja','Speck',
+        'Salsa di soia','Dado da brodo'
+      ],
+      celesti:[
+        'Riso','Riso basmati','Pasta','Pane comune',
+        'Petto di pollo','Petto di tacchino',
+        'Uovo intero','Albumi',
+        'Filetti di merluzzo/nasello','Orata',
+        'Mela','Pera','Fragole','Mirtilli','Anguria',
+        'Carote','Zucchine','Cetriolo','Peperoni rossi',
+        'Olio EVO','Limone'
+      ]
+    },
+
+    'pat-tiroid':{
+      // Ipotiroidismo / Hashimoto - Fonte: ATA Guidelines 2014
+      grigi:[
+        'Soia surgelata (edamame)','Tofu','Latte di soia',
+        'Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cavolo nero','Cime di rapa'
+      ],
+      celesti:[
+        'Orata','Salmone fresco','Sgombro','Spigola',
+        'Uovo intero',
+        'Noci','Semi di zucca','Semi di lino',
+        'Ceci (barattolo)','Lenticchie (barattolo)',
+        'Yogurt','Kefir','Ricotta di vacca',
+        'Olio EVO','Curcuma','Zenzero fresco'
+      ]
+    },
+
     'all-glutine':{
-      grigi:['Pasta','Pasta integrale','Pane comune','Pane integrale','Pane di segale','Farro','Orzo','Grano','Frisella','Tarallini','Grissini','Crackers','Panbauletto integrale','Wasa (contiene glutine)','Spätzle','Seitan','Latte di farro'],
-      celesti:['Riso','Riso basmati','Riso integrale','Riso rosso','Riso nero','Quinoa','Mais','Polenta','Patate','Patate dolci','Gnocchi di patate','Gallette di riso','Pasta di riso','Pasta di mais','Grano saraceno','Spaghetti Shirataki Konjac']
+      // Celiachia / NCGS - Fonte: ESPGHAN, AIC Linee guida
+      grigi:[
+        'Pasta','Pasta integrale','Pane comune','Pane integrale','Pane di segale',
+        'Farro','Orzo','Frisella','Tarallini','Grissini','Crackers',
+        'Panbauletto integrale','Wasa (contiene glutine)','Seitan',
+        'Muesli','Fette biscottate integrali'
+      ],
+      celesti:[
+        'Riso','Riso basmati','Riso integrale','Quinoa',
+        'Mais dolce in scatola','Polenta','Pasta di mais',
+        'Patate','Patate dolci','Gnocchi di patate',
+        'Gallette di riso','Grano saraceno','Spaghetti Shirataki Konjac'
+      ]
     },
+
+    'all-lattosio':{
+      // Intolleranza al lattosio - Fonte: AIGO 2019
+      grigi:[
+        'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
+        'Ricotta di vacca','Ricotta di pecora',
+        'Fiocchi di latte','Mozzarella di vacca','Mozzarella Protinella',
+        'Philadelphia light','Stracchino','Scamorza','Burrata','Robiola','Kefir'
+      ],
+      celesti:[
+        'Parmigiano','Grana padano','Pecorino','Feta',
+        'Yogurt greco 2%','Yogurt',
+        'Latte di mandorla','Latte di riso','Latte di avena','Latte di nocciola',
+        'Tofu'
+      ]
+    },
+
     'all-nichel':{
       // Fonte: tabella BraMa-Ni (centroallergologiapediatrica.it) - aggiornata 11 maggio 2026
       grigi:[
@@ -2408,91 +2545,76 @@ function applicaRegoloSemaforo(p){
         'Olio EVO','Pepe nero','Paprika','Limone'
       ]
     },
-    'all-uova':{
-      grigi:['Uovo intero','Albumi','Tuorlo'],
-      celesti:['Tofu','Legumi','Ceci (barattolo)','Lenticchie (barattolo)','Petto di pollo','Petto di tacchino','Merluzzo/nasello surgelato']
+
+    'all-fodmap':{
+      // Low-FODMAP fase eliminazione - Fonte: Monash University + Dott. Gallo (documento progetto)
+      grigi:[
+        'Farro','Orzo','Pane comune','Pasta',
+        'Cipolla','Porro','Aglio in polvere','Cipolla in polvere',
+        'Broccoli','Cavolfiore','Carciofi','Finocchio',
+        'Funghi champignon','Funghi porcini',
+        'Piselli (barattolo)','Piselli surgelati',
+        'Ceci (secchi)','Ceci (barattolo)',
+        'Fagioli borlotti (secchi)','Fagioli borlotti (barattolo)',
+        'Lenticchie (secche)','Lenticchie (barattolo)',
+        'Soia surgelata (edamame)','Tofu',
+        'Mela','Pera','Anguria','Uva','Mango','Kaki','Fichi',
+        'Albicocca','Pesca','Ciliegia','Susine','Prugne',
+        'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
+        'Ricotta di vacca','Fiocchi di latte','Stracchino','Burrata',
+        'Miele','Marmellata rid. zucchero'
+      ],
+      celesti:[
+        'Riso','Riso basmati','Riso integrale','Quinoa',
+        'Patate','Patate dolci','Mais dolce in scatola','Polenta',
+        'Gallette di riso','Pasta di riso','Pasta di mais',
+        'Zucchine','Carote','Cetriolo','Melanzane','Peperoni rossi','Zucca',
+        'Spinaci','Pomodori','Radicchio','Rucola',
+        'Banana','Fragole','Mirtilli','Arancia','Mandarino','Clementina',
+        'Kiwi','Ananas','Melone','Lamponi',
+        'Petto di pollo','Petto di tacchino','Vitellone tagli magri',
+        'Orata','Spigola','Filetti di merluzzo/nasello','Salmone fresco',
+        'Tonno al naturale','Uovo intero','Albumi',
+        'Parmigiano','Grana padano','Feta','Yogurt greco 2%',
+        'Latte di mandorla','Latte di riso',
+        'Olio EVO','Noci','Mandorle'
+      ]
     },
-    'all-pesce':{
-      grigi:['Tonno sottolio sgocciolato','Tonno al naturale','Salmone affumicato','Salmone al naturale','Gamberetti','Sgombro sottolio','Merluzzo/nasello surgelato','Orata fresca','Sarago','Spigola','Salmone fresco','Tonno fresco','Tonno rosso','Pesce spada','Sgombro','Polpo','Seppia','Cozze','Vongole','Trota','Persico'],
-      celesti:['Petto di pollo','Petto di tacchino','Vitellone tagli magri','Uovo intero','Ceci (barattolo)','Lenticchie (barattolo)','Tofu']
+
+    'csp-gravidanza':{
+      // Gravidanza - Fonte: ISS, ACOG, documento clinico Fabrizio
+      grigi:[
+        'Pesce spada','Tonno rosso','Salmone affumicato',
+        'Prosciutto crudo magro','Bresaola','Carpaccio','Salame','Speck','Mortadella','Nduja',
+        'Feta','Stracchino','Robiola','Burrata','Philadelphia light',
+        'Cacao amaro','Cioccolato fondente 85%'
+      ],
+      celesti:[
+        'Spinaci','Broccoli','Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
+        'Salmone fresco','Sgombro','Orata','Spigola',
+        'Yogurt','Yogurt greco 2%','Latte vaccino intero','Parmigiano','Grana padano','Ricotta di vacca',
+        'Uovo intero','Vitellone tagli magri',
+        'Filetti di merluzzo/nasello'
+      ]
     },
-    'all-fruttasecca':{
-      grigi:['Noci','Mandorle','Nocciole','Pistacchi','Anacardi','Pinoli','Arachidi','Burro arachidi','Burro mandorle','Noci brasiliane','Noci di macadamia'],
-      celesti:['Semi di chia','Semi di zucca','Semi di lino','Semi di girasole','Semi di sesamo']
-    },
-    'all-crostacei':{
-      grigi:['Gamberetti','Cozze','Vongole'],
-      celesti:['Petto di pollo','Merluzzo/nasello surgelato','Orata fresca','Ceci (barattolo)']
-    },
-    'all-soia':{
-      grigi:['Soia (barattolo)','Soia surgelata (edamame)','Tofu','Latte di soia'],
-      celesti:['Ceci (barattolo)','Lenticchie (barattolo)','Petto di pollo','Uovo intero','Merluzzo/nasello surgelato']
-    },
-    'pat-diabete':{
-      grigi:['Marmellata rid. zucchero','Miele','Biscotti integrali','Fette biscottate integrali','Pane comune','Riso','Patate','Uva','Fichi','Datteri','Banane','Mango','Kaki','Fiocchi di mais','Popcorn'],
-      celesti:['Spinaci','Broccoli','Zucchine','Carote','Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)','Fiocchi avena','Quinoa','Mela','Pera','Frutti rossi misti','Mirtilli','Cannella','Curcuma','Olio EVO','Noci','Mandorle','Sgombro','Salmone fresco']
-    },
-    'pat-tiroide':{
-      grigi:['Soia (barattolo)','Soia surgelata (edamame)','Tofu','Latte di soia','Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cavolo nero','Cime di rapa'],
-      celesti:['Orata fresca','Salmone fresco','Sgombro','Uovo intero','Noci','Semi di zucca','Ceci (barattolo)','Yogurt','Kefir','Olio EVO','Curcuma','Zenzero fresco']
-    },
-    'pat-ipertensione':{
-      grigi:['Bresaola','Prosciutto crudo magro','Prosciutto cotto','Speck','Mortadella','Salame','Nduja','Parmigiano','Grana padano','Pecorino','Salsa di soia'],
-      celesti:['Spinaci','Cavolo nero','Aglio in polvere','Banana','Patate','Avocado','Sgombro','Salmone fresco','Olio EVO','Frutti rossi misti','Mirtilli','Sedano','Barbabietola']
-    },
-    'pat-colesterolo':{
-      grigi:['Burro arachidi','Parmigiano','Grana padano','Pecorino','Bresaola','Prosciutto crudo magro','Salame','Nduja','Mortadella','Vitello carne semigrassa','Maiale arista','Agnello'],
-      celesti:['Sgombro','Salmone fresco','Sardine','Tonno al naturale','Fiocchi avena','Ceci (barattolo)','Lenticchie (barattolo)','Noci','Mandorle','Olio EVO','Aglio in polvere','Curcuma','Spinaci','Mela','Frutti rossi misti']
-    },
-    'pat-crohn':{
-      grigi:['Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cime di rapa','Cipolla','Porro','Noci','Mandorle','Pistacchi','Pasta integrale','Pane integrale'],
-      celesti:['Riso basmati','Patate','Carote','Zucchine','Petto di pollo','Merluzzo/nasello surgelato','Orata fresca','Uovo intero','Banana','Mela','Yogurt','Olio EVO']
-    },
-    'pat-ibs':{
-      grigi:['Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Broccoli','Cavolfiore','Cipolla','Porro','Mela','Pera','Anguria','Latte vaccino intero','Latte vaccino p.scremato','Pasta','Pane comune','Farro'],
-      celesti:['Riso basmati','Patate','Carote','Zucchine','Petto di pollo','Merluzzo/nasello surgelato','Uovo intero','Banana','Fragole','Arancia','Olio EVO','Zenzero fresco','Finocchio']
-    },
-    'pat-pcos':{
-      grigi:['Marmellata rid. zucchero','Miele','Pane comune','Riso','Biscotti integrali','Fette biscottate integrali','Salame','Mortadella','Nduja'],
-      celesti:['Spinaci','Broccoli','Cavolo nero','Ceci (barattolo)','Lenticchie (barattolo)','Frutti rossi misti','Mirtilli','Avocado','Sgombro','Salmone fresco','Olio EVO','Noci','Semi di lino','Curcuma','Cannella','Uovo intero']
-    },
-    'stile-ritenzione':{
-      grigi:['Bresaola','Prosciutto crudo magro','Prosciutto cotto','Speck','Mortadella','Salame','Nduja','Parmigiano','Grana padano','Pecorino','Salsa di soia'],
-      celesti:['Asparagi','Cetriolo','Ananas','Anguria','Sedano','Prezzemolo','Banana','Patate','Ceci (barattolo)','Lenticchie (barattolo)','Finocchio','Zenzero fresco']
-    },
-    'stile-gonfiore':{
-      grigi:['Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Broccoli','Cavolfiore','Verza','Cipolla','Porro','Uva','Mela','Pera'],
-      celesti:['Finocchio','Zenzero fresco','Curcuma','Yogurt','Kefir','Carote','Zucchine','Patate','Riso basmati','Banana']
-    },
-    'stile-stitichezza':{
-      grigi:['Riso','Riso basmati'],
-      celesti:['Fiocchi avena','Prugne secche','Kiwi','Ceci (barattolo)','Lenticchie (barattolo)','Carote','Spinaci','Mela','Pera','Fichi','Semi di lino','Verdure a foglia verde']
-    },
-    'stile-diarrea':{
-      grigi:['Latte vaccino intero','Latte vaccino p.scremato','Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)','Noci','Mandorle'],
-      celesti:['Riso','Riso basmati','Carote','Mela','Banana','Pane comune','Patate','Petto di pollo']
-    },
-    'stile-sostenibilita':{
-      grigi:[],
-      celesti:['Ceci (barattolo)','Ceci (secchi)','Fagioli borlotti (barattolo)','Lenticchie (barattolo)','Lenticchie (secche)','Tofu','Zucchine','Carote','Spinaci','Broccoli','Mela','Pera','Fiocchi avena','Riso integrale','Quinoa','Uovo intero']
-    },
-    'cond-gravidanza':{
-      grigi:['Salmone affumicato','Tonno fresco','Tonno rosso','Pesce spada','Latte vaccino intero','Feta','Gorgonzola','Prosciutto crudo magro','Speck','Bresaola','Carpaccio','Fegato'],
-      celesti:['Spinaci','Cavolo nero','Ceci (barattolo)','Lenticchie (barattolo)','Vitellone tagli magri','Sgombro','Uovo intero','Yogurt','Latte vaccino p.scremato','Arancia','Kiwi','Frutti rossi misti']
-    },
-    'cond-allattamento':{
-      grigi:['Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cipolla','Porro','Aglio in polvere'],
-      celesti:['Fiocchi avena','Finocchio','Mandorle','Yogurt','Latte vaccino p.scremato','Petto di pollo','Sgombro','Ceci (barattolo)','Spinaci']
-    },
-    'cond-menopausa':{
-      grigi:['Salame','Mortadella','Nduja','Speck','Parmigiano','Grana padano','Pecorino'],
-      celesti:['Yogurt','Ricotta di vacca','Sgombro','Salmone fresco','Uovo intero','Spinaci','Cavolo nero','Semi di sesamo','Ceci (barattolo)','Lenticchie (barattolo)','Soia (barattolo)','Semi di lino']
-    },
-    'cond-massa':{
-      grigi:['Marmellata rid. zucchero','Miele','Biscotti integrali'],
-      celesti:['Petto di pollo','Petto di tacchino','Vitellone tagli magri','Merluzzo/nasello surgelato','Tonno al naturale','Uovo intero','Albumi','Yogurt greco 0-2%','Ricotta di vacca','Ceci (barattolo)','Lenticchie (barattolo)','Riso basmati','Fiocchi avena','Banana','Patate','Noci','Mandorle']
+
+    'csp-allattamento':{
+      // Allattamento - Fonte: ISS, WHO
+      grigi:[
+        'Pesce spada','Tonno rosso','Salmone affumicato',
+        'Cacao amaro','Cioccolato fondente 85%'
+      ],
+      celesti:[
+        'Salmone fresco','Sgombro','Orata',
+        'Yogurt','Latte vaccino intero','Parmigiano','Ricotta di vacca',
+        'Uovo intero','Vitellone tagli magri','Petto di pollo',
+        'Ceci (barattolo)','Lenticchie (barattolo)',
+        'Zucchine','Cetriolo','Anguria'
+      ]
     }
+
   };
+
 
   // Pulisce solo i colori automatici (grigioScuro e celeste) — non tocca quelli manuali
   Object.keys(al).forEach(k=>{
@@ -2501,15 +2623,19 @@ function applicaRegoloSemaforo(p){
 
   // Conta quante condizioni consigliano o sconsigliano ogni alimento
   const NOMI_CONDIZIONE={
-    'all-lattosio':'Lattosio','all-glutine':'Glutine','all-nichel':'Nichel',
-    'all-uova':'Uova','all-pesce':'Pesce','all-fruttasecca':'Frutta secca',
-    'all-crostacei':'Crostacei','all-soia':'Soia','pat-diabete':'Diabete',
-    'pat-tiroide':'Tiroide','pat-ipertensione':'Ipertensione','pat-colesterolo':'Colesterolo',
-    'pat-crohn':'Morbo di Crohn','pat-ibs':'Intestino irritabile','pat-pcos':'PCOS',
-    'stile-ritenzione':'Ritenzione idrica','stile-gonfiore':'Gonfiore',
-    'stile-stitichezza':'Stitichezza','stile-diarrea':'Diarrea',
-    'stile-sostenibilita':'Sostenibilità','cond-gravidanza':'Gravidanza',
-    'cond-allattamento':'Allattamento','cond-menopausa':'Menopausa','cond-massa':'Massa muscolare'
+    'pat-diabete':'Diabete/IR/PCOS',
+    'pat-lipidi':'Profilo lipidico',
+    'pat-ipert':'Ipertensione',
+    'pat-ibs':'Intestino irritabile',
+    'pat-reflusso':'Reflusso',
+    'pat-irc':'Patologia renale',
+    'pat-tiroid':'Ipotiroidismo/Hashimoto',
+    'all-glutine':'Glutine',
+    'all-lattosio':'Lattosio',
+    'all-nichel':'Nichel',
+    'all-fodmap':'Low-FODMAP',
+    'csp-gravidanza':'Gravidanza',
+    'csp-allattamento':'Allattamento'
   };
   const conteggioGrigi={}, conteggioLuci={};
   const motivazioniGrigi={}, motivazioniLuci={};
@@ -2583,7 +2709,7 @@ function salvaPaz(){
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:getIntegratori(),integraWant:getIntegraWant(),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
-    checkSemaforo:['all-lattosio','all-glutine','all-nichel','all-uova','all-pesce','all-fruttasecca','all-crostacei','all-soia','pat-diabete','pat-tiroide','pat-ipertensione','pat-colesterolo','pat-crohn','pat-ibs','pat-pcos','stile-ritenzione','stile-gonfiore','stile-stitichezza','stile-diarrea','stile-sostenibilita','cond-gravidanza','cond-allattamento','cond-menopausa','cond-massa'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
+    checkSemaforo:['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
     dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
