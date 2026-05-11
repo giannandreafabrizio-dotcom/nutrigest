@@ -2480,49 +2480,79 @@ function applicaRegoloSemaforo(p){
     },
 
     'pat-tiroid':{
-      // Ipotiroidismo / Hashimoto - Fonte: ATA Guidelines 2014
+      // Ipotiroidismo / Hashimoto - Fonte: ATA Guidelines 2014, studi 2020-2024
+      // NOTA: goitrogeni (crucifere) solo se crudi e in eccesso; cottura li neutralizza
       grigi:[
+        // Interferiscono assorbimento levotiroxina o funzione tiroidea
         'Soia surgelata (edamame)','Tofu','Latte di soia',
-        'Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cavolo nero','Cime di rapa'
+        // Goitrogeni crudi (ok se cotti)
+        'Broccoli','Cavolfiore','Verza','Cavolo cappuccio','Cavolo nero','Cime di rapa',
+        // Eccesso iodio (Hashimoto)
+        'Alghe marine','Alga spirulina'
       ],
       celesti:[
-        'Orata','Salmone fresco','Sgombro','Spigola',
+        // Omega-3 anti-infiammatori
+        'Salmone fresco','Sgombro','Orata','Spigola','Filetti di merluzzo/nasello',
+        // Selenio e zinco
         'Uovo intero',
-        'Noci','Semi di zucca','Semi di lino',
+        'Noci','Mandorle','Semi di zucca','Semi di lino',
+        // Proteine magre
+        'Petto di pollo','Petto di tacchino',
+        // Legumi (non soia)
         'Ceci (barattolo)','Lenticchie (barattolo)',
+        // Latticini (distanziati da levotiroxina)
         'Yogurt','Kefir','Ricotta di vacca',
+        // Antiossidanti
+        'Peperoni rossi','Zucchine','Funghi champignon',
         'Olio EVO','Curcuma','Zenzero fresco'
       ]
     },
 
     'all-glutine':{
-      // Celiachia / NCGS - Fonte: ESPGHAN, AIC Linee guida
+      // Celiachia / NCGS - Fonte: ESPGHAN 2020, AIC Linee guida
+      // Soglia sicura: <20 ppm glutine (Codex Alimentarius)
       grigi:[
+        // Fonti dirette di glutine
         'Pasta','Pasta integrale','Pane comune','Pane integrale','Pane di segale',
         'Farro','Orzo','Frisella','Tarallini','Grissini','Crackers',
         'Panbauletto integrale','Wasa (contiene glutine)','Seitan',
-        'Muesli','Fette biscottate integrali'
+        'Muesli','Fette biscottate integrali',
+        // Fonti nascoste (contaminazione crociata o additivi)
+        'Salsa di soia','Dado da brodo'
       ],
       celesti:[
-        'Riso','Riso basmati','Riso integrale','Quinoa',
+        // Cereali naturalmente GF
+        'Riso','Riso basmati','Riso integrale','Quinoa','Grano saraceno',
         'Mais dolce in scatola','Polenta','Pasta di mais',
-        'Patate','Patate dolci','Gnocchi di patate',
-        'Gallette di riso','Grano saraceno','Spaghetti Shirataki Konjac'
+        // Tuberi e derivati GF
+        'Patate','Patate dolci','Gnocchi di patate','Gallette di riso',
+        'Spaghetti Shirataki Konjac',
+        // Proteine naturalmente GF
+        'Petto di pollo','Petto di tacchino','Uovo intero',
+        'Orata','Filetti di merluzzo/nasello','Salmone fresco',
+        'Ceci (barattolo)','Lenticchie (barattolo)'
       ]
     },
 
     'all-lattosio':{
-      // Intolleranza al lattosio - Fonte: AIGO 2019
+      // Intolleranza al lattosio - Fonte: AIGO Position Paper 2019
+      // Soglia media tolleranza: ~12g/die lattosio (distribuiti nei pasti)
       grigi:[
+        // Alto lattosio (>5g/porzione) - evitare
         'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
+        // Lattosio medio (2-5g/100g) - evitare o limitare
         'Ricotta di vacca','Ricotta di pecora',
         'Fiocchi di latte','Mozzarella di vacca','Mozzarella Protinella',
-        'Philadelphia light','Stracchino','Scamorza','Burrata','Robiola','Kefir'
+        'Philadelphia light','Stracchino','Scamorza','Burrata','Robiola'
       ],
       celesti:[
+        // Stagionati: lattosio <0.1g/100g - ben tollerati
         'Parmigiano','Grana padano','Pecorino','Feta',
-        'Yogurt greco 2%','Yogurt',
-        'Latte di mandorla','Latte di riso','Latte di avena','Latte di nocciola',
+        // Fermentati: lattosio parzialmente idrolizzato
+        'Yogurt','Yogurt greco 2%','Kefir',
+        // Bevande vegetali: 0g lattosio
+        'Latte di mandorla','Latte di riso','Latte di avena',
+        'Latte di soia','Latte di nocciola',
         'Tofu'
       ]
     },
