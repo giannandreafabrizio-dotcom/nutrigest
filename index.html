@@ -5384,8 +5384,19 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+dH+'</div>';
     var btn=document.createElement('button');
     btn.textContent='📄 Scarica Piano PDF';
-    btn.style.cssText='margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btn.style.cssText='margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
     btn.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
+    // Toggle senza bilancia
+    var _toggleWrap1 = document.createElement('label');
+    _toggleWrap1.style.cssText='display:flex;align-items:center;gap:8px;margin-top:1.5rem;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
+    var _chk1 = document.createElement('input');
+    _chk1.type='checkbox';
+    _chk1.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+    _chk1.checked = window._pdfSenzaBilancia || false;
+    _chk1.onchange = function(){ window._pdfSenzaBilancia = this.checked; };
+    _toggleWrap1.appendChild(_chk1);
+    _toggleWrap1.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
+    pianoEl.appendChild(_toggleWrap1);
     pianoEl.appendChild(btn);
   };
   window._renderGiornoGen();
@@ -6480,8 +6491,17 @@ function _aggiornaPianoBox() {
     if (window._pdfPaziente && window._pdfPiano) {
       var btnPdf = document.createElement('button');
       btnPdf.textContent = '\ud83d\udcc4 Scarica Piano PDF';
-      btnPdf.style.cssText = 'margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnPdf.style.cssText = 'margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
       btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
+      var _tw2=document.createElement('label');
+      _tw2.style.cssText='display:flex;align-items:center;gap:8px;margin-top:1.5rem;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
+      var _ck2=document.createElement('input');_ck2.type='checkbox';
+      _ck2.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+      _ck2.checked=window._pdfSenzaBilancia||false;
+      _ck2.onchange=function(){window._pdfSenzaBilancia=this.checked;};
+      _tw2.appendChild(_ck2);
+      _tw2.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
+      pianoEl.appendChild(_tw2);
       pianoEl.appendChild(btnPdf);
     }
   }
@@ -6879,6 +6899,72 @@ async function generaPiano(forceRegen){
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+// ── PRIORITA' 2C: MODALITA' SENZA BILANCIA ───────────────────────────────────
+// Tabella conversione grammi -> misure casalinghe
+// Nota nel PDF: "modalita' porzioni casalinghe - precisione +/-15%"
+var MISURE_CASALINGHE = {
+  // Cereali
+  'Pasta':                    function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':g<=90?'1 mestolo (~'+g+'g)':'1 mestolo colmo (~'+g+'g)'; },
+  'Pasta integrale':          function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':g<=90?'1 mestolo (~'+g+'g)':'1 mestolo colmo (~'+g+'g)'; },
+  'Pasta di mais':            function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':g<=90?'1 mestolo (~'+g+'g)':'1 mestolo colmo (~'+g+'g)'; },
+  'Riso':                     function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':g<=90?'1 mestolo colmo (~'+g+'g)':'2 mestoli (~'+g+'g)'; },
+  'Riso basmati':             function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':g<=90?'1 mestolo colmo (~'+g+'g)':'2 mestoli (~'+g+'g)'; },
+  'Riso integrale':           function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':g<=90?'1 mestolo colmo (~'+g+'g)':'2 mestoli (~'+g+'g)'; },
+  'Quinoa':                   function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':'1 mestolo colmo (~'+g+'g)'; },
+  'Farro':                    function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':'1 mestolo colmo (~'+g+'g)'; },
+  'Orzo':                     function(g){ return g<=60?'1 mestolo raso (~'+g+'g)':'1 mestolo colmo (~'+g+'g)'; },
+  'Polenta':                  function(g){ return g<=60?'3 cucchiai (~'+g+'g)':'4 cucchiai (~'+g+'g)'; },
+  'Patate':                   function(g){ return g<=150?'1 patata media (~'+g+'g)':g<=250?'2 patate medie (~'+g+'g)':'3 patate medie (~'+g+'g)'; },
+  'Patate dolci':             function(g){ return g<=150?'1 patata dolce media (~'+g+'g)':'1 patata dolce grande (~'+g+'g)'; },
+  'Pane comune':              function(g){ return g<=50?'1 fetta (~'+g+'g)':g<=80?'2 fette (~'+g+'g)':'3 fette (~'+g+'g)'; },
+  'Pane integrale':           function(g){ return g<=50?'1 fetta (~'+g+'g)':g<=80?'2 fette (~'+g+'g)':'3 fette (~'+g+'g)'; },
+  'Pane di segale':           function(g){ return g<=50?'1 fetta (~'+g+'g)':g<=80?'2 fette (~'+g+'g)':'3 fette (~'+g+'g)'; },
+  'Gallette di riso':         function(g){ var n=Math.round(g/20); return n+'galletta'+(n>1?'e':'')+' di riso (~'+g+'g)'; },
+  'Wasa (contiene glutine)':  function(g){ var n=Math.round(g/10); return n+' Wasa (~'+g+'g)'; },
+  'Frisella':                 function(g){ return g<=40?'1 frisella (~'+g+'g)':'2 friselle (~'+g+'g)'; },
+  'Fette biscottate integrali': function(g){ var n=Math.round(g/6); return n+' fette biscottate (~'+g+'g)'; },
+  'Crackers':                 function(g){ var n=Math.round(g/9); return n+' crackers (~'+g+'g)'; },
+  'Piadina':                  function(g){ return '1 piadina (~'+g+'g)'; },
+  'Mais dolce in scatola':    function(g){ return Math.round(g/15)+' cucchiai (~'+g+'g)'; },
+  // Proteine animali
+  'Uovo intero':              function(g){ var n=Math.round(g/50); return n+' uov'+(n===1?'o':'a')+' (~'+g+'g)'; },
+  'Albumi':                   function(g){ var n=Math.round(g/33); return n+' alb'+(n===1?'ume':'umi')+' (~'+g+'g)'; },
+  'Tuorlo':                   function(g){ var n=Math.round(g/18); return n+' tuorl'+(n===1?'o':'i')+' (~'+g+'g)'; },
+  'Tonno al naturale':        function(g){ return g<=60?'1 scatoletta piccola (~'+g+'g)':'1 scatoletta grande (~'+g+'g)'; },
+  'Tonno sottolio sgocciolato': function(g){ return g<=60?'1 scatoletta piccola (~'+g+'g)':'1 scatoletta grande (~'+g+'g)'; },
+  'Salmone affumicato':       function(g){ return g<=80?'1 confezione piccola (~'+g+'g)':'1 confezione grande (~'+g+'g)'; },
+  // Latticini
+  'Yogurt':                   function(g){ return g<=125?'1 vasetto piccolo (~'+g+'g)':g<=200?'1 vasetto grande (~'+g+'g)':'2 vasetti (~'+g+'g)'; },
+  'Yogurt greco 2%':          function(g){ return g<=150?'1 vasetto (~'+g+'g)':'1 vasetto grande (~'+g+'g)'; },
+  'Mozzarella di vacca':      function(g){ return g<=100?'1 mozzarella piccola (~'+g+'g)':g<=125?'1 mozzarella (~'+g+'g)':'1 mozzarella grande (~'+g+'g)'; },
+  'Parmigiano':               function(g){ return Math.round(g/10)+' cucchiai rasi (~'+g+'g)'; },
+  'Grana padano':             function(g){ return Math.round(g/10)+' cucchiai rasi (~'+g+'g)'; },
+  'Ricotta di vacca':         function(g){ return g<=125?'mezzo vasetto (~'+g+'g)':'1 vasetto (~'+g+'g)'; },
+  'Fiocchi di latte':         function(g){ return '1 vaschetta (~'+g+'g)'; },
+  // Grassi
+  'Olio EVO':                 function(g){ return Math.round(g/10)+' cucchia'+(Math.round(g/10)===1?'io':'i')+' (~'+g+'g)'; },
+  'Burro arachidi':           function(g){ return Math.round(g/15)+' cucchia'+(Math.round(g/15)===1?'io':'i')+ ' (~'+g+'g)'; },
+  // Frutta secca
+  'Noci':                     function(g){ return Math.round(g/10)+' noci (~'+g+'g)'; },
+  'Mandorle':                 function(g){ return Math.round(g/10)+' mandorle (~'+g+'g)'; },
+  'Anacardi':                 function(g){ return '1 manciata piccola (~'+g+'g)'; },
+  'Pistacchi':                function(g){ return '1 manciata (~'+g+'g)'; },
+  'Arachidi':                 function(g){ return '1 manciata (~'+g+'g)'; },
+};
+
+function gramTestoCasalingo(nomeAlimento, grammi) {
+  var fn = MISURE_CASALINGHE[nomeAlimento];
+  if (!fn) return null;
+  var g = parseFloat(grammi);
+  if (!g) return null;
+  try { return fn(g); } catch(e) { return null; }
+}
+
+// Flag globale: true = modalita' senza bilancia attiva per il prossimo PDF
+window._pdfSenzaBilancia = false;
+// ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
+
 function generaPDF(paziente, giorni) {
   // Fase 3.2 — Layout stile foto target: 1 pagina/giorno, distribuzione uniforme,
   // ricette '1.' bold + testo, label "Alternative:", layout 50/50 ariato.
@@ -6944,8 +7030,12 @@ function generaPDF(paziente, giorni) {
     return doc.getTextWidth(safe(s));
   }
 
-  function gramText(g) {
+  function gramText(g, nomeAlimento) {
     if (g == null || g === '') return '';
+    if (window._pdfSenzaBilancia && nomeAlimento) {
+      var cas = gramTestoCasalingo(nomeAlimento, g);
+      if (cas) return cas;
+    }
     return g + ' g';
   }
 
@@ -7151,7 +7241,7 @@ function generaPDF(paziente, giorni) {
     // PRINCIPALE: nome bold + grammatura bold a destra
     setFont('bold', 12, NERO);
     var nomeP = safe(princ.n || '');
-    var gP = gramText(princ.g);
+    var gP = gramText(princ.g, princ.n);
     var gPwidth = gP ? measure(gP, 12, 'bold') + 2 : 0;
     var nomeMaxW = wCell - gPwidth;
     var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
@@ -7178,7 +7268,7 @@ function generaPDF(paziente, giorni) {
       for (var i = 1; i < ali.length; i++) {
         var alt = ali[i];
         var nomeA = safe(alt.n || '');
-        var gA = gramText(alt.g);
+        var gA = gramText(alt.g, alt.n);
         var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
         var nomeAmaxW = wCell - gAwidth;
         var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
@@ -7277,7 +7367,10 @@ function generaPDF(paziente, giorni) {
     doc.setPage(i);
     setFont('normal', 7.5, GRIGIO);
     doc.text(safe(nomePaz), M, FOOTER_Y);
-    doc.text('Generato il ' + dataGen, W / 2, FOOTER_Y, { align: 'center' });
+    var footerCenter = window._pdfSenzaBilancia
+      ? 'Porzioni casalinghe (±15%) | Generato il ' + dataGen
+      : 'Generato il ' + dataGen;
+    doc.text(footerCenter, W / 2, FOOTER_Y, { align: 'center' });
     doc.text('Pag. ' + i + '/' + totPagine, W - M, FOOTER_Y, { align: 'right' });
   }
 
@@ -8894,8 +8987,18 @@ function renderPianoBox(piano) {
   if(window._pdfPaziente && window._pdfPiano){
     var _btnPdf=document.createElement('button');
     _btnPdf.textContent='📄 Scarica Piano PDF';
-    _btnPdf.style.cssText='margin-top:1.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    _btnPdf.style.cssText='margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
     _btnPdf.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
+    // Toggle senza bilancia
+    var _toggleWrap3=document.createElement('label');
+    _toggleWrap3.style.cssText='display:flex;align-items:center;gap:8px;margin-top:1.5rem;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
+    var _chk3=document.createElement('input');
+    _chk3.type='checkbox';
+    _chk3.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+    _chk3.checked=window._pdfSenzaBilancia||false;
+    _chk3.onchange=function(){window._pdfSenzaBilancia=this.checked;};
+    _toggleWrap3.appendChild(_chk3);
+    _toggleWrap3.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
     pianoEl.appendChild(_btnPdf);
   }
 }
