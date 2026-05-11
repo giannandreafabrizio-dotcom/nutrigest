@@ -1879,6 +1879,48 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
   'Frutta fresca (media)': 'frutta'
 };
 
+
+// ── PRIORITA' 2A: CALCOLO GRAMMATURA EQUIVALENTE ─────────────────────────────
+// Fonte: tabelle Dott.ssa Colombo + database CREA_ALIMENTI
+// Calcola quanti grammi di alimentoAlt forniscono lo stesso apporto
+// del macronutriente scelto di grBase grammi di alimentoBase.
+// criterio: 'carbo' | 'proteine' | 'kcal'
+function calcolaGrammaturaEquivalente(alimentoBase, grBase, alimentoAlt, criterio) {
+  criterio = criterio || 'carbo';
+  var vBase = getValoriCREA(alimentoBase, null);
+  var vAlt  = getValoriCREA(alimentoAlt,  null);
+  if (!vBase || !vAlt) return null;
+
+  var key = criterio === 'proteine' ? 'p' : criterio === 'kcal' ? 'kcal' : 'c';
+  var valBase = vBase[key];
+  var valAlt  = vAlt[key];
+  if (!valBase || !valAlt || valAlt === 0) return null;
+
+  // grammi equivalenti
+  var grAlt = (grBase * valBase) / valAlt;
+  return Math.round(grAlt);
+}
+
+// Determina il criterio di equivalenza migliore per una categoria funzionale
+function criterioByCat(cat) {
+  if (cat === 'carbo')    return 'carbo';
+  if (cat === 'proteine') return 'proteine';
+  if (cat === 'legumi')   return 'proteine';
+  if (cat === 'frutta')   return 'carbo';
+  if (cat === 'verdura')  return 'kcal';
+  if (cat === 'olio')     return 'kcal';
+  return 'kcal';
+}
+
+// Dato principale + alternativa + categoria, ritorna grammatura equivalente
+function suggerisciGrEquivalente(nPrinc, gPrinc, nAlt, cat) {
+  var criterio = criterioByCat(cat);
+  var gr = calcolaGrammaturaEquivalente(nPrinc, gPrinc, nAlt, criterio);
+  if (!gr) return null;
+  return { gr: gr, criterio: criterio };
+}
+// ── FINE PRIORITA' 2A ────────────────────────────────────────────────────────
+
 // Funzione helper: dato un nome alimento, restituisce la categoria funzionale
 function getCategoriaFunzionale(nomeAlimento) {
   if (!nomeAlimento) return 'condimento';
@@ -5992,12 +6034,14 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
     return;
   }
 
-  // Grammatura suggerita per categoria
-  var gSugg = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[categoriaTarget] || 100;
+  // Grammatura base del principale (per calcolo equivalenza)
+  var gSuggFallback = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[categoriaTarget] || 100;
+  var nPrinc = princ ? princ.n : '';
+  var gPrinc = princ ? (parseFloat(princ.g) || gSuggFallback) : gSuggFallback;
 
-  // Mostra popup di selezione
-  _mostraPopupAggiungiAlt(compatibili, gSugg, function(scelto) {
-    cella.alimenti.push({n: scelto.n, g: gSugg, categoria: scelto.cat, colore: scelto.colore});
+  // Mostra popup con calcolo equivalenza automatica
+  _mostraPopupAggiungiAlt(compatibili, gSuggFallback, nPrinc, gPrinc, categoriaTarget, function(scelto, grCalcolato) {
+    cella.alimenti.push({n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore});
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
@@ -6005,7 +6049,7 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
   });
 }
 
-function _mostraPopupAggiungiAlt(alimenti, gSugg, onScelto) {
+function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPrinc, onScelto) {
   // Rimuovi popup esistente
   var existing = document.getElementById('popup-add-alt');
   if (existing) existing.remove();
@@ -6040,12 +6084,18 @@ function _mostraPopupAggiungiAlt(alimenti, gSugg, onScelto) {
       var c = a.colore === 'verde' ? '#059669' : a.colore === 'arancione' ? '#D97706' : '#DC2626';
       var bg = a.colore === 'verde' ? '#ECFDF5' : a.colore === 'arancione' ? '#FFFBEB' : '#FEF2F2';
       var btn = document.createElement('button');
+      // Calcola grammatura equivalente se possibile
+      var eqResult = nPrinc ? suggerisciGrEquivalente(nPrinc, gPrinc, a.n, catPrinc) : null;
+      var grMostrato = eqResult ? eqResult.gr : gSuggFallback;
+      var labelCriterio = eqResult ? (eqResult.criterio === 'carbo' ? 'carbo' : eqResult.criterio === 'proteine' ? 'prot' : 'kcal') : 'std';
+      var labelEq = eqResult ? grMostrato+'g <span style="font-size:.6rem;opacity:.7">(eq.'+labelCriterio+')</span>' : grMostrato+'g';
       btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.5rem .7rem;border:1px solid '+bg+';background:'+bg+';border-radius:6px;cursor:pointer;font-size:.83rem;color:#1e293b;text-align:left;transition:all .15s';
-      btn.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+c+';flex-shrink:0"></span><span style="flex:1">'+a.n+'</span><span style="color:'+c+';font-size:.7rem;font-weight:600">'+gSugg+'g</span>';
+      btn.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+c+';flex-shrink:0"></span><span style="flex:1">'+a.n+'</span><span style="color:'+c+';font-size:.7rem;font-weight:600">'+labelEq+'</span>';
+      var _grFinal = grMostrato;
       btn.onclick = function() {
         document.getElementById('popup-add-alt').remove();
         document.getElementById('popup-add-alt-bg').remove();
-        onScelto(a);
+        onScelto(a, _grFinal);
       };
       lista.appendChild(btn);
     });
@@ -6245,9 +6295,9 @@ function apriAggiungiCella(giorno, slotKey) {
       return;
     }
 
-    var gSugg = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[cat] || 100;
+    var gSuggFallback2 = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[cat] || 100;
 
-    _mostraPopupAggiungiAlt(compatibili, gSugg, function(scelto) {
+    _mostraPopupAggiungiAlt(compatibili, gSuggFallback2, '', gSuggFallback2, cat, function(scelto, grCalcolato) {
       // Crea nuova cella
       var celle = ctx.pasto.celle;
       // Trova ordine massimo nella colonna sx (default colonna nuova cella)
@@ -6264,7 +6314,7 @@ function apriAggiungiCella(giorno, slotKey) {
         id: nuovoId,
         colonna: colonnaNuova,
         ordine: ordineNuovo,
-        alimenti: [{n: scelto.n, g: gSugg, categoria: scelto.cat, colore: scelto.colore}]
+        alimenti: [{n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore}]
       });
 
       _aggiornaPianoBox();
