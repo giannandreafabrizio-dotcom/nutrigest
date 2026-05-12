@@ -1123,11 +1123,13 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
       <div class="fg"><label>Sabato sera</label>
         <select id="p-weekend">
-          <option value="Pizza">Pizza</option>
-          <option value="Panino">Panino</option>
-          <option value="Carne rossa">Carne rossa</option>
-          <option value="Pesce">Pesce</option>
-          <option value="Sushi o Poke">Sushi o Poke</option>
+          <option value="Pizza">Pizza (~900 kcal)</option>
+          <option value="Pizza con condimenti">Pizza con condimenti (~1100 kcal)</option>
+          <option value="Panino">Panino (~650 kcal)</option>
+          <option value="Sushi o Poke">Sushi o Poke (~750 kcal)</option>
+          <option value="Pesce al ristorante">Pesce al ristorante (~600 kcal)</option>
+          <option value="Carne rossa al ristorante">Carne rossa al ristorante (~750 kcal)</option>
+          <option value="Libero (non specificato)">Libero (~800 kcal)</option>
         </select>
       </div>
     </div>
@@ -1662,15 +1664,44 @@ function getCurrentPaziente() {
 }
 
 // Calcolo macros REALI del piano (somma alimenti principali per cella)
+// A8: tabella stime kcal cena libera sabato per tipo weekend
+const KCAL_WEEKEND = {
+  'Pizza':900,
+  'Pizza con condimenti':1100,
+  'Panino':650,
+  'Sushi o Poke':750,
+  'Pesce al ristorante':600,
+  'Carne rossa al ristorante':750,
+  'Libero (non specificato)':800
+};
+// Restituisce la stima kcal per il weekend del paziente corrente
+function getKcalWeekend(paziente){
+  if(!paziente||!paziente.regolePiano||paziente.regolePiano.sabatolibero===false)return 0;
+  const scelta=paziente.weekend||'';
+  // Match parziale sul nome
+  for(const [key,val] of Object.entries(KCAL_WEEKEND)){
+    if(scelta&&scelta.toLowerCase().includes(key.toLowerCase()))return val;
+  }
+  return scelta?800:0; // default 800 se scelta non riconosciuta
+}
+
 function calcolaMacrosPiano(piano) {
   if (!Array.isArray(piano)) return null;
   const giornalieri = [];
   const nonTrovati = new Set();
   let wKcal = 0, wP = 0, wC = 0, wG = 0;
 
+  // A8: recupera paziente corrente per stima weekend
+  const _pazWeekend = typeof getCurrentPaziente === 'function' ? getCurrentPaziente() : null;
+  const _kcalWeekend = _pazWeekend ? getKcalWeekend(_pazWeekend) : 0;
+  let _sabatoCenaStimata = false;
+
   piano.forEach(g => {
     let dKcal = 0, dP = 0, dC = 0, dG = 0;
     const pasti = g.pasti || {};
+    // A8: rileva se è il giorno sabato con cena libera
+    const _gNome = (g.giorno || g.g || '').toLowerCase();
+    const _isSabato = _gNome.includes('sabato') || _gNome.includes('sab');
     Object.values(pasti).forEach(pasto => {
       const celle = pasto.celle || [];
       celle.forEach(cella => {
@@ -1690,12 +1721,18 @@ function calcolaMacrosPiano(piano) {
         });
       });
     });
+    // A8: se sabato con cena libera, aggiungi stima kcal weekend
+    if(_isSabato && _kcalWeekend > 0){
+      dKcal += _kcalWeekend;
+      _sabatoCenaStimata = true;
+    }
     giornalieri.push({
       giorno: g.giorno || g.g,
       kcal: Math.round(dKcal),
       p: Math.round(dP * 10) / 10,
       c: Math.round(dC * 10) / 10,
       g: Math.round(dG * 10) / 10,
+      stimaWeekend: _isSabato && _kcalWeekend > 0 ? _kcalWeekend : 0,
     });
     wKcal += dKcal; wP += dP; wC += dC; wG += dG;
   });
@@ -1706,6 +1743,8 @@ function calcolaMacrosPiano(piano) {
     settimanale: { kcal: Math.round(wKcal), p: Math.round(wP*10)/10, c: Math.round(wC*10)/10, g: Math.round(wG*10)/10 },
     medio:       { kcal: Math.round(wKcal/n), p: Math.round(wP/n*10)/10, c: Math.round(wC/n*10)/10, g: Math.round(wG/n*10)/10 },
     alimentiNonTrovati: Array.from(nonTrovati),
+    sabatoCenaStimata: _sabatoCenaStimata,
+    kcalWeekendStimata: _kcalWeekend,
   };
 }
 
@@ -1728,7 +1767,11 @@ function renderBadgeMacrosReali(piano, target) {
     return '#dc2626';
   }
   const warn = calc.alimentiNonTrovati.length > 0
-    ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#92400e;background:#fef3c7;padding:0.3rem 0.6rem;border-radius:6px;">⚠ Alimenti non nel DB CREA (esclusi dal calcolo): ' + calc.alimentiNonTrovati.join(', ') + '</div>'
+    ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#92400e;background:#fef3c7;padding:0.3rem 0.6rem;border-radius:6px;">&#9888; Alimenti non nel DB CREA (esclusi dal calcolo): ' + calc.alimentiNonTrovati.join(', ') + '</div>'
+    : '';
+  // A8: nota visiva stima kcal sabato cena libera
+  const warnSabato = calc.sabatoCenaStimata
+    ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#1e40af;background:#eff6ff;padding:0.3rem 0.6rem;border-radius:6px;">&#127371; Sabato cena libera inclusa come stima (~' + calc.kcalWeekendStimata + ' kcal). La media giornaliera include questa stima.</div>'
     : '';
   return '<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:0.7rem 0.9rem;margin:0.6rem 0;">' +
     '<div style="font-size:0.78rem;font-weight:600;color:#0f766e;margin-bottom:0.4rem;">📊 Macros reali del piano (media giornaliera)</div>' +
@@ -1739,6 +1782,7 @@ function renderBadgeMacrosReali(piano, target) {
       '<div><div style="font-weight:700;color:' + color(m.g, tG) + ';">' + m.g + 'g G</div><div style="font-size:0.7rem;color:#64748b;">target ' + tG + ' (' + pct(m.g, tG) + ')</div></div>' +
     '</div>' +
     warn +
+    warnSabato +
   '</div>';
 }
 
