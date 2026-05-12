@@ -319,34 +319,34 @@ main{flex:1;overflow-y:auto;}
 #piano-container{max-width:900px;}
 @media(max-width:768px){#piano-container{max-width:100%;}}
 /* Layout generatore con pannello laterale */
-#piano-outer-wrap{display:flex;gap:1rem;align-items:flex-start;max-width:1220px;margin:0 auto;}
+#piano-outer-wrap{display:flex;gap:1rem;align-items:flex-start;max-width:1260px;margin:0 auto;}
 #piano-container{flex:1;min-width:0;max-width:900px;}
-#panel-macros-giorno{width:280px;flex-shrink:0;position:sticky;top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;}
+#panel-macros-giorno{width:320px;flex-shrink:0;position:sticky;top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;}
 #panel-macros-giorno.visible{display:block;}
-.pmg-head{background:var(--green);color:#fff;padding:.55rem .9rem;font-size:.78rem;font-weight:700;}
-.pmg-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--s1);}
-.pmg-tab{flex:1;padding:.38rem .2rem;font-size:.7rem;text-align:center;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;transition:color .15s;}
+.pmg-head{background:var(--green);color:#fff;padding:.6rem 1rem;font-size:.82rem;font-weight:700;}
+.pmg-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--s1);overflow-x:auto;}
+.pmg-tab{flex:1;padding:.42rem .3rem;font-size:.74rem;text-align:center;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;transition:color .15s;white-space:nowrap;}
 .pmg-tab.active{color:var(--green);border-bottom-color:var(--green);font-weight:600;}
-.pmg-body{padding:.6rem .7rem;max-height:calc(100vh - 180px);overflow-y:auto;}
+.pmg-body{padding:.7rem .8rem;max-height:calc(100vh - 180px);overflow-y:auto;}
 .pmg-section{margin-bottom:.7rem;}
-.pmg-section-title{font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;padding:.3rem 0 .2rem;border-bottom:1px solid var(--border);margin-bottom:.3rem;}
-.pmg-alim-row{display:grid;grid-template-columns:1fr 42px 38px 28px 28px 28px;gap:2px;align-items:center;padding:2px 0;}
-.pmg-alim-row.princ{background:var(--green-bg);border-radius:4px;padding:2px 3px;}
+.pmg-section-title{font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;padding:.35rem 0 .25rem;border-bottom:1px solid var(--border);margin-bottom:.35rem;}
+.pmg-alim-row{display:grid;grid-template-columns:1fr 44px 40px 30px 30px 30px;gap:2px;align-items:center;padding:3px 0;}
+.pmg-alim-row.princ{background:var(--green-bg);border-radius:4px;padding:3px 4px;}
 .pmg-alim-row.alt{padding-left:10px;opacity:.85;}
-.pmg-alim-name{font-size:.71rem;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pmg-alim-name.alt-name{color:var(--text3);font-style:italic;font-size:.68rem;}
-.pmg-gram-input{width:38px;font-size:.7rem;text-align:center;border:1px solid var(--border);border-radius:3px;padding:1px 2px;color:var(--teal);font-weight:600;background:var(--bg);cursor:pointer;}
+.pmg-alim-name{font-size:.76rem;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pmg-alim-name.alt-name{color:var(--text3);font-style:italic;font-size:.71rem;}
+.pmg-gram-input{width:40px;font-size:.73rem;text-align:center;border:1px solid var(--border);border-radius:3px;padding:2px 2px;color:var(--teal);font-weight:600;background:var(--bg);cursor:pointer;}
 .pmg-gram-input:focus{outline:none;border-color:var(--teal);background:#f0fdfa;}
-.pmg-mac{font-size:.68rem;text-align:right;color:var(--text2);}
+.pmg-mac{font-size:.71rem;text-align:right;color:var(--text2);}
 .pmg-mac.prot{color:#0F6E56;}
 .pmg-mac.gras{color:#854F0B;}
-.pmg-col-hdr{display:grid;grid-template-columns:1fr 42px 38px 28px 28px 28px;gap:2px;padding:1px 0 3px;margin-bottom:1px;}
-.pmg-col-hdr span{font-size:.6rem;color:var(--text3);text-align:right;text-transform:uppercase;}
+.pmg-col-hdr{display:grid;grid-template-columns:1fr 44px 40px 30px 30px 30px;gap:2px;padding:1px 0 4px;margin-bottom:2px;}
+.pmg-col-hdr span{font-size:.62rem;color:var(--text3);text-align:right;text-transform:uppercase;}
 .pmg-col-hdr span:first-child{text-align:left;}
-.pmg-totale{background:var(--green-bg);border-radius:6px;padding:.45rem .6rem;margin-top:.5rem;}
-.pmg-totale-row{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text2);margin-bottom:.1rem;}
+.pmg-totale{background:var(--green-bg);border-radius:6px;padding:.5rem .7rem;margin-top:.6rem;}
+.pmg-totale-row{display:flex;justify-content:space-between;font-size:.76rem;color:var(--text2);margin-bottom:.15rem;}
 .pmg-totale-row span:last-child{font-weight:600;color:var(--text1);}
-@media(max-width:1050px){#panel-macros-giorno{display:none!important;}}
+@media(max-width:1100px){#panel-macros-giorno{display:none!important;}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -5480,12 +5480,12 @@ function renderPanelMacrosGiorno(giornoObj) {
   panel.classList.add('visible');
 
   var slots = [
-    {label:'Col.',key:'colazione'},
-    {label:'Sp.M',key:'spuntino_mattina'},
+    {label:'Colazione',key:'colazione'},
+    {label:'Sp. mattina',key:'spuntino_mattina'},
     {label:'Pranzo',key:'pranzo'},
-    {label:'Sp.P',key:'spuntino_pomeriggio'},
+    {label:'Sp. pomeriggio',key:'spuntino_pomeriggio'},
     {label:'Cena',key:'cena'},
-    {label:'Nanna',key:'pre_nanna'}
+    {label:'Pre-nanna',key:'pre_nanna'}
   ];
 
   // Trova i pasti presenti
@@ -5586,7 +5586,7 @@ function renderPanelMacrosGiorno(giornoObj) {
 
   // Totale pasto (ponderato 40/30/30)
   html += '<div class="pmg-totale">';
-  html += '<div style="font-size:.63rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem;">Totale pasto (40/30/30)</div>';
+  html += '<div style="font-size:.66rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">Totale pasto (40/30/30)</div>';
   html += '<div class="pmg-totale-row"><span>Kcal</span><span>'+Math.round(totKcal)+'</span></div>';
   html += '<div class="pmg-totale-row"><span>Proteine</span><span style="color:#0F6E56">'+Math.round(totP*10)/10+'g</span></div>';
   html += '<div class="pmg-totale-row"><span>Carboidrati</span><span>'+Math.round(totC*10)/10+'g</span></div>';
