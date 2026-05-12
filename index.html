@@ -5180,6 +5180,7 @@ function calcolaMacros(){
   const kcalProt=protG*4;const kcalGrassi=grassiG*9;
   const kcalCarb=Math.max(0,kcalObj-kcalProt-kcalGrassi);
   const carbG=+(kcalCarb/4).toFixed(0);
+  const _sb=document.getElementById('mac-salva-box');if(_sb)_sb.style.display='block';
   document.getElementById('mac-result').innerHTML=`
     <div class="macro-result">
       <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
