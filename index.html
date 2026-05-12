@@ -2995,7 +2995,7 @@ function salvaPaz(){
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
-    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];db.pazienti[idx]=pd;}
+    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];db.pazienti[idx]=pd;}
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.analisiSangue={};pd.routineGiornaliera=[];pd.creato=today();db.pazienti.push(pd);
   }
@@ -4849,12 +4849,13 @@ function renderPdMacros(p){
 
   const {laf:lafCalc}=calcolaTDEE(p);
   const lafSource=p&&(p.passiGiornalieri||p.oreAllenamento)?'calcolato da passi e allenamento':'da selezione manuale (dati attività mancanti)';
-  html+=`<div class="fr" style="margin-bottom:.8rem">
-    <div class="fg">
+  html+=`<div class="fr" style="margin-bottom:.8rem;align-items:flex-end;gap:.5rem">
+    <div class="fg" style="flex:1">
       <label>Fattore attività (LAF)</label>
       <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">LAF: <strong>${lafCalc?lafCalc.toFixed(3):'—'}</strong> · TDEE: <strong>${lafCalc&&mb?Math.round(mb*lafCalc)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
       </div>
     </div>
+    <button class="btn btn-g btn-sm" style="white-space:nowrap;margin-bottom:.1rem" onclick="ricalcolaLAF()">&#8635; Ricalcola LAF</button>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}"></div>
@@ -4903,6 +4904,7 @@ function renderPdMacros(p){
   <div id="mac-salva-box" style="display:none;margin-top:.8rem;">
     <button class="btn btn-p" style="width:100%;padding:.65rem;font-size:.9rem;" onclick="salvaCalcoloMacros()">&#128190; Salva dati TDEE</button>
   </div>
+  <div id="mac-storico-box" style="margin-top:1rem"></div>
 
   <div style="margin-top:1.2rem"><div class="sec-title">Tabella di riferimento per categoria paziente</div>
   <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem">
@@ -4973,6 +4975,8 @@ function renderPdMacros(p){
 
   html+=`</div></div>`;
   document.getElementById('pd-macros').innerHTML=html;
+  // Storico TDEE al caricamento
+  setTimeout(()=>renderStoricoTDEE(p),0);
 
   // ── RIPRISTINO CAMPI TDEE all'apertura paziente ──
   const _gn = (id,v) => { const el=document.getElementById(id); if(el&&v!=null)el.value=v; };
@@ -5134,6 +5138,75 @@ function applicaSchema(laf,prot,grassi){
   notif('✓ Valori applicati — clicca Calcola');
 }
 
+function ricalcolaLAF(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  const gn=id=>{const el=document.getElementById(id);return el&&el.value!==''?parseFloat(el.value):null;};
+  // Legge i valori attuali dal form prima di ricalcolare
+  p.passiGiornalieri=gn('p-passi');
+  p.oreAllenamento=gn('p-ore-all');
+  p.intensitaAllenamento=document.getElementById('p-intens-all')?.value||'';
+  const {laf,mb}=calcolaTDEE(p);
+  const lafEl=document.getElementById('laf-display');
+  if(lafEl){
+    const src=p.passiGiornalieri||p.oreAllenamento?'calcolato da passi e allenamento':'dati attività mancanti';
+    lafEl.innerHTML=`LAF: <strong>${laf?laf.toFixed(3):'—'}</strong> · TDEE: <strong>${laf&&mb?Math.round(mb*laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${src}</span>`;
+  }
+  notif('LAF aggiornato');
+}
+
+function renderStoricoTDEE(p){
+  const box=document.getElementById('mac-storico-box');if(!box)return;
+  const storico=(p.macrosStorico||[]).slice().reverse(); // più recente prima
+  if(!storico.length){box.innerHTML='';return;}
+  const fmt=ts=>{
+    const d=new Date(ts);
+    return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
+  };
+  const activeTs=p.macrosTarget&&p.macrosTarget.timestamp?p.macrosTarget.timestamp:null;
+  let html='<div class="sec-title" style="margin-top:1rem">Storico TDEE salvati</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.4rem">';
+  storico.forEach((slot,i)=>{
+    const isActive=activeTs&&slot.timestamp===activeTs;
+    const bg=isActive?'#E1F5EE':'var(--bg2)';
+    const border=isActive?'#9FE1CB':'var(--border)';
+    const badgeRegime=slot.regime?`<span style="font-size:.65rem;padding:1px 6px;border-radius:4px;background:${isActive?'#9FE1CB':'#e0e0e0'};color:${isActive?'#0F6E56':'#555'};font-weight:600">${slot.regime}</span>`:'';
+    const btnAttiva=isActive
+      ?`<span style="font-size:.68rem;color:#0F6E56;font-weight:700">&#10003; Attivo</span>`
+      :`<button class="btn btn-g btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="attivaSlotTDEE(${slot.timestamp})">Usa questo</button>`;
+    const btnElimina=`<button class="btn btn-sm" style="font-size:.65rem;padding:.1rem .4rem;border:1px solid var(--border);color:var(--text3);background:transparent" onclick="eliminaSlotTDEE(${slot.timestamp})">&#128465;</button>`;
+    html+=`<div style="border:1.5px solid ${border};border-radius:8px;padding:.55rem .8rem;background:${bg};display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+      <div style="font-size:.7rem;color:var(--text3);min-width:60px">${fmt(slot.timestamp)}</div>
+      <div style="flex:1;font-size:.78rem;font-weight:600;color:var(--text1)">${slot.kcal} kcal &nbsp;·&nbsp; P${slot.protG}g C${slot.carbG}g G${slot.grassiG}g</div>
+      <div style="font-size:.68rem;color:var(--text3)">LAF ${slot.laf||'—'} · TDEE ${slot.tdee||'—'} kcal</div>
+      ${badgeRegime}
+      ${btnAttiva}
+      ${btnElimina}
+    </div>`;
+  });
+  html+='</div>';
+  box.innerHTML=html;
+}
+
+function attivaSlotTDEE(ts){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  const slot=(p.macrosStorico||[]).find(s=>s.timestamp===ts);if(!slot)return;
+  p.macrosTarget={...slot};
+  save();renderStoricoTDEE(p);
+  notif('✓ Slot attivato come riferimento per il generatore');
+}
+
+function eliminaSlotTDEE(ts){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  if(!confirm('Eliminare questo salvataggio TDEE?'))return;
+  p.macrosStorico=(p.macrosStorico||[]).filter(s=>s.timestamp!==ts);
+  // se era l'attivo, prendi il più recente rimasto
+  if(p.macrosTarget&&p.macrosTarget.timestamp===ts){
+    const rimasti=(p.macrosStorico||[]).slice().sort((a,b)=>b.timestamp-a.timestamp);
+    p.macrosTarget=rimasti.length?{...rimasti[0]}:null;
+  }
+  save();renderStoricoTDEE(p);notif('Eliminato');
+}
+
 function salvaCalcoloMacros(){
   const p=db.pazienti.find(x=>x.id===currentPazId);
   if(!p){notif('⚠ Nessun paziente aperto');return;}
@@ -5170,12 +5243,18 @@ function salvaCalcoloMacros(){
     const _protSv=Math.round(_protGkg*_refSv);
     const _grasSv=Math.round(_grassiGkg*_refSv);
     const _carbSv=Math.max(0,Math.round((_kcalSv-_protSv*4-_grasSv*9)/4));
-    p.macrosTarget={kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:_grassiGkg,ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,timestamp:Date.now(),source:'tdee'};
+    const _nuovoSlot={kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:_grassiGkg,ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,timestamp:Date.now(),source:'tdee'};
+    // Storico TDEE: aggiungi slot, mantieni max 20, aggiorna target attivo
+    if(!p.macrosStorico)p.macrosStorico=[];
+    p.macrosStorico.push(_nuovoSlot);
+    if(p.macrosStorico.length>20)p.macrosStorico=p.macrosStorico.slice(-20);
+    p.macrosTarget={..._nuovoSlot};
   }
   save();
   const lafInfo=calcolaTDEE(p);
   const lafEl=document.getElementById('laf-display');
   if(lafEl)lafEl.innerHTML=`LAF: <strong>${lafInfo.laf?lafInfo.laf.toFixed(3):'—'}</strong> · TDEE: <strong>${lafInfo.laf&&lafInfo.mb?Math.round(lafInfo.mb*lafInfo.laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${p.passiGiornalieri||p.oreAllenamento?'calcolato da passi e allenamento':'dati attività mancanti'}</span>`;
+  renderStoricoTDEE(p);
   notif('✓ Dati salvati');
 }
 
