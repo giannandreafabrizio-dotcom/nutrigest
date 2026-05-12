@@ -2875,6 +2875,22 @@ function applicaRegoloSemaforo(p){
     'csp-gravidanza':'Gravidanza',
     'csp-allattamento':'Allattamento'
   };
+  // A7: etichette descrittive per badge grigio (sconsigliato) e celeste (consigliato)
+  const LABEL_GRIGIO={
+    'Diabete/IR/PCOS':'Alto IG \u2715','Profilo lipidico':'Grassi saturi \u2715','Ipertensione':'Alto sodio \u2715',
+    'Intestino irritabile':'Alto FODMAP \u2715','Reflusso':'Acido \u2715','Patologia renale':'Alto fosforo/K \u2715',
+    'Ipotiroidismo/Hashimoto':'Goitrogeno \u2715','Glutine':'Contiene glutine \u2715','Lattosio':'Contiene lattosio \u2715',
+    'Nichel':'Alto nichel \u2715','Low-FODMAP':'Alto FODMAP \u2715',
+    'Gravidanza':'Rischio gravidanza \u2715','Allattamento':'Sconsigliato \u2715'
+  };
+  const LABEL_CELESTE={
+    'Diabete/IR/PCOS':'Basso IG \u2713','Profilo lipidico':'Cardioprotettivo \u2713','Ipertensione':'Basso sodio \u2713',
+    'Intestino irritabile':'Low FODMAP \u2713','Reflusso':'Gastroprotettivo \u2713','Patologia renale':'Basso fosforo \u2713',
+    'Ipotiroidismo/Hashimoto':'Utile tiroide \u2713','Glutine':'Senza glutine \u2713','Lattosio':'Senza lattosio \u2713',
+    'Nichel':'Basso nichel \u2713','Low-FODMAP':'Low FODMAP \u2713',
+    'Gravidanza':'Sicuro in gravidanza \u2713','Allattamento':'Sicuro \u2713'
+  };
+  window._LABEL_GRIGIO=LABEL_GRIGIO;window._LABEL_CELESTE=LABEL_CELESTE;
   const conteggioGrigi={}, conteggioLuci={};
   const motivazioniGrigi={}, motivazioniLuci={};
   Object.entries(REGOLE).forEach(([id,regola])=>{
@@ -5134,14 +5150,17 @@ function calcolaTDEE(p){
   const intensita=p&&p.intensitaAllenamento?p.intensitaAllenamento.toLowerCase():'media';
   let laf;
   if(passi!==null||(ore!==null&&ore>0)){
+    // A9: coefficienti NEAT rivisti verso il basso (passi da soli non valgono quanto si crede)
     let neat=0;
-    if(passi!==null) neat=passi<3000?0.10:passi<6000?0.20:passi<9000?0.30:passi<12000?0.40:0.50;
+    if(passi!==null) neat=passi<3000?0.05:passi<6000?0.10:passi<9000?0.18:passi<12000?0.25:0.30;
+    // A9: coefficienti EAT rivisti + cap implicito per evitare valori impossibili
     let eat=0;
     if(ore!==null&&ore>0){
       const bassa=intensita.includes('bassa'),alta=intensita.includes('alta');
-      eat=ore<=2?(bassa?0.05:alta?0.15:0.10):ore<=4?(bassa?0.10:alta?0.20:0.15):ore<=6?(bassa?0.15:alta?0.25:0.20):(bassa?0.20:alta?0.30:0.25);
+      eat=ore<=2?(bassa?0.04:alta?0.10:0.07):ore<=4?(bassa?0.08:alta?0.16:0.12):ore<=6?(bassa?0.12:alta?0.20:0.16):(bassa?0.15:alta?0.23:0.19);
     }
-    laf=+((1.20+neat+eat).toFixed(3));
+    // A9: cap a 1.80 — nessun paziente ambulatoriale supera questo valore
+    laf=+Math.min(1.20+neat+eat,1.80).toFixed(3);
   } else {
     const sel=document.getElementById('mac-laf');
     laf=sel?(parseFloat(sel.value)||1.20):1.20;
@@ -7774,21 +7793,29 @@ const SEMAFORO_COLORI={
 };
 
 // Costruisce i badge motivazione (nome completo / abbreviato / pallini)
-function buildSemBadges(condizioni){
+function buildSemBadges(condizioni, tipo){
   if(!condizioni||!condizioni.length)return'';
-  const n=condizioni.length;
+  // A7: mappa nome condizione → etichetta descrittiva in base al tipo
+  const _labelMap=tipo==='grigio'?(window._LABEL_GRIGIO||{}):tipo==='celeste'?(window._LABEL_CELESTE||{}):{};
+  // Costruisce le etichette: usa labelMap se disponibile, altrimenti nome condizione
+  const etichette=condizioni.map(function(cond){
+    // cerca prima per nome condizione, poi per chiave id
+    return _labelMap[cond]||cond;
+  });
+  const n=etichette.length;
   if(n<=3){
     // Nome completo (1) o abbreviato (2-3)
-    return'<span class="sem-badges">'+condizioni.map(function(cond){
+    return'<span class="sem-badges">'+condizioni.map(function(cond,i){
       const info=SEMAFORO_COLORI[cond]||{c:'#9e9e9e',t:'#fff',a:cond.substring(0,3)};
-      const label=n===1?cond:info.a;
+      const etichettal=etichette[i];
+      const label=n===1?etichettal:(info.a);
       return'<span class="sem-badge" style="background:'+info.c+';color:'+info.t+'">'+label+'</span>';
     }).join('')+'</span>';
   }else{
     // 4+ → solo pallini colorati
-    return'<span class="sem-badges">'+condizioni.map(function(cond){
+    return'<span class="sem-badges">'+condizioni.map(function(cond,i){
       const info=SEMAFORO_COLORI[cond]||{c:'#9e9e9e',t:'#fff',a:'?'};
-      return'<span class="sem-dot" style="background:'+info.c+'" title="'+cond+'"></span>';
+      return'<span class="sem-dot" style="background:'+info.c+'" title="'+etichette[i]+'"></span>';
     }).join('')+'</span>';
   }
 }
@@ -7836,11 +7863,11 @@ function renderAlEditor(){
       if(_isAuto){
         if(_conflitto){
           var allCond=[...(_m.grigi||[]),...(_m.luci||[])];
-          _badgeHtml=buildSemBadges(allCond);
+          _badgeHtml=buildSemBadges(allCond,'conflitto');
         } else if(s==='grigioScuro'||s==='grigio_scuro_1'||s==='grigio_scuro_2'){
-          _badgeHtml=buildSemBadges(_m.grigi||[]);
+          _badgeHtml=buildSemBadges(_m.grigi||[],'grigio');
         } else {
-          _badgeHtml=buildSemBadges(_m.luci||[]);
+          _badgeHtml=buildSemBadges(_m.luci||[],'celeste');
         }
       }
       var _cls=s;
