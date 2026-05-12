@@ -2490,7 +2490,7 @@ function renderPaz(){
     const ripristinaBtn=archiviato?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();ripristinaPaz('${p.id}')" style="font-size:.7rem;padding:.2rem .6rem;margin-top:.4rem">↩ Ripristina</button>`:'';
     return`<div class="paz-card" style="background:${cardBg};border-color:${cardBorder};opacity:${archiviato?.7:1}" onclick="${archiviato?'':` openPaz('${p.id}')`}">
       <div class="paz-card-top">
-        <div class="avatar" style="${archiviato?'opacity:.5':''}">${(p.nome[0]||'')}${(p.cognome[0]||'')}</div>
+        <div class="avatar" style="${archiviato?'opacity:.5':''}">${(p.nome&&p.nome[0]||'')}${(p.cognome&&p.cognome[0]||'')}</div>
         <div><div class="paz-nome">${p.nome} ${p.cognome}</div><div class="paz-meta">${eta}${eta&&p.tel?' · ':''}${p.tel||''}</div></div>
       </div>
       <div class="paz-tags">${archiviato?archTag:statoTag+regimeTag}</div>
