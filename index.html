@@ -2254,7 +2254,7 @@ async function pullFromSheets(){
     const pr=rows.filter(row=>row.id!==META_KEY);
     const mr=rows.find(row=>row.id===META_KEY);
     if(!pr.length) return false;
-    db.pazienti=pr.map(row=>row.data);
+    db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
     if(mr&&mr.data){db.ricette=mr.data.ricette||[];db.eventi=mr.data.eventi||[];db.entrate=mr.data.entrate||[];db.disponibilita=mr.data.disponibilita||{};db.piani=mr.data.piani||[];}
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
