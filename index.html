@@ -7530,10 +7530,10 @@ async function generaPDF(paziente, giorni) {
 
   // ── FRASI COPERTINA (casuale) ─────────────────────────────
   var FRASI_COPERTINA = [
-    'Ogni pasto\ne\u0300 una scelta.\nQuesta e\u0300 la tua.',
-    'Non e\u0300 una dieta.\nE\u0300 il modo in cui\nti prendi cura di te.',
-    'Il cambiamento\ninizia nel piatto,\nogni giorno.',
-    'Mangia bene.\nStai bene.\nSii bene.'
+    'Ogni pasto e una scelta. Questa e la tua.',
+    'Non e una dieta. E il modo in cui ti prendi cura di te.',
+    'Il cambiamento inizia nel piatto, ogni giorno.',
+    'Mangia bene. Stai bene. Sii bene.'
   ];
 
   // ── MAPPA EMOJI PER ALIMENTO (nome → codepoint Twemoji) ──
@@ -7762,12 +7762,13 @@ async function generaPDF(paziente, giorni) {
 
     // Frase centrale — molto grande, elegante, centrata
     // Ogni \n è una riga separata
-    var righe = frase.split('\n');
-    var startY = H / 2 - ((righe.length - 1) * 11) / 2;
-    righe.forEach(function(r, i) {
-      // Prima parola di ogni riga più grande/bold, resto normal? No — tutto uguale, elegante
-      setFont('normal', 22, [50, 50, 50]);
-      doc.text(safe(r), W / 2, startY + i * 12, { align: 'center' });
+    // Frase centrata — wrap automatico se lunga
+    setFont('normal', 22, [50, 50, 50]);
+    var maxFraseW = W - M * 4;
+    var fraseLines = doc.splitTextToSize(safe(frase), maxFraseW);
+    var startY = H / 2 - ((fraseLines.length - 1) * 12) / 2;
+    fraseLines.forEach(function(r, i) {
+      doc.text(r, W / 2, startY + i * 12, { align: 'center' });
     });
 
     // Linea decorativa sotto la frase
@@ -7855,8 +7856,6 @@ async function generaPDF(paziente, giorni) {
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    doc.setFillColor.apply(doc, TEAL);
-    doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
     setFont('bold', 11, NERO);
     var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
     // Emoji pasto: 4mm, allineata alla baseline del testo
@@ -7867,11 +7866,11 @@ async function generaPDF(paziente, giorni) {
     if (slotCp) {
       var slotEmojiData = loadEmojiSync(slotCp);
       if (slotEmojiData) {
-        doc.addImage(slotEmojiData, 'PNG', M + 2.6, y - SLOT_EMOJI_SIZE + 0.8, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
+        doc.addImage(slotEmojiData, 'PNG', M, y - SLOT_EMOJI_SIZE + 0.8, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
         slotEmojiOffset = SLOT_EMOJI_SIZE + SLOT_EMOJI_GAP;
       }
     }
-    doc.text(titoloPasto, M + 2.6 + slotEmojiOffset, y);
+    doc.text(titoloPasto, M + slotEmojiOffset, y);
 
     var routineDelPasto = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
@@ -7895,7 +7894,7 @@ async function generaPDF(paziente, giorni) {
       });
       setFont('normal', 7.5, VERDE_MENTA_SCURO);
       var titoloW = doc.getTextWidth(titoloPasto) + slotEmojiOffset;
-      var xRoutineStart = M + 2.6 + titoloW + 6;
+      var xRoutineStart = M + titoloW + 6;
       var maxW = W - M - xRoutineStart;
       var rigaCorrente = '';
       var righeFinali = [];
