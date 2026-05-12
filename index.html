@@ -1195,6 +1195,9 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>Altezza (cm)</label><input type="number" id="ib-altezza" step="0.1" placeholder="es. 170"></div>
   </div>
   <div class="fr">
+    <div class="fg"><label>Peso Ideale InBody (kg) <span style="font-size:.68rem;color:var(--text3);font-weight:400">&#8212; riportato sul referto</span></label><input type="number" id="ib-peso-ideale" step="0.1" placeholder="es. 65.0"></div>
+  </div>
+  <div class="fr">
     <div class="fg"><label>Cintura/Fianchi</label><input type="number" id="ib-cint-fianchi" step="0.01" placeholder="es. 0.92"></div>
   </div>
   <div style="font-size:.72rem;font-weight:600;color:var(--teal2);margin:.6rem 0 .2rem;text-transform:uppercase;letter-spacing:.5px">Massa Magra Segmentale (kg)</div>
@@ -2471,7 +2474,15 @@ function editPaz(){
   ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
   ss2('p-orario-all',p.orarioAllenamento);ss2('p-cronotipo',p.cronotipo);ss2('p-orario-pasto',p.orarioPastoPrincipale);
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
-  const elRef = document.querySelector('input[name="mac-ref"][value="'+(p.rifCalcolo||'auto')+'"]');
+  // A10: seleziona radio corretto ‚Äî se non salvato, automatico (FFM se BMI>=25, peso altrimenti)
+  const _rifDefault=(()=>{
+    if(p.rifCalcolo&&['ffm','ideale','peso'].includes(p.rifCalcolo))return p.rifCalcolo;
+    const _lastIbD=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+    const _bmiD=_lastIbD?parseFloat(_lastIbD.bmi):null;
+    const _ffmD=_lastIbD?parseFloat(_lastIbD.m):null;
+    return(_ffmD&&_bmiD&&_bmiD>=25)?'ffm':'peso';
+  })();
+  const elRef = document.querySelector('input[name="mac-ref"][value="'+_rifDefault+'"]');
   if(elRef) elRef.checked = true;
   aggiornaLabelMacros();
   toggleOrarioNote();
@@ -4064,7 +4075,8 @@ async function avviaF1(p,apiKey){
     const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
     const _bmi=_ib&&_ib.bmi?parseFloat(_ib.bmi):null;
     const _rif=p.rifCalcolo||'auto';
-    const _useFFM=_rif==='ffm'?(_ffm!==null):_rif==='peso'?false:(_ffm!==null&&_bmi!==null&&_bmi>=25);
+    const _piIdeale=_ib&&_ib.pesoIdeale?parseFloat(_ib.pesoIdeale):null;
+    const _useFFM=_rif==='ffm'?(_ffm!==null):(_rif==='ideale'||_rif==='peso')?false:(_ffm!==null&&_bmi!==null&&_bmi>=25);
     const _ref=_useFFM?_ffm:(_ib?_ib.peso:(p.peso||null));
     const _rifLabel=_useFFM?'FFM ('+_ffm+'kg)':'peso corporeo ('+_ref+'kg)';
     const _kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
@@ -4759,7 +4771,7 @@ function renderPdMacros(p){
   const peso=lastIb?lastIb.peso:(p.peso||null);
   const ffm=lastIb&&lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null;
 
-  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3><button class="btn btn-p btn-sm" onclick="salvaCalcoloMacros()">üíæ Salva dati</button></div><div class="card-bd">
+  let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3></div><div class="card-bd">
   <div class="sec-title">Attivit√† Fisica</div>
   <div class="fr3">
     <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0"></div>
@@ -4864,24 +4876,33 @@ function renderPdMacros(p){
     <div class="fg"><label id="mac-prot-lbl">Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
     <div class="fg"><label id="mac-grassi-lbl">Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:.8rem;padding:.5rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;">
-    <span style="font-size:.78rem;color:var(--text2);font-weight:500">Calcola proteine e lipidi su:</span>
-    <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer">
-      <input type="radio" name="mac-ref" id="mac-ref-auto" value="auto" checked style="accent-color:var(--teal)" onchange="aggiornaLabelMacros()">
-      <span>Automatico</span><span style="font-size:.65rem;color:var(--text3)">(FFM se BMI‚â•25, peso se normopeso)</span>
-    </label>
-    <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer">
-      <input type="radio" name="mac-ref" id="mac-ref-ffm" value="ffm" style="accent-color:var(--teal)" onchange="aggiornaLabelMacros()">
-      <span style="color:#185FA5;font-weight:500">FFM</span>
-    </label>
-    <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;cursor:pointer">
-      <input type="radio" name="mac-ref" id="mac-ref-peso" value="peso" style="accent-color:var(--teal)" onchange="aggiornaLabelMacros()">
-      <span style="color:#3B6D11;font-weight:500">Peso corporeo</span>
-    </label>
+  <div style="margin-bottom:.8rem;padding:.55rem .8rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;">
+    <div style="font-size:.75rem;color:var(--text2);font-weight:600;margin-bottom:.4rem;">Calcola proteine e lipidi su:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #185FA5;background:#E6F1FB;">
+        <input type="radio" name="mac-ref" id="mac-ref-ffm" value="ffm" style="accent-color:#185FA5" onchange="aggiornaLabelMacros()">
+        <span style="color:#185FA5;font-weight:600">g/FFM</span>
+        <span style="font-size:.65rem;color:var(--text3)">(massa magra)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #B8860B;background:#FFF8E1;" id="mac-ref-ideale-label">
+        <input type="radio" name="mac-ref" id="mac-ref-ideale" value="ideale" style="accent-color:#B8860B" onchange="aggiornaLabelMacros()">
+        <span style="color:#B8860B;font-weight:600">g/Peso Ideale</span>
+        <span style="font-size:.65rem;color:var(--text3)">(da InBody)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #3B6D11;background:#F1F8E9;">
+        <input type="radio" name="mac-ref" id="mac-ref-peso" value="peso" style="accent-color:#3B6D11" onchange="aggiornaLabelMacros()">
+        <span style="color:#3B6D11;font-weight:600">g/Peso corporeo</span>
+        <span style="font-size:.65rem;color:var(--text3)">(peso attuale)</span>
+      </label>
+    </div>
+    <div id="mac-ref-auto-info" style="margin-top:.35rem;font-size:.68rem;color:var(--teal2);font-style:italic;">&#9679; Selezione automatica: <span id="mac-ref-auto-label">BMI&#8805;25 &#8594; FFM &nbsp;|&nbsp; BMI&lt;25 &#8594; Peso corporeo</span></div>
   </div>
   <button class="btn btn-p" onclick="calcolaMacros()">Calcola</button>
 
   <div id="mac-result" style="margin-top:1rem"></div>
+  <div id="mac-salva-box" style="display:none;margin-top:.8rem;">
+    <button class="btn btn-p" style="width:100%;padding:.65rem;font-size:.9rem;" onclick="salvaCalcoloMacros()">&#128190; Salva dati TDEE</button>
+  </div>
 
   <div style="margin-top:1.2rem"><div class="sec-title">Tabella di riferimento per categoria paziente</div>
   <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem">
@@ -4985,7 +5006,8 @@ function renderPdMacros(p){
     const _refLblR=_useFFMR?'FFM ('+(_ffmR||mt.refValue||'?')+'kg)':'peso ('+(_pesoR||mt.refValue||'?')+'kg)';
     const _refColorR=_useFFMR?'#185FA5':'#3B6D11';
     const _tsR=new Date(mt.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    document.getElementById('mac-result').innerHTML=`
+    const _salvBox=document.getElementById('mac-salva-box');if(_salvBox)_salvBox.style.display='block';
+  document.getElementById('mac-result').innerHTML=`
       <div class="macro-result">
         <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
           MB: ${_lastIbR?_lastIbR.mb:'?'} kcal √ó LAF ${mt.laf||'?'} = TDEE <strong>${mt.tdee||'?'} kcal</strong> ‚Üí Obiettivo: <strong>${mt.kcal} kcal</strong>
@@ -5003,10 +5025,20 @@ function renderPdMacros(p){
 }
 
 function aggiornaLabelMacros(){
-  const r=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
-  const suff=r==='ffm'?' (g/kg FFM)':r==='peso'?' (g/kg peso)':' (g/kg)';
+  const r=(document.querySelector('input[name="mac-ref"]:checked')||{value:'ffm'}).value;
+  const suff=r==='ffm'?' (g/kg FFM)':r==='ideale'?' (g/kg Peso Ideale)':' (g/kg peso)';
   const lp=document.getElementById('mac-prot-lbl');if(lp)lp.textContent='Proteine'+suff;
   const lg=document.getElementById('mac-grassi-lbl');if(lg)lg.textContent='Grassi'+suff;
+  // A10: warning se ideale selezionato ma non inserito
+  const _lbl=document.getElementById('mac-ref-ideale-label');
+  if(_lbl&&r==='ideale'){
+    const _pi=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?
+      _macrosPaziente.inbody[_macrosPaziente.inbody.length-1].pesoIdeale:null;
+    _lbl.style.borderColor=_pi?'#B8860B':'#c62828';
+    _lbl.style.background=_pi?'#FFF8E1':'#FFF5F5';
+    if(!_pi)_lbl.title='Peso Ideale non inserito ‚Äî vai in InBody per aggiungerlo';
+    else _lbl.title='Peso Ideale: '+_pi+' kg';
+  } else if(_lbl){_lbl.style.borderColor='#B8860B';_lbl.style.background='#FFF8E1';_lbl.title='';}
 }
 
 function calcolaMacros(){
@@ -5020,11 +5052,16 @@ function calcolaMacros(){
   const lastIb=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
   const ffm=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
   const bmi=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
-  const macRefVal=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
-  const useFFM=macRefVal==='ffm'?(ffm!==null):macRefVal==='peso'?false:(ffm!==null&&bmi!==null&&bmi>=25);
-  const ref=useFFM?ffm:peso;
-  const refLabel=useFFM?'FFM ('+ffm+'kg)':'peso ('+peso+'kg)';
-  const refColor=useFFM?'#185FA5':'#3B6D11';
+  const macRefVal=(document.querySelector('input[name="mac-ref"]:checked')||{value:'ffm'}).value;
+  // A10: 3 riferimenti espliciti ‚Äî FFM / Peso Ideale / Peso corporeo
+  const pesoIdeale=lastIb&&lastIb.pesoIdeale?parseFloat(lastIb.pesoIdeale):null;
+  const useFFM=macRefVal==='ffm'&&ffm!==null;
+  const useIdeale=macRefVal==='ideale'&&pesoIdeale!==null;
+  // warning se ideale selezionato ma non disponibile
+  if(macRefVal==='ideale'&&!pesoIdeale){notif('‚ö† Peso Ideale non inserito in InBody ‚Äî seleziona FFM o Peso corporeo');return;}
+  const ref=useFFM?ffm:useIdeale?pesoIdeale:peso;
+  const refLabel=useFFM?'FFM ('+ffm+'kg)':useIdeale?'Peso Ideale ('+pesoIdeale+'kg)':'Peso corporeo ('+peso+'kg)';
+  const refColor=useFFM?'#185FA5':useIdeale?'#B8860B':'#3B6D11';
   const tdee=+(mb*laf).toFixed(0);
   const kcalObj=tdee+obj;
   const protG=+(prot*ref).toFixed(0);
@@ -5122,7 +5159,9 @@ function salvaCalcoloMacros(){
   const _lastIbSv=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const _ffmSv=_lastIbSv&&_lastIbSv.m?parseFloat(_lastIbSv.m):null;
   const _bmiSv=_lastIbSv&&_lastIbSv.bmi?parseFloat(_lastIbSv.bmi):null;
-  const _useFFMSv=p.rifCalcolo==='ffm'?(_ffmSv!==null):p.rifCalcolo==='peso'?false:(_ffmSv!==null&&_bmiSv!==null&&_bmiSv>=25);
+  const _pesoIdealeSv=_lastIbSv&&_lastIbSv.pesoIdeale?parseFloat(_lastIbSv.pesoIdeale):null;
+  const _useFFMSv=p.rifCalcolo==='ffm'?(_ffmSv!==null):p.rifCalcolo==='ideale'?false:p.rifCalcolo==='peso'?false:(_ffmSv!==null&&_bmiSv!==null&&_bmiSv>=25);
+  const _refSvVal=p.rifCalcolo==='ffm'?_ffmSv:p.rifCalcolo==='ideale'?_pesoIdealeSv:null;
   const _refSv=_useFFMSv?_ffmSv:_ctSv.peso;
   if(_ctSv.tdee&&_refSv){
     const _offMapSv={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
@@ -6996,7 +7035,7 @@ async function generaPiano(forceRegen){
   var _nA=(dati.alimentiArancioni&&dati.alimentiArancioni!=='‚Äî')?dati.alimentiArancioni.split(',').length:0;
   var _nR=(dati.alimentiRossi&&dati.alimentiRossi!=='‚Äî')?dati.alimentiRossi.split(',').length:0;
   var _badge='‚úÖ '+_nV+' verdi';
-  if(_nA>0)_badge+=' ¬∑ Ì†ΩÌø† '+_nA+' arancioni';
+  if(_nA>0)_badge+=' ¬∑ ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ '+_nA+' arancioni';
   if(_nR>0)_badge+=' ¬∑ ‚ùå '+_nR+' rossi';
   var _sum='<strong style="font-size:.88rem;">‚úì '+dati.nome+' '+dati.cognome+'</strong>'
     +' ¬∑ '+dati.regime+' ¬∑ '+dati.kcalTarget+' kcal'
@@ -7008,7 +7047,7 @@ async function generaPiano(forceRegen){
     +'</div>'
     +'<div id="pd-det" style="display:none;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #a8ddb5;font-size:.78rem;line-height:1.8;">'
     +'<b>‚úÖ Verdi:</b> '+dati.alimentiVerdi+'<br>'
-    +'<b>Ì†ΩÌø† Arancioni:</b> '+dati.alimentiArancioni+'<br>'
+    +'<b>ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ Arancioni:</b> '+dati.alimentiArancioni+'<br>'
     +'<b>‚ùå Rossi:</b> '+dati.alimentiRossi+'<br>'
     +'<b>Spuntini:</b> '+dati.spuntini+' ¬∑ <b>Sabato:</b> '+dati.sabatosera
     +'</div>'
@@ -7635,7 +7674,7 @@ function generaPDF(paziente, giorni) {
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
-  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('mo-inbody').classList.add('open');
 }
 
@@ -7645,7 +7684,7 @@ function salvaInbody(){
   const ib={id:uid(),data:document.getElementById('ib-data').value||today(),
     peso:gn('ib-peso'),pg:gn('ib-pg'),g:gn('ib-g'),m:gn('ib-m'),
     musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
-    visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),
+    visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),pesoIdeale:gn('ib-peso-ideale'),
     cintFianchi:gn('ib-cint-fianchi'),
     magraSegm:{bracSx:gn('ib-ms-bracsx'),bracDx:gn('ib-ms-bracdx'),tronco:gn('ib-ms-tronco'),gambSx:gn('ib-ms-gambsx'),gambDx:gn('ib-ms-gambdx')},
     grassaSegm:{bracSx:gn('ib-gs-bracsx'),bracDx:gn('ib-gs-bracdx'),tronco:gn('ib-gs-tronco'),gambSx:gn('ib-gs-gambsx'),gambDx:gn('ib-gs-gambdx')},
@@ -8519,7 +8558,7 @@ async function loadInbodyPDF(e) {
       const s=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null)el.value=v;};
       s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
-      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza);
+      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza); s('ib-peso-ideale',ib.pesoIdeale);
       s('ib-cint-fianchi', ib.cintura_fianchi);
       if(ib.magra_segmentale){
         s('ib-ms-bracsx', ib.magra_segmentale.braccio_sx);
