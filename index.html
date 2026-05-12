@@ -7455,8 +7455,6 @@ window._pdfSenzaBilancia = false;
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
 
 function generaPDF(paziente, giorni) {
-  // Fase 3.2 — Layout stile foto target: 1 pagina/giorno, distribuzione uniforme,
-  // ricette '1.' bold + testo, label "Alternative:", layout 50/50 ariato.
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -7466,16 +7464,19 @@ function generaPDF(paziente, giorni) {
   var GRIGIO2 = [200, 200, 200];
   var GRIGIO3 = [160, 160, 160];
   var TEAL    = [29, 158, 117];
+  var VERDE_MENTA_SCURO = [15, 92, 66];
 
   // Geometria pagina (A4 portrait)
   var W = 210, H = 297;
   var M = 14;
-  var TOP_HEADER = 16;       // y header giorno
-  var TOP_CONTENT = 26;      // y di partenza dei pasti (header senza macros)
-  var BOTTOM = 282;          // limite inferiore contenuto (sopra footer)
+  var TOP_HEADER = 16;
+  var TOP_CONTENT = 26;
+  var BOTTOM = 282;
   var FOOTER_Y = 290;
-  var COL_GAP = 8;           // gap tra colonna sx e dx
-  var COL_W = (W - M * 2 - COL_GAP) / 2;  // larghezza colonna 50/50
+  var COL_GAP = 8;
+  var COL_W = (W - M * 2 - COL_GAP) / 2;
+  var EMOJI_SIZE = 5;   // mm — dimensione emoji nel PDF
+  var EMOJI_GAP  = 1.5; // mm — gap tra emoji e testo
 
   var nomePaz = ((paziente.nome || '') + ' ' + (paziente.cognome || '')).trim();
   var dataGen = (function(){
@@ -7494,6 +7495,219 @@ function generaPDF(paziente, giorni) {
     pre_nanna:'PRE-NANNA'
   };
   var slotKeys = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+
+  // ── FRASI COPERTINA (casuale) ─────────────────────────────
+  var FRASI_COPERTINA = [
+    'Ogni pasto\ne\u0300 una scelta.\nQuesta e\u0300 la tua.',
+    'Non e\u0300 una dieta.\nE\u0300 il modo in cui\nti prendi cura di te.',
+    'Il cambiamento\ninizia nel piatto,\nogni giorno.',
+    'Mangia bene.\nStai bene.\nSii bene.'
+  ];
+
+  // ── MAPPA EMOJI PER ALIMENTO (nome → codepoint Twemoji) ──
+  // Twemoji CDN: https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/{cp}.png
+  var TWEMOJI_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/';
+
+  // Mappa nome alimento → emoji (unicode)
+  var EMOJI_MAP = {
+    // Carne rossa
+    'vitellone tagli magri':'1f969','vitellone':'1f969','fettina di vitello':'1f969',
+    'scaloppina di vitello':'1f969','manzo':'1f969','bistecca':'1f969',
+    'maiale':'1f969','arista di maiale':'1f969','lonza':'1f969','braciola':'1f969',
+    'cavallo magro':'1f969','bistecca di cavallo':'1f969','agnello':'1f969',
+    'carne rossa':'1f969',
+    // Carne bianca
+    'pollo':'1f357','petto di pollo':'1f357','tacchino':'1f357','coniglio':'1f357',
+    'straccetti di pollo':'1f357','spiedini di pollo':'1f357','carne bianca':'1f357',
+    // Pesce
+    'salmone':'1f41f','tonno':'1f41f','merluzzo':'1f41f','branzino':'1f41f',
+    'orata':'1f41f','spigola':'1f41f','cernia':'1f41f','dentice':'1f41f',
+    'pesce spada':'1f41f','sgombro':'1f41f','acciughe':'1f41f',
+    'gamberi':'1f990','calamari':'1f991','polpo':'1f419',
+    'pesce':'1f41f',
+    // Uova
+    'uova di gallina':'1f95a','uovo':'1f95a','albumi':'1f95a','tuorlo':'1f95a',
+    // Latticini — specifici
+    'latte intero':'1f95b','latte parzialmente scremato':'1f95b',
+    'latte scremato':'1f95b','latte':'1f95b',
+    'yogurt greco 0%':'1fad9','yogurt greco 2%':'1fad9','yogurt bianco':'1fad9',
+    'yogurt':'1fad9','skyr':'1fad9',
+    'ricotta di vacca':'1fad9','fiocchi di latte':'1fad9','cottage cheese':'1fad9',
+    'quark':'1fad9',
+    'mozzarella':'1f9c0','parmigiano':'1f9c0','grana padano':'1f9c0',
+    'pecorino':'1f9c0','scamorza':'1f9c0','feta':'1f9c0','provola':'1f9c0',
+    'formaggio':'1f9c0',
+    // Legumi
+    'ceci':'1f33f','lenticchie':'1f33f','fagioli':'1f33f','piselli':'1f33f',
+    'fave':'1f33f','soia':'1f33f','tofu':'1f33f','seitan':'1f33f',
+    'edamame':'1f33f','legumi':'1f33f',
+    // Cereali con glutine
+    'pasta di semola':'1f33e','spaghetti':'1f33e','rigatoni':'1f33e',
+    'farro':'1f33e','orzo':'1f33e','bulgur':'1f33e','cous cous':'1f33e',
+    'pane comune':'1f33e','pane integrale':'1f33e','pane di altamura':'1f33e',
+    'piadina':'1f33e','piadina integrale':'1f33e','crackers':'1f33e',
+    'fette biscottate':'1f33e','grissini':'1f33e','focaccia':'1f33e',
+    // Cereali senza glutine
+    'riso':'1f33e','riso integrale':'1f33e','mais dolce':'1f33e',
+    'grano saraceno':'1f33e','quinoa':'1f33e','amaranto':'1f33e',
+    'fiocchi d\'avena':'1f33e','avena':'1f33e','pasta di legumi':'1f33e',
+    // Pane — icona specifica
+    'pane':'1f35e',
+    // Verdura
+    'broccoli':'1f966','zucchine':'1f966','spinaci':'1f966','bietola':'1f966',
+    'cavolo':'1f966','cavolfiore':'1f966','pak choi':'1f966',
+    'insalata mista':'1f957','lattuga':'1f957','rucola':'1f957',
+    'radicchio':'1f957','insalata':'1f957',
+    'pomodori':'1f966','peperoni':'1f966','melanzane':'1f966','cetrioli':'1f966',
+    'finocchi':'1f966','sedano':'1f966','carote':'1f966','asparagi':'1f966',
+    'fagiolini':'1f966','carciofi':'1f966','friarielli':'1f966',
+    'verdure fresche':'1f966','verdura mista':'1f966','verdure':'1f966',
+    // Frutta specifica
+    'banana':'1f34c',
+    'kiwi':'1f95d',
+    'mirtilli':'1fad0',
+    'limone':'1f34b',
+    'avocado':'1f951',
+    'fragole':'1f353','fragola':'1f353',
+    'uva':'1f347',
+    'anguria':'1f349',
+    'melone':'1f348',
+    'arancia':'1f34a','mandarino':'1f34a',
+    'pesche':'1f351','pesca':'1f351',
+    'pere':'1f350','pera':'1f350',
+    'ciliegie':'1f352','ciliegia':'1f352',
+    'ananas':'1f34d',
+    'mango':'1f96d',
+    'mela':'1f34e','mele':'1f34e',
+    'frutta fresca':'1f34e','frutta mista':'1f34e','frutta':'1f34e',
+    // Frutta secca & semi
+    'noci':'1f95c','mandorle':'1f95c','nocciole':'1f95c','anacardi':'1f95c',
+    'pistacchi':'1f95c','arachidi':'1f95c','frutta secca mista':'1f95c',
+    'semi di chia':'1f95c','semi di lino':'1f95c','semi di girasole':'1f95c',
+    'semi di zucca':'1f95c','semi':'1f95c','frutta secca':'1f95c',
+    // Patate
+    'patate':'1f954','patata dolce':'1f954',
+    // Mais
+    'mais dolce in scatola':'1f33d','mais':'1f33d',
+    // Funghi
+    'funghi':'1f344','champignon':'1f344',
+    // Olio & condimenti
+    'olio di oliva extra vergine':'1fad2','olio evo':'1fad2','olio':'1fad2',
+    'burro d\'arachidi':'1f9c8','burro di arachidi':'1f9c8','burro arachidi':'1f9c8',
+    'burro':'1f9c8',
+    'miele':'1f36f',
+    'tahina':'1fad2',
+    // Dolci / snack
+    'biscotti':'1f36a','cioccolato fondente':'1f36a','cacao':'1f36a',
+    'crackers riso':'1f36a',
+    // Pasti sabato
+    'pizza':'1f355',
+    'panino':'1f354','hamburger':'1f354',
+    'sushi':'1f363',
+    // Integratori
+    'integratore':'2b50','vitamina':'2b50','omega':'2b50','magnesio':'2b50',
+    'berberina':'2b50','probiotici':'2b50',
+  };
+
+  // Fallback per categoria (dal campo categoria dell'alimento o dal nome pasto)
+  var EMOJI_CAT_FALLBACK = {
+    'carne rossa':'1f969',
+    'carne bianca':'1f357',
+    'pesce pranzo':'1f41f',
+    'pesce cena':'1f41f',
+    'uova':'1f95a',
+    'latte e derivati':'1f9c0',
+    'legumi':'1f33f',
+    'cereali con glutine':'1f33e',
+    'cereali senza glutine':'1f33e',
+    'verdura':'1f966',
+    'frutta':'1f34e',
+    'frutta secca e semi':'1f95c',
+    'olio e condimenti':'1fad2',
+    'dolci':'1f36a',
+  };
+
+  // Cache emoji PNG (codepoint -> dataURL)
+  var _emojiCache = {};
+
+  function cpFromEmoji(emoji) {
+    if (!emoji) return null;
+    return [...emoji].map(function(c){ return c.codePointAt(0).toString(16); })
+      .filter(function(x){ return x !== 'fe0f'; }).join('-');
+  }
+
+  function getEmojiCp(nomeAlimento, categoria) {
+    if (!nomeAlimento) return null;
+    var key = nomeAlimento.toLowerCase().trim();
+    if (EMOJI_MAP[key]) return EMOJI_MAP[key];
+    // Cerca corrispondenza parziale (contiene la parola chiave)
+    var keys = Object.keys(EMOJI_MAP);
+    for (var i = 0; i < keys.length; i++) {
+      if (key.indexOf(keys[i]) !== -1 || keys[i].indexOf(key) !== -1) {
+        if (keys[i].length > 3) return EMOJI_MAP[keys[i]];
+      }
+    }
+    // Fallback categoria
+    if (categoria) {
+      var catKey = categoria.toLowerCase().trim();
+      if (EMOJI_CAT_FALLBACK[catKey]) return EMOJI_CAT_FALLBACK[catKey];
+    }
+    return null;
+  }
+
+  // Carica emoji PNG in modo sincrono (XMLHttpRequest sync — solo per generazione PDF)
+  function loadEmojiSync(cp) {
+    if (!cp) return null;
+    if (_emojiCache[cp]) return _emojiCache[cp];
+    try {
+      var url = TWEMOJI_CDN + cp + '.png';
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, false); // sincrono
+      xhr.responseType = 'blob';
+      xhr.send();
+      if (xhr.status === 200) {
+        // Converti blob in dataURL
+        var reader = new FileReader();
+        var result = null;
+        reader.onload = function(e){ result = e.target.result; };
+        reader.readAsDataURL(xhr.response);
+        // Attesa sincrona (FileReader è asincrono ma il blob è già in memoria)
+        // Usiamo canvas come alternativa più affidabile
+        var canvas = document.createElement('canvas');
+        canvas.width = 72; canvas.height = 72;
+        var ctx = canvas.getContext('2d');
+        var img = new Image();
+        img.src = URL.createObjectURL(xhr.response);
+        // img non è ancora caricata — usiamo approccio diverso
+        URL.revokeObjectURL(img.src);
+        // Metodo canvas sincrono non funziona — usiamo base64 via arraybuffer
+        var xhr2 = new XMLHttpRequest();
+        xhr2.open('GET', url, false);
+        xhr2.responseType = 'arraybuffer';
+        xhr2.send();
+        if (xhr2.status === 200) {
+          var bytes = new Uint8Array(xhr2.response);
+          var binary = '';
+          for (var b = 0; b < bytes.length; b++) binary += String.fromCharCode(bytes[b]);
+          var dataUrl = 'data:image/png;base64,' + btoa(binary);
+          _emojiCache[cp] = dataUrl;
+          return dataUrl;
+        }
+      }
+    } catch(e) { }
+    return null;
+  }
+
+  // Disegna emoji nel PDF a posizione (x, y) — y è la baseline del testo accanto
+  function drawEmoji(cp, x, y) {
+    if (!cp) return;
+    var dataUrl = loadEmojiSync(cp);
+    if (!dataUrl) return;
+    try {
+      // Centra verticalmente rispetto alla baseline del testo (font 12pt ≈ 4.2mm altezza)
+      doc.addImage(dataUrl, 'PNG', x, y - EMOJI_SIZE + 1, EMOJI_SIZE, EMOJI_SIZE);
+    } catch(e) {}
+  }
 
   // ---------- helper ----------
   function safe(s) {
@@ -7528,15 +7742,51 @@ function generaPDF(paziente, giorni) {
     return g + ' g';
   }
 
-  // Normalizza l'accesso al pasto (nuovo formato pasti.{slot} oppure legacy)
   function pastoOf(g, key) {
     if (g.pasti && g.pasti[key]) return g.pasti[key];
     if (g[key]) return g[key];
     return null;
   }
 
-  // ---------- MISURAZIONE altezza pasto (per distribuzione uniforme) ----------
-  // Ritorna l'altezza in mm che il pasto occuperà (esclusi gap fra pasti)
+  // ── COPERTINA ─────────────────────────────────────────────
+  function drawCopertina() {
+    var frase = FRASI_COPERTINA[Math.floor(Math.random() * FRASI_COPERTINA.length)];
+
+    // "CONSIGLI ALIMENTARI" — piccolo, teal, in alto centrato
+    setFont('bold', 9, TEAL);
+    doc.text('CONSIGLI ALIMENTARI', W / 2, 28, { align: 'center' });
+
+    // Linea sottile teal sotto
+    doc.setDrawColor.apply(doc, TEAL);
+    doc.setLineWidth(0.4);
+    doc.line(W/2 - 28, 31, W/2 + 28, 31);
+
+    // Nome paziente — elegante, grande, centrato
+    setFont('normal', 18, NERO);
+    doc.text(safe(nomePaz), W / 2, 42, { align: 'center' });
+
+    // Frase centrale — molto grande, elegante, centrata
+    // Ogni \n è una riga separata
+    var righe = frase.split('\n');
+    var startY = H / 2 - ((righe.length - 1) * 11) / 2;
+    righe.forEach(function(r, i) {
+      // Prima parola di ogni riga più grande/bold, resto normal? No — tutto uguale, elegante
+      setFont('normal', 22, [50, 50, 50]);
+      doc.text(safe(r), W / 2, startY + i * 12, { align: 'center' });
+    });
+
+    // Linea decorativa sotto la frase
+    doc.setDrawColor.apply(doc, GRIGIO2);
+    doc.setLineWidth(0.3);
+    var afterFrase = startY + (righe.length - 1) * 12 + 10;
+    doc.line(W/2 - 20, afterFrase, W/2 + 20, afterFrase);
+
+    // Data in basso a destra piccola
+    setFont('normal', 8, GRIGIO);
+    doc.text(dataGen, W - M, H - 18, { align: 'right' });
+  }
+
+  // ---------- MISURAZIONE altezza pasto ----------
   function measurePasto(slotKey, pasto) {
     if (!pasto) return 0;
     var hasCelle = pasto.celle && pasto.celle.length;
@@ -7545,7 +7795,6 @@ function generaPDF(paziente, giorni) {
     if (!hasCelle && !hasRicette && !notaTesto) return 0;
 
     var h = 0;
-    // Titolo pasto (slot label) + eventuale altezza extra per righe routine
     h += 5.2;
     var routineDelPastoMis = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
@@ -7561,7 +7810,6 @@ function generaPDF(paziente, giorni) {
     if (hasRicette) {
       pasto.ricette.forEach(function(r) {
         if (!r) return;
-        // misura con formato "1. {testo}" — il numero è bold
         var prefixW = measure('1. ', 9.5, 'bold');
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
         h += lines.length * 4.6;
@@ -7575,7 +7823,7 @@ function generaPDF(paziente, giorni) {
       ordKeys.forEach(function(ord) {
         var hSx = cellHeight(righe[ord].sx);
         var hDx = cellHeight(righe[ord].dx);
-        h += Math.max(hSx, hDx) + 2.5;  // gap tra righe celle
+        h += Math.max(hSx, hDx) + 2.5;
       });
     }
     return h;
@@ -7591,16 +7839,14 @@ function generaPDF(paziente, giorni) {
     return righe;
   }
 
-  // Altezza di una cella in mm
   function cellHeight(c) {
     if (!c || !c.alimenti || !c.alimenti.length) return 0;
     var n = c.alimenti.length;
     if (n === 1) return 6.2;
-    // 1 principale (6.2) + label "Alternative:" (4) + (n-1) alternative (4.6 cad)
     return 6.2 + 4 + (n - 1) * 4.6 + 1;
   }
 
-  // ---------- HEADER giorno + footer ----------
+  // ---------- HEADER giorno ----------
   function drawDayHeader(giornoLabel, macros) {
     setFont('bold', 17, NERO);
     doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
@@ -7609,8 +7855,7 @@ function generaPDF(paziente, giorni) {
     doc.line(M, TOP_HEADER + 8, W - M, TOP_HEADER + 8);
   }
 
-  // ---------- DISEGNO pasto (a partire da y dato) ----------
-  // Ritorna nuovo y dopo aver disegnato il pasto.
+  // ---------- DISEGNO pasto ----------
   function drawPasto(slotKey, pasto, y) {
     if (!pasto) return y;
     var hasCelle = pasto.celle && pasto.celle.length;
@@ -7618,14 +7863,12 @@ function generaPDF(paziente, giorni) {
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    // Titolo pasto: barra teal verticale + label bold 11pt nero
     doc.setFillColor.apply(doc, TEAL);
     doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
     setFont('bold', 11, NERO);
     var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
     doc.text(titoloPasto, M + 2.6, y);
 
-    // ── ROUTINE: voci associate a questo pasto, accanto al titolo a destra ──
     var routineDelPasto = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
     }));
@@ -7646,7 +7889,6 @@ function generaPDF(paziente, giorni) {
           righeRoutine.push(txt);
         });
       });
-      var VERDE_MENTA_SCURO = [15, 92, 66];
       setFont('normal', 7.5, VERDE_MENTA_SCURO);
       var titoloW = doc.getTextWidth(titoloPasto);
       var xRoutineStart = M + 2.6 + titoloW + 6;
@@ -7671,7 +7913,6 @@ function generaPDF(paziente, giorni) {
     }
     y += 5.6 + hRoutineExtra;
 
-    // Pasto in formato testo (legacy)
     if (notaTesto) {
       setFont('italic', 10, NERO);
       doc.splitTextToSize(safe(notaTesto), W - M * 2).forEach(function(l) {
@@ -7681,20 +7922,17 @@ function generaPDF(paziente, giorni) {
       return y;
     }
 
-    // Ricette descrittive: "1." bold + testo normale
     if (hasRicette) {
       var prefixW = measure('1. ', 9.5, 'bold');
       pasto.ricette.forEach(function(r, i) {
         if (!r) return;
         var prefix = (i + 1) + '. ';
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
-        // Prima riga: numero bold + testo normale
         setFont('bold', 9.5, NERO);
         doc.text(prefix, M, y);
         setFont('normal', 9.5, NERO);
         doc.text(lines[0] || '', M + prefixW, y);
         y += 4.6;
-        // Righe successive (wrap): rientro
         for (var k = 1; k < lines.length; k++) {
           doc.text(lines[k], M + prefixW, y);
           y += 4.6;
@@ -7703,7 +7941,6 @@ function generaPDF(paziente, giorni) {
       y += 2;
     }
 
-    // Celle a 2 colonne 50/50
     if (hasCelle) {
       var righe = groupCelleByOrdine(pasto.celle);
       var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
@@ -7721,18 +7958,28 @@ function generaPDF(paziente, giorni) {
     return y;
   }
 
-  // Disegna una cella alla posizione (x, yTop) con larghezza wCell
+  // ---------- DISEGNO CELLA con Twemoji ----------
   function drawCella(c, x, yTop, wCell) {
     if (!c || !c.alimenti || !c.alimenti.length) return;
     var ali = c.alimenti;
     var princ = ali[0];
 
-    // PRINCIPALE: nome bold + grammatura bold a destra
-    setFont('bold', 12, NERO);
     var nomeP = safe(princ.n || '');
     var gP = gramText(princ.g, princ.n);
+    var cp = getEmojiCp(princ.n, princ.cat);
+
+    // Spazio per emoji (se disponibile)
+    var emojiOffset = cp ? (EMOJI_SIZE + EMOJI_GAP) : 0;
     var gPwidth = gP ? measure(gP, 12, 'bold') + 2 : 0;
-    var nomeMaxW = wCell - gPwidth;
+    var nomeMaxW = wCell - gPwidth - emojiOffset;
+
+    // Disegna emoji
+    if (cp) {
+      drawEmoji(cp, x, yTop + 3.8);
+    }
+
+    // Nome principale bold
+    setFont('bold', 12, NERO);
     var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
     var nomeShown = nomeLines[0];
     if (nomeLines.length > 1) {
@@ -7741,25 +7988,25 @@ function generaPDF(paziente, giorni) {
       }
       nomeShown += '...';
     }
-    doc.text(nomeShown, x, yTop + 3.8);
+    doc.text(nomeShown, x + emojiOffset, yTop + 3.8);
     if (gP) doc.text(gP, x + wCell, yTop + 3.8, { align: 'right' });
 
     // ALTERNATIVE
     if (ali.length > 1) {
       var ay = yTop + 9.2;
-      // Sub-label "Alternative:" piccolo grigio
       setFont('italic', 8, GRIGIO3);
-      doc.text('Alternative:', x, ay);
+      doc.text('Alternative:', x + emojiOffset, ay);
       ay += 4;
 
-      // Lista alternative
       setFont('italic', 10.5, GRIGIO);
       for (var i = 1; i < ali.length; i++) {
         var alt = ali[i];
         var nomeA = safe(alt.n || '');
         var gA = gramText(alt.g, alt.n);
+        var cpA = getEmojiCp(alt.n, alt.cat);
+        var emojiOffsetA = cpA ? (EMOJI_SIZE - 1 + EMOJI_GAP) : 0; // emoji alt leggermente più piccola
         var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
-        var nomeAmaxW = wCell - gAwidth;
+        var nomeAmaxW = wCell - gAwidth - emojiOffset - emojiOffsetA;
         var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
         var nomeAshown = nomeAlines[0];
         if (nomeAlines.length > 1) {
@@ -7768,20 +8015,30 @@ function generaPDF(paziente, giorni) {
           }
           nomeAshown += '...';
         }
-        doc.text(nomeAshown, x, ay);
+        // Emoji alternativa (più piccola)
+        if (cpA) {
+          try {
+            var dataUrlA = loadEmojiSync(cpA);
+            if (dataUrlA) doc.addImage(dataUrlA, 'PNG', x + emojiOffset, ay - (EMOJI_SIZE-1) + 0.5, EMOJI_SIZE-1, EMOJI_SIZE-1);
+          } catch(e){}
+        }
+        doc.text(nomeAshown, x + emojiOffset + emojiOffsetA, ay);
         if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
         ay += 4.6;
       }
     }
   }
 
-  // ---------- CICLO PRINCIPALE: una pagina per giorno con distribuzione uniforme ----------
+  // ---------- CICLO PRINCIPALE ----------
+  // Pagina 1: copertina
+  drawCopertina();
+
+  // Pagine giorni
   giorni.forEach(function(g, idx) {
-    if (idx > 0) doc.addPage();
+    doc.addPage();
     var giornoLabel = g.giorno || g.g || '';
     drawDayHeader(giornoLabel, g.macros);
 
-    // Calcola elenco pasti non vuoti e loro altezza
     var pastiAttivi = [];
     slotKeys.forEach(function(k) {
       var p = pastoOf(g, k);
@@ -7790,22 +8047,17 @@ function generaPDF(paziente, giorni) {
     });
     if (!pastiAttivi.length) return;
 
-    // Spazio disponibile per i pasti
     var hDisp = BOTTOM - TOP_CONTENT;
     var hTot  = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
-
-    // Gap base tra pasti (minimo 4mm)
     var gapMin = 4;
     var nGaps = Math.max(pastiAttivi.length - 1, 1);
     var spazioExtra = hDisp - hTot - gapMin * nGaps;
     var gapExtra = 0;
     if (spazioExtra > 0 && pastiAttivi.length > 1) {
-      // Distribuisci spazio extra come gap aggiuntivo, max 14mm per gap
       gapExtra = Math.min(spazioExtra / nGaps, 14);
     }
     var gap = gapMin + gapExtra;
 
-    // Disegna pasti con linea separatrice grigia sottile tra di loro
     var y = TOP_CONTENT;
     pastiAttivi.forEach(function(p, i) {
       y = drawPasto(p.key, p.pasto, y);
@@ -7819,7 +8071,7 @@ function generaPDF(paziente, giorni) {
     });
   });
 
-  // ---------- Concetti educativi (in coda, opzionali) ----------
+  // ---------- Concetti educativi ----------
   var concetti = paziente.concetti || [];
   if (concetti.length) {
     doc.addPage();
@@ -7833,7 +8085,6 @@ function generaPDF(paziente, giorni) {
     concetti.forEach(function(c) {
       var titolo = (typeof c === 'string') ? '' : (c.titolo || '');
       var testo  = (typeof c === 'string') ? c  : (c.testo || c.titolo || '');
-      // A4: immagini del concetto (da db.concetti o dall'array CONCETTI_EDUCATIVI)
       var cDef = CONCETTI_EDUCATIVI.find(function(x){return x.id===(c.id||'');});
       var imgs = (c.immagini && c.immagini.length) ? c.immagini : (cDef && cDef.immagini ? cDef.immagini : []);
       if (yc > BOTTOM - 12) { doc.addPage(); yc = TOP_HEADER + 4; }
@@ -7849,7 +8100,6 @@ function generaPDF(paziente, giorni) {
           doc.text(r, M, yc); yc += 4.6;
         });
       }
-      // A4: stampa immagini dopo il testo del concetto
       if (imgs && imgs.length) {
         imgs.forEach(function(img){
           try {
@@ -7872,17 +8122,17 @@ function generaPDF(paziente, giorni) {
     });
   }
 
-  // ---------- FOOTER ----------
+  // ---------- FOOTER (su tutte le pagine tranne copertina) ----------
   var totPagine = doc.internal.getNumberOfPages();
-  for (var i = 1; i <= totPagine; i++) {
+  for (var i = 2; i <= totPagine; i++) {
     doc.setPage(i);
     setFont('normal', 7.5, GRIGIO);
     doc.text(safe(nomePaz), M, FOOTER_Y);
     var footerCenter = window._pdfSenzaBilancia
-      ? 'Porzioni casalinghe (±15%) | Generato il ' + dataGen
+      ? 'Porzioni casalinghe (\u00b115%) | Generato il ' + dataGen
       : 'Generato il ' + dataGen;
     doc.text(footerCenter, W / 2, FOOTER_Y, { align: 'center' });
-    doc.text('Pag. ' + i + '/' + totPagine, W - M, FOOTER_Y, { align: 'right' });
+    doc.text('Pag. ' + (i-1) + '/' + (totPagine-1), W - M, FOOTER_Y, { align: 'right' });
   }
 
   var nomefile = 'Regime alimentare - ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
