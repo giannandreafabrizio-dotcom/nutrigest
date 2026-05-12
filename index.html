@@ -7517,6 +7517,14 @@ async function generaPDF(paziente, giorni) {
     cena:'CENA',
     pre_nanna:'PRE-NANNA'
   };
+  var slotEmoji = {
+    colazione:'2600',
+    spuntino_mattina:'26a1',
+    pranzo:'1f37d',
+    spuntino_pomeriggio:'1f552',
+    cena:'1f319',
+    pre_nanna:'1f4a4'
+  };
   var slotKeys = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
 
   // ── FRASI COPERTINA (casuale) ─────────────────────────────
@@ -7846,11 +7854,21 @@ async function generaPDF(paziente, giorni) {
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    doc.setFillColor.apply(doc, TEAL);
-    doc.rect(M, y - 3.2, 1.1, 4.2, 'F');
     setFont('bold', 9, TEAL);
     var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
-    doc.text(titoloPasto, M + 2.6, y);
+    // Emoji pasto: 4mm, allineata alla baseline del testo
+    var SLOT_EMOJI_SIZE = 4;
+    var SLOT_EMOJI_GAP  = 1.2;
+    var slotEmojiOffset = 0;
+    var slotCp = slotEmoji[slotKey];
+    if (slotCp) {
+      var slotEmojiData = loadEmojiSync(slotCp);
+      if (slotEmojiData) {
+        doc.addImage(slotEmojiData, 'PNG', M, y - SLOT_EMOJI_SIZE + 0.8, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
+        slotEmojiOffset = SLOT_EMOJI_SIZE + SLOT_EMOJI_GAP;
+      }
+    }
+    doc.text(titoloPasto, M + slotEmojiOffset, y);
 
     var routineDelPasto = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
@@ -7873,8 +7891,8 @@ async function generaPDF(paziente, giorni) {
         });
       });
       setFont('normal', 7.5, VERDE_MENTA_SCURO);
-      var titoloW = doc.getTextWidth(titoloPasto);
-      var xRoutineStart = M + 2.6 + titoloW + 6;
+      var titoloW = doc.getTextWidth(titoloPasto) + slotEmojiOffset;
+      var xRoutineStart = M + slotEmojiOffset + titoloW + 6;
       var maxW = W - M - xRoutineStart;
       var rigaCorrente = '';
       var righeFinali = [];
