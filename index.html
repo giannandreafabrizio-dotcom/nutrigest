@@ -7856,16 +7856,55 @@ function renderAlEditor(){
   c.innerHTML=html;
 }
 function togAl(el,key,nome){
-  const coloriAuto=['grigioScuro','celeste','grigio_scuro_1','grigio_scuro_2','celeste_1','celeste_2'];
+  const coloriCeleste=['celeste','celeste_1','celeste_2'];
+  const coloriGrigio=['grigioScuro','grigio_scuro_1','grigio_scuro_2'];
+  const coloriAuto=[...coloriCeleste,...coloriGrigio];
   const s=window._alStato[key]||'';
-  // Se è colore automatico, il click manuale lo porta a 'si' (il medico decide di usarlo)
-  const base=coloriAuto.includes(s)?'':s;
-  const n=base===''?'si':base==='si'?'arancione':base==='arancione'?'rosso':'';
-  if(n==='')delete window._alStato[key];else window._alStato[key]=n;
+
+  let n;
+  if(coloriCeleste.includes(s)){
+    // A5: ciclo celeste → arancione → rosso → torna celeste (origine)
+    n=s; // mantiene il colore automatico originale come "torna a"
+    const fase=window._alFaseCeleste=window._alFaseCeleste||{};
+    const f=fase[key]||0;
+    if(f===0){n='arancione';fase[key]=1;}
+    else if(f===1){n='rosso';fase[key]=2;}
+    else{n=s;delete fase[key];} // torna al colore automatico originale
+  } else if(coloriGrigio.includes(s)){
+    // A5: ciclo grigio → rosso → torna grigio (origine)
+    const faseG=window._alFaseGrigio=window._alFaseGrigio||{};
+    const f=faseG[key]||0;
+    if(f===0){n='rosso';faseG[key]=1;}
+    else{n=s;delete faseG[key];} // torna al colore automatico originale
+  } else {
+    // Ciclo neutro: '' → si → arancione → rosso → ''
+    const base=s;
+    n=base===''?'si':base==='si'?'arancione':base==='arancione'?'rosso':'';
+  }
+
+  if(n===''||coloriAuto.includes(n)){
+    // Ritorna allo stato automatico originale
+    if(coloriAuto.includes(n)) window._alStato[key]=n;
+    else delete window._alStato[key];
+    // Ridisegna con badge originali
+    renderAlEditor();
+    return;
+  }
+
+  window._alStato[key]=n;
   el.className='al-tog '+n;
-  // Ricrea il contenuto senza badge (il medico ha deciso manualmente)
+
+  // A6: costruisce badge-contatore condizioni anche in stato manuale
+  const _m=(window._alMotivazioni||{})[key]||{};
+  const _tutteCondizioni=[...(_m.grigi||[]),...(_m.luci||[])];
+  let _badgeContatore='';
+  if(_tutteCondizioni.length>0){
+    const _colBadge=(_m.grigi||[]).length>0&&(_m.luci||[]).length>0?'#9B59B6':(_m.grigi||[]).length>0?'#E67E22':'#2196F3';
+    _badgeContatore=`<span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:${_colBadge};color:#fff;font-size:9px;font-weight:700;margin-left:3px;vertical-align:middle;" title="${_tutteCondizioni.join(', ')}">${_tutteCondizioni.length}</span>`;
+  }
+
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
-  el.innerHTML=(n==='si'?'✓ ':n==='arancione'?'◐ ':n==='rosso'?'↓ ':'')+nome+glH;
+  el.innerHTML=(n==='si'?'\u2713 ':n==='arancione'?'\u25d0 ':n==='rosso'?'\u2193 ':'')+nome+glH+_badgeContatore;
 }
 function selCatAl(cat,stato){
   const data=ALIMENTI[cat];if(!data)return;
