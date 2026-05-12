@@ -7454,7 +7454,29 @@ function gramTestoCasalingo(nomeAlimento, grammi) {
 window._pdfSenzaBilancia = false;
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
 
-function generaPDF(paziente, giorni) {
+async function generaPDF(paziente, giorni) {
+  // Pre-carica tutte le emoji necessarie in modo asincrono PRIMA di aprire jsPDF
+  var _emojiCacheGlobal = {};
+
+  async function fetchEmojiB64(cp) {
+    if (!cp) return null;
+    if (_emojiCacheGlobal[cp]) return _emojiCacheGlobal[cp];
+    try {
+      var url = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/' + cp + '.png';
+      var resp = await fetch(url);
+      if (!resp.ok) return null;
+      var buf = await resp.arrayBuffer();
+      var bytes = new Uint8Array(buf);
+      var binary = '';
+      for (var b = 0; b < bytes.length; b++) binary += String.fromCharCode(bytes[b]);
+      var dataUrl = 'data:image/png;base64,' + btoa(binary);
+      _emojiCacheGlobal[cp] = dataUrl;
+      return dataUrl;
+    } catch(e) { return null; }
+  }
+
+  // Funzione interna sincrona con cache già pronta
+  function _generaPDFSync(paziente, giorni, emojiCache) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -7628,7 +7650,7 @@ function generaPDF(paziente, giorni) {
   };
 
   // Cache emoji PNG (codepoint -> dataURL)
-  var _emojiCache = {};
+  var _emojiCache = emojiCache || {};
 
   function cpFromEmoji(emoji) {
     if (!emoji) return null;
@@ -7655,47 +7677,10 @@ function generaPDF(paziente, giorni) {
     return null;
   }
 
-  // Carica emoji PNG in modo sincrono (XMLHttpRequest sync — solo per generazione PDF)
+  // Legge emoji dalla cache pre-caricata (asincrona prima della generazione)
   function loadEmojiSync(cp) {
     if (!cp) return null;
-    if (_emojiCache[cp]) return _emojiCache[cp];
-    try {
-      var url = TWEMOJI_CDN + cp + '.png';
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', url, false); // sincrono
-      xhr.responseType = 'blob';
-      xhr.send();
-      if (xhr.status === 200) {
-        // Converti blob in dataURL
-        var reader = new FileReader();
-        var result = null;
-        reader.onload = function(e){ result = e.target.result; };
-        reader.readAsDataURL(xhr.response);
-        // Attesa sincrona (FileReader è asincrono ma il blob è già in memoria)
-        // Usiamo canvas come alternativa più affidabile
-        var canvas = document.createElement('canvas');
-        canvas.width = 72; canvas.height = 72;
-        var ctx = canvas.getContext('2d');
-        var img = new Image();
-        img.src = URL.createObjectURL(xhr.response);
-        // img non è ancora caricata — usiamo approccio diverso
-        URL.revokeObjectURL(img.src);
-        // Metodo canvas sincrono non funziona — usiamo base64 via arraybuffer
-        var xhr2 = new XMLHttpRequest();
-        xhr2.open('GET', url, false);
-        xhr2.responseType = 'arraybuffer';
-        xhr2.send();
-        if (xhr2.status === 200) {
-          var bytes = new Uint8Array(xhr2.response);
-          var binary = '';
-          for (var b = 0; b < bytes.length; b++) binary += String.fromCharCode(bytes[b]);
-          var dataUrl = 'data:image/png;base64,' + btoa(binary);
-          _emojiCache[cp] = dataUrl;
-          return dataUrl;
-        }
-      }
-    } catch(e) { }
-    return null;
+    return _emojiCache[cp] || null;
   }
 
   // Disegna emoji nel PDF a posizione (x, y) — y è la baseline del testo accanto
@@ -7850,9 +7835,6 @@ function generaPDF(paziente, giorni) {
   function drawDayHeader(giornoLabel, macros) {
     setFont('bold', 17, NERO);
     doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
-    doc.setDrawColor.apply(doc, GRIGIO2);
-    doc.setLineWidth(0.2);
-    doc.line(M, TOP_HEADER + 8, W - M, TOP_HEADER + 8);
   }
 
   // ---------- DISEGNO pasto ----------
@@ -8062,11 +8044,7 @@ function generaPDF(paziente, giorni) {
     pastiAttivi.forEach(function(p, i) {
       y = drawPasto(p.key, p.pasto, y);
       if (i < pastiAttivi.length - 1) {
-        y += gap / 2;
-        doc.setDrawColor.apply(doc, [232, 232, 232]);
-        doc.setLineWidth(0.15);
-        doc.line(M, y, W - M, y);
-        y += gap / 2;
+        y += gap;
       }
     });
   });
@@ -8137,6 +8115,168 @@ function generaPDF(paziente, giorni) {
 
   var nomefile = 'Regime alimentare - ' + (paziente.nome || '') + ' ' + (paziente.cognome || '') + '.pdf';
   doc.save(nomefile);
+  } // fine _generaPDFSync
+
+  // ── Raccoglie tutti i codepoint emoji necessari dal piano ──────────
+  var cpSet = new Set();
+
+  function collectCp(nomeAlimento, cat) {
+    var cp = getEmojiCpStandalone(nomeAlimento, cat);
+    if (cp) cpSet.add(cp);
+  }
+
+  // Versione standalone di getEmojiCp (senza dipendere dalla closure interna)
+  function getEmojiCpStandalone(nomeAlimento, categoria) {
+    var EMOJI_MAP_S = {
+    // Carne rossa
+    'vitellone tagli magri':'1f969','vitellone':'1f969','fettina di vitello':'1f969',
+    'scaloppina di vitello':'1f969','manzo':'1f969','bistecca':'1f969',
+    'maiale':'1f969','arista di maiale':'1f969','lonza':'1f969','braciola':'1f969',
+    'cavallo magro':'1f969','bistecca di cavallo':'1f969','agnello':'1f969',
+    'carne rossa':'1f969',
+    // Carne bianca
+    'pollo':'1f357','petto di pollo':'1f357','tacchino':'1f357','coniglio':'1f357',
+    'straccetti di pollo':'1f357','spiedini di pollo':'1f357','carne bianca':'1f357',
+    // Pesce
+    'salmone':'1f41f','tonno':'1f41f','merluzzo':'1f41f','branzino':'1f41f',
+    'orata':'1f41f','spigola':'1f41f','cernia':'1f41f','dentice':'1f41f',
+    'pesce spada':'1f41f','sgombro':'1f41f','acciughe':'1f41f',
+    'gamberi':'1f990','calamari':'1f991','polpo':'1f419',
+    'pesce':'1f41f',
+    // Uova
+    'uova di gallina':'1f95a','uovo':'1f95a','albumi':'1f95a','tuorlo':'1f95a',
+    // Latticini — specifici
+    'latte intero':'1f95b','latte parzialmente scremato':'1f95b',
+    'latte scremato':'1f95b','latte':'1f95b',
+    'yogurt greco 0%':'1fad9','yogurt greco 2%':'1fad9','yogurt bianco':'1fad9',
+    'yogurt':'1fad9','skyr':'1fad9',
+    'ricotta di vacca':'1fad9','fiocchi di latte':'1fad9','cottage cheese':'1fad9',
+    'quark':'1fad9',
+    'mozzarella':'1f9c0','parmigiano':'1f9c0','grana padano':'1f9c0',
+    'pecorino':'1f9c0','scamorza':'1f9c0','feta':'1f9c0','provola':'1f9c0',
+    'formaggio':'1f9c0',
+    // Legumi
+    'ceci':'1f33f','lenticchie':'1f33f','fagioli':'1f33f','piselli':'1f33f',
+    'fave':'1f33f','soia':'1f33f','tofu':'1f33f','seitan':'1f33f',
+    'edamame':'1f33f','legumi':'1f33f',
+    // Cereali con glutine
+    'pasta di semola':'1f33e','spaghetti':'1f33e','rigatoni':'1f33e',
+    'farro':'1f33e','orzo':'1f33e','bulgur':'1f33e','cous cous':'1f33e',
+    'pane comune':'1f33e','pane integrale':'1f33e','pane di altamura':'1f33e',
+    'piadina':'1f33e','piadina integrale':'1f33e','crackers':'1f33e',
+    'fette biscottate':'1f33e','grissini':'1f33e','focaccia':'1f33e',
+    // Cereali senza glutine
+    'riso':'1f33e','riso integrale':'1f33e','mais dolce':'1f33e',
+    'grano saraceno':'1f33e','quinoa':'1f33e','amaranto':'1f33e',
+    'fiocchi d\'avena':'1f33e','avena':'1f33e','pasta di legumi':'1f33e',
+    // Pane — icona specifica
+    'pane':'1f35e',
+    // Verdura
+    'broccoli':'1f966','zucchine':'1f966','spinaci':'1f966','bietola':'1f966',
+    'cavolo':'1f966','cavolfiore':'1f966','pak choi':'1f966',
+    'insalata mista':'1f957','lattuga':'1f957','rucola':'1f957',
+    'radicchio':'1f957','insalata':'1f957',
+    'pomodori':'1f966','peperoni':'1f966','melanzane':'1f966','cetrioli':'1f966',
+    'finocchi':'1f966','sedano':'1f966','carote':'1f966','asparagi':'1f966',
+    'fagiolini':'1f966','carciofi':'1f966','friarielli':'1f966',
+    'verdure fresche':'1f966','verdura mista':'1f966','verdure':'1f966',
+    // Frutta specifica
+    'banana':'1f34c',
+    'kiwi':'1f95d',
+    'mirtilli':'1fad0',
+    'limone':'1f34b',
+    'avocado':'1f951',
+    'fragole':'1f353','fragola':'1f353',
+    'uva':'1f347',
+    'anguria':'1f349',
+    'melone':'1f348',
+    'arancia':'1f34a','mandarino':'1f34a',
+    'pesche':'1f351','pesca':'1f351',
+    'pere':'1f350','pera':'1f350',
+    'ciliegie':'1f352','ciliegia':'1f352',
+    'ananas':'1f34d',
+    'mango':'1f96d',
+    'mela':'1f34e','mele':'1f34e',
+    'frutta fresca':'1f34e','frutta mista':'1f34e','frutta':'1f34e',
+    // Frutta secca & semi
+    'noci':'1f95c','mandorle':'1f95c','nocciole':'1f95c','anacardi':'1f95c',
+    'pistacchi':'1f95c','arachidi':'1f95c','frutta secca mista':'1f95c',
+    'semi di chia':'1f95c','semi di lino':'1f95c','semi di girasole':'1f95c',
+    'semi di zucca':'1f95c','semi':'1f95c','frutta secca':'1f95c',
+    // Patate
+    'patate':'1f954','patata dolce':'1f954',
+    // Mais
+    'mais dolce in scatola':'1f33d','mais':'1f33d',
+    // Funghi
+    'funghi':'1f344','champignon':'1f344',
+    // Olio & condimenti
+    'olio di oliva extra vergine':'1fad2','olio evo':'1fad2','olio':'1fad2',
+    'burro d\'arachidi':'1f9c8','burro di arachidi':'1f9c8','burro arachidi':'1f9c8',
+    'burro':'1f9c8',
+    'miele':'1f36f',
+    'tahina':'1fad2',
+    // Dolci / snack
+    'biscotti':'1f36a','cioccolato fondente':'1f36a','cacao':'1f36a',
+    'crackers riso':'1f36a',
+    // Pasti sabato
+    'pizza':'1f355',
+    'panino':'1f354','hamburger':'1f354',
+    'sushi':'1f363',
+    // Integratori
+    'integratore':'2b50','vitamina':'2b50','omega':'2b50','magnesio':'2b50',
+    'berberina':'2b50','probiotici':'2b50',
+  };
+    var EMOJI_CAT_FALLBACK_S = {
+    'carne rossa':'1f969',
+    'carne bianca':'1f357',
+    'pesce pranzo':'1f41f',
+    'pesce cena':'1f41f',
+    'uova':'1f95a',
+    'latte e derivati':'1f9c0',
+    'legumi':'1f33f',
+    'cereali con glutine':'1f33e',
+    'cereali senza glutine':'1f33e',
+    'verdura':'1f966',
+    'frutta':'1f34e',
+    'frutta secca e semi':'1f95c',
+    'olio e condimenti':'1fad2',
+    'dolci':'1f36a',
+  };
+    if (!nomeAlimento) return null;
+    var key = nomeAlimento.toLowerCase().trim();
+    if (EMOJI_MAP_S[key]) return EMOJI_MAP_S[key];
+    var keys = Object.keys(EMOJI_MAP_S);
+    for (var i = 0; i < keys.length; i++) {
+      if (key.indexOf(keys[i]) !== -1 || keys[i].indexOf(key) !== -1) {
+        if (keys[i].length > 3) return EMOJI_MAP_S[keys[i]];
+      }
+    }
+    if (categoria) {
+      var catKey = categoria.toLowerCase().trim();
+      if (EMOJI_CAT_FALLBACK_S[catKey]) return EMOJI_CAT_FALLBACK_S[catKey];
+    }
+    return null;
+  }
+
+  // Scansiona tutti gli alimenti del piano
+  (giorni || []).forEach(function(g) {
+    var slots = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+    slots.forEach(function(slot) {
+      var pasto = (g.pasti && g.pasti[slot]) ? g.pasti[slot] : (g[slot] || null);
+      if (!pasto || !pasto.celle) return;
+      pasto.celle.forEach(function(c) {
+        if (!c || !c.alimenti) return;
+        c.alimenti.forEach(function(a) { collectCp(a.n, a.cat); });
+      });
+    });
+  });
+
+  // Pre-carica tutte le emoji trovate in parallelo
+  var cpArray = Array.from(cpSet);
+  await Promise.all(cpArray.map(function(cp) { return fetchEmojiB64(cp); }));
+
+  // Chiama la funzione sincrona con la cache pronta
+  _generaPDFSync(paziente, giorni, _emojiCacheGlobal);
 }
 
 
