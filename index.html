@@ -3152,6 +3152,12 @@ const LIBRERIA_ROUTINE = [
   { nome:'Kefir', dose:'150 ml', quante_volte:1, quando:'A colazione o spuntino', razionale:'Probiotico potente, calcio, proteine, flora intestinale', tipo:'superfood' },
   { nome:'Semi di lino macinati', dose:'1 cucchiaio', quante_volte:1, quando:'In yogurt o sul pasto', razionale:'Omega-3 ALA, lignani estrogenici, fibra, intestino', tipo:'superfood' },
   { nome:'Aloe vera gel puro', dose:'2 cucchiai', quante_volte:1, quando:'Al mattino a stomaco vuoto', razionale:'Mucosa gastrica, reflusso, IBS, antiinfiammatorio intestinale', tipo:'superfood' },
+  // B4: Succhi della salute — 5 colori
+  { nome:'Succo Verde 🟢', dose:'200-250 ml', quante_volte:1, quando:'Al mattino a stomaco vuoto o 30 min prima di colazione', razionale:'Clorofilla e folati da spinaci e cavolo nero, enzimi digestivi da cetriolo e sedano, vitamina C da limone e prezzemolo. Drenante, alcalinizzante, supporto epatico mattutino.', tipo:'superfood', ingredienti:'spinaci, sedano, cetriolo, mela verde, prezzemolo, limone, cavolo nero' },
+  { nome:'Succo Giallo 🟡', dose:'200-250 ml', quante_volte:1, quando:'Al mattino o come spuntino pre-allenamento', razionale:'Curcumina antinfiammatoria potenziata dallo zenzero, bromelina digestiva da ananas, vitamina C da limone e melone. Antiossidante, drenante, energia pre-workout.', tipo:'superfood', ingredienti:'zenzero, limone, curcuma, ananas, mango, melone giallo' },
+  { nome:'Succo Rosso 🔴', dose:'200-250 ml', quante_volte:1, quando:'Pre o post allenamento, oppure a colazione', razionale:'Betacarotene da barbabietola (ossido nitrico, performance), antociani da melograno e fragole, sulforafano da cavolo viola, antinfiammatori da zenzero e limone. Il più potente antiossidante dei 5.', tipo:'superfood', ingredienti:'barbabietola, melograno, fragole, pomodoro, cavolo viola, zenzero, limone' },
+  { nome:'Succo Arancione 🟠', dose:'200-250 ml', quante_volte:1, quando:'A colazione o metà mattina', razionale:'Betacarotene da carota e zucca (pelle, immunità, occhi), vitamina C da arancia e papaya, curcumina e piperina (anti-infiammatori potenziati dal pepe nero), zenzero digestivo.', tipo:'superfood', ingredienti:'carota, arancia, papaya, zucca, zenzero, curcuma, pepe nero' },
+  { nome:'Succo Viola 🟣', dose:'200-250 ml', quante_volte:1, quando:'Sera o fuori pasto come antiossidante', razionale:'Antociani da mirtilli, mora e cavolo viola (cervello, memoria, vascolare), resveratrolo da ribes nero, vitamina C da limone, zenzero antinfiammatorio. Il più neuroprotettivo.', tipo:'superfood', ingredienti:'mirtilli, mora, cavolo viola, ribes nero, limone, zenzero' },
 ];
 
 function renderPdRoutine(p) {
@@ -3193,6 +3199,7 @@ function renderPdRoutine(p) {
           ${!voce.pastoRif?'<span style="font-size:.68rem;color:#c2410c">⚠ Non apparirà nel PDF</span>':'<span style="font-size:.68rem;color:#15803d">✓ Apparirà nel PDF</span>'}
         </div>
         ${voce.razionale?`<div class="rc-razionale" style="margin-top:5px">${voce.razionale}</div>`:''}
+        ${voce.ingredienti?`<div style="font-size:.68rem;color:#2d7a5a;margin-top:3px"><strong>Ingredienti:</strong> ${voce.ingredienti}</div>`:''}
         <div style="font-size:.66rem;color:var(--text3);margin-top:3px;font-style:italic">${voce.quando||''}</div>
       </div>
       <div class="rc-actions">
