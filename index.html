@@ -2229,6 +2229,7 @@ function supaHeaders(){
 async function pushToSheets(){
   try{
     for(const p of db.pazienti){
+      if(!p||!p.id){console.warn('[Supabase] paziente senza id ignorato:',p);continue;}
       const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:new Date().toISOString()})});
       if(!r.ok&&r.status!==200&&r.status!==201) throw new Error('err paz '+p.id+' status '+r.status);
     }
