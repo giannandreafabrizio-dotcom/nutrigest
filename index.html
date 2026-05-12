@@ -6357,7 +6357,8 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
       if (cella && cella.alimenti && cella.alimenti.length) {
         var princ = cella.alimenti[0];
         var giornoEsc = giorno.replace(/"/g,'&quot;');
-        var menuId = 'cmenu_' + cella.id;
+        // Fix: ID univoco per ogni menu — include giorno + slotKey + cella.id
+        var menuId = 'cmenu_' + giorno.replace(/[^a-zA-Z0-9]/g,'_') + '_' + slotKey + '_' + cella.id;
         var ordNum = Number(ord);
         // Riga principale: nome + grammatura + pulsante ⋯
         html += '<div style="display:flex;align-items:center;gap:4px;">';
