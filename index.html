@@ -5711,6 +5711,17 @@ function renderPanelMacrosGiorno(giornoObj) {
     var p = giornoObj[s.key] || (giornoObj.pasti && giornoObj.pasti[s.key]);
     return p && p.celle && p.celle.length;
   });
+
+  // Fix Bug 2: se è sabato con cena libera, aggiunge tab Cena anche senza celle
+  var _gNomePmg = (giornoObj.giorno||giornoObj.g||'').toLowerCase();
+  var _isSabatoPmg = _gNomePmg.includes('sabato')||_gNomePmg.includes('sab');
+  var _pazCorrPmg = typeof getCurrentPaziente==='function'?getCurrentPaziente():null;
+  var _hasCenaLibera = _isSabatoPmg && _pazCorrPmg &&
+    (!_pazCorrPmg.regolePiano || _pazCorrPmg.regolePiano.sabatolibero !== false);
+  if (_hasCenaLibera && !pastiPresenti.find(function(s){return s.key==='cena';})) {
+    pastiPresenti.push({label:'Cena',key:'cena',_cenaLibera:true});
+  }
+
   if (!pastiPresenti.length) {
     bodyEl.innerHTML = '<div style="font-size:.75rem;color:var(--text3);padding:.5rem 0;">Nessun alimento trovato per questo giorno.</div>';
     tabsEl.innerHTML = '';
@@ -5733,6 +5744,20 @@ function renderPanelMacrosGiorno(giornoObj) {
   // Render body per il tab attivo
   var slotAttivo = pastiPresenti.find(function(s){return s.key===window._pmgTabAttivo;});
   if (!slotAttivo) { window._pmgTabAttivo = pastiPresenti[0].key; slotAttivo = pastiPresenti[0]; }
+
+  // Fix Bug 2: mostra nota cena libera per sabato
+  if (slotAttivo._cenaLibera || (slotAttivo.key==='cena' && _hasCenaLibera)) {
+    var _scelta = _pazCorrPmg && _pazCorrPmg.weekend ? _pazCorrPmg.weekend : 'libera';
+    var _kcalStima = typeof getKcalWeekend==='function' ? getKcalWeekend(_pazCorrPmg) : 0;
+    bodyEl.innerHTML = '<div style="padding:.7rem 0">'
+      + '<div style="font-size:.78rem;font-weight:700;color:#1e40af;margin-bottom:.4rem">&#127371; Cena libera — Sabato</div>'
+      + '<div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem">Scelta: <strong>'+_scelta+'</strong></div>'
+      + (_kcalStima ? '<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:.5rem .7rem;font-size:.75rem;color:#1e40af">'
+        + 'Stima kcal inclusa nella media settimanale: <strong>~'+_kcalStima+' kcal</strong>'
+        + '</div>' : '')
+      + '</div>';
+    return;
+  }
 
   var pasto = giornoObj[slotAttivo.key] || (giornoObj.pasti && giornoObj.pasti[slotAttivo.key]);
   if (!pasto || !pasto.celle) { bodyEl.innerHTML = ''; return; }
@@ -6373,9 +6398,23 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
 
 // ── MENU ⋯ CELLE ──
 function toggleCellaMenu(id) {
-  var isOpen = document.getElementById(id) && document.getElementById(id).classList.contains('open');
+  var dropdown = document.getElementById(id);
+  var isOpen = dropdown && dropdown.classList.contains('open');
   closeAllCellaMenus();
-  if (!isOpen && document.getElementById(id)) document.getElementById(id).classList.add('open');
+  if (!isOpen && dropdown) {
+    // Fix: rilevamento posizione — apre verso l'alto se vicino al bordo inferiore
+    var btn = dropdown.previousElementSibling;
+    var rect = btn ? btn.getBoundingClientRect() : null;
+    var spazioSotto = rect ? (window.innerHeight - rect.bottom) : 999;
+    if (spazioSotto < 180) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = '25px';
+    } else {
+      dropdown.style.top = '25px';
+      dropdown.style.bottom = 'auto';
+    }
+    dropdown.classList.add('open');
+  }
 }
 function closeAllCellaMenus() {
   document.querySelectorAll('.cella-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
