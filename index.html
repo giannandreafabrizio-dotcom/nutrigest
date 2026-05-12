@@ -1648,6 +1648,35 @@ const CREA_ALIMENTI = {
 function getValoriCREA(nomeAlimento, categoriaFunzionale) {
   if (!nomeAlimento) return null;
   if (CREA_ALIMENTI[nomeAlimento]) return CREA_ALIMENTI[nomeAlimento];
+  var ALIAS_CREA = {
+    'Miele crudo':'Miele','Miele grezzo':'Miele',
+    'Ceci barattolo':'Ceci (barattolo)','Ceci in barattolo':'Ceci (barattolo)',
+    'Ceci secchi':'Ceci (secchi)',
+    'Lenticchie barattolo':'Lenticchie (barattolo)','Lenticchie in barattolo':'Lenticchie (barattolo)',
+    'Lenticchie secche':'Lenticchie (secche)',
+    'Fagioli borlotti barattolo':'Fagioli borlotti (barattolo)',
+    'Fagioli borlotti in barattolo':'Fagioli borlotti (barattolo)',
+    'Fagioli borlotti secchi':'Fagioli borlotti (secchi)',
+    'Fagioli cannellini barattolo':'Fagioli cannellini (barattolo)',
+    'Piselli barattolo':'Piselli (barattolo)',
+    'Piselli freschi':'Piselli freschi/surgelati','Piselli surgelati':'Piselli freschi/surgelati',
+    'Yogurt greco 0%':'Yogurt greco 0% grassi','Yogurt greco 2%':'Yogurt greco 2% grassi',
+    'Pane comune':'Pane di frumento',
+    'Mais dolce in scatola':'Mais dolce (scatola)','Mais dolce scatola':'Mais dolce (scatola)',
+    'Tonno sottolio sgocciolato':"Tonno sott'olio sgocciolato",'Tonno al naturale':'Tonno naturale',
+    "Fiocchi d'avena":"Fiocchi di avena",'Fiocchi avena':'Fiocchi di avena',
+    'Olio di oliva extra vergine':'Olio extravergine oliva','Olio EVO':'Olio extravergine oliva',
+    'Burro di arachidi':'Burro arachidi',
+    'Uova di gallina intere':'Uovo intero','Uova di gallina - intero':'Uovo intero',
+    'Albumi':'Albume',
+  };
+  var alias = ALIAS_CREA[nomeAlimento];
+  if (alias && CREA_ALIMENTI[alias]) return CREA_ALIMENTI[alias];
+  var nLow = nomeAlimento.toLowerCase();
+  var keys = Object.keys(CREA_ALIMENTI);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === nLow) return CREA_ALIMENTI[keys[i]];
+  }
   if (categoriaFunzionale === 'verdura') return CREA_ALIMENTI['Verdura mista'];
   if (categoriaFunzionale === 'frutta') return CREA_ALIMENTI['Frutta mista'];
   if (categoriaFunzionale === 'grasso') return CREA_ALIMENTI['Frutta secca mista'];
@@ -7760,9 +7789,7 @@ async function generaPDF(paziente, giorni) {
     setFont('normal', 18, NERO);
     doc.text(safe(nomePaz), W / 2, 42, { align: 'center' });
 
-    // Frase centrale — molto grande, elegante, centrata
-    // Ogni \n è una riga separata
-    // Frase centrata — wrap automatico se lunga
+    // Frase centrale — wrap automatico
     setFont('normal', 22, [50, 50, 50]);
     var maxFraseW = W - M * 4;
     var fraseLines = doc.splitTextToSize(safe(frase), maxFraseW);
@@ -7774,7 +7801,7 @@ async function generaPDF(paziente, giorni) {
     // Linea decorativa sotto la frase
     doc.setDrawColor.apply(doc, GRIGIO2);
     doc.setLineWidth(0.3);
-    var afterFrase = startY + (righe.length - 1) * 12 + 10;
+    var afterFrase = startY + (fraseLines.length - 1) * 12 + 10;
     doc.line(W/2 - 20, afterFrase, W/2 + 20, afterFrase);
 
     // Data in basso a destra piccola
