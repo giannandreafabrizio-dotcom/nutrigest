@@ -5079,6 +5079,9 @@ function renderPdMacros(p){
   const _rifEl=document.getElementById('mac-ref-'+_rifVal);
   if(_rifEl) _rifEl.checked=true;
   aggiornaLabelMacros();
+  // Reset salva-box e result ad ogni cambio paziente
+  const _sb=document.getElementById('mac-salva-box');if(_sb)_sb.style.display='none';
+  const _mr=document.getElementById('mac-result');if(_mr)_mr.innerHTML='';
   if(p.macrosTarget&&p.macrosTarget.kcal){
     const mt=p.macrosTarget;
     const _lastIbR=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
@@ -7854,11 +7857,11 @@ async function generaPDF(paziente, giorni) {
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    setFont('bold', 9, TEAL);
+    setFont('bold', 11, TEAL);
     var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
-    // Emoji pasto: 4mm, allineata alla baseline del testo
-    var SLOT_EMOJI_SIZE = 4;
-    var SLOT_EMOJI_GAP  = 1.2;
+    // Emoji pasto: 4.5mm, allineata alla baseline del testo
+    var SLOT_EMOJI_SIZE = 4.5;
+    var SLOT_EMOJI_GAP  = 1.5;
     var slotEmojiOffset = 0;
     var slotCp = slotEmoji[slotKey];
     if (slotCp) {
@@ -7890,7 +7893,7 @@ async function generaPDF(paziente, giorni) {
           righeRoutine.push(txt);
         });
       });
-      setFont('normal', 7.5, VERDE_MENTA_SCURO);
+      setFont('bold', 8.5, VERDE_MENTA_SCURO);
       var titoloW = doc.getTextWidth(titoloPasto) + slotEmojiOffset;
       var xRoutineStart = M + slotEmojiOffset + titoloW + 6;
       var maxW = W - M - xRoutineStart;
@@ -7906,11 +7909,11 @@ async function generaPDF(paziente, giorni) {
         }
       });
       if (rigaCorrente) righeFinali.push(rigaCorrente);
-      var righeStampate = righeFinali.slice(0, 2);
+      var righeStampate = righeFinali.slice(0, 3);
       righeStampate.forEach(function(r, i){
-        doc.text(r, xRoutineStart, y + (i * 3.6));
+        doc.text(r, xRoutineStart, y + (i * 4.2));
       });
-      hRoutineExtra = Math.max(0, righeStampate.length * 3.6 - 5.6);
+      hRoutineExtra = Math.max(0, righeStampate.length * 4.2 - 5.6);
     }
     y += 5.6 + hRoutineExtra;
 
@@ -7924,19 +7927,19 @@ async function generaPDF(paziente, giorni) {
     }
 
     if (hasRicette) {
-      var prefixW = measure('1. ', 9.5, 'bold');
+      var prefixW = measure('1. ', 11, 'bold');
       pasto.ricette.forEach(function(r, i) {
         if (!r) return;
         var prefix = (i + 1) + '. ';
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
-        setFont('bold', 9.5, NERO);
+        setFont('bold', 11, NERO);
         doc.text(prefix, M, y);
-        setFont('normal', 9.5, NERO);
+        setFont('normal', 11, NERO);
         doc.text(lines[0] || '', M + prefixW, y);
-        y += 4.6;
+        y += 5.2;
         for (var k = 1; k < lines.length; k++) {
           doc.text(lines[k], M + prefixW, y);
-          y += 4.6;
+          y += 5.2;
         }
       });
       y += 2;
@@ -8005,9 +8008,9 @@ async function generaPDF(paziente, giorni) {
         var nomeA = safe(alt.n || '');
         var gA = gramText(alt.g, alt.n);
         var cpA = getEmojiCp(alt.n, alt.cat);
-        var emojiOffsetA = cpA ? (EMOJI_SIZE - 1 + EMOJI_GAP) : 0; // emoji alt leggermente più piccola
+        var emojiOffsetA = 0; // nessuna emoji sulle alternative
         var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
-        var nomeAmaxW = wCell - gAwidth - emojiOffset - emojiOffsetA;
+        var nomeAmaxW = wCell - gAwidth - emojiOffset;
         var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
         var nomeAshown = nomeAlines[0];
         if (nomeAlines.length > 1) {
@@ -8016,14 +8019,8 @@ async function generaPDF(paziente, giorni) {
           }
           nomeAshown += '...';
         }
-        // Emoji alternativa (più piccola)
-        if (cpA) {
-          try {
-            var dataUrlA = loadEmojiSync(cpA);
-            if (dataUrlA) doc.addImage(dataUrlA, 'PNG', x + emojiOffset, ay - (EMOJI_SIZE-1) + 0.5, EMOJI_SIZE-1, EMOJI_SIZE-1);
-          } catch(e){}
-        }
-        doc.text(nomeAshown, x + emojiOffset + emojiOffsetA, ay);
+        // Nessuna emoji sulle alternative (solo sul primo alimento)
+        doc.text(nomeAshown, x + emojiOffset, ay);
         if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
         ay += 4.6;
       }
@@ -8289,6 +8286,9 @@ async function generaPDF(paziente, giorni) {
       });
     });
   });
+
+  // Aggiunge emoji titoli pasto (sempre pre-caricate)
+  ['2600','26a1','1f37d','1f552','1f319','1f4a4'].forEach(function(cp){ cpSet.add(cp); });
 
   // Pre-carica tutte le emoji trovate in parallelo
   var cpArray = Array.from(cpSet);
