@@ -3410,9 +3410,9 @@ function salvaPaz(){
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
-    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];db.pazienti[idx]=pd;}
+    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];db.pazienti[idx]=pd;}
   }else{
-    pd.id=uid();pd.inbody=[];pd.note='';pd.analisiSangue={};pd.routineGiornaliera=[];pd.creato=today();db.pazienti.push(pd);
+    pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.routineGiornaliera=[];pd.creato=today();db.pazienti.push(pd);
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
@@ -3444,10 +3444,7 @@ function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
   renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);
-  document.getElementById('pd-note').innerHTML=`
-    <div class="card"><div class="card-hd"><h3>Note cliniche</h3></div><div class="card-bd">
-      <textarea style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.5rem .7rem;outline:none;min-height:180px;resize:vertical" oninput="saveNote(this.value)">${p.note||''}</textarea>
-    </div></div>`;
+  renderPdNote(p);
   document.querySelectorAll('.pd-tab')[0].click();
   goTo('pd',null);
   document.querySelectorAll('.nav-item')[0].classList.add('active');
@@ -3783,6 +3780,60 @@ function removeRoutineVoce(idx) {
   save();
   renderPdRoutine(p);
   notif('✓ ' + nome + ' rimosso');
+}
+
+function renderPdNote(p){
+  if(!p.noteClinica)p.noteClinica=[];
+  // Migrazione da vecchio campo stringa
+  if(p.note&&typeof p.note==='string'&&p.note.trim()&&!p.noteClinica.length){
+    p.noteClinica.push({id:uid(),testo:p.note.trim(),data:today()});
+    p.note='';
+  }
+  const el=document.getElementById('pd-note');
+  if(!el)return;
+  const note=p.noteClinica||[];
+  const listaHTML=note.length?note.map((n,i)=>`
+    <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.55rem .7rem;border-radius:8px;background:var(--bg);border:1px solid var(--border);margin-bottom:.5rem">
+      <div style="flex:1">
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:.2rem">📅 ${n.data}</div>
+        <div style="font-size:.81rem;color:var(--text);white-space:pre-wrap;line-height:1.55">${n.testo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      </div>
+      <button onclick="deleteNota('${n.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.9rem;padding:.1rem .3rem;flex-shrink:0" title="Elimina nota">✕</button>
+    </div>`).join('')
+    :'<div style="font-size:.8rem;color:var(--text3);text-align:center;padding:1rem;font-style:italic">Nessuna nota clinica</div>';
+  const max15=note.length>=15;
+  el.innerHTML=`<div class="card"><div class="card-hd"><h3>Note cliniche</h3><span style="font-size:.72rem;color:var(--text3)">${note.length}/15</span></div><div class="card-bd">
+    ${listaHTML}
+    ${max15?'<div style="font-size:.75rem;color:#c0392b;padding:.3rem 0">⚠ Limite 15 note raggiunto — elimina una nota per aggiungerne un&#39;altra</div>':''}
+    <div style="margin-top:.8rem;display:${max15?'none':'block'}">
+      <textarea id="nota-input" placeholder="Nuova nota clinica..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.5rem .7rem;outline:none;min-height:80px;resize:vertical;box-sizing:border-box"></textarea>
+      <button class="btn btn-p btn-sm" style="margin-top:.4rem" onclick="salvaNotaClinica()">💾 Salva nota</button>
+    </div>
+  </div></div>`;
+}
+
+function salvaNotaClinica(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p)return;
+  const input=document.getElementById('nota-input');
+  if(!input)return;
+  const testo=(input.value||'').trim();
+  if(!testo){notif('⚠ Inserisci il testo della nota');return;}
+  if(!p.noteClinica)p.noteClinica=[];
+  if(p.noteClinica.length>=15){notif('⚠ Limite 15 note raggiunto');return;}
+  p.noteClinica.push({id:uid(),testo,data:today()});
+  save();
+  notif('✓ Nota salvata');
+  renderPdNote(p);
+}
+
+function deleteNota(nid){
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p||!p.noteClinica)return;
+  p.noteClinica=p.noteClinica.filter(n=>n.id!==nid);
+  save();
+  renderPdNote(p);
+  notif('✓ Nota eliminata');
 }
 
 function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save();}
@@ -4470,7 +4521,8 @@ function costruisciContestoPaziente(p){
   if(p.sostenibilita)ctx+='\nSostenibilita alimentare: priorita per questo paziente';
   if(p.alvo)ctx+='\nAlvo: '+p.alvo;
   if(p.flusso&&p.flusso!=='')ctx+='\nFlusso mestruale: '+p.flusso;
-  if(p.note)ctx+='\nNote cliniche: '+p.note;
+  if(p.noteClinica&&p.noteClinica.length){ctx+='\nNote cliniche:\n'+p.noteClinica.map(n=>'['+n.data+'] '+n.testo).join('\n');}
+  else if(p.note)ctx+='\nNote cliniche: '+p.note;
   // Integratori — usa array (nuovo sistema chip) con fallback a stringa (legacy)
   const _intPrende=Array.isArray(p.integratori)?p.integratori.filter(Boolean):(p.integratori?[p.integratori]:[]);
   const _intVuole=Array.isArray(p.integraWant)?p.integraWant.filter(Boolean):(p.integraWant?[p.integraWant]:[]);
@@ -5283,13 +5335,13 @@ function renderPdMacros(p){
 
   const {laf:lafCalc}=calcolaTDEE(p);
   const lafSource=p&&(p.passiGiornalieri||p.oreAllenamento)?'calcolato da passi e allenamento':'da selezione manuale (dati attività mancanti)';
-  html+=`<div class="fr" style="margin-bottom:.8rem;align-items:flex-end;gap:.5rem">
-    <div class="fg" style="flex:1">
+  html+=`<div class="fr" style="margin-bottom:.8rem">
+    <div class="fg">
       <label>Fattore attività (LAF)</label>
       <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">LAF: <strong>${lafCalc?lafCalc.toFixed(3):'—'}</strong> · TDEE: <strong>${lafCalc&&mb?Math.round(mb*lafCalc)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
       </div>
+      <button class="btn btn-p btn-sm" style="margin-top:.4rem" onclick="ricalcolaLAF()">&#8635; Ricalcola LAF</button>
     </div>
-    <button class="btn btn-p btn-sm" style="white-space:nowrap;margin-bottom:.1rem" onclick="ricalcolaLAF()">&#8635; Ricalcola LAF</button>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}"></div>
@@ -6453,6 +6505,7 @@ PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
 Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
 Allergie: ${p.allergie||'nessuna'}
+${(function(){var nc=p.noteClinica&&p.noteClinica.length?p.noteClinica.slice(-4):[];return nc.length?'Note cliniche (ultime '+nc.length+'): '+nc.map(function(n){return '['+n.data+'] '+n.testo;}).join(' | '):'';})()}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · FFM ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
 ${(p.giorniAllenamento||[]).length?`Giorni allenamento (ON): ${p.giorniAllenamento.join(', ')}`:''}
 ${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}
