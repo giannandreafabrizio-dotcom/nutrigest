@@ -3569,7 +3569,10 @@ function renderPdRoutine(p) {
         <div style="font-family:'DM Serif Display',serif;font-size:1rem;margin-bottom:2px">Routine giornaliera terapeutica</div>
         <div style="font-size:.74rem;color:var(--text2)">Le voci appariranno nel PDF accanto al titolo del pasto associato</div>
       </div>
-      <button class="btn btn-p btn-sm" onclick="openModalRoutine()">+ Aggiungi voce</button>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="btn btn-g btn-sm" onclick="salvaRoutine()">💾 Salva routine</button>
+        <button class="btn btn-p btn-sm" onclick="openModalRoutine()">+ Aggiungi voce</button>
+      </div>
     </div>
     ${routine.length ? riepilogoHTML : `<div class="empty" style="padding:1.5rem;text-align:center;color:var(--text2);font-size:.82rem;background:#f0faf6;border-radius:10px;border:1px dashed #a8ddc7">
       Nessuna voce aggiunta.<br><span style="font-size:.75rem">Clicca "+ Aggiungi voce" per personalizzare la routine di ${p.nome}</span>
@@ -3760,6 +3763,13 @@ function salvaRoutineVoce() {
     const e = document.getElementById(id); if (e) e.value = '';
   });
   notif('✓ ' + nome + ' aggiunto!');
+}
+
+function salvaRoutine() {
+  const p = db.pazienti.find(x => x.id === currentPazId);
+  if (!p) return;
+  save();
+  notif('✓ Routine salvata');
 }
 
 function removeRoutineVoce(idx) {
