@@ -881,6 +881,7 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-g btn-sm" onclick="syncNow()">↺ Sincronizza ora</button>
         <button class="btn btn-g btn-sm" onclick="testConnSupabase()">🔌 Testa connessione</button>
         <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette()" title="Crea la tabella ricette su Supabase e migra le ricette esistenti">🍽 Inizializza tabella ricette</button>
+        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('piani')" title="Crea la tabella piani su Supabase e migra i piani esistenti">📋 Inizializza tabella piani</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3);margin-left:.3rem"></span>
       </div>
       <div id="ric-table-status" style="font-size:.75rem;margin-top:.3rem;color:var(--text3)"></div>
@@ -2303,8 +2304,8 @@ async function pushToSheets(){
         throw new Error('err paz '+p.id+' status '+r.status);
       }
     }
-    // Meta senza ricette (ricette hanno tabella propria ora)
-    const meta={eventi:db.eventi||[],entrate:db.entrate||[],disponibilita:db.disponibilita||{},piani:db.piani||[]};
+    // Meta senza ricette e senza piani (hanno tabelle proprie ora)
+    const meta={eventi:db.eventi||[],entrate:db.entrate||[],disponibilita:db.disponibilita||{}};
     const metaSize = JSON.stringify(meta).length;
     console.log('[Supabase] push meta — size:', Math.round(metaSize/1024)+'KB');
     const rm=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
@@ -2341,7 +2342,15 @@ async function pullFromSheets(){
       db.eventi=mr.data.eventi||[];
       db.entrate=mr.data.entrate||[];
       db.disponibilita=mr.data.disponibilita||{};
-      db.piani=mr.data.piani||[];
+      // Piani: migra dal meta alla tabella dedicata se ancora presenti
+      if(mr.data.piani && mr.data.piani.length > 0 && !mr.data._pianiMigrati){
+        console.log('[PIANI] trovati piani nel meta (vecchia struttura), migro...');
+        const pianiVecchi = mr.data.piani.filter(p => p && p.pazienteId);
+        pianiVecchi.forEach(p => { if(!p.id) p.id = 'piano_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); });
+        db.piani = pianiVecchi;
+        for(const p of pianiVecchi){ await pushPianoSupabase(p); }
+        console.log('[PIANI] migrazione completata —', pianiVecchi.length, 'piani migrati');
+      }
       // Compatibilità: se meta ha ancora ricette (vecchia struttura), le migra
       if(mr.data.ricette&&mr.data.ricette.length>0){
         console.log('[Supabase] pull — trovate ricette nel meta (vecchia struttura), migro a tabella dedicata...');
@@ -2353,11 +2362,13 @@ async function pullFromSheets(){
         }
       }
     }
-    // Pull ricette da tabella dedicata (sovrascrive solo se ci sono dati)
+    // Pull ricette da tabella dedicata
     const ricPullOk = await pullRicetteSupabase();
     if(!ricPullOk && (!db.ricette || db.ricette.length === 0)){
       db.ricette = [...RICETTE_DEFAULT];
     }
+    // Pull piani da tabella dedicata
+    await pullPianiSupabase();
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
@@ -2408,33 +2419,129 @@ async function testConnSupabase(){
 
 async function save(){saveLocal();await pushToSheets();}
 
-// ── INIZIALIZZAZIONE TABELLA RICETTE SUPABASE ────────────────────────────────
-async function inizializzaTabellaRicette(){
-  const el = document.getElementById('ric-table-status');
-  if(el) el.textContent = '⏳ Verifica tabella ricette in corso...';
+// ── PIANI SU SUPABASE — tabella dedicata ─────────────────────────────────────
+
+async function pushPianoSupabase(piano){
+  // Salva un singolo piano sulla tabella dedicata
   try {
-    // Prova a leggere dalla tabella ricette
-    const resp = await fetch(SUPA_URL+'/rest/v1/ricette?select=id&limit=1', {method:'GET', headers: supaHeaders()});
+    const payload = {id: piano.id, pazienteId: piano.pazienteId, data: piano, updated_at: new Date().toISOString()};
+    const resp = await fetch(SUPA_URL+'/rest/v1/piani', {
+      method: 'POST',
+      headers: {...supaHeaders(), 'Prefer': 'resolution=merge-duplicates'},
+      body: JSON.stringify(payload)
+    });
+    const bodyText = await resp.text();
+    if(!resp.ok && resp.status !== 200 && resp.status !== 201){
+      console.error('[PIANI] push ERRORE — status:', resp.status, '— body:', bodyText);
+      return false;
+    }
+    console.log('[PIANI] push OK — piano id:', piano.id, 'paziente:', piano.pazienteId);
+    return true;
+  } catch(e) {
+    console.error('[PIANI] push ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function pullPianiSupabase(){
+  console.log('[PIANI] pull iniziato...');
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/piani?select=id,pazienteId,data&order=updated_at.desc', {method:'GET', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[PIANI] pull ERRORE — status:', resp.status); return false; }
+    const rows = await resp.json();
+    console.log('[PIANI] pull — righe ricevute:', rows.length);
+    db.piani = (rows||[]).map(row => row.data).filter(Boolean);
+    console.log('[PIANI] pull OK — piani caricati:', db.piani.length);
+    return true;
+  } catch(e) {
+    console.error('[PIANI] pull ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function delPianoSupabase(pianoId){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/piani?id=eq.'+pianoId, {method:'DELETE', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[PIANI] delete ERRORE — status:', resp.status); return false; }
+    console.log('[PIANI] delete OK — id:', pianoId);
+    return true;
+  } catch(e) {
+    console.error('[PIANI] delete ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function pushCachePianoSupabase(pazienteId, pianoEspanso){
+  // Cache piano AI — usa tabella piani con id speciale
+  try {
+    const key = _pianoCacheKey(pazienteId);
+    if(!key) return;
+    const payload = {id: key, pazienteId: pazienteId, data: {piano: pianoEspanso, pazienteId, createdAt: new Date().toISOString(), _isCache: true}, updated_at: new Date().toISOString()};
+    await fetch(SUPA_URL+'/rest/v1/piani', {
+      method: 'POST',
+      headers: {...supaHeaders(), 'Prefer': 'resolution=merge-duplicates'},
+      body: JSON.stringify(payload)
+    });
+    console.log('[Cache Piano] salvato in tabella piani con chiave:', key);
+  } catch(e) {
+    console.warn('[Cache Piano] errore salvataggio:', e);
+  }
+}
+
+async function caricaCachePianoSupabase(pazienteId){
+  try {
+    const key = _pianoCacheKey(pazienteId);
+    if(!key) return null;
+    const r = await fetch(SUPA_URL+'/rest/v1/piani?id=eq.'+encodeURIComponent(key)+'&select=data,updated_at', {headers: supaHeaders()});
+    if(!r.ok) return null;
+    const rows = await r.json();
+    if(!rows||!rows.length) return null;
+    const row = rows[0];
+    const MAX_AGE_DAYS = 90;
+    const ageMs = Date.now() - new Date(row.updated_at).getTime();
+    if(ageMs > MAX_AGE_DAYS * 24 * 3600 * 1000){ console.log('[Cache Piano] scaduta, rigenero'); return null; }
+    console.log('[Cache Piano] HIT — carico da tabella piani');
+    return row.data ? row.data.piano : null;
+  } catch(e) {
+    console.warn('[Cache Piano] errore caricamento:', e);
+    return null;
+  }
+}
+
+// ── INIZIALIZZAZIONE TABELLA RICETTE SUPABASE ────────────────────────────────
+async function inizializzaTabellaRicette(tipo){
+  tipo = tipo || 'ricette';
+  const el = document.getElementById('ric-table-status');
+  const nomeTabella = tipo === 'piani' ? 'piani' : 'ricette';
+  const endpoint = SUPA_URL+'/rest/v1/'+nomeTabella+'?select=id&limit=1';
+  if(el) el.textContent = '⏳ Verifica tabella ' + nomeTabella + ' in corso...';
+  try {
+    const resp = await fetch(endpoint, {method:'GET', headers: supaHeaders()});
     if(resp.ok){
       const rows = await resp.json();
-      if(el) el.textContent = '✅ Tabella ricette OK — ' + rows.length + ' righe trovate. Migro le ricette custom...';
-      console.log('[RICETTE] tabella esistente — rows:', rows.length);
-      // Migra ricette custom dal db locale alla tabella dedicata
-      const ok = await pushRicetteSupabase();
-      if(ok){
-        if(el) el.textContent = '✅ Tabella ricette OK + migrazione completata!';
-        notif('✅ Ricette migrate su Supabase correttamente!', 3000);
+      if(el) el.textContent = '✅ Tabella ' + nomeTabella + ' OK — ' + rows.length + ' righe. Migro...';
+      let ok = false;
+      if(tipo === 'piani'){
+        // Migra piani da db.piani
+        const pianiDaMigrare = (db.piani||[]).filter(p => p && p.pazienteId);
+        pianiDaMigrare.forEach(p => { if(!p.id) p.id = 'piano_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); });
+        let errori = 0;
+        for(const p of pianiDaMigrare){ const r = await pushPianoSupabase(p); if(!r) errori++; }
+        ok = errori === 0;
+        if(ok){ notif('✅ ' + pianiDaMigrare.length + ' piani migrati su Supabase!', 3000); }
+        else { notif('⚠️ Migrazione parziale — ' + errori + ' errori', 3000); }
       } else {
-        if(el) el.innerHTML = '⚠️ Tabella esiste ma migrazione fallita — <b>vedi console F12</b>';
+        ok = await pushRicetteSupabase();
+        if(ok) notif('✅ Ricette migrate su Supabase!', 3000);
       }
+      if(el) el.textContent = ok ? '✅ Tabella ' + nomeTabella + ' OK + migrazione completata!' : '⚠️ Migrazione parziale — vedi console F12';
     } else if(resp.status === 404 || resp.status === 400){
-      if(el) el.innerHTML = '❌ Tabella "ricette" non trovata su Supabase.<br>👉 Vai su <b>supabase.com → Table editor → New table</b><br>Nome: <b>ricette</b> · Colonne: <b>id</b> (text, PK), <b>data</b> (jsonb), <b>updated_at</b> (text)<br>Poi clicca di nuovo questo pulsante.';
-      console.error('[RICETTE] tabella non trovata — status:', resp.status);
+      if(el) el.innerHTML = '❌ Tabella "'+nomeTabella+'" non trovata.<br>👉 Vai su <b>supabase.com → Table editor → New table</b><br>Nome: <b>'+nomeTabella+'</b> · Colonne: <b>id</b> (text, PK), <b>data</b> (jsonb), <b>updated_at</b> (text)<br>'+(tipo==='piani'?'Aggiungi anche: <b>pazienteId</b> (text)<br>':'')+'Poi clicca di nuovo questo pulsante.';
     } else {
-      if(el) el.innerHTML = '⚠️ Errore verifica tabella — status: ' + resp.status + ' — <b>vedi console F12</b>';
+      if(el) el.innerHTML = '⚠️ Errore status: ' + resp.status + ' — <b>vedi console F12</b>';
     }
   } catch(e) {
-    console.error('[RICETTE] inizializzaTabellaRicette ERRORE:', e);
+    console.error('['+nomeTabella.toUpperCase()+'] inizializza ERRORE:', e);
     if(el) el.textContent = '❌ Errore: ' + e.message;
   }
 }
@@ -2467,50 +2574,13 @@ function _pianoCacheKey(pazienteId) {
 }
 
 async function _salvaPianoCache(pazienteId, pianoEspanso) {
-  try {
-    const key = _pianoCacheKey(pazienteId);
-    if (!key) return;
-    const payload = {
-      id: key,
-      data: { piano: pianoEspanso, pazienteId, createdAt: new Date().toISOString() },
-      updated_at: new Date().toISOString()
-    };
-    await fetch(SUPA_URL + '/rest/v1/pazienti', {
-      method: 'POST',
-      headers: supaHeaders(),
-      body: JSON.stringify(payload)
-    });
-    console.log('[Cache Piano] salvato con chiave:', key);
-  } catch(e) {
-    console.warn('[Cache Piano] errore salvataggio:', e);
-  }
+  // Ora usa tabella piani dedicata tramite pushCachePianoSupabase
+  await pushCachePianoSupabase(pazienteId, pianoEspanso);
 }
 
 async function _caricaPianoCache(pazienteId) {
-  try {
-    const key = _pianoCacheKey(pazienteId);
-    if (!key) return null;
-    const r = await fetch(SUPA_URL + '/rest/v1/pazienti?id=eq.' + encodeURIComponent(key) + '&select=data,updated_at', {
-      headers: supaHeaders()
-    });
-    if (!r.ok) return null;
-    const rows = await r.json();
-    if (!rows || !rows.length) return null;
-    const row = rows[0];
-    // Scade dopo 30 giorni
-    const MAX_AGE_DAYS = 90;
-    const updatedAt = new Date(row.updated_at);
-    const ageMs = Date.now() - updatedAt.getTime();
-    if (ageMs > MAX_AGE_DAYS * 24 * 3600 * 1000) {
-      console.log('[Cache Piano] scaduta (>30gg), rigenero');
-      return null;
-    }
-    console.log('[Cache Piano] HIT — carico da Supabase, risparmio chiamata AI');
-    return row.data ? row.data.piano : null;
-  } catch(e) {
-    console.warn('[Cache Piano] errore caricamento:', e);
-    return null;
-  }
+  // Ora usa tabella piani dedicata tramite caricaCachePianoSupabase
+  return await caricaCachePianoSupabase(pazienteId);
 }
 
 
@@ -6114,22 +6184,31 @@ function renderStoricoPiani() {
   }).join('');
 }
 
-function eliminaPiano(idx) {
+async function eliminaPiano(idx) {
   if (!confirm('Eliminare questo piano salvato?')) return;
+  const piano = db.piani[idx];
   db.piani.splice(idx, 1);
-  save();
+  saveLocal();
   renderStoricoPiani();
-  notif('Piano eliminato');
+  if(piano && piano.id){
+    const ok = await delPianoSupabase(piano.id);
+    notif(ok ? '✅ Piano eliminato' : '⚠️ Eliminato in locale, sync fallito', 2500);
+  } else {
+    notif('Piano eliminato', 2000);
+  }
 }
 
-function cancellaStoricoPiani() {
+async function cancellaStoricoPiani() {
   var tot = (db.piani||[]).length;
   if (!tot) { notif('Nessun piano da cancellare'); return; }
   if (!confirm('Eliminare tutti i ' + tot + ' piani salvati nello storico? Questa azione non è reversibile.')) return;
+  const ids = db.piani.map(p => p.id).filter(Boolean);
   db.piani = [];
-  save();
+  saveLocal();
   renderStoricoPiani();
-  notif('✓ Storico piani cancellato');
+  let errori = 0;
+  for(const id of ids){ const ok = await delPianoSupabase(id); if(!ok) errori++; }
+  notif(errori === 0 ? '✅ Storico piani cancellato' : '⚠️ Cancellati in locale, ' + errori + ' errori Supabase', 3000);
 }
 
 // ── BUG3 FIX: helper centrale per scegliere target attivi ──
@@ -10299,15 +10378,25 @@ function applicaPatch(piano, patch) {
 }
 
 document.getElementById('p2-save').onclick = async function() {
-  var id = document.getElementById('piano-select-paz').value;
+  var pazId = document.getElementById('piano-select-paz').value;
   if (!db.piani) db.piani = [];
-  db.piani.push({
-    pazienteId: id,
+  const nuovoPiano = {
+    id: 'piano_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    pazienteId: pazId,
     timestamp: new Date().toISOString(),
     pianoJSON: JSON.stringify(window._pianoCorrente)
-  });
-  try { await save(); } catch(e) { saveLocal(); }
-  notif('✓ Piano salvato definitivamente');
+  };
+  db.piani.push(nuovoPiano);
+  saveLocal();
+  notif('💾 Salvataggio piano in corso...');
+  const ok = await pushPianoSupabase(nuovoPiano);
+  if(ok){
+    notif('✅ Piano salvato su Supabase!', 2500);
+    console.log('[PIANI] piano definitivo salvato — id:', nuovoPiano.id);
+  } else {
+    notif('⚠️ Piano salvato solo in locale — sync fallito!', 4000);
+    console.error('[PIANI] push Supabase fallito per piano:', nuovoPiano.id);
+  }
 };
 </script>
 <div id="p2-ric-panel" style="position:fixed;top:0;right:0;bottom:0;width:300px;background:var(--s1);border-left:1px solid var(--border);z-index:1000;display:flex;flex-direction:column;box-shadow:-4px 0 20px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .25s ease;">
