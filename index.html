@@ -6132,6 +6132,11 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _toggleWrap1.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
     pianoEl.appendChild(_toggleWrap1);
     pianoEl.appendChild(btn);
+    var btnWa=document.createElement('button');
+    btnWa.textContent='📲 Invia su WhatsApp';
+    btnWa.style.cssText='margin-top:.4rem;padding:.7rem 2rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btnWa.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);setTimeout(apriWhatsApp,800);};
+    pianoEl.appendChild(btnWa);
     // Aggiorna pannello laterale macros
     if (typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(g);
   };
@@ -7453,6 +7458,12 @@ function _aggiornaPianoBox() {
       btnPdf.textContent = '\ud83d\udcc4 Scarica Piano PDF';
       btnPdf.style.cssText = 'margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
       btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
+      var btnWa2=document.createElement('button');
+      btnWa2.textContent='📲 Invia su WhatsApp';
+      btnWa2.style.cssText='margin-top:.4rem;padding:.7rem 2rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnWa2.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);setTimeout(apriWhatsApp,800);};
+      var _contWa2=document.getElementById('gen-output')||btnPdf.parentNode;
+      btnPdf.parentNode.insertBefore(btnWa2,btnPdf.nextSibling);
       var _tw2=document.createElement('label');
       _tw2.style.cssText='display:flex;align-items:center;gap:8px;margin-top:1.5rem;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
       var _ck2=document.createElement('input');_ck2.type='checkbox';
@@ -7621,6 +7632,19 @@ function mostraLoadingSteps(loadEl){
   render();
   const iv=setInterval(()=>{if(cur<steps.length-1){cur++;render();}},5000);
   return iv;
+}
+
+
+function apriWhatsApp(){
+  const pid=currentPazId||_ragPazId||(document.getElementById('piano-select-paz')&&document.getElementById('piano-select-paz').value)||null;
+  const p=db.pazienti.find(x=>x.id===pid);
+  if(!p){notif('⚠ Nessun paziente selezionato');return;}
+  if(!p.tel){notif('⚠ Numero di telefono non presente nel profilo');return;}
+  const nome=(p.nome||'').split(' ')[0];
+  const msg=encodeURIComponent('Ciao '+nome+'! Ti invio il tuo piano alimentare personalizzato — prenditi un po\' di tempo per leggerlo con calma. Quando sei libero/a, chiamami così lo commentiamo insieme: ti spiego i concetti chiave e rispondo a tutte le tue domande. A presto! 💪');
+  const tel=p.tel.replace(/\D/g,'');
+  const prefix=tel.startsWith('39')?'':tel.startsWith('+')?'':'+39';
+  window.open('https://wa.me/'+prefix+tel+'?text='+msg,'_blank');
 }
 
 async function generaPiano(forceRegen){
