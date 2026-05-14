@@ -99,6 +99,9 @@ main{flex:1;overflow-y:auto;}
 .card-hd{padding:.8rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
 .card-hd h3{font-family:'DM Serif Display',serif;font-size:.92rem;}
 .card-bd{padding:1rem 1.1rem;}
+.f1f3-wrapper{display:flex;gap:.8rem;align-items:flex-start;}
+.f1f3-wrapper>.card{flex:1;min-width:0;margin-bottom:0;}
+@media(max-width:700px){.f1f3-wrapper{flex-direction:column;}.f1f3-wrapper>.card{margin-bottom:.6rem;}}
 /* GRID */
 .paz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:.9rem;margin-bottom:1rem;}
 .paz-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;cursor:pointer;transition:all .18s;box-shadow:var(--shadow);}
@@ -4605,8 +4608,10 @@ function renderPdRagionamento(p){
     +'<span style="font-size:.72rem;color:var(--text3)">Lancia 2 analisi parallele su questo paziente</span>'
     +'</div>';
 
+  html+='<div class="f1f3-wrapper">';
   html+=_renderFlussoPanel('f1','📊','Macros & Bilancio',_ragFlussi.f1,_ragFlussi.loading);
   html+=_renderFlussoPanel('f3','⚠️','Alert Clinici',_ragFlussi.f3,_ragFlussi.loading);
+  html+='</div>';
 
   if(hasAnyFlusso&&!isLoading&&!_ragRiassunto){
     html+='<div style="margin:.7rem 0;display:flex;gap:.5rem;flex-wrap:wrap">'
