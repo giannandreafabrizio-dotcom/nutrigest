@@ -3773,7 +3773,8 @@ function salvaRoutine() {
 }
 
 function mostraRoutinePopup(){
-  const p=db.pazienti.find(x=>x.id===currentPazId);
+  const pid=currentPazId||_ragPazId||(document.getElementById('piano-select-paz')&&document.getElementById('piano-select-paz').value)||null;
+  const p=db.pazienti.find(x=>x.id===pid);
   const routine=p&&p.routineGiornaliera?p.routineGiornaliera:[];
   let body='';
   if(!routine.length){
