@@ -882,6 +882,8 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-g btn-sm" onclick="testConnSupabase()">🔌 Testa connessione</button>
         <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette()" title="Crea la tabella ricette su Supabase e migra le ricette esistenti">🍽 Inizializza tabella ricette</button>
         <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('piani')" title="Crea la tabella piani su Supabase e migra i piani esistenti">📋 Inizializza tabella piani</button>
+        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('entrate')" title="Migra le entrate su tabella dedicata">💶 Inizializza tabella entrate</button>
+        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('eventi')" title="Migra gli eventi su tabella dedicata">📅 Inizializza tabella eventi</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3);margin-left:.3rem"></span>
       </div>
       <div id="ric-table-status" style="font-size:.75rem;margin-top:.3rem;color:var(--text3)"></div>
@@ -2304,8 +2306,8 @@ async function pushToSheets(){
         throw new Error('err paz '+p.id+' status '+r.status);
       }
     }
-    // Meta senza ricette e senza piani (hanno tabelle proprie ora)
-    const meta={eventi:db.eventi||[],entrate:db.entrate||[],disponibilita:db.disponibilita||{}};
+    // Meta contiene solo disponibilita (tutto il resto ha tabelle dedicate)
+    const meta={disponibilita:db.disponibilita||{}};
     const metaSize = JSON.stringify(meta).length;
     console.log('[Supabase] push meta — size:', Math.round(metaSize/1024)+'KB');
     const rm=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
@@ -2314,8 +2316,10 @@ async function pushToSheets(){
       console.error('[Supabase] push ERRORE meta — status:', rm.status, '— body:', metaBody);
       throw new Error('err meta status '+rm.status);
     }
-    // Push ricette su tabella dedicata
+    // Push ricette, entrate, eventi su tabelle dedicate
     await pushRicetteSupabase();
+    await pushEntrateSupabase();
+    await pushEventiSupabase();
     localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
     console.log('[Supabase] push COMPLETATO OK');
     return true;
@@ -2339,9 +2343,19 @@ async function pullFromSheets(){
     db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
     if(mr&&mr.data){
       // Ricette NON più nel meta — usa tabella dedicata
-      db.eventi=mr.data.eventi||[];
-      db.entrate=mr.data.entrate||[];
       db.disponibilita=mr.data.disponibilita||{};
+      // Migra eventi dal meta se ancora presenti
+      if(mr.data.eventi && mr.data.eventi.length > 0){
+        console.log('[EVENTI] trovati nel meta, migro...');
+        db.eventi = mr.data.eventi;
+        await pushEventiSupabase();
+      }
+      // Migra entrate dal meta se ancora presenti
+      if(mr.data.entrate && mr.data.entrate.length > 0){
+        console.log('[ENTRATE] trovate nel meta, migro...');
+        db.entrate = mr.data.entrate;
+        await pushEntrateSupabase();
+      }
       // Piani: migra dal meta alla tabella dedicata se ancora presenti
       if(mr.data.piani && mr.data.piani.length > 0 && !mr.data._pianiMigrati){
         console.log('[PIANI] trovati piani nel meta (vecchia struttura), migro...');
@@ -2367,8 +2381,10 @@ async function pullFromSheets(){
     if(!ricPullOk && (!db.ricette || db.ricette.length === 0)){
       db.ricette = [...RICETTE_DEFAULT];
     }
-    // Pull piani da tabella dedicata
+    // Pull piani, entrate, eventi da tabelle dedicate
     await pullPianiSupabase();
+    await pullEntrateSupabase();
+    await pullEventiSupabase();
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
@@ -2508,6 +2524,124 @@ async function caricaCachePianoSupabase(pazienteId){
   }
 }
 
+// ── ENTRATE SU SUPABASE — tabella dedicata ───────────────────────────────────
+
+async function pushEntrateSupabase(){
+  const entrate = db.entrate || [];
+  if(entrate.length === 0){ console.log('[ENTRATE] nessuna entrata da salvare'); return true; }
+  console.log('[ENTRATE] push —', entrate.length, 'entrate');
+  try {
+    const payload = entrate.map(e => ({id: e.id, data: e, updated_at: new Date().toISOString()}));
+    const resp = await fetch(SUPA_URL+'/rest/v1/entrate', {
+      method: 'POST',
+      headers: {...supaHeaders(), 'Prefer': 'resolution=merge-duplicates'},
+      body: JSON.stringify(payload)
+    });
+    const bodyText = await resp.text();
+    if(!resp.ok && resp.status !== 200 && resp.status !== 201){
+      console.error('[ENTRATE] push ERRORE — status:', resp.status, '— body:', bodyText);
+      return false;
+    }
+    console.log('[ENTRATE] push OK —', entrate.length, 'entrate salvate');
+    return true;
+  } catch(e) {
+    console.error('[ENTRATE] push ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function pullEntrateSupabase(){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/entrate?select=id,data&order=updated_at.desc', {method:'GET', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[ENTRATE] pull ERRORE — status:', resp.status); return false; }
+    const rows = await resp.json();
+    db.entrate = (rows||[]).map(row => row.data).filter(Boolean);
+    console.log('[ENTRATE] pull OK —', db.entrate.length, 'entrate');
+    return true;
+  } catch(e) {
+    console.error('[ENTRATE] pull ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function delEntrataSupabase(id){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/entrate?id=eq.'+id, {method:'DELETE', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[ENTRATE] delete ERRORE — status:', resp.status); return false; }
+    return true;
+  } catch(e) { return false; }
+}
+
+async function pushEntrataSupabase(entrata){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/entrate', {
+      method:'POST', headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify({id:entrata.id, data:entrata, updated_at:new Date().toISOString()})
+    });
+    if(!resp.ok){ console.error('[ENTRATE] push singola ERRORE — status:', resp.status); return false; }
+    return true;
+  } catch(e) { console.error('[ENTRATE] push singola ECCEZIONE:', e); return false; }
+}
+
+async function pushEventoSupabase(evento){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/eventi', {
+      method:'POST', headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify({id:evento.id, data:evento, updated_at:new Date().toISOString()})
+    });
+    if(!resp.ok){ console.error('[EVENTI] push singolo ERRORE — status:', resp.status); return false; }
+    return true;
+  } catch(e) { console.error('[EVENTI] push singolo ECCEZIONE:', e); return false; }
+}
+
+// ── EVENTI SU SUPABASE — tabella dedicata ────────────────────────────────────
+
+async function pushEventiSupabase(){
+  const eventi = db.eventi || [];
+  if(eventi.length === 0){ console.log('[EVENTI] nessun evento da salvare'); return true; }
+  console.log('[EVENTI] push —', eventi.length, 'eventi');
+  try {
+    const payload = eventi.map(e => ({id: e.id, data: e, updated_at: new Date().toISOString()}));
+    const resp = await fetch(SUPA_URL+'/rest/v1/eventi', {
+      method: 'POST',
+      headers: {...supaHeaders(), 'Prefer': 'resolution=merge-duplicates'},
+      body: JSON.stringify(payload)
+    });
+    const bodyText = await resp.text();
+    if(!resp.ok && resp.status !== 200 && resp.status !== 201){
+      console.error('[EVENTI] push ERRORE — status:', resp.status, '— body:', bodyText);
+      return false;
+    }
+    console.log('[EVENTI] push OK —', eventi.length, 'eventi salvati');
+    return true;
+  } catch(e) {
+    console.error('[EVENTI] push ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function pullEventiSupabase(){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/eventi?select=id,data&order=updated_at.desc', {method:'GET', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[EVENTI] pull ERRORE — status:', resp.status); return false; }
+    const rows = await resp.json();
+    db.eventi = (rows||[]).map(row => row.data).filter(Boolean);
+    console.log('[EVENTI] pull OK —', db.eventi.length, 'eventi');
+    return true;
+  } catch(e) {
+    console.error('[EVENTI] pull ECCEZIONE:', e);
+    return false;
+  }
+}
+
+async function delEventoSupabase(id){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/eventi?id=eq.'+id, {method:'DELETE', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[EVENTI] delete ERRORE — status:', resp.status); return false; }
+    return true;
+  } catch(e) { return false; }
+}
+
 // ── INIZIALIZZAZIONE TABELLA RICETTE SUPABASE ────────────────────────────────
 async function inizializzaTabellaRicette(tipo){
   tipo = tipo || 'ricette';
@@ -2522,21 +2656,25 @@ async function inizializzaTabellaRicette(tipo){
       if(el) el.textContent = '✅ Tabella ' + nomeTabella + ' OK — ' + rows.length + ' righe. Migro...';
       let ok = false;
       if(tipo === 'piani'){
-        // Migra piani da db.piani
         const pianiDaMigrare = (db.piani||[]).filter(p => p && p.pazienteId);
         pianiDaMigrare.forEach(p => { if(!p.id) p.id = 'piano_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); });
         let errori = 0;
         for(const p of pianiDaMigrare){ const r = await pushPianoSupabase(p); if(!r) errori++; }
         ok = errori === 0;
-        if(ok){ notif('✅ ' + pianiDaMigrare.length + ' piani migrati su Supabase!', 3000); }
-        else { notif('⚠️ Migrazione parziale — ' + errori + ' errori', 3000); }
+        notif(ok ? '✅ ' + pianiDaMigrare.length + ' piani migrati!' : '⚠️ Migrazione parziale — ' + errori + ' errori', 3000);
+      } else if(tipo === 'entrate'){
+        ok = await pushEntrateSupabase();
+        notif(ok ? '✅ ' + (db.entrate||[]).length + ' entrate migrate!' : '⚠️ Migrazione entrate fallita', 3000);
+      } else if(tipo === 'eventi'){
+        ok = await pushEventiSupabase();
+        notif(ok ? '✅ ' + (db.eventi||[]).length + ' eventi migrati!' : '⚠️ Migrazione eventi fallita', 3000);
       } else {
         ok = await pushRicetteSupabase();
-        if(ok) notif('✅ Ricette migrate su Supabase!', 3000);
+        notif(ok ? '✅ Ricette migrate su Supabase!' : '⚠️ Migrazione ricette fallita', 3000);
       }
       if(el) el.textContent = ok ? '✅ Tabella ' + nomeTabella + ' OK + migrazione completata!' : '⚠️ Migrazione parziale — vedi console F12';
     } else if(resp.status === 404 || resp.status === 400){
-      if(el) el.innerHTML = '❌ Tabella "'+nomeTabella+'" non trovata.<br>👉 Vai su <b>supabase.com → Table editor → New table</b><br>Nome: <b>'+nomeTabella+'</b> · Colonne: <b>id</b> (text, PK), <b>data</b> (jsonb), <b>updated_at</b> (text)<br>'+(tipo==='piani'?'Aggiungi anche: <b>pazienteId</b> (text)<br>':'')+'Poi clicca di nuovo questo pulsante.';
+      if(el) el.innerHTML = '❌ Tabella "'+nomeTabella+'" non trovata.<br>👉 Vai su <b>supabase.com → SQL Editor</b> e incolla:<br><code>CREATE TABLE '+nomeTabella+' (id text PRIMARY KEY, '+(tipo==='piani'?'"pazienteId" text, ':'')+' data jsonb, updated_at text); ALTER TABLE '+nomeTabella+' DISABLE ROW LEVEL SECURITY;</code>';
     } else {
       if(el) el.innerHTML = '⚠️ Errore status: ' + resp.status + ' — <b>vedi console F12</b>';
     }
@@ -8988,10 +9126,14 @@ function salvaEvento(){
     promemoria:document.getElementById('ev-promemoria').value};
   db.eventi.push(ev);
   // Aggiungi entrata se richiesto
-  if(prezzo>0&&document.getElementById('ev-add-entrata')?.checked){
-    db.entrate.push({id:uid(),data,importo:prezzo,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:tipo==='visita'?'Prima visita':'Controllo',note:'Da evento calendario'});
-  }
-  save();closeM('mo-evento');renderCal();notif('✓ Evento salvato!');
+  const nuovaEntrata = (prezzo>0&&document.getElementById('ev-add-entrata')?.checked)
+    ? {id:uid(),data,importo:prezzo,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:tipo==='visita'?'Prima visita':'Controllo',note:'Da evento calendario'}
+    : null;
+  if(nuovaEntrata) db.entrate.push(nuovaEntrata);
+  saveLocal();closeM('mo-evento');renderCal();
+  pushEventoSupabase(ev);
+  if(nuovaEntrata) pushEntrataSupabase(nuovaEntrata);
+  notif('✓ Evento salvato!');
 }
 
 function openEvDetail(pazId,tipo,evId){
@@ -9046,10 +9188,12 @@ function openEvDetail(pazId,tipo,evId){
   document.getElementById('mo-ev-detail').classList.add('open');
 }
 
-function delEvento(id){
+async function delEvento(id){
   if(!confirm('Eliminare evento?'))return;
   db.eventi=db.eventi.filter(x=>x.id!==id);
-  save();closeM('mo-ev-detail');renderCal();notif('Evento eliminato');
+  saveLocal();closeM('mo-ev-detail');renderCal();
+  await delEventoSupabase(id);
+  notif('Evento eliminato');
 }
 
 function copyMsg(txt){
@@ -9267,7 +9411,7 @@ function salvaEntrata(){
   const pazId=document.getElementById('en-paz').value;
   const paz=pazId?db.pazienti.find(x=>x.id===pazId):null;
   const studio=document.getElementById('en-studio').value||(paz?paz.studio:'')||'';
-  db.entrate.push({
+  const nuovaEnt = {
     id:uid(),
     data:document.getElementById('en-data').value||today(),
     importo:imp,
@@ -9276,10 +9420,13 @@ function salvaEntrata(){
     tipo:document.getElementById('en-tipo').value,
     studio:studio,
     note:document.getElementById('en-note').value.trim()
-  });
-  save();closeM('mo-entrata');renderEntrate();notif('✓ Entrata salvata!');
+  };
+  db.entrate.push(nuovaEnt);
+  saveLocal();closeM('mo-entrata');renderEntrate();
+  pushEntrataSupabase(nuovaEnt);
+  notif('✓ Entrata salvata!');
 }
-function delEntrata(id){if(!confirm('Eliminare?'))return;db.entrate=db.entrate.filter(x=>x.id!==id);save();renderEntrate();notif('Eliminata');}
+async function delEntrata(id){if(!confirm('Eliminare?'))return;db.entrate=db.entrate.filter(x=>x.id!==id);saveLocal();renderEntrate();await delEntrataSupabase(id);notif('Eliminata');}
 
 
 // ═══════════════════════════════════════════
