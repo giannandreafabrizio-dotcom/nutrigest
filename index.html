@@ -1697,7 +1697,10 @@ function calcolaMacrosPiano(piano) {
   if (!Array.isArray(piano)) return null;
   const giornalieri = [];
   const nonTrovati = new Set();
+  // ponderata 40/30/30
   let wKcal = 0, wP = 0, wC = 0, wG = 0;
+  // prime scelte (solo indice 0 di ogni cella)
+  let psKcal = 0, psP = 0, psC = 0, psG = 0;
 
   // A8: recupera paziente corrente per stima weekend
   const _pazWeekend = typeof getCurrentPaziente === 'function' ? getCurrentPaziente() : null;
@@ -1706,15 +1709,15 @@ function calcolaMacrosPiano(piano) {
 
   piano.forEach(g => {
     let dKcal = 0, dP = 0, dC = 0, dG = 0;
+    let psKcalG = 0, psPG = 0, psCG = 0, psGG = 0;
     const pasti = g.pasti || {};
-    // A8: rileva se è il giorno sabato con cena libera
     const _gNome = (g.giorno || g.g || '').toLowerCase();
     const _isSabato = _gNome.includes('sabato') || _gNome.includes('sab');
     Object.values(pasti).forEach(pasto => {
       const celle = pasto.celle || [];
       celle.forEach(cella => {
         if (!cella.alimenti || !cella.alimenti.length) return;
-        // Pesi 40/30/30 sulle prime 3 alternative
+        // — PONDERATA 40/30/30 —
         var pesi = [0.40, 0.30, 0.30];
         var alArr = cella.alimenti.slice(0, 3);
         alArr.forEach(function(al, ai) {
@@ -1727,11 +1730,23 @@ function calcolaMacrosPiano(piano) {
           var f = grammi / 100 * peso;
           dKcal += vals.kcal * f; dP += vals.p * f; dC += vals.c * f; dG += vals.g * f;
         });
+        // — PRIMA SCELTA (solo al[0]) —
+        var al0 = cella.alimenti[0];
+        if (al0) {
+          var cat0 = al0.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al0.n) : null);
+          var vals0 = getValoriCREA(al0.n, cat0);
+          if (vals0) {
+            var g0 = parseFloat(al0.g) || 0;
+            var f0 = g0 / 100;
+            psKcalG += vals0.kcal * f0; psPG += vals0.p * f0; psCG += vals0.c * f0; psGG += vals0.g * f0;
+          }
+        }
       });
     });
     // A8: se sabato con cena libera, aggiungi stima kcal weekend
     if(_isSabato && _kcalWeekend > 0){
       dKcal += _kcalWeekend;
+      psKcalG += _kcalWeekend;
       _sabatoCenaStimata = true;
     }
     giornalieri.push({
@@ -1740,9 +1755,14 @@ function calcolaMacrosPiano(piano) {
       p: Math.round(dP * 10) / 10,
       c: Math.round(dC * 10) / 10,
       g: Math.round(dG * 10) / 10,
+      psKcal: Math.round(psKcalG),
+      psP: Math.round(psPG * 10) / 10,
+      psC: Math.round(psCG * 10) / 10,
+      psG: Math.round(psGG * 10) / 10,
       stimaWeekend: _isSabato && _kcalWeekend > 0 ? _kcalWeekend : 0,
     });
     wKcal += dKcal; wP += dP; wC += dC; wG += dG;
+    psKcal += psKcalG; psP += psPG; psC += psCG; psG += psGG;
   });
 
   const n = giornalieri.length || 1;
@@ -1750,6 +1770,8 @@ function calcolaMacrosPiano(piano) {
     giornalieri,
     settimanale: { kcal: Math.round(wKcal), p: Math.round(wP*10)/10, c: Math.round(wC*10)/10, g: Math.round(wG*10)/10 },
     medio:       { kcal: Math.round(wKcal/n), p: Math.round(wP/n*10)/10, c: Math.round(wC/n*10)/10, g: Math.round(wG/n*10)/10 },
+    // prime scelte aggregate
+    psMedio:     { kcal: Math.round(psKcal/n), p: Math.round(psP/n*10)/10, c: Math.round(psC/n*10)/10, g: Math.round(psG/n*10)/10 },
     alimentiNonTrovati: Array.from(nonTrovati),
     sabatoCenaStimata: _sabatoCenaStimata,
     kcalWeekendStimata: _kcalWeekend,
@@ -1762,11 +1784,12 @@ function renderBadgeMacrosReali(piano, target) {
   const calc = calcolaMacrosPiano(piano);
   if (!calc) return '';
   const m = calc.medio;
+  const ps = calc.psMedio || m;
   const tKcal = target.kcal || 0;
   const tP = target.protG || target.P || 0;
   const tC = target.carbG || target.C || 0;
   const tG = target.grassiG || target.G || 0;
-  function pct(r, t) { return t ? Math.round((r/t)*100) + '%' : '—'; }
+  function pctStr(r, t) { return t ? (Math.round((r/t)*100) > 100 ? '+' : '') + (Math.round((r/t)*100)-100) + '%' : '—'; }
   function color(r, t) {
     if (!t) return '#94a3b8';
     const ratio = r / t;
@@ -1774,24 +1797,43 @@ function renderBadgeMacrosReali(piano, target) {
     if (ratio >= 0.80 && ratio <= 1.20) return '#ea580c';
     return '#dc2626';
   }
+  var HDR = '<div style="display:grid;grid-template-columns:80px 1fr 1fr 72px;gap:.3rem;align-items:center;font-size:.67rem;color:#5eead4;padding:.2rem 0;border-bottom:0.5px solid rgba(15,118,110,0.15);text-transform:uppercase;font-weight:600;letter-spacing:.02em;">'
+    +'<span></span>'
+    +'<span style="text-align:center;color:#0f766e;">Prime scelte</span>'
+    +'<span style="text-align:center;color:#0f766e;">Media pond. <span style="font-weight:400;color:#5eead4;">40/30/30</span></span>'
+    +'<span style="text-align:right;color:#0f766e;">Target</span>'
+    +'</div>';
+  function row(lbl, psV, mV, tV, unit) {
+    var psD = pctStr(psV, tV), mD = pctStr(mV, tV);
+    var psC = color(psV, tV), mC = color(mV, tV);
+    return '<div style="display:grid;grid-template-columns:80px 1fr 1fr 72px;gap:.3rem;align-items:center;padding:.26rem 0;border-bottom:0.5px solid rgba(15,118,110,0.1);font-size:.79rem;">'
+      +'<span style="color:#0f766e;font-weight:600;">'+lbl+'</span>'
+      +'<div style="text-align:center;"><span style="font-weight:700;color:'+psC+';">'+psV+(unit==='kcal'?' kcal':'g')+'</span> <span style="font-size:.69rem;color:'+psC+';">'+psD+'</span></div>'
+      +'<div style="text-align:center;"><span style="font-weight:700;color:'+mC+';">'+mV+(unit==='kcal'?' kcal':'g')+'</span> <span style="font-size:.69rem;color:'+mC+';">'+mD+'</span></div>'
+      +'<span style="text-align:right;color:#64748b;font-size:.74rem;">'+tV+(unit==='kcal'?' kcal':'g')+'</span>'
+      +'</div>';
+  }
+  var FOOTER = '<div style="margin-top:.5rem;padding:.38rem .55rem;background:rgba(255,255,255,0.55);border-radius:6px;font-size:.7rem;color:#5f7a76;line-height:1.45;">'
+    +'<strong style="color:#0f766e;">Prime scelte</strong> = somma degli alimenti in prima riga (quello che il paziente mangia di default). '
+    +'<strong style="color:#0f766e;">Media ponderata</strong> = 40% prima scelta + 30% prima alternativa + 30% seconda (stima realistica considerando la variet&agrave; settimanale).'
+    +'</div>';
   const warn = calc.alimentiNonTrovati.length > 0
     ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#92400e;background:#fef3c7;padding:0.3rem 0.6rem;border-radius:6px;">&#9888; Alimenti non nel DB CREA (esclusi dal calcolo): ' + calc.alimentiNonTrovati.join(', ') + '</div>'
     : '';
-  // A8: nota visiva stima kcal sabato cena libera
   const warnSabato = calc.sabatoCenaStimata
     ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#1e40af;background:#eff6ff;padding:0.3rem 0.6rem;border-radius:6px;">&#127371; Sabato cena libera inclusa come stima (~' + calc.kcalWeekendStimata + ' kcal). La media giornaliera include questa stima.</div>'
     : '';
-  return '<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:0.7rem 0.9rem;margin:0.6rem 0;">' +
-    '<div style="font-size:0.78rem;font-weight:600;color:#0f766e;margin-bottom:0.4rem;">📊 Macros reali del piano (media giornaliera)</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;font-size:0.82rem;">' +
-      '<div><div style="font-weight:700;color:' + color(m.kcal, tKcal) + ';">' + m.kcal + ' kcal</div><div style="font-size:0.7rem;color:#64748b;">target ' + tKcal + ' (' + pct(m.kcal, tKcal) + ')</div></div>' +
-      '<div><div style="font-weight:700;color:' + color(m.p, tP) + ';">' + m.p + 'g P</div><div style="font-size:0.7rem;color:#64748b;">target ' + tP + ' (' + pct(m.p, tP) + ')</div></div>' +
-      '<div><div style="font-weight:700;color:' + color(m.c, tC) + ';">' + m.c + 'g C</div><div style="font-size:0.7rem;color:#64748b;">target ' + tC + ' (' + pct(m.c, tC) + ')</div></div>' +
-      '<div><div style="font-weight:700;color:' + color(m.g, tG) + ';">' + m.g + 'g G</div><div style="font-size:0.7rem;color:#64748b;">target ' + tG + ' (' + pct(m.g, tG) + ')</div></div>' +
-    '</div>' +
-    warn +
-    warnSabato +
-  '</div>';
+  return '<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:0.7rem 0.9rem;margin:0.6rem 0;">'
+    +'<div style="font-size:0.78rem;font-weight:600;color:#0f766e;margin-bottom:0.45rem;">&#128202; Macros reali del piano (media giornaliera)</div>'
+    + HDR
+    + row('Kcal', ps.kcal, m.kcal, tKcal, 'kcal')
+    + row('Proteine', ps.p, m.p, tP, 'g')
+    + row('Carboidrati', ps.c, m.c, tC, 'g')
+    + row('Grassi', ps.g, m.g, tG, 'g')
+    + FOOTER
+    + warn
+    + warnSabato
+    +'</div>';
 }
 
 // Scrive il badge macros nel DOM (chiamato dopo ogni modifica al piano)
@@ -6072,14 +6114,68 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
       if(_isOFF&&window._pianoTargetsOFF)tgts=window._pianoTargetsOFF;
       hasTgts=tgts.kcal>0&&tgts.p>0&&tgts.c>0&&tgts.g>0;
     }
+    // Calcolo reale prime scelte + ponderata per il giorno corrente
+    var _psG={kcal:0,p:0,c:0,g:0}, _mpG={kcal:0,p:0,c:0,g:0};
+    if (g.pasti) {
+      Object.values(g.pasti).forEach(function(pasto){
+        var celle=pasto.celle||[];
+        celle.forEach(function(cella){
+          if(!cella.alimenti||!cella.alimenti.length)return;
+          // prima scelta
+          var al0=cella.alimenti[0];
+          if(al0){var cat0=al0.categoria||(typeof getCategoriaFunzionale==='function'?getCategoriaFunzionale(al0.n):null);var v0=getValoriCREA(al0.n,cat0);if(v0){var f0=(parseFloat(al0.g)||0)/100;_psG.kcal+=v0.kcal*f0;_psG.p+=v0.p*f0;_psG.c+=v0.c*f0;_psG.g+=v0.g*f0;}}
+          // ponderata 40/30/30
+          var pesi=[0.40,0.30,0.30],alArr=cella.alimenti.slice(0,3);
+          alArr.forEach(function(al,ai){if(!al)return;var peso=alArr.length===1?1:(pesi[ai]||0);var cat=al.categoria||(typeof getCategoriaFunzionale==='function'?getCategoriaFunzionale(al.n):null);var vals=getValoriCREA(al.n,cat);if(!vals)return;var f=(parseFloat(al.g)||0)/100*peso;_mpG.kcal+=vals.kcal*f;_mpG.p+=vals.p*f;_mpG.c+=vals.c*f;_mpG.g+=vals.g*f;});
+        });
+      });
+    }
+    _psG={kcal:Math.round(_psG.kcal),p:Math.round(_psG.p*10)/10,c:Math.round(_psG.c*10)/10,g:Math.round(_psG.g*10)/10};
+    _mpG={kcal:Math.round(_mpG.kcal),p:Math.round(_mpG.p*10)/10,c:Math.round(_mpG.c*10)/10,g:Math.round(_mpG.g*10)/10};
+    var hasMacReali=_psG.kcal>0&&hasTgts;
     var semColor='#aaa',semIcon='?',macroPanel='<div style="font-size:.76rem;color:var(--text3);">Stima macros non disponibile</div>';
-    if (hasMac&&hasTgts) {
+    if (hasMacReali) {
+      // Semaforo basato sulle PRIME SCELTE
+      var _dKcalPS=Math.abs(_psG.kcal-tgts.kcal)/tgts.kcal*100;
+      semColor=_dKcalPS>30?'#c0392b':_dKcalPS>15?'#e07840':'#1D9E75';
+      semIcon=_dKcalPS>30?'\u2717':_dKcalPS>15?'!':'\u2713';
+      var tgtSrc=tgts.source==='ragionamento'?' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da rag. clinico)</span>':tgts.source==='calcolo-off'?' <span style="font-size:.68rem;color:#2980b9;font-weight:600;">(OFF)</span>':isCiclizzato?' <span style="font-size:.68rem;color:#27ae60;font-weight:600;">(ON)</span>':'';
+      function _dc(v,t){if(!t)return'#94a3b8';var r=v/t;return r>=0.90&&r<=1.10?'#1D9E75':r>=0.80&&r<=1.20?'#e07840':'#c0392b';}
+      function _dd(v,t){var d=v-t;return(d>=0?'+':'')+Math.round(d);}
+      var HDR_G='<div style="display:grid;grid-template-columns:88px 1fr 1fr 70px;gap:.25rem;align-items:center;font-size:.64rem;color:'+semColor+';padding:.18rem 0;border-bottom:1px solid rgba(0,0,0,.06);text-transform:uppercase;font-weight:600;letter-spacing:.02em;">'
+        +'<span></span>'
+        +'<span style="text-align:center;">Prime scelte</span>'
+        +'<span style="text-align:center;">Media pond. <span style="font-weight:400;opacity:.7;">40/30/30</span></span>'
+        +'<span style="text-align:right;">Target</span>'
+        +'</div>';
+      function rowG(lbl,psV,mpV,tV,u){
+        var psC=_dc(psV,tV),mpC=_dc(mpV,tV),psDiff=_dd(psV,tV),mpDiff=_dd(mpV,tV);
+        return '<div style="display:grid;grid-template-columns:88px 1fr 1fr 70px;gap:.25rem;align-items:center;padding:.24rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.76rem;">'
+          +'<span style="color:var(--text2);font-weight:600;">'+lbl+'</span>'
+          +'<div style="text-align:center;"><strong style="color:'+psC+';">'+psV+'</strong> <strong style="color:'+psC+';font-size:.68rem;">'+psDiff+u+'</strong></div>'
+          +'<div style="text-align:center;"><strong style="color:'+mpC+';">'+mpV+'</strong> <strong style="color:'+mpC+';font-size:.68rem;">'+mpDiff+u+'</strong></div>'
+          +'<span style="text-align:right;color:var(--text3);font-size:.72rem;">'+tV+u+'</span>'
+          +'</div>';
+      }
+      var FOOTER_G='<div style="margin-top:.45rem;padding:.35rem .5rem;background:rgba(0,0,0,.03);border-radius:5px;font-size:.68rem;color:var(--text3);line-height:1.4;">'
+        +'<strong style="color:var(--text2);">Prime scelte</strong> = quello che il paziente mangia di default. '
+        +'<strong style="color:var(--text2);">Media pond.</strong> = 40% prima + 30% seconda + 30% terza alternativa.'
+        +'</div>';
+      macroPanel='<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem;">Target'+tgtSrc+'</div>'
+        +HDR_G
+        +rowG('Kcal',_psG.kcal,_mpG.kcal,tgts.kcal,' kcal')
+        +rowG('Proteine',_psG.p,_mpG.p,tgts.p,'g')
+        +rowG('Carboidrati',_psG.c,_mpG.c,tgts.c,'g')
+        +rowG('Grassi',_psG.g,_mpG.g,tgts.g,'g')
+        +FOOTER_G;
+    } else if (hasMac&&hasTgts) {
+      // Fallback: se non ci sono celle strutturate usa mac dichiarato dall'AI (legacy)
       var rows=[{lbl:'Kcal',a:Math.round(mac.kcal),t:tgts.kcal,u:'kcal'},{lbl:'Proteine',a:Math.round(mac.proteine),t:tgts.p,u:'g'},{lbl:'Carboidrati',a:Math.round(mac.carboidrati),t:tgts.c,u:'g'},{lbl:'Grassi',a:Math.round(mac.grassi),t:tgts.g,u:'g'}];
       var deltas=rows.map(function(r){return Math.abs(r.a-r.t)/r.t*100;}),dKcal=deltas[0];
       semColor=dKcal>30?'#c0392b':dKcal>15?'#e07840':'#1D9E75';
       semIcon=dKcal>30?'\u2717':dKcal>15?'!':'\u2713';
-      var tgtSrc=tgts.source==='ragionamento'?' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da rag. clinico)</span>':tgts.source==='calcolo-off'?' <span style="font-size:.68rem;color:#2980b9;font-weight:600;">(OFF)</span>':isCiclizzato?' <span style="font-size:.68rem;color:#27ae60;font-weight:600;">(ON)</span>':'';
-      macroPanel='<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem;">Target'+tgtSrc+'</div>'+rows.map(function(r,i){var d=deltas[i],diff=r.a-r.t,dStr=(diff>=0?'+':'')+Math.round(diff),dc=d<=15?'#1D9E75':d<=30?'#e07840':'#c0392b';return '<div style="display:flex;justify-content:space-between;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;"><span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span><span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'">'+dStr+r.u+'</strong></span></div>';}).join('');
+      var tgtSrc2=tgts.source==='ragionamento'?' <span style="font-size:.68rem;color:#7c3aed;font-weight:600;">(da rag. clinico)</span>':tgts.source==='calcolo-off'?' <span style="font-size:.68rem;color:#2980b9;font-weight:600;">(OFF)</span>':isCiclizzato?' <span style="font-size:.68rem;color:#27ae60;font-weight:600;">(ON)</span>':'';
+      macroPanel='<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem;">Target'+tgtSrc2+' <em style="color:#e07840;">(⚠ stima AI)</em></div>'+rows.map(function(r,i){var d=deltas[i],diff=r.a-r.t,dStr=(diff>=0?'+':'')+Math.round(diff),dc=d<=15?'#1D9E75':d<=30?'#e07840':'#c0392b';return '<div style="display:flex;justify-content:space-between;padding:.22rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.77rem;"><span style="color:var(--text2);font-weight:600;min-width:90px">'+r.lbl+'</span><span>'+r.a+' '+r.u+' <span style="color:var(--text3)">/ target '+r.t+r.u+'</span> <strong style="color:'+dc+'">'+dStr+r.u+'</strong></span></div>';}).join('');
     }
     var panBg=semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
     var abbr={'Luneì':'Lun','Martedì':'Mar','Mercoledì':'Mer','Giovedì':'Gio','Venerdì':'Ven','Sabato':'Sab','Domenica':'Dom'};
