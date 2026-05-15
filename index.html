@@ -370,6 +370,10 @@ main{flex:1;overflow-y:auto;}
         onkeydown="if(event.key==='Enter')eseguiLogin()">
     </div>
     <div class="login-err" id="login-err"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:.6rem 0 .2rem;">
+      <input type="checkbox" id="login-remember" style="width:16px;height:16px;cursor:pointer;accent-color:var(--green);">
+      <label for="login-remember" style="font-size:.85rem;color:var(--text2);cursor:pointer;user-select:none;">Resta connesso</label>
+    </div>
     <button class="login-btn" id="login-btn" onclick="eseguiLogin()">Accedi</button>
     <div class="login-spinner" id="login-spinner" style="display:none">⏳ Accesso in corso...</div>
   </div>
@@ -10415,6 +10419,48 @@ function setDove(val){
 // ════════════════════════════════════════════════════════════════
 
 const NG_SESSION_KEY = 'ng_auth_session';
+const NG_REMEMBER_KEY = 'ng_remember_creds';
+
+// Salva/leggi credenziali per auto-login (usato da checkbox "Resta connesso")
+function salvaCredenzialiPersistenti(email, refresh_token) {
+  try {
+    localStorage.setItem(NG_REMEMBER_KEY, JSON.stringify({ email, refresh_token, saved_at: Date.now() }));
+  } catch(e) {}
+}
+function getCredenzialiPersistenti() {
+  try {
+    const s = localStorage.getItem(NG_REMEMBER_KEY);
+    if (!s) return null;
+    const d = JSON.parse(s);
+    // Scade dopo 30 giorni
+    if (Date.now() - d.saved_at > 30 * 24 * 3600 * 1000) {
+      localStorage.removeItem(NG_REMEMBER_KEY);
+      return null;
+    }
+    return d;
+  } catch(e) { return null; }
+}
+function cancellaCredenzialiPersistenti() {
+  localStorage.removeItem(NG_REMEMBER_KEY);
+}
+
+// Rinnova sessione silenziosamente con il refresh_token
+async function rinnovaSessioneConRefreshToken(refresh_token) {
+  try {
+    const r = await fetch(SUPA_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY
+      },
+      body: JSON.stringify({ refresh_token })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.access_token) return null;
+    return data;
+  } catch(e) { return null; }
+}
 
 function getSessioneSalvata() {
   try {
@@ -10470,6 +10516,13 @@ async function eseguiLogin() {
       return;
     }
     salvaSessione(data);
+    // "Resta connesso": salva refresh_token per auto-login se Safari svuota localStorage
+    const _rem = document.getElementById('login-remember');
+    if (_rem && _rem.checked) {
+      salvaCredenzialiPersistenti(email, data.refresh_token);
+    } else {
+      cancellaCredenzialiPersistenti();
+    }
     mostraApp();
   } catch(e) {
     err.textContent = 'Errore di connessione. Riprova.';
@@ -10488,6 +10541,7 @@ async function eseguiLogout() {
     } catch(e) {}
   }
   cancellaSessione();
+  cancellaCredenzialiPersistenti();
   document.getElementById('ng-login-screen').style.display = 'flex';
   document.getElementById('ng-app-shell').style.display = 'none';
   document.getElementById('login-email').value = '';
@@ -10502,11 +10556,26 @@ function mostraApp() {
   document.getElementById('ng-app-shell').style.display = 'block';
 }
 
-function verificaSessioneEAvvia() {
+async function verificaSessioneEAvvia() {
   const sess = getSessioneSalvata();
   if (sess && sess.access_token) {
     mostraApp();
     return true;
+  }
+  // Sessione scaduta/assente — prova auto-login con refresh_token salvato
+  const creds = getCredenzialiPersistenti();
+  if (creds && creds.refresh_token) {
+    const nuovaSess = await rinnovaSessioneConRefreshToken(creds.refresh_token);
+    if (nuovaSess && nuovaSess.access_token) {
+      salvaSessione(nuovaSess);
+      // Aggiorna il refresh_token salvato (ruota ad ogni rinnovo)
+      salvaCredenzialiPersistenti(creds.email, nuovaSess.refresh_token);
+      mostraApp();
+      return true;
+    } else {
+      // Refresh_token scaduto o invalido — pulisci tutto e mostra login
+      cancellaCredenzialiPersistenti();
+    }
   }
   return false;
 }
@@ -10564,8 +10633,9 @@ renderAgendaDx();
 initAntCard();
 
 // Verifica sessione — avvia app o mostra login
-const _sessAvviata = verificaSessioneEAvvia();
-if(_sessAvviata){setTimeout(()=>syncNow(),800);}
+verificaSessioneEAvvia().then(function(_sessAvviata){
+  if(_sessAvviata){setTimeout(()=>syncNow(),800);}
+});
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
 
