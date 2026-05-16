@@ -7262,7 +7262,7 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
       var btn = document.createElement('button');
       // Calcola grammatura equivalente se possibile
       var eqResult = nPrinc ? suggerisciGrEquivalente(nPrinc, gPrinc, a.n, catPrinc) : null;
-      var grRaw = eqResult ? eqResult.gr : gSuggFallback;
+      var grRaw = eqResult ? eqResult.gr : (a.g || gSuggFallback);
       var grMostrato = arrotondaPorzioneDiscreta(a.n, grRaw);
       var labelCriterio = eqResult ? (eqResult.criterio === 'carbo' ? 'carbo' : eqResult.criterio === 'proteine' ? 'prot' : 'kcal') : 'std';
       var wasRounded = (grMostrato !== grRaw);
@@ -7449,43 +7449,38 @@ function apriAggiungiCella(giorno, slotKey) {
   if (!ctx || !ctx.pasto) return;
   if (!ctx.pasto.celle) ctx.pasto.celle = [];
 
-  // Trova paziente corrente
   var pazId = window._pdfPaziente ? window._pdfPaziente.id : null;
   var p = pazId ? db.pazienti.find(function(x){return x.id===pazId;}) : null;
   if (!p) { alert('Paziente non trovato'); return; }
 
-  // Mostra popup di selezione categoria
-  _mostraPopupCategoria(function(cat) {
-    // Costruisci lista alimenti del paziente filtrati per categoria
+  // Popup step 1: scegli categoria ALIMENTI (stesse di Preferenze cibi)
+  _mostraPopupCategoriaAlimenti(function(catAlim) {
     var al = p.alimenti || {};
+    var catData = ALIMENTI[catAlim];
+    if (!catData || !catData.items) return;
+
+    // Filtra: solo alimenti di questa categoria presenti nelle preferenze del paziente
     var compatibili = [];
-    Object.keys(al).forEach(function(key) {
+    catData.items.forEach(function(item) {
+      var key = catAlim + '__' + item.n;
       var stato = al[key];
-      if (stato !== 'si' && stato !== 'verde' && stato !== 'arancione' && stato !== 'rosso' && stato !== 'no') return;
-      var nome = key.split('__')[1];
-      if (!nome) return;
-      var catFn = getCategoriaFunzionale(nome);
-      if (catFn !== cat) return;
+      if (!stato || stato === '') return;
+      if (stato === 'no' || stato === 'grigio_scuro_1' || stato === 'grigio_scuro_2') return;
       var colore = (stato === 'si' || stato === 'verde') ? 'verde' : stato === 'arancione' ? 'arancione' : 'rosso';
-      compatibili.push({n: nome, cat: catFn, colore: colore});
+      compatibili.push({n: item.n, g: item.g, colore: colore, cat: catAlim});
     });
 
     if (!compatibili.length) {
-      alert('Nessun alimento "' + cat + '" disponibile nel profilo del paziente. Aggiungili nella sezione Alimenti.');
+      alert('Nessun alimento in "' + catAlim + '" disponibile nel profilo del paziente. Aggiungili in Preferenze cibi.');
       return;
     }
 
-    var gSuggFallback2 = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[cat] || 100;
-
-    _mostraPopupAggiungiAlt(compatibili, gSuggFallback2, '', gSuggFallback2, cat, function(scelto, grCalcolato) {
-      // Crea nuova cella
+    _mostraPopupAggiungiAlt(compatibili, 100, '', 100, catAlim, function(scelto, grCalcolato) {
       var celle = ctx.pasto.celle;
-      // Trova ordine massimo nella colonna sx (default colonna nuova cella)
       var ordsSx = celle.filter(function(c){return c.colonna==='sx';}).map(function(c){return c.ordine||1;});
       var ordsDx = celle.filter(function(c){return c.colonna==='dx';}).map(function(c){return c.ordine||1;});
       var maxSx = ordsSx.length ? Math.max.apply(null, ordsSx) : 0;
       var maxDx = ordsDx.length ? Math.max.apply(null, ordsDx) : 0;
-      // Inserisci nella colonna meno piena
       var colonnaNuova = (maxSx <= maxDx) ? 'sx' : 'dx';
       var ordineNuovo = (colonnaNuova === 'sx' ? maxSx : maxDx) + 1;
 
@@ -7499,37 +7494,57 @@ function apriAggiungiCella(giorno, slotKey) {
 
       _aggiornaPianoBox();
       if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
-  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+      if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
       if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
     });
   });
 }
 
-function _mostraPopupCategoria(onScelto) {
+function _mostraPopupCategoria(onScelto) { _mostraPopupCategoriaAlimenti(onScelto); }
+
+function _mostraPopupCategoriaAlimenti(onScelto) {
   var existing = document.getElementById('popup-add-cat');
   if (existing) existing.remove();
   var existingBg = document.getElementById('popup-add-cat-bg');
   if (existingBg) existingBg.remove();
 
+  var CAT_ICONE = {
+    'Cereali con Glutine':'🌾','Cereali senza Glutine':'🌾',
+    'Carne Bianca':'🍗','Carne Rossa':'🥩',
+    'Pesce (Pranzo)':'🐟','Pesce (Cena)':'🐟',
+    'Insaccati & Salumi':'🥓','Legumi':'🫘','Uova':'🥚',
+    'Latte & Derivati':'🧀','Latte Vegetale':'🥛',
+    'Frutta Secca & Semi':'🥜','Superfoods':'✨',
+    'Verdura':'🥦','Frutta':'🍎','Spezie':'🌿',
+    'Fit':'💪','Dolcificanti & Conserve':'🍯','Olio & Condimenti':'🫙'
+  };
+
   var pop = document.createElement('div');
   pop.id = 'popup-add-cat';
-  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:380px';
+  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:440px;max-height:80vh;display:flex;flex-direction:column';
 
   var header = document.createElement('div');
   header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem"><strong style="font-size:.95rem;color:var(--teal2)">Scegli categoria</strong><button onclick="document.getElementById(\'popup-add-cat\').remove();document.getElementById(\'popup-add-cat-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
   pop.appendChild(header);
 
+  var scrollWrap = document.createElement('div');
+  scrollWrap.style.cssText = 'overflow-y:auto;flex:1';
+
   var grid = document.createElement('div');
   grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
-  Object.keys(CATEGORIE_FUNZIONALI).sort(function(a,b){
-    return CATEGORIE_FUNZIONALI[a].ordine - CATEGORIE_FUNZIONALI[b].ordine;
-  }).forEach(function(catKey) {
-    var cat = CATEGORIE_FUNZIONALI[catKey];
+
+  Object.keys(ALIMENTI).forEach(function(catKey) {
+    var data = ALIMENTI[catKey];
+    var items = data.items || [];
+    var icona = CAT_ICONE[catKey] || '🍽';
+    var gs = items.map(function(i){ return i.g || 100; });
+    var gSugg = gs.length ? Math.round(gs.reduce(function(a,b){return a+b;},0)/gs.length) : 100;
+
     var btn = document.createElement('button');
-    btn.style.cssText = 'padding:.6rem .8rem;border:1px solid #e2e8f0;background:#fff;border-radius:6px;cursor:pointer;font-size:.82rem;color:#1e293b;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s';
-    btn.innerHTML = '<span style="width:10px;height:10px;border-radius:50%;background:'+cat.color+';flex-shrink:0"></span><span>'+cat.label+'</span>';
-    btn.onmouseover = function(){ btn.style.background='#f8fafc'; btn.style.borderColor=cat.color; };
-    btn.onmouseout = function(){ btn.style.background='#fff'; btn.style.borderColor='#e2e8f0'; };
+    btn.style.cssText = 'padding:.55rem .8rem;border:1px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer;font-size:.82rem;color:#1e293b;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s;width:100%';
+    btn.innerHTML = '<span style="font-size:1rem">'+icona+'</span><span style="flex:1;line-height:1.2">'+catKey+'</span><span style="font-size:.68rem;color:#94a3b8;white-space:nowrap">~'+gSugg+'g</span>';
+    btn.onmouseover = function(){ btn.style.background='#f0fdf4'; btn.style.borderColor='var(--teal)'; };
+    btn.onmouseout  = function(){ btn.style.background='#fff';    btn.style.borderColor='#e2e8f0'; };
     btn.onclick = function() {
       document.getElementById('popup-add-cat').remove();
       document.getElementById('popup-add-cat-bg').remove();
@@ -7537,7 +7552,9 @@ function _mostraPopupCategoria(onScelto) {
     };
     grid.appendChild(btn);
   });
-  pop.appendChild(grid);
+
+  scrollWrap.appendChild(grid);
+  pop.appendChild(scrollWrap);
 
   var bg = document.createElement('div');
   bg.id = 'popup-add-cat-bg';
