@@ -2034,6 +2034,7 @@ const CATEGORIE_FUNZIONALI = {
 
 // Mappa categoria semaforo → categoria funzionale di default (fallback)
 const _CAT_SEMAFORO_TO_FUNZIONALE = {
+  // Chiavi semaforo (vecchie)
   'Cereali con Glutine': 'carbo',
   'Cereali senza Glutine': 'carbo',
   'Carne bianca': 'proteine',
@@ -2048,7 +2049,19 @@ const _CAT_SEMAFORO_TO_FUNZIONALE = {
   'Frutta secca & Semi': 'grasso',
   'Olio & Condimenti': 'olio',
   'Dolcificanti & Conserve': 'condimento',
-  'Fit': 'fit'
+  'Fit': 'fit',
+  // Chiavi ALIMENTI (corrispondenza esatta — fix case mismatch + categorie mancanti)
+  'Carne Bianca': 'proteine',
+  'Carne Rossa': 'proteine',
+  'Pesce (Pranzo)': 'proteine',
+  'Pesce (Cena)': 'proteine',
+  'Insaccati & Salumi': 'proteine',
+  'Latte & Derivati': 'proteine',
+  'Latte Vegetale': 'fit',
+  'Frutta Secca & Semi': 'grasso',
+  'Superfoods': 'fit',
+  'Spezie': 'condimento',
+  'Verdura': 'verdura'
 };
 
 // Override per alimenti specifici dove la categoria semaforo non basta
@@ -2067,7 +2080,51 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
   'Frutta': 'frutta',
   'Frutta media': 'frutta',
   'Frutta fresca': 'frutta',
-  'Frutta fresca (media)': 'frutta'
+  'Frutta fresca (media)': 'frutta',
+  // Latte vegetale
+  'Latte di mandorla': 'fit',
+  'Latte di cocco': 'fit',
+  'Latte di soia': 'fit',
+  'Latte di riso': 'fit',
+  'Latte di nocciola': 'fit',
+  'Latte di avena': 'fit',
+  // Superfoods
+  'Bacche di goji': 'fit',
+  'Gomasio': 'condimento',
+  'Berberina': 'condimento',
+  'Olio di cocco': 'grasso',
+  'Alga spirulina': 'fit',
+  'Miele crudo': 'condimento',
+  'Alghe marine': 'fit',
+  'Curcuma in polvere': 'condimento',
+  'Cacao amaro': 'fit',
+  'Acai in polvere': 'fit',
+  'Moringa': 'fit',
+  // Frutta secca specifica
+  'Noci': 'grasso',
+  'Mandorle': 'grasso',
+  'Nocciole': 'grasso',
+  'Pistacchi': 'grasso',
+  'Anacardi': 'grasso',
+  'Pinoli': 'grasso',
+  'Arachidi': 'grasso',
+  'Datteri': 'grasso',
+  'Prugne secche': 'frutta',
+  'Burro arachidi': 'grasso',
+  'Burro mandorle': 'grasso',
+  'Semi di chia': 'grasso',
+  'Semi di zucca': 'grasso',
+  'Tahina': 'grasso',
+  'Frutta secca mista': 'grasso',
+  // Latticini
+  'Yogurt': 'proteine',
+  'Yogurt parzialmente scremato': 'proteine',
+  'Yogurt greco 2%': 'proteine',
+  'Yogurt greco intero': 'proteine',
+  'Fiocchi di latte': 'proteine',
+  'Ricotta di vacca': 'proteine',
+  'Ricotta di pecora': 'proteine',
+  'Kefir': 'proteine'
 };
 
 
