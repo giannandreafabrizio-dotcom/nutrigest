@@ -6680,6 +6680,9 @@ function riapriPiano(pazId, idx) {
     if (!_pianoEl) return;
     renderPianoConPillTabs(pianoAI, _pianoEl);
     inizializzaP2(pianoAI);
+    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(pianoAI);
+    if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(pianoAI);
+    if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(pianoAI);
     notif('✓ Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
   } catch(e) {
     notif('⚠ Errore nel riaprire il piano: '+e.message);
