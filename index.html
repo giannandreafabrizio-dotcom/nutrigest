@@ -1369,19 +1369,19 @@ main{flex:1;overflow-y:auto;}
 // ════════════════════════════════════════════════════════════════
 const ALIMENTI = {
   'Cereali con Glutine': {items:[
-    {n:'Pasta',g:90,gl:true},{n:'Pasta integrale',g:90,gl:true},{n:'Pane comune',g:110,gl:true},{n:'Pane integrale',g:100,gl:true},
-    {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:90,gl:true},{n:'Orzo',g:90,gl:true},{n:'Frisella',g:40,gl:true},{n:'Tarallini',g:30,gl:true},
-    {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:50,gl:true},
-    {n:'Wasa (contiene glutine)',g:20,gl:true},{n:'Spaghetti Shirataki Konjac',g:200,gl:false},
-    {n:'Spätzle',g:80,gl:true},{n:'Biscotti integrali',g:40,gl:true},
-    {n:'Muesli',g:40,gl:true},{n:'Fette biscottate integrali',g:30,gl:true}
+    {n:'Pasta',g:80,gl:true},{n:'Pasta integrale',g:80,gl:true},{n:'Pane comune',g:100,gl:true},{n:'Pane integrale',g:100,gl:true},
+    {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:80,gl:true},{n:'Orzo',g:80,gl:true},{n:'Frisella',g:60,gl:true},{n:'Tarallini',g:30,gl:true},
+    {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:60,gl:true},
+    {n:'Wasa (contiene glutine)',g:30,gl:true},{n:'Spaghetti Shirataki Konjac',g:150,gl:false},
+    {n:'Spätzle',g:80,gl:true},{n:'Biscotti integrali',g:30,gl:true},
+    {n:'Muesli',g:30,gl:true},{n:'Fette biscottate integrali',g:30,gl:true}
   ]},
   'Cereali senza Glutine': {items:[
-    {n:'Riso',g:90,gl:false},{n:'Riso basmati',g:90,gl:false},{n:'Riso integrale',g:90,gl:false},{n:'Quinoa',g:90,gl:false},{n:'Mais dolce in scatola',g:120,gl:false},{n:'Polenta',g:80,gl:false},{n:'Patate',g:280,gl:false},
-    {n:'Patate dolci',g:250,gl:false},{n:'Gnocchi di patate',g:200,gl:false},
-    {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:20,gl:false},
+    {n:'Riso',g:80,gl:false},{n:'Riso basmati',g:80,gl:false},{n:'Riso integrale',g:80,gl:false},{n:'Quinoa',g:80,gl:false},{n:'Mais dolce in scatola',g:120,gl:false},{n:'Polenta',g:160,gl:false},{n:'Patate',g:280,gl:false},
+    {n:'Patate dolci',g:280,gl:false},{n:'Gnocchi di patate',g:160,gl:false},
+    {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:30,gl:false},
     {n:'Cornflakes',g:30,gl:false},
-    {n:'Pasta di mais',g:90,gl:false},{n:'Grano saraceno',g:90,gl:false},{n:"Fiocchi d'avena",g:40,gl:false}
+    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false}
   ]},
   'Carne Bianca': {items:[
     {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Ala di pollo',g:180},
@@ -1410,15 +1410,15 @@ const ALIMENTI = {
     {n:'Mortadella',g:60},{n:'Salame',g:50}
   ]},
   'Legumi': {items:[
-    {n:'Ceci (secchi)',g:80},{n:'Ceci (barattolo)',g:120},
-    {n:'Fagioli borlotti (secchi)',g:80},{n:'Fagioli borlotti (barattolo)',g:120},
-    {n:'Lenticchie (secche)',g:80},{n:'Lenticchie (barattolo)',g:120},
+    {n:'Ceci (secchi)',g:40},{n:'Ceci (barattolo)',g:120},
+    {n:'Fagioli borlotti (secchi)',g:40},{n:'Fagioli borlotti (barattolo)',g:120},
+    {n:'Lenticchie (secche)',g:40},{n:'Lenticchie (barattolo)',g:120},
     {n:'Piselli (barattolo)',g:120},{n:'Piselli surgelati',g:150},{n:'Soia surgelata (edamame)',g:150},
     {n:'Lupini',g:80},{n:'Fave (barattolo)',g:120},
-    {n:'Tofu',g:120},{n:'Seitan',g:100}
+    {n:'Tofu',g:120},{n:'Seitan',g:125}
   ]},
   'Uova': {items:[
-    {n:'Uovo intero',g:120},{n:'Albumi',g:100},{n:'Tuorlo',g:60}
+    {n:'Uovo intero',g:60},{n:'Albumi',g:100},{n:'Tuorlo',g:60}
   ]},
   'Latte & Derivati': {items:[
     {n:'Yogurt',g:125},{n:'Yogurt parzialmente scremato',g:125},{n:'Yogurt greco 2%',g:125},
@@ -1429,7 +1429,7 @@ const ALIMENTI = {
     {n:'Parmigiano',g:50},{n:'Grana padano',g:50},{n:'Pecorino',g:40},
     {n:'Robiola',g:60},{n:'Cacioricotta',g:60},{n:'Burrata',g:100},
     {n:'Latte vaccino intero',g:150},{n:'Latte vaccino p.scremato',g:150},
-    {n:'Latte vaccino scremato',g:150},{n:'Kefir',g:150},{n:'Yogurt greco intero',g:125}
+    {n:'Latte vaccino scremato',g:150},{n:'Kefir',g:125},{n:'Yogurt greco intero',g:125}
   ]},
   'Latte Vegetale': {items:[
     {n:'Latte di mandorla',g:200},{n:'Latte di cocco',g:200},{n:'Latte di soia',g:200},
@@ -1445,8 +1445,8 @@ const ALIMENTI = {
   'Superfoods': {items:[
     {n:'Bacche di goji',g:15},{n:'Gomasio',g:10},{n:'Berberina',g:5},
     {n:'Olio di cocco',g:10},{n:'Alga spirulina',g:5},{n:'Miele crudo',g:15},
-    {n:'Alghe marine',g:10},{n:'Curcuma in polvere',g:5},{n:'Cacao amaro',g:10},
-    {n:'Cioccolato fondente 85%',g:15},{n:'Acai in polvere',g:10},{n:'Moringa',g:5}
+    {n:'Alghe marine',g:10},{n:'Curcuma in polvere',g:5},{n:'Cacao amaro',g:5},
+    {n:'Cioccolato fondente 85%',g:10},{n:'Acai in polvere',g:10},{n:'Moringa',g:5}
   ]},
   'Verdura': {items:[
     {n:'Verdura mista',g:200},
@@ -1465,7 +1465,7 @@ const ALIMENTI = {
     {n:'Mela',g:150},{n:'Pera',g:150},{n:'Banana',g:150},{n:'Arancia',g:150},
     {n:'Mandarino',g:150},{n:'Kiwi',g:150},{n:'Fragole',g:150},{n:'Uva',g:150},
     {n:'Anguria',g:200},{n:'Melone',g:200},{n:'Albicocca',g:150},{n:'Pesca',g:150},
-    {n:'Ciliegia',g:150},{n:'Fichi',g:100},{n:'Melograno',g:150},{n:'Avocado',g:100},
+    {n:'Ciliegia',g:150},{n:'Fichi',g:100},{n:'Melograno',g:150},{n:'Avocado',g:75},
     {n:'Ananas',g:150},{n:'Mango',g:100},{n:'Papaya',g:150},{n:'Cocco fresco',g:80},{n:'Clementina',g:100},{n:'Mirtilli',g:150},{n:'Lamponi',g:150},{n:'Susine',g:150},{n:'Prugne',g:150},
     {n:'Kaki',g:150},{n:'Nespole',g:100}
   ]},
