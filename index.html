@@ -7257,10 +7257,24 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
       return;
     }
     filtered.forEach(function(a) {
-      var c = a.colore === 'verde' ? '#059669' : a.colore === 'arancione' ? '#D97706' : '#DC2626';
-      var bg = a.colore === 'verde' ? '#ECFDF5' : a.colore === 'arancione' ? '#FFFBEB' : '#FEF2F2';
+      var stato = a.stato || a.colore || 'verde';
+      // Stili identici a Preferenze cibi (.al-tog classes)
+      var stileMap = {
+        'si':            {bg:'var(--teal-bg)',   border:'var(--teal-light)', color:'var(--teal)',  dash:false, label:'Consigliato'},
+        'verde':         {bg:'var(--teal-bg)',   border:'var(--teal-light)', color:'var(--teal)',  dash:false, label:'Consigliato'},
+        'arancione':     {bg:'#fff3e0',          border:'#e08000',           color:'#a04a00',      dash:false, label:'Con moderazione'},
+        'rosso':         {bg:'#fdecea',          border:'#e57373',           color:'#c62828',      dash:false, label:'Sconsigliato'},
+        'grigio_scuro_1':{bg:'#eceff1',          border:'#78909c',           color:'#37474f',      dash:false, label:'Limitare (patologia)'},
+        'grigio_scuro_2':{bg:'#cfd8dc',          border:'#546e7a',           color:'#263238',      dash:false, label:'Limitare fortemente'},
+        'grigioScuro':   {bg:'#eceff1',          border:'#78909c',           color:'#37474f',      dash:false, label:'Limitare (patologia)'},
+        'celeste_1':     {bg:'#e3f2fd',          border:'#1976d2',           color:'#0d47a1',      dash:true,  label:'Preferire (patologia)'},
+        'celeste_2':     {bg:'#bbdefb',          border:'#1565c0',           color:'#0d47a1',      dash:true,  label:'Preferire fortemente'},
+        'celeste':       {bg:'#e3f2fd',          border:'#1976d2',           color:'#0d47a1',      dash:true,  label:'Preferire (patologia)'}
+      };
+      var st = stileMap[stato] || stileMap['verde'];
+      var borderStyle = st.dash ? 'dashed' : 'solid';
+
       var btn = document.createElement('button');
-      // Calcola grammatura equivalente se possibile
       var eqResult = nPrinc ? suggerisciGrEquivalente(nPrinc, gPrinc, a.n, catPrinc) : null;
       var grRaw = eqResult ? eqResult.gr : (a.g || gSuggFallback);
       var grMostrato = arrotondaPorzioneDiscreta(a.n, grRaw);
@@ -7269,8 +7283,11 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
       var labelEq = eqResult
         ? grMostrato+'g <span style="font-size:.6rem;opacity:.7">'+(wasRounded?'porzione':'eq.')+labelCriterio+'</span>'
         : grMostrato+'g';
-      btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.5rem .7rem;border:1px solid '+bg+';background:'+bg+';border-radius:6px;cursor:pointer;font-size:.83rem;color:#1e293b;text-align:left;transition:all .15s';
-      btn.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:'+c+';flex-shrink:0"></span><span style="flex:1">'+a.n+'</span><span style="color:'+c+';font-size:.7rem;font-weight:600">'+labelEq+'</span>';
+      btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.5rem .7rem;border:1px '+borderStyle+' '+st.border+';background:'+st.bg+';border-radius:6px;cursor:pointer;font-size:.83rem;color:'+st.color+';text-align:left;transition:all .15s;width:100%';
+      btn.title = st.label;
+      btn.innerHTML = '<span style="flex:1;font-weight:500">'+a.n+'</span>'
+        +'<span style="font-size:.68rem;opacity:.8;white-space:nowrap">'+st.label+'</span>'
+        +'<span style="font-size:.7rem;font-weight:600;white-space:nowrap;margin-left:4px">'+labelEq+'</span>';
       var _grFinal = grMostrato;
       btn.onclick = function() {
         document.getElementById('popup-add-alt').remove();
@@ -7465,9 +7482,8 @@ function apriAggiungiCella(giorno, slotKey) {
       var key = catAlim + '__' + item.n;
       var stato = al[key];
       if (!stato || stato === '') return;
-      if (stato === 'no' || stato === 'grigio_scuro_1' || stato === 'grigio_scuro_2') return;
-      var colore = (stato === 'si' || stato === 'verde') ? 'verde' : stato === 'arancione' ? 'arancione' : 'rosso';
-      compatibili.push({n: item.n, g: item.g, colore: colore, cat: catAlim});
+      if (stato === 'no') return; // escludi solo i "no" espliciti
+      compatibili.push({n: item.n, g: item.g, stato: stato, cat: catAlim});
     });
 
     if (!compatibili.length) {
