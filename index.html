@@ -1557,7 +1557,9 @@ const ALIMENTI = {
     {n:'Cipolla in polvere',g:3}
   ]},
   'Fit': {items:[
-    {n:'Pancake proteico',g:100},{n:'Pancake banana e albume',g:150},{n:'Crepes proteiche',g:150}
+    {n:'Pancake proteico',g:100},{n:'Pancake banana e albume',g:150},{n:'Crepes proteiche',g:150},
+    {n:'Pancake proteici ★',g:40,ricettaComposta:'pancake_proteici'},
+    {n:'Pancake banana ★',g:40,ricettaComposta:'pancake_banana'}
   ]},
   'Dolcificanti & Conserve': {items:[
     {n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},{n:'Eritritolo',g:5},{n:'Dolcificante',g:2}
@@ -1791,6 +1793,45 @@ function getKcalWeekend(paziente){
   return scelta?800:0; // default 800 se scelta non riconosciuta
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// B7 — RICETTE COMPOSTE
+// Macros calcolati per porzione. Variabile: grammi farina d'avena (20-60g)
+// ═══════════════════════════════════════════════════════════════════════════
+const RICETTE_COMPOSTE = {
+  pancake_proteici: {
+    nome: 'Pancake proteici ★',
+    categoria: 'fit',
+    descrizione: '70g albumi · 40g yogurt greco 2% · 30ml latte mandorla · Xg avena',
+    variabile: { label: "Avena (g)", opzioni: [20,30,40,50,60], default: 40 },
+    macrosPerOpzione: {
+      20:{kcal:133,p:13.2,c:16.3,g:2.6},
+      30:{kcal:170,p:14.0,c:23.6,g:3.3},
+      40:{kcal:207,p:14.8,c:30.9,g:4.1},
+      50:{kcal:245,p:15.6,c:38.2,g:4.8},
+      60:{kcal:282,p:16.4,c:45.5,g:5.6}
+    }
+  },
+  pancake_banana: {
+    nome: 'Pancake banana ★',
+    categoria: 'fit',
+    descrizione: '100g banana · 50g uovo · 7g miele · Xg avena',
+    variabile: { label: "Avena (g)", opzioni: [20,30,40,50,60], default: 40 },
+    macrosPerOpzione: {
+      20:{kcal:225,p:9.0,c:35.6,g:6.1},
+      30:{kcal:262,p:9.8,c:42.9,g:6.9},
+      40:{kcal:300,p:10.6,c:50.1,g:7.6},
+      50:{kcal:337,p:11.4,c:57.4,g:8.4},
+      60:{kcal:374,p:12.2,c:64.7,g:9.1}
+    }
+  }
+};
+
+function getMacrosRicettaComposta(chiave, valoreVariabile) {
+  const r = RICETTE_COMPOSTE[chiave];
+  if (!r) return null;
+  return r.macrosPerOpzione[valoreVariabile] || r.macrosPerOpzione[r.variabile.default] || null;
+}
+
 function calcolaMacrosPiano(piano) {
   if (!Array.isArray(piano)) return null;
   const giornalieri = [];
@@ -1821,6 +1862,14 @@ function calcolaMacrosPiano(piano) {
         alArr.forEach(function(al, ai) {
           if (!al) return;
           var peso = alArr.length === 1 ? 1 : (pesi[ai] || 0);
+
+          // B7: ricetta composta con macrosOverride precalcolati
+          if (al.macrosOverride && al.ricettaComposta) {
+            var mo = al.macrosOverride;
+            dKcal += mo.kcal * peso; dP += mo.p * peso; dC += mo.c * peso; dG += mo.g * peso;
+            return;
+          }
+
           var cat = al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
           var vals = getValoriCREA(al.n, cat);
           if (!vals) { nonTrovati.add(al.n); return; }
@@ -2166,6 +2215,8 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
   'Senape': 'condimento',
   'Limone': 'condimento',
   'Pancake proteico': 'fit',
+  'Pancake proteici ★': 'fit',
+  'Pancake banana ★': 'fit',
   'Cioccolato fondente': 'grasso',
   'Cioccolato fondente 85%': 'grasso',
   'Cioccolato fondente 90%': 'grasso',
@@ -7746,6 +7797,12 @@ function apriAggiungiCella(giorno, slotKey) {
       var stato = al[key];
       if (!stato || stato === '') return;
       if (stato === 'no') return; // escludi solo i "no" espliciti
+
+      // B7: se è una ricetta composta, gestisci separatamente
+      if (item.ricettaComposta) {
+        compatibili.push({n: item.n, g: item.g, stato: stato, cat: catAlim, ricettaComposta: item.ricettaComposta});
+        return;
+      }
       compatibili.push({n: item.n, g: item.g, stato: stato, cat: catAlim});
     });
 
@@ -7762,8 +7819,33 @@ function apriAggiungiCella(giorno, slotKey) {
       var maxDx = ordsDx.length ? Math.max.apply(null, ordsDx) : 0;
       var colonnaNuova = (maxSx <= maxDx) ? 'sx' : 'dx';
       var ordineNuovo = (colonnaNuova === 'sx' ? maxSx : maxDx) + 1;
-
       var nuovoId = 'c' + Date.now();
+
+      // B7: se è ricetta composta, apri popup selezione avena
+      if (scelto.ricettaComposta) {
+        _apriPopupRicettaComposta(scelto.ricettaComposta, function(avenaG, macros) {
+          celle.push({
+            id: nuovoId,
+            colonna: colonnaNuova,
+            ordine: ordineNuovo,
+            alimenti: [{
+              n: scelto.n,
+              g: avenaG,
+              categoria: scelto.cat,
+              ricettaComposta: scelto.ricettaComposta,
+              avenaG: avenaG,
+              macrosOverride: macros
+            }]
+          });
+          _aggiornaPianoBox();
+          if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+          if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+          if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
+          if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+        });
+        return;
+      }
+
       celle.push({
         id: nuovoId,
         colonna: colonnaNuova,
@@ -7781,6 +7863,93 @@ function apriAggiungiCella(giorno, slotKey) {
 }
 
 function _mostraPopupCategoria(onScelto) { _mostraPopupCategoriaAlimenti(onScelto); }
+
+// B7 — Popup selezione avena per ricette composte
+function _apriPopupRicettaComposta(chiave, onScelto) {
+  var r = RICETTE_COMPOSTE[chiave];
+  if (!r) return;
+  var v = r.variabile;
+
+  // Rimuovi eventuali popup precedenti
+  var ex = document.getElementById('popup-ricetta-composta');
+  var exBg = document.getElementById('popup-ricetta-composta-bg');
+  if (ex) ex.remove();
+  if (exBg) exBg.remove();
+
+  // Overlay
+  var bg = document.createElement('div');
+  bg.id = 'popup-ricetta-composta-bg';
+  bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99998';
+  bg.onclick = function() { bg.remove(); pop.remove(); };
+  document.body.appendChild(bg);
+
+  // Popup
+  var pop = document.createElement('div');
+  pop.id = 'popup-ricetta-composta';
+  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card, #fff);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.25);padding:1.4rem;z-index:99999;width:92%;max-width:380px';
+
+  // Header
+  pop.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
+    + '<strong style="font-size:.95rem;color:var(--teal2, #0F6E56)">🥞 ' + r.nome + '</strong>'
+    + '<button id="btn-close-rcp" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;line-height:1">×</button>'
+    + '</div>'
+    + '<div style="font-size:.75rem;color:var(--text2,#64748b);margin-bottom:1rem;background:var(--bg,#f8fafc);border-radius:8px;padding:.55rem .75rem">'
+    + r.descrizione
+    + '</div>'
+    + '<div style="font-size:.8rem;font-weight:600;color:var(--text,#1e293b);margin-bottom:.6rem">' + v.label + '</div>'
+    + '<div id="rcp-opzioni" style="display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin-bottom:1rem"></div>'
+    + '<div id="rcp-macros" style="background:var(--teal-bg,#e8f5f1);border:1px solid var(--teal-light,#a7d7c9);border-radius:10px;padding:.7rem .9rem;font-size:.8rem;margin-bottom:1rem"></div>'
+    + '<button id="rcp-btn-ok" class="btn btn-p" style="width:100%">Aggiungi al piano</button>';
+
+  document.body.appendChild(pop);
+
+  document.getElementById('btn-close-rcp').onclick = function() { pop.remove(); bg.remove(); };
+
+  var selAvena = v.default;
+
+  function aggiornaMacros() {
+    var m = r.macrosPerOpzione[selAvena];
+    if (!m) return;
+    document.getElementById('rcp-macros').innerHTML =
+      '<div style="display:flex;gap:1rem;justify-content:center;text-align:center">'
+      + '<div><div style="font-size:1rem;font-weight:700;color:var(--teal2,#0F6E56)">' + m.kcal + '</div><div style="font-size:.65rem;color:var(--text3,#94a3b8)">kcal</div></div>'
+      + '<div><div style="font-size:1rem;font-weight:700;color:#2563eb">' + m.p + 'g</div><div style="font-size:.65rem;color:var(--text3,#94a3b8)">prot</div></div>'
+      + '<div><div style="font-size:1rem;font-weight:700;color:#d97706">' + m.c + 'g</div><div style="font-size:.65rem;color:var(--text3,#94a3b8)">carbo</div></div>'
+      + '<div><div style="font-size:1rem;font-weight:700;color:#6b7280">' + m.g + 'g</div><div style="font-size:.65rem;color:var(--text3,#94a3b8)">grassi</div></div>'
+      + '</div>'
+      + '<div style="text-align:center;font-size:.68rem;color:var(--text3,#94a3b8);margin-top:.35rem">con ' + selAvena + 'g di avena</div>';
+
+    // Aggiorna bottoni
+    v.opzioni.forEach(function(opt) {
+      var btn = document.getElementById('rcp-opt-' + opt);
+      if (btn) {
+        btn.style.background = opt === selAvena ? 'var(--teal,#1D9E75)' : 'var(--bg,#f8fafc)';
+        btn.style.color = opt === selAvena ? '#fff' : 'var(--text,#1e293b)';
+        btn.style.borderColor = opt === selAvena ? 'var(--teal,#1D9E75)' : 'var(--border,#e2e8f0)';
+        btn.style.fontWeight = opt === selAvena ? '700' : '500';
+      }
+    });
+  }
+
+  // Render bottoni opzioni
+  var grid = document.getElementById('rcp-opzioni');
+  v.opzioni.forEach(function(opt) {
+    var btn = document.createElement('button');
+    btn.id = 'rcp-opt-' + opt;
+    btn.textContent = opt + 'g';
+    btn.style.cssText = 'border:1.5px solid var(--border,#e2e8f0);border-radius:8px;padding:.5rem .2rem;font-size:.8rem;cursor:pointer;transition:all .15s;background:var(--bg,#f8fafc);color:var(--text,#1e293b)';
+    btn.onclick = function() { selAvena = opt; aggiornaMacros(); };
+    grid.appendChild(btn);
+  });
+
+  aggiornaMacros();
+
+  document.getElementById('rcp-btn-ok').onclick = function() {
+    var m = r.macrosPerOpzione[selAvena];
+    pop.remove(); bg.remove();
+    onScelto(selAvena, m);
+  };
+}
 
 function _mostraPopupCategoriaAlimenti(onScelto) {
   var existing = document.getElementById('popup-add-cat');
