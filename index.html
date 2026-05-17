@@ -483,6 +483,17 @@ main{flex:1;overflow-y:auto;}
         </div>
       </div>
 
+      <!-- C8 — Alert Scadenze Automatici -->
+      <div class="card" id="dash-scadenze-card" style="margin-bottom:1.1rem">
+        <div class="card-hd" style="justify-content:space-between">
+          <h3>⏰ Scadenze pazienti</h3>
+          <span id="dash-scadenze-badge" style="display:none;background:#dc2626;color:#fff;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:20px"></span>
+        </div>
+        <div class="card-bd" id="dash-scadenze-content">
+          <div style="color:var(--text3);font-size:.8rem;font-style:italic">Nessuna scadenza urgente 🎉</div>
+        </div>
+      </div>
+
       <!-- Spunti piani alimentari -->
       <div class="card">
         <div class="card-hd"><h3>💡 Spunti per i piani alimentari</h3></div>
@@ -10963,6 +10974,9 @@ function renderDashboard(){
       </div>`).join('');
   }
 
+  // C8 — Alert Scadenze Automatici
+  renderScadenzeAlert();
+
   // Spunti per il piano
   const spunti = [];
   db.pazienti.forEach(p=>{
@@ -10979,6 +10993,211 @@ function renderDashboard(){
       `<div style="padding:.32rem 0;border-bottom:1px solid var(--border);font-size:.77rem;color:var(--text2)">• ${s}</div>`
     ).join('');
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// C8 — ALERT SCADENZE AUTOMATICI DASHBOARD
+// ═══════════════════════════════════════════════════════════
+
+function renderScadenzeAlert() {
+  const el = document.getElementById('dash-scadenze-content');
+  const badge = document.getElementById('dash-scadenze-badge');
+  if (!el) return;
+
+  const oggi = today();
+  const msDay = 86400000;
+
+  // Recupera gestiti (archiviati manualmente dall'utente)
+  let gestiti = {};
+  try { gestiti = JSON.parse(localStorage.getItem('scadenze_gestite') || '{}'); } catch(e) {}
+
+  const urgenti = [];   // rossi
+  const attenzione = []; // arancioni/blu
+
+  db.pazienti.filter(p => p.stato !== 'archiviato').forEach(p => {
+    const nome = p.nome + ' ' + p.cognome;
+    const nomeBreve = p.nome;
+
+    // Helper: giorni dall'ultima data
+    const giorniDa = (dataStr) => {
+      if (!dataStr) return null;
+      return Math.round((new Date(oggi) - new Date(dataStr)) / msDay);
+    };
+
+    // 1. PAZIENTE SPARITO — nessun evento recente >28gg
+    const eventiPaz = (db.eventi || []).filter(e => e.pazId === p.id);
+    const ultimoEvento = eventiPaz.length
+      ? eventiPaz.sort((a,b) => b.data > a.data ? 1 : -1)[0].data
+      : p.visitaData || null;
+    const ggSparito = giorniDa(ultimoEvento);
+    const keySparto = `sparito_${p.id}`;
+    if (ggSparito !== null && ggSparito > 28 && !gestiti[keySparto]) {
+      const msgWa = encodeURIComponent(`Ciao ${nomeBreve}! È passato un po' di tempo dall'ultima volta che ci siamo sentiti. Come stai andando con l'alimentazione? Sono qui se hai bisogno 😊`);
+      const telLink = p.tel ? `https://wa.me/39${p.tel.replace(/\D/g,'')}?text=${msgWa}` : null;
+      urgenti.push({
+        key: keySparto,
+        tipo: 'sparito',
+        pazId: p.id,
+        nome,
+        nomeBreve,
+        gg: ggSparito,
+        label: '👻 Paziente sparito',
+        desc: `Nessun contatto da <strong>${ggSparito} giorni</strong>`,
+        color: '#dc2626',
+        bg: '#fef2f2',
+        border: '#fca5a5',
+        telLink,
+        tel: p.tel
+      });
+    }
+
+    // 2. PIANO DA AGGIORNARE — ultimo piano >28gg
+    const pianiPaz = (db.piani || []).filter(pl => pl.pazId === p.id);
+    const ultimoPiano = pianiPaz.length
+      ? pianiPaz.sort((a,b) => b.data > a.data ? 1 : -1)[0].data
+      : null;
+    const ggPiano = giorniDa(ultimoPiano);
+    const keyPiano = `piano_${p.id}`;
+    if (ggPiano !== null && ggPiano > 28 && !gestiti[keyPiano]) {
+      const msgWa = encodeURIComponent(`Ciao ${nomeBreve}! È arrivato il momento di aggiornare il tuo piano alimentare. Quando sei disponibile per un controllo? 🌱`);
+      const telLink = p.tel ? `https://wa.me/39${p.tel.replace(/\D/g,'')}?text=${msgWa}` : null;
+      attenzione.push({
+        key: keyPiano,
+        tipo: 'piano',
+        pazId: p.id,
+        nome,
+        nomeBreve,
+        gg: ggPiano,
+        label: '📋 Piano da aggiornare',
+        desc: `Ultimo piano generato <strong>${ggPiano} giorni fa</strong>`,
+        color: '#d97706',
+        bg: '#fffbeb',
+        border: '#fcd34d',
+        telLink,
+        tel: p.tel
+      });
+    }
+
+    // 3. INBODY DA FARE — ultima misurazione >60gg (o nessuna)
+    const misure = (p.misurazioni || p.inbody || []);
+    const ultimaMis = misure.length
+      ? misure.sort((a,b) => b.data > a.data ? 1 : -1)[0].data
+      : null;
+    const ggInBody = giorniDa(ultimaMis);
+    const keyInBody = `inbody_${p.id}`;
+    if ((ggInBody === null || ggInBody > 60) && !gestiti[keyInBody] && p.visitaData) {
+      const msgWa = encodeURIComponent(`Ciao ${nomeBreve}! È il momento di fare la misurazione InBody per monitorare i tuoi progressi. Quando vuoi passare in studio? 💪`);
+      const telLink = p.tel ? `https://wa.me/39${p.tel.replace(/\D/g,'')}?text=${msgWa}` : null;
+      attenzione.push({
+        key: keyInBody,
+        tipo: 'inbody',
+        pazId: p.id,
+        nome,
+        nomeBreve,
+        gg: ggInBody,
+        label: '⚖️ InBody da fare',
+        desc: ggInBody ? `Ultima misurazione <strong>${ggInBody} giorni fa</strong>` : '<strong>Nessuna misurazione</strong> registrata',
+        color: '#0369a1',
+        bg: '#f0f9ff',
+        border: '#7dd3fc',
+        telLink,
+        tel: p.tel
+      });
+    }
+
+    // 4. CONTROLLO SALTATO — controllo previsto passato >14gg senza nuovo evento controllo
+    const dataControllo = p.dateCalendario?.controllo || p.controlloData;
+    const keyControllo = `controllo_${p.id}`;
+    if (dataControllo && dataControllo < oggi && !gestiti[keyControllo]) {
+      const ggControllo = giorniDa(dataControllo);
+      // Verifica se c'è già un evento controllo dopo quella data
+      const controlloFatto = eventiPaz.some(e => e.tipo === 'controllo' && e.data >= dataControllo);
+      if (!controlloFatto && ggControllo > 14) {
+        const msgWa = encodeURIComponent(`Ciao ${nomeBreve}! Ti stavo cercando — volevamo fare il controllo insieme. Come mai sei rimasto/a assente? Fammelo sapere quando puoi 🙏`);
+        const telLink = p.tel ? `https://wa.me/39${p.tel.replace(/\D/g,'')}?text=${msgWa}` : null;
+        urgenti.push({
+          key: keyControllo,
+          tipo: 'controllo',
+          pazId: p.id,
+          nome,
+          nomeBreve,
+          gg: ggControllo,
+          label: '🔴 Controllo saltato',
+          desc: `Controllo previsto <strong>${ggControllo} giorni fa</strong> — nessun presentazione`,
+          color: '#dc2626',
+          bg: '#fef2f2',
+          border: '#fca5a5',
+          telLink,
+          tel: p.tel
+        });
+      }
+    }
+  });
+
+  const tot = urgenti.length + attenzione.length;
+
+  // Badge
+  if (tot === 0) {
+    badge.style.display = 'none';
+    el.innerHTML = '<div style="color:var(--text3);font-size:.8rem;font-style:italic;padding:.3rem 0">Nessuna scadenza urgente 🎉</div>';
+    return;
+  }
+  badge.style.display = 'inline-block';
+  badge.textContent = tot + (tot === 1 ? ' avviso' : ' avvisi');
+
+  // Render cards
+  const renderCard = (item) => {
+    const waBtn = item.telLink
+      ? `<a href="${item.telLink}" target="_blank" class="btn btn-wa btn-sm" style="font-size:.7rem;padding:.2rem .6rem">📲 WhatsApp</a>`
+      : '';
+    const pazBtn = `<button class="btn btn-g btn-sm" style="font-size:.7rem;padding:.2rem .6rem" onclick="openPaz('${item.pazId}')">Apri</button>`;
+    const gestitoBtn = `<button class="btn btn-g btn-sm" style="font-size:.7rem;padding:.2rem .6rem;color:var(--text3)" onclick="segnaGestito('${item.key}')">✓ Gestito</button>`;
+    return `
+      <div style="display:flex;align-items:center;gap:.7rem;padding:.65rem .85rem;border-radius:10px;border:1px solid ${item.border};background:${item.bg};margin-bottom:.5rem">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem">
+            <span style="font-size:.68rem;font-weight:700;color:${item.color}">${item.label}</span>
+          </div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.15rem">${item.nome}</div>
+          <div style="font-size:.74rem;color:var(--text2)">${item.desc}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.3rem;flex-shrink:0">
+          ${waBtn}
+          ${pazBtn}
+          ${gestitoBtn}
+        </div>
+      </div>`;
+  };
+
+  let html = '';
+
+  if (urgenti.length) {
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:#dc2626;font-weight:700;margin-bottom:.5rem">🔴 Urgenti (${urgenti.length})</div>`;
+    html += urgenti.map(renderCard).join('');
+  }
+  if (attenzione.length) {
+    if (urgenti.length) html += `<div style="margin-top:.6rem"></div>`;
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:#d97706;font-weight:700;margin-bottom:.5rem">🟠 Da tenere d'occhio (${attenzione.length})</div>`;
+    html += attenzione.map(renderCard).join('');
+  }
+
+  el.innerHTML = html;
+}
+
+function segnaGestito(key) {
+  let gestiti = {};
+  try { gestiti = JSON.parse(localStorage.getItem('scadenze_gestite') || '{}'); } catch(e) {}
+  gestiti[key] = today();
+  // Auto-scadenza "gestito" dopo 14 giorni
+  const oggi = today();
+  Object.keys(gestiti).forEach(k => {
+    if (gestiti[k] && Math.round((new Date(oggi) - new Date(gestiti[k])) / 86400000) > 14) {
+      delete gestiti[k];
+    }
+  });
+  localStorage.setItem('scadenze_gestite', JSON.stringify(gestiti));
+  renderScadenzeAlert();
+  notif('✓ Segnato come gestito — riapparirà tra 14 giorni se non risolto');
 }
 
 // ═══════════════════════════════════════
