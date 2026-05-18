@@ -7461,6 +7461,12 @@ function apriEditGrammatura(span) {
     var nuovo = parseInt(input.value);
     if (isNaN(nuovo) || nuovo < 0) nuovo = oldG;
     alimento.g = nuovo;
+    // Se è la prima scelta, allinea tutte le alternative alla stessa grammatura
+    if (idx === 0 && cella.alimenti.length > 1) {
+      for (var _i = 1; _i < cella.alimenti.length; _i++) {
+        cella.alimenti[_i].g = nuovo;
+      }
+    }
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
