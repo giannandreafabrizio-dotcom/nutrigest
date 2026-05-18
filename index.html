@@ -2717,7 +2717,7 @@ async function pullPianiSupabase(){
     if(!resp.ok){ console.error('[PIANI] pull ERRORE — status:', resp.status); return false; }
     const rows = await resp.json();
     console.log('[PIANI] pull — righe ricevute:', rows.length);
-    db.piani = (rows||[]).map(row => row.data).filter(Boolean);
+    db.piani = (rows||[]).map(row => row.data).filter(function(d){ return d && !d._isCache && d.pianoJSON; });
     console.log('[PIANI] pull OK — piani caricati:', db.piani.length);
     return true;
   } catch(e) {
@@ -6463,9 +6463,9 @@ function pianoPazSelezionato(id){
     var _piani = (db.piani||[]).filter(function(pl){ return pl.pazienteId === _idPaz; }).slice().reverse().slice(0,3);
     _storEl.style.display = _piani.length ? 'block' : 'none';
     _storList.innerHTML = _piani.length ? _piani.map(function(pl, i) {
-      var _d = new Date(pl.timestamp);
-      var _ds = _d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
-      var _os = _d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      var _d = new Date(pl.timestamp || pl.createdAt || Date.now());
+      var _ds = isNaN(_d) ? 'Data n/d' : _d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+      var _os = isNaN(_d) ? '' : _d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
       var _idx = (db.piani||[]).filter(function(x){ return x.pazienteId===_idPaz; }).length - 1 - i;
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:.35rem;">'
         +'<div><div style="font-size:.8rem;font-weight:600;">📋 Piano del '+_ds+'</div>'
@@ -6806,7 +6806,16 @@ function riapriPiano(pazId, idx) {
   var piano = (db.piani||[])[idx];
   if (!piano) return;
   try {
-    var pianoAI = JSON.parse(piano.pianoJSON);
+    // Supporta sia formato definitivo {pianoJSON} che formato cache {piano:[...]} (legacy)
+    var pianoAI;
+    if (piano.pianoJSON) {
+      pianoAI = JSON.parse(piano.pianoJSON);
+    } else if (piano.piano) {
+      pianoAI = piano.piano;
+    } else {
+      notif('⚠ Piano non leggibile: formato non riconosciuto');
+      return;
+    }
     if (pianoAI.giorni) pianoAI = pianoAI.giorni;
     window._pianoCorrente = pianoAI;
     var p = (db.pazienti||[]).find(function(x){ return x.id === pazId; });
@@ -6847,7 +6856,8 @@ function riapriPiano(pazId, idx) {
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(pianoAI);
     if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(pianoAI);
     if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(pianoAI);
-    notif('✓ Piano del '+new Date(piano.timestamp).toLocaleDateString('it-IT')+' riaperto');
+    var _dRiapri = new Date(piano.timestamp || piano.createdAt || Date.now());
+    notif('✓ Piano del '+(!isNaN(_dRiapri)?_dRiapri.toLocaleDateString('it-IT'):'data n/d')+' riaperto');
   } catch(e) {
     notif('⚠ Errore nel riaprire il piano: '+e.message);
   }
@@ -6883,9 +6893,9 @@ function renderStoricoPiani() {
     var paz = (db.pazienti||[]).find(function(p){ return p.id===pl.pazienteId; });
     var nomePaz = paz ? ((paz.nome||'')+' '+(paz.cognome||'')) : 'Paziente sconosciuto';
     var iniziali = nomePaz.split(' ').map(function(w){ return w[0]||''; }).join('').toUpperCase().slice(0,2);
-    var d = new Date(pl.timestamp);
-    var ds = d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
-    var os = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    var d = new Date(pl.timestamp || pl.createdAt || Date.now());
+    var ds = isNaN(d) ? 'Data n/d' : d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+    var os = isNaN(d) ? '' : d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     var idxOriginale = (db.piani||[]).indexOf(pl);
     return '<div class="card" style="margin-bottom:.75rem;">'
       +'<div class="card-bd" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">'
