@@ -4726,12 +4726,27 @@ function costruisciContestoPaziente(p){
 
   const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
   const offset=offMap[p.regime]||0;
-  const kcalTarget=tdee?tdee+offset:null;
-  const protGkg=p.proteine_gkg||1.8;
-  const grassiGkg=p.grassi_gkg||0.9;
-  const protG=peso?Math.round(protGkg*peso):null;
-  const grassiG=peso?Math.round(grassiGkg*peso):null;
-  const carbG=(kcalTarget&&protG&&grassiG)?Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4)):null;
+
+  // ── MODIFICA: leggi prima i macros salvati dal medico, fallback al calcolo grezzo ──
+  const _activeMt = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
+  let kcalTarget, protG, carbG, grassiG, protGkg, grassiGkg, _macrosSorgente;
+  if(_activeMt && _activeMt.kcal){
+    kcalTarget  = _activeMt.kcal;
+    protG       = _activeMt.protG;
+    carbG       = _activeMt.carbG;
+    grassiG     = _activeMt.grassiG;
+    protGkg     = _activeMt.raw && _activeMt.raw.protGkg ? _activeMt.raw.protGkg : (peso ? +(_activeMt.protG/peso).toFixed(2) : null);
+    grassiGkg   = _activeMt.raw && _activeMt.raw.grassiGkg ? _activeMt.raw.grassiGkg : (peso ? +(_activeMt.grassiG/peso).toFixed(2) : null);
+    _macrosSorgente = _activeMt.source === 'f1' ? 'ragionamento-clinico' : 'TDEE-salvato';
+  } else {
+    kcalTarget  = tdee ? tdee+offset : null;
+    protGkg     = p.proteine_gkg || 1.8;
+    grassiGkg   = p.grassi_gkg  || 0.9;
+    protG       = peso ? Math.round(protGkg*peso) : null;
+    grassiG     = peso ? Math.round(grassiGkg*peso) : null;
+    carbG       = (kcalTarget&&protG&&grassiG) ? Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4)) : null;
+    _macrosSorgente = 'calcolo-automatico';
+  }
 
   let deltaIb='';
   if(lastIb&&prevIb&&lastIb.peso&&prevIb.peso){
@@ -4753,11 +4768,16 @@ function costruisciContestoPaziente(p){
     if(giorniFA>90)avvisoInbody='\n ATTENZIONE: InBody vecchio di '+giorniFA+' giorni — i dati potrebbero non essere aggiornati.';
   }
 
+  // ── Riga macros con indicazione esplicita della sorgente ──
+  const _macrosLabel = _macrosSorgente === 'calcolo-automatico'
+    ? 'Macros stimati (nessun target salvato — solo riferimento): P '+(protG||'—')+'g · C '+(carbG||'—')+'g · G '+(grassiG||'—')+'g'
+    : '⚑ MACROS DECISI DAL MEDICO ['+_macrosSorgente+']: Kcal '+kcalTarget+' · P '+(protG||'—')+'g ('+(protGkg||'—')+' g/kg) · C '+(carbG||'—')+'g · G '+(grassiG||'—')+'g ('+(grassiGkg||'—')+' g/kg) — QUESTI SONO I VALORI SCELTI DAL DOTT. FABRIZIO, NON RICALCOLARLI.';
+
   let ctx='PAZIENTE: '+p.nome+' '+p.cognome+(eta?' — '+eta+' anni':'')+(p.sesso?' · '+p.sesso:'')
     +'\nPeso: '+(peso||'—')+' kg · Altezza: '+(p.altezza||'—')+' cm'
     +'\nRegime: '+(p.regime||'—')+' · Peso obiettivo: '+(p.pesoTarget||'—')+' kg · Obiettivo clinico: '+(p.obiettivo||'—')
-    +'\nLAF: '+(laf||'—')+' · MB InBody: '+(mb||'—')+' kcal · TDEE: '+(tdee||'—')+' kcal · Kcal target: '+(kcalTarget||'—')+' kcal'
-    +'\nMacros calcolati: P '+(protG||'—')+'g · C '+(carbG||'—')+'g · G '+(grassiG||'—')+'g'
+    +'\nLAF: '+(laf||'—')+' · MB InBody: '+(mb||'—')+' kcal · TDEE: '+(tdee||'—')+' kcal'
+    +'\n'+_macrosLabel
     +avvisoInbody;
 
   if(lastIb){
@@ -4829,7 +4849,7 @@ async function avviaF1(p,apiKey){
   const _ct=calcolaTDEE(p);
   const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
   const kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nPRODUCI ESATTAMENTE questo formato — niente di piu, niente di meno:\n\n📊 MACROS DECISI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — motiva in 5 parole]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 LETTURA CLINICA\n[3-5 righe di ragionamento genuino su questo paziente specifico.\nRispondi a: il target calcolato e giusto o va aggiustato? Perche?\nCosa dicono i dati InBody sul percorso? C\u2019e qualcosa da tenere d\u2019occhio?\nSe ci sono analisi del sangue anomale, commentale in chiave nutrizionale.\nSe profilo semplice e nella norma, dillo chiaramente senza inventare problemi.]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚡ FLAG RAPIDI  [SOLO se presenti — altrimenti ometti]\n• [flag 1]\n• [flag 2]\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli.';
+  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nNel contesto trovi i dati del paziente. Se è presente la riga "⚑ MACROS DECISI DAL MEDICO", quei valori sono i macros scelti da Fabrizio — NON ricalcolarli, NON proporre alternative. Il tuo compito è commentarli criticamente come farebbe un secondo specialista.\n\nPRODUCI ESATTAMENTE questo formato — niente di più, niente di meno:\n\n📊 MACROS SCELTI DAL MEDICO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal rispetto TDEE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET MEDICO: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — 1 commento clinico]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 PARERE CLINICO SUI MACROS SCELTI\n[3-5 righe. Rispondi a: i macros scelti dal medico sono coerenti col profilo InBody e con il regime? Cosa funziona bene? C\'è qualcosa da tenere d\'occhio o che cambieresti e perché? Se ci sono analisi del sangue anomale, commentale. Se il profilo è semplice e tutto torna, dillo chiaramente senza inventare problemi. La decisione finale resta a Fabrizio.]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚡ FLAG RAPIDI  [SOLO se presenti — altrimenti ometti]\n• [flag 1]\n• [flag 2]\n\nSe nel contesto NON ci sono macros salvati dal medico, produci la scheda con i macros calcolati automaticamente e segnalalo con: ⚠️ Nessun target salvato — valori stimati automaticamente.\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli.';
   const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:900,system:system,messages:[{role:'user',content:(()=>{
     const _ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
     const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
