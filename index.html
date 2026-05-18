@@ -6353,6 +6353,26 @@ function renderRiepilogoSettimana(piano) {
 }
 
 function pianoPazSelezionato(id){
+  // ── RESET: cambio paziente azzera piano renderizzato e stato globale ──
+  // (no-op se è lo stesso paziente già attivo, per evitare flicker)
+  var _prevPazId = window._pdfPaziente ? window._pdfPaziente.id : null;
+  if (_prevPazId !== id) {
+    window._pianoCorrente = null;
+    window._pdfPiano = null;
+    window._pdfPaziente = null;
+    window._pianoGiornoCorrente = 0;
+    window._storicoPiani = [];
+    window._pianoTargets = null;
+    window._pianoTargetsOFF = null;
+    var _pBox = document.getElementById('piano-piano-box');
+    if (_pBox) _pBox.innerHTML = '';
+    // Pulisci anche i badge sotto al piano (riepilogo settimana, 75/20/5, macros reali, dati box, load msg)
+    ['piano-badge-75','piano-badge-macros','piano-riepilogo-sett','piano-dati-box','piano-load-msg'].forEach(function(_bid){
+      var _b = document.getElementById(_bid);
+      if (_b) { _b.innerHTML = ''; if (_bid === 'piano-dati-box' || _bid === 'piano-riepilogo-sett') _b.style.display = 'none'; }
+    });
+  }
+
   const info=document.getElementById('piano-paz-info');
   const btn=document.getElementById('piano-btn-genera');
   if(!id){
