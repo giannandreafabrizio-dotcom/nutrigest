@@ -7461,10 +7461,15 @@ function apriEditGrammatura(span) {
     var nuovo = parseInt(input.value);
     if (isNaN(nuovo) || nuovo < 0) nuovo = oldG;
     alimento.g = nuovo;
-    // Se è la prima scelta, allinea tutte le alternative alla stessa grammatura
-    if (idx === 0 && cella.alimenti.length > 1) {
+    // Se è la prima scelta e la grammatura cambia, scala le alternative proporzionalmente (arrotondato a 5g, min 5g)
+    if (idx === 0 && nuovo !== oldG && oldG > 0 && cella.alimenti.length > 1) {
+      var fattore = nuovo / oldG;
       for (var _i = 1; _i < cella.alimenti.length; _i++) {
-        cella.alimenti[_i].g = nuovo;
+        var _alt = cella.alimenti[_i];
+        var _scalato = _alt.g * fattore;
+        var _arrotondato = Math.round(_scalato / 5) * 5;
+        if (_arrotondato < 5) _arrotondato = 5;
+        _alt.g = _arrotondato;
       }
     }
     _aggiornaPianoBox();
