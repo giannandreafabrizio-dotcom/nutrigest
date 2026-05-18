@@ -8683,6 +8683,20 @@ async function generaPiano(forceRegen){
   let _pianoLoaderIv = mostraLoadingSteps(loadEl);
   pianoEl.style.opacity = '0.4';
 
+  // ── PASTI ATTIVI: dalla scheda paziente decide quali pasti generare ──
+  const _pastiCfg = [
+    {key:'colazione',         label:'colazione',          attivo: p.colazione !== 'no'},
+    {key:'spuntino_mattina',  label:'spuntino_mattina',   attivo: p.spuntM === 'si'},
+    {key:'pranzo',            label:'pranzo',             attivo: p.pranzo !== 'no'},
+    {key:'spuntino_pomeriggio',label:'spuntino_pomeriggio',attivo: p.spuntP === 'si'},
+    {key:'cena',              label:'cena',               attivo: p.cena !== 'no'},
+    {key:'pre_nanna',         label:'pre_nanna',          attivo: p.prenanna === 'si'}
+  ];
+  const _pastiAttivi = _pastiCfg.filter(function(x){return x.attivo;});
+  const _pastiSkipped = _pastiCfg.filter(function(x){return !x.attivo;});
+  const _listaPastiAttivi = _pastiAttivi.map(function(x){return x.label;}).join(', ');
+  const _listaPastiSkipped = _pastiSkipped.length ? _pastiSkipped.map(function(x){return x.label;}).join(', ') : 'nessuno';
+
   const prompt = "Sei un nutrizionista esperto. Genera un piano alimentare settimanale personalizzato.\n\n"
     +"DATI PAZIENTE:\n"
     +"- Regime: "+(p.regime||'Normocalorico')+"\n"
@@ -8693,9 +8707,12 @@ async function generaPiano(forceRegen){
     +"- Allergie/intolleranze: "+(p.allergie||'nessuna')+"\n"
     +"- Alimenti preferiti: "+(preferiti.length?preferiti.join(', '):'nessuno specificato')+"\n"
     +"- Alimenti scartati: "+(scartati.length?scartati.join(', '):'nessuno specificato')+"\n"
+    +"- PASTI DA GENERARE: "+_listaPastiAttivi+"\n"
+    +"- PASTI DA NON GENERARE (paziente non li fa): "+_listaPastiSkipped+"\n"
 
     +"REGOLE:\n"
     +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
+    +"- ⚑ TASSATIVO: genera SOLO i pasti elencati in 'PASTI DA GENERARE'. NON inserire i pasti elencati in 'PASTI DA NON GENERARE'. Le kcal/macros vanno distribuiti SOLO sui pasti attivi.\n"
     +"- Rispetta le kcal e i macronutrienti target\n"
     +"- Usa alimenti italiani comuni e reperibili al supermercato\n"
     +"- Rispetta allergie e alimenti scartati\n"
@@ -8704,10 +8721,10 @@ async function generaPiano(forceRegen){
     +"- Giorni 1-3-5 al pranzo: aggiungi legumi (barattolo 120g) con proteina leggera\n"
     +"- Giorni 2-4-6 al pranzo: proteina principale senza legumi\n"
     +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g\n\n"
-    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo, con questa struttura esatta:\n"
+    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo. Per ogni giorno includi SOLO le chiavi corrispondenti ai pasti attivi ("+_listaPastiAttivi+"). Schema di riferimento per ogni possibile pasto (usa solo quelli attivi):\n"
     +'[{"giorno":"Lunedì","colazione":{"descrizione":"testo breve","carboidrati":{"nome":"","grammi":0},"proteine":{"nome":"","grammi":0},"grassi":{"nome":"","grammi":0},"frutta":"(opzionale)"},'
     +'"spuntino_mattina":"descrizione","pranzo":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"carboidrati":{"nome":"","grammi":'+carbGr+'},"proteina":{"nome":"","grammi":0},"legumi_g":0},'
-    +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}}},...]';
+    +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}},"pre_nanna":"descrizione"},...]';
 
   var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
   if (!_md && window._ragContextForPiano && window._ragContextForPiano.pazId === p.id) {
