@@ -7422,10 +7422,38 @@ function cellaSposta(giorno, slotKey, cellaId, direzione) {
   var c = celle.find(function(x){ return x.id === cellaId; });
   if (!c) return;
 
-  if (direzione === 'left') c.colonna = 'sx';
-  else if (direzione === 'right') c.colonna = 'dx';
-  else if (direzione === 'up') c.ordine = Math.max(1, (c.ordine||1) - 1);
-  else if (direzione === 'down') c.ordine = (c.ordine||1) + 1;
+  if (direzione === 'left' || direzione === 'right') {
+    // Movimento orizzontale: cambia colonna mantenendo l'ordine
+    c.colonna = (direzione === 'left') ? 'sx' : 'dx';
+  } else {
+    // Movimento verticale: SWAP esplicito con la cella adiacente nella stessa colonna
+    var colCorr = c.colonna || 'sx';
+    var ordCorr = c.ordine || 1;
+    // Trova la cella adiacente: stessa colonna, ordine immediatamente precedente (up) o successivo (down)
+    var celleStessaCol = celle.filter(function(x){ return (x.colonna||'sx') === colCorr && x.id !== c.id; });
+    var target = null;
+    if (direzione === 'up') {
+      // Cella con ordine più alto fra quelle con ordine < corrente
+      celleStessaCol.forEach(function(x){
+        if ((x.ordine||1) < ordCorr && (!target || (x.ordine||1) > (target.ordine||1))) target = x;
+      });
+    } else if (direzione === 'down') {
+      // Cella con ordine più basso fra quelle con ordine > corrente
+      celleStessaCol.forEach(function(x){
+        if ((x.ordine||1) > ordCorr && (!target || (x.ordine||1) < (target.ordine||1))) target = x;
+      });
+    }
+    if (target) {
+      // Swap degli ordini
+      var tmp = c.ordine;
+      c.ordine = target.ordine;
+      target.ordine = tmp;
+    } else {
+      // Nessuna cella adiacente da scambiare: spostamento "libero" in slot vuoto
+      if (direzione === 'up') c.ordine = Math.max(1, ordCorr - 1);
+      else c.ordine = ordCorr + 1;
+    }
+  }
 
   // Compatta gli ordini per evitare buchi
   var perColonna = { sx: [], dx: [] };
