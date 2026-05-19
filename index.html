@@ -1637,6 +1637,8 @@ const CREA_ALIMENTI = {
   'Sgombro sottolio': {kcal:177, p:19.3, c:0.0, g:11.1},
   // PESCE CENA
   'Filetti di merluzzo/nasello': {kcal:75, p:17.3, c:0.0, g:0.6},
+  'Filetti di merluzzo': {kcal:75, p:17.3, c:0.0, g:0.6},
+  'Filetti di nasello': {kcal:75, p:17.3, c:0.0, g:0.6},
   'Orata': {kcal:121, p:20.7, c:1.0, g:3.8},
   'Sarago': {kcal:101, p:21.0, c:0.0, g:1.9},
   'Spigola': {kcal:82, p:16.5, c:0.6, g:1.5},
@@ -1666,17 +1668,22 @@ const CREA_ALIMENTI = {
   // LEGUMI
   'Ceci (secchi)': {kcal:316, p:20.9, c:46.9, g:6.3},
   'Ceci (barattolo)': {kcal:100, p:6.7, c:13.9, g:2.3},
+  'Ceci barattolo': {kcal:100, p:6.7, c:13.9, g:2.3},
   'Fagioli borlotti (secchi)': {kcal:278, p:20.2, c:47.7, g:2.0},
   'Fagioli borlotti (barattolo)': {kcal:91, p:6.7, c:15.9, g:0.5},
+  'Fagioli borlotti barattolo': {kcal:91, p:6.7, c:15.9, g:0.5},
   'Lenticchie (secche)': {kcal:291, p:22.7, c:51.1, g:1.0},
   'Lenticchie (barattolo)': {kcal:82, p:5.0, c:15.4, g:0.5},
+  'Lenticchie barattolo': {kcal:82, p:5.0, c:15.4, g:0.5},
   'Piselli (barattolo)': {kcal:68, p:5.3, c:11.1, g:0.6},
+  'Piselli barattolo': {kcal:68, p:5.3, c:11.1, g:0.6},
   'Piselli surgelati': {kcal:48, p:5.4, c:6.4, g:0.3},
   'Soia surgelata (edamame)': {kcal:122, p:11.0, c:9.0, g:5.2},
   'Lupini': {kcal:114, p:16.4, c:7.1, g:2.4},
   'Fave (barattolo)': {kcal:80, p:8.0, c:11.0, g:0.4},
   'Tofu': {kcal:76, p:8.0, c:1.9, g:4.8},
   'Seitan': {kcal:121, p:24.0, c:4.0, g:2.0},
+  'Legumi mista': {kcal:88, p:6.3, c:13.5, g:0.9},
   // UOVA
   'Uovo intero': {kcal:128, p:12.4, c:0.0, g:8.7},
   'Albumi': {kcal:43, p:10.7, c:0.0, g:0.0},
@@ -1759,6 +1766,7 @@ function getValoriCREA(nomeAlimento, categoriaFunzionale) {
   if (categoriaFunzionale === 'verdura') return CREA_ALIMENTI['Verdura mista'];
   if (categoriaFunzionale === 'frutta') return CREA_ALIMENTI['Frutta mista'];
   if (categoriaFunzionale === 'grasso') return CREA_ALIMENTI['Frutta secca mista'];
+  if (categoriaFunzionale === 'legumi') return CREA_ALIMENTI['Legumi mista'];
   return null;
 }
 
