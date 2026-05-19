@@ -1759,10 +1759,46 @@ const CREA_ALIMENTI = {
   'Limone': {kcal:11, p:0.6, c:2.3, g:0.0},
 };
 
+// Mappa di disambiguazione: nomi generici → nome canonico CREA_ALIMENTI
+// Risolve ambiguità quando l'AI scrive nomi generici nelle ricette
+// (es. "Fagioli" → "Fagioli borlotti (barattolo)") senza costo token aggiuntivo
+const NOMI_CANONICI = {
+  // Legumi: default barattolo (preferenza clinica Fabrizio)
+  'fagioli': 'Fagioli borlotti (barattolo)',
+  'fagioli borlotti': 'Fagioli borlotti (barattolo)',
+  'ceci': 'Ceci (barattolo)',
+  'lenticchie': 'Lenticchie (barattolo)',
+  // Piselli surgelati (uso clinico Fabrizio)
+  'piselli': 'Piselli surgelati',
+  // Cereali default
+  'pasta': 'Pasta',
+  'riso': 'Riso',
+  'pane': 'Pane comune',
+  // Latticini default
+  'latte': 'Latte vaccino intero',
+  'yogurt': 'Yogurt',
+  'yogurt greco': 'Yogurt greco intero',
+  'ricotta': 'Ricotta di vacca',
+  'mozzarella': 'Mozzarella di vacca',
+  // Proteine animali default
+  'tonno': 'Tonno sottolio sgocciolato',
+  'salmone': 'Salmone fresco',
+  'pollo': 'Petto di pollo',
+  // Olio default
+  'olio': 'Olio EVO',
+  'olio extravergine': 'Olio EVO',
+  'olio extravergine di oliva': 'Olio EVO',
+  "olio d'oliva": 'Olio EVO',
+  'olio di oliva': 'Olio EVO'
+};
+
 // Lookup CREA con fallback su generici per categoria funzionale
 function getValoriCREA(nomeAlimento, categoriaFunzionale) {
   if (!nomeAlimento) return null;
   if (CREA_ALIMENTI[nomeAlimento]) return CREA_ALIMENTI[nomeAlimento];
+  // Disambiguazione nomi generici (case-insensitive)
+  const chiaveCanonica = NOMI_CANONICI[nomeAlimento.toLowerCase().trim()];
+  if (chiaveCanonica && CREA_ALIMENTI[chiaveCanonica]) return CREA_ALIMENTI[chiaveCanonica];
   if (categoriaFunzionale === 'verdura') return CREA_ALIMENTI['Verdura mista'];
   if (categoriaFunzionale === 'frutta') return CREA_ALIMENTI['Frutta mista'];
   if (categoriaFunzionale === 'grasso') return CREA_ALIMENTI['Frutta secca mista'];
