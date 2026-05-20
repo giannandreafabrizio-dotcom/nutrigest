@@ -15,7 +15,7 @@
 .cella-menu-wrap{position:relative;display:inline-block;flex-shrink:0;}
 .cella-menu-btn{background:transparent;border:0.5px solid transparent;border-radius:4px;width:22px;height:22px;cursor:pointer;color:var(--text3);font-size:1rem;font-weight:700;letter-spacing:1px;line-height:1;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
 .cella-menu-btn:hover{background:var(--s2);border-color:var(--border);color:var(--text2);}
-.cella-dropdown{position:absolute;right:0;top:25px;background:var(--s1);border:1px solid var(--border);border-radius:8px;min-width:170px;z-index:999;padding:3px 0;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+.cella-dropdown{position:fixed;background:var(--s1);border:1px solid var(--border);border-radius:8px;min-width:170px;z-index:99999;padding:3px 0;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
 .cella-dropdown.open{display:block;}
 .cella-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:.76rem;color:var(--text2);cursor:pointer;white-space:nowrap;transition:background .1s;}
 .cella-dd-item:hover{background:var(--teal-bg);color:var(--teal2);}
@@ -7469,16 +7469,26 @@ function toggleCellaMenu(id) {
   var isOpen = dropdown && dropdown.classList.contains('open');
   closeAllCellaMenus();
   if (!isOpen && dropdown) {
-    // Fix: rilevamento posizione — apre verso l'alto se vicino al bordo inferiore
+    // Posizionamento fixed: calcola coordinate esatte del bottone nel viewport
     var btn = dropdown.previousElementSibling;
     var rect = btn ? btn.getBoundingClientRect() : null;
-    var spazioSotto = rect ? (window.innerHeight - rect.bottom) : 999;
-    if (spazioSotto < 180) {
-      dropdown.style.top = 'auto';
-      dropdown.style.bottom = '25px';
-    } else {
-      dropdown.style.top = '25px';
-      dropdown.style.bottom = 'auto';
+    if (rect) {
+      var menuH = 160; // altezza stimata dropdown (4 voci ~40px l'una)
+      var spazioSotto = window.innerHeight - rect.bottom;
+      if (spazioSotto < menuH + 8) {
+        // Apre VERSO L'ALTO: il fondo del menu coincide con il top del bottone
+        dropdown.style.top = 'auto';
+        dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+      } else {
+        // Apre VERSO IL BASSO: il top del menu coincide con il bottom del bottone
+        dropdown.style.bottom = 'auto';
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+      }
+      // Allinea a destra del bottone, senza uscire dallo schermo a sinistra
+      var menuW = 175;
+      var leftPos = rect.right - menuW;
+      dropdown.style.left = Math.max(8, leftPos) + 'px';
+      dropdown.style.right = 'auto';
     }
     dropdown.classList.add('open');
   }
