@@ -2317,6 +2317,44 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
 };
 
 
+// ── GRUPPI SEMAFORO — categorie intercambiabili come alternative ──────────────
+// Se aggiungo un cereale con glutine, voglio vedere TUTTI i cereali del paziente
+// (sia con che senza glutine). Stessa logica estendibile in futuro.
+const _GRUPPI_SEMAFORO = {
+  'Cereali con Glutine': 'cereali',
+  'Cereali senza Glutine': 'cereali'
+  // Tutto il resto NON è in un gruppo: ogni categoria è alternativa solo a se stessa
+  // Esempi futuri: 'Pesce (Pranzo)':'pesce', 'Pesce (Cena)':'pesce'  se un giorno vuoi unirli
+};
+
+// Dato un nome alimento, restituisce la sua categoria semaforo esatta (es. "Pesce (Cena)")
+// Contrario di getCategoriaFunzionale che restituisce "proteine"
+function getCategoriaSemaforo(nomeAlimento) {
+  if (!nomeAlimento) return '';
+  if (typeof ALIMENTI === 'object' && ALIMENTI) {
+    for (var catSem in ALIMENTI) {
+      var catData = ALIMENTI[catSem];
+      if (catData && catData.items && Array.isArray(catData.items)) {
+        if (catData.items.some(function(a){ return a.n === nomeAlimento; })) {
+          return catSem;
+        }
+      }
+    }
+  }
+  return '';
+}
+
+// Dato una categoria semaforo, restituisce l'array di tutte le categorie
+// che fanno parte dello stesso gruppo (se esiste), o solo se stessa
+function _getCategorieGruppo(catSemaforo) {
+  var gruppo = _GRUPPI_SEMAFORO[catSemaforo];
+  if (!gruppo) return [catSemaforo]; // nessun gruppo: solo se stessa
+  // Raccogli tutte le categorie che appartengono allo stesso gruppo
+  return Object.keys(_GRUPPI_SEMAFORO).filter(function(k) {
+    return _GRUPPI_SEMAFORO[k] === gruppo;
+  });
+}
+
 // ── PRIORITA' 2A: CALCOLO GRAMMATURA EQUIVALENTE ─────────────────────────────
 // Fonte: tabelle Dott.ssa Colombo + database CREA_ALIMENTI
 // Calcola quanti grammi di alimentoAlt forniscono lo stesso apporto
@@ -7626,43 +7664,66 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
   var cella = ctx.pasto.celle.find(function(c){ return c.id === cellaId; });
   if (!cella) return;
 
-  // Determina categoria e colori da usare per filtrare
+  // Determina l'alimento principale della cella
   var princ = cella.alimenti[0];
-  var categoriaTarget = princ ? (princ.categoria || getCategoriaFunzionale(princ.n)) : '';
+
+  // ── NUOVA LOGICA: filtro per categoria SEMAFORO, non funzionale ──────────────
+  // Es: "Salmone fresco" → catSem = "Pesce (Cena)" → mostra solo pesci da cena del profilo
+  // Es: "Pasta" → catSem = "Cereali con Glutine" → gruppo "cereali" → mostra anche riso, patate ecc.
+  var catSemPrinc = princ ? getCategoriaSemaforo(princ.n) : '';
+  // Array di categorie semaforo accettate (di solito 1, per i cereali sono 2)
+  var catSemAccettate = catSemPrinc ? _getCategorieGruppo(catSemPrinc) : [];
+  // Categoria funzionale per il calcolo grammatura equivalente
+  var categoriaFunzionale = princ ? getCategoriaFunzionale(princ.n) : 'condimento';
 
   // Trova paziente corrente
   var pazId = window._pdfPaziente ? window._pdfPaziente.id : null;
   var p = pazId ? db.pazienti.find(function(x){return x.id===pazId;}) : null;
   if (!p) { alert('Paziente non trovato'); return; }
 
-  // Costruisci lista alimenti compatibili (verdi+arancioni+rossi del paziente, escludi grigi/celesti)
+  // Costruisci lista alimenti compatibili dal profilo paziente
+  // Legge le chiavi tipo "Pesce (Cena)__Orata" e filtra per categoria semaforo
   var al = p.alimenti || {};
   var compatibili = [];
   Object.keys(al).forEach(function(key) {
     var stato = al[key];
-    if (stato !== 'si' && stato !== 'verde' && stato !== 'arancione' && stato !== 'rosso' && stato !== 'no') return;
-    var nome = key.split('__')[1];
+    // Includi verdi (si/verde), arancioni, rossi — escludi no/grigio e stati vuoti
+    if (stato !== 'si' && stato !== 'verde' && stato !== 'arancione' && stato !== 'rosso') return;
+    var parti = key.split('__');
+    var catSemAlimento = parti[0]; // es. "Pesce (Cena)"
+    var nome = parti[1];           // es. "Orata"
     if (!nome) return;
-    var cat = getCategoriaFunzionale(nome);
-    if (categoriaTarget && cat !== categoriaTarget) return;
+    // Filtra per categoria semaforo (o gruppo di categorie per i cereali)
+    if (catSemAccettate.length && catSemAccettate.indexOf(catSemAlimento) === -1) return;
     var colore = (stato === 'si' || stato === 'verde') ? 'verde' : stato === 'arancione' ? 'arancione' : 'rosso';
-    // Evita duplicati con quelli già nella cella
+    // Evita duplicati con alimenti già presenti nella cella
     if (cella.alimenti.some(function(a){ return a.n === nome; })) return;
-    compatibili.push({n: nome, cat: cat, colore: colore});
+    // Recupera grammatura di default dal database ALIMENTI
+    var gDefault = 100;
+    if (ALIMENTI[catSemAlimento] && ALIMENTI[catSemAlimento].items) {
+      var itemDb = ALIMENTI[catSemAlimento].items.find(function(i){ return i.n === nome; });
+      if (itemDb) gDefault = itemDb.g || 100;
+    }
+    compatibili.push({n: nome, cat: categoriaFunzionale, catSem: catSemAlimento, colore: colore, gDefault: gDefault});
   });
 
+  // Se non trova nulla nel profilo, mostra messaggio utile
   if (!compatibili.length) {
-    alert('Nessun alimento compatibile trovato per categoria "' + categoriaTarget + '". Aggiungi alimenti nel profilo del paziente.');
+    var nomeCategoria = catSemPrinc || 'questa categoria';
+    var msg = 'Nessuna alternativa disponibile per "' + nomeCategoria + '".\n\n' +
+              'Il paziente non ha selezionato altri alimenti in questa categoria nelle Preferenze cibi.\n\n' +
+              'Vai su Pazienti → Preferenze cibi → ' + nomeCategoria + ' e aggiungi gli alimenti.';
+    alert(msg);
     return;
   }
 
   // Grammatura base del principale (per calcolo equivalenza)
-  var gSuggFallback = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[categoriaTarget] || 100;
+  var gSuggFallback = {carbo:80,proteine:150,legumi:120,verdura:200,frutta:150,olio:10,grasso:20,fit:50,condimento:5}[categoriaFunzionale] || 100;
   var nPrinc = princ ? princ.n : '';
   var gPrinc = princ ? (parseFloat(princ.g) || gSuggFallback) : gSuggFallback;
 
   // Mostra popup con calcolo equivalenza automatica
-  _mostraPopupAggiungiAlt(compatibili, gSuggFallback, nPrinc, gPrinc, categoriaTarget, function(scelto, grCalcolato) {
+  _mostraPopupAggiungiAlt(compatibili, gSuggFallback, nPrinc, gPrinc, categoriaFunzionale, function(scelto, grCalcolato) {
     cella.alimenti.push({n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore});
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
