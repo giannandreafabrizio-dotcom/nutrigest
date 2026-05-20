@@ -752,8 +752,20 @@ main{flex:1;overflow-y:auto;}
         </div>
         <div id="piano-regole-content" style="display:none;padding:1rem 1.1rem;">
 
+          <!-- SEZIONE 0: Rotazione settimanale (modelli) -->
+          <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Rotazione settimanale</div>
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;flex-wrap:wrap;">
+            <select id="rp-modello" onchange="cambiaModelloRotazione()" style="font-size:.78rem;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;background:var(--bg);min-width:220px;">
+              <option value="">Nessuno (AI decide liberamente)</option>
+              <option value="naruto">🍜 NARUTO (cereali a pranzo e cena)</option>
+              <option value="hinata">🌸 HINATA (cereali solo a pranzo)</option>
+            </select>
+            <button type="button" onclick="mostraAnteprimaModello()" id="btn-anteprima-modello" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);display:none;">👁 Vedi schema</button>
+          </div>
+          <div id="modello-info" style="font-size:.72rem;color:var(--text3);font-style:italic;margin-bottom:1rem;display:none;"></div>
+
           <!-- SEZIONE 1: Frequenze settimanali -->
-          <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Frequenze settimanali</div>
+          <div id="freq-settimanali-label" style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Frequenze settimanali</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .8rem;margin-bottom:1rem;">
             <!-- SX: Carne rossa, Carne bianca, Pesce, Affettati -->
             <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
@@ -819,6 +831,14 @@ main{flex:1;overflow-y:auto;}
             <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-verdura200" checked onchange="salvaRegolePiano()"> Verdura 200g fissa a pranzo e cena</label>
             <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-frsecca" onchange="salvaRegolePiano()"> Frutta secca 20g quotidiana</label>
             <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-cenaleggera" onchange="salvaRegolePiano()"> Cena leggera (no carboidrati complessi)</label>
+          </div>
+          <div style="margin-bottom:1rem;padding:.5rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;">
+            <label style="font-size:.72rem;color:var(--text3);display:block;margin-bottom:.35rem;">🥐 Tipo colazione</label>
+            <div style="display:flex;gap:.9rem;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="radio" name="rp-colazione" value="dolce" onchange="salvaRegolePiano()"> Dolce</label>
+              <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="radio" name="rp-colazione" value="salata" onchange="salvaRegolePiano()"> Salata</label>
+              <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="radio" name="rp-colazione" value="mista" checked onchange="salvaRegolePiano()"> Mista (paziente sceglie)</label>
+            </div>
           </div>
           <div style="margin-bottom:1rem;">
             <label style="font-size:.72rem;color:var(--text3);display:block;margin-bottom:.3rem;">Note posizionamento uova (opzionale)</label>
@@ -7276,9 +7296,182 @@ function salvaRegolePiano(){
     rotazione:gc('rp-rotazione'),verdura200:gc('rp-verdura200'),
     frsecca:gc('rp-frsecca'),cenaleggera:gc('rp-cenaleggera'),
     uovanote:gt('rp-uova-note'),
-
+    modello:(document.getElementById('rp-modello')||{}).value||'',
+    tipocolazione:(document.querySelector('input[name="rp-colazione"]:checked')||{}).value||'mista',
   };
   save();
+}
+
+// ── MODELLI DI ROTAZIONE SETTIMANALE ─────────────────────────────────────────
+// Griglia: 6 giorni (lun→sab) × 2 pasti (pranzo, cena). Domenica esclusa.
+// Ogni cella è un array di categorie semaforo (es. ['Legumi','Latticini'])
+// Cereali sono SOTTOINTESI dal flag .cereali per pasto (true = aggiungi cereale)
+const MODELLI_ROTAZIONE = {
+  naruto: {
+    nome: 'NARUTO',
+    descrizione: 'Cereali a pranzo e cena, distribuzione classica 6 giorni',
+    cereali: {pranzo:true, cena:true},
+    griglia: {
+      lun: {pranzo:['Legumi','Latte & Derivati'], cena:['Carne Bianca']},
+      mar: {pranzo:['Uova'],                       cena:['Pesce (Cena)']},
+      mer: {pranzo:['Legumi','Pesce (Pranzo)'],    cena:['Carne Rossa']},
+      gio: {pranzo:['Latte & Derivati'],           cena:['Carne Bianca']},
+      ven: {pranzo:['Legumi','Uova'],              cena:['Pesce (Cena)']},
+      sab: {pranzo:['Carne Rossa'],                cena:['LIBERO']}
+    }
+  },
+  hinata: {
+    nome: 'HINATA',
+    descrizione: 'Cereali solo a pranzo (cena low-carb), 6 giorni',
+    cereali: {pranzo:true, cena:false},
+    griglia: {
+      lun: {pranzo:['Legumi','Latte & Derivati'], cena:['Carne Bianca']},
+      mar: {pranzo:['Uova'],                       cena:['Pesce (Cena)']},
+      mer: {pranzo:['Legumi','Pesce (Pranzo)'],    cena:['Carne Rossa']},
+      gio: {pranzo:['Latte & Derivati'],           cena:['Carne Bianca']},
+      ven: {pranzo:['Legumi','Uova'],              cena:['Pesce (Cena)']},
+      sab: {pranzo:['Carne Rossa'],                cena:['LIBERO']}
+    }
+  }
+};
+
+// Mappa categoria semaforo → id frequenza
+const _CAT_TO_FREQ_ID = {
+  'Pesce (Cena)':'rp-pesce','Pesce (Pranzo)':'rp-pesceconsv',
+  'Carne Bianca':'rp-carnebianca','Carne Rossa':'rp-carnerossa',
+  'Uova':'rp-uova','Latte & Derivati':'rp-latticini',
+  'Legumi':'rp-legumi','Insaccati & Salumi':'rp-affettati'
+};
+
+// Calcola frequenze settimanali dal contenuto del modello
+function _calcolaFreqDaModello(modKey) {
+  const mod = MODELLI_ROTAZIONE[modKey];
+  if (!mod) return null;
+  const conteggio = {};
+  Object.values(mod.griglia).forEach(giorno => {
+    ['pranzo','cena'].forEach(pasto => {
+      (giorno[pasto]||[]).forEach(cat => {
+        if (cat === 'LIBERO') return;
+        conteggio[cat] = (conteggio[cat]||0) + 1;
+      });
+    });
+  });
+  return conteggio;
+}
+
+// Categorie semaforo coinvolte nelle regole posizionali (vanno disabilitate con modello)
+const _CHECKBOX_POSIZIONALI = ['rp-legumi135','rp-rotazione'];
+
+// Aggiorna lo stato dell'UI in base al modello selezionato
+function aggiornaUImodello() {
+  const sel = document.getElementById('rp-modello');
+  if (!sel) return;
+  const modKey = sel.value;
+  const btnAnt = document.getElementById('btn-anteprima-modello');
+  const info = document.getElementById('modello-info');
+  const labelFreq = document.getElementById('freq-settimanali-label');
+
+  // Tutte le select frequenze
+  const freqIds = Object.values(_CAT_TO_FREQ_ID);
+
+  if (modKey && MODELLI_ROTAZIONE[modKey]) {
+    const mod = MODELLI_ROTAZIONE[modKey];
+    // Calcola e applica frequenze auto-derivate
+    const freq = _calcolaFreqDaModello(modKey);
+    Object.entries(_CAT_TO_FREQ_ID).forEach(([cat, id]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const val = freq[cat] || 0;
+      el.value = val;
+      el.disabled = true;
+      el.style.opacity = '0.55';
+      el.style.cursor = 'not-allowed';
+      el.title = 'Derivato dal modello '+mod.nome+' (disattiva il modello per modificare)';
+    });
+    // Disabilita checkbox posizionali
+    _CHECKBOX_POSIZIONALI.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.disabled = true;
+        const lbl = el.closest('label');
+        if (lbl) {
+          lbl.style.opacity = '0.45';
+          lbl.style.cursor = 'not-allowed';
+          lbl.title = 'Gestito dal modello '+mod.nome;
+        }
+      }
+    });
+    // UI info
+    if (btnAnt) btnAnt.style.display = 'inline-block';
+    if (info) {
+      info.style.display = 'block';
+      info.textContent = '✓ Modello attivo: '+mod.nome+' — '+mod.descrizione+'. Le frequenze e regole posizionali sono derivate dallo schema.';
+    }
+    if (labelFreq) labelFreq.textContent = 'Frequenze settimanali (derivate da '+mod.nome+')';
+  } else {
+    // Riattiva tutto
+    freqIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = false;
+      el.style.opacity = '';
+      el.style.cursor = '';
+      el.title = '';
+    });
+    _CHECKBOX_POSIZIONALI.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.disabled = false;
+        const lbl = el.closest('label');
+        if (lbl) {
+          lbl.style.opacity = '';
+          lbl.style.cursor = 'pointer';
+          lbl.title = '';
+        }
+      }
+    });
+    if (btnAnt) btnAnt.style.display = 'none';
+    if (info) info.style.display = 'none';
+    if (labelFreq) labelFreq.textContent = 'Frequenze settimanali';
+  }
+}
+
+// Cambia modello selezionato
+function cambiaModelloRotazione() {
+  aggiornaUImodello();
+  salvaRegolePiano();
+}
+
+// Mostra popup anteprima dello schema settimanale
+function mostraAnteprimaModello() {
+  const sel = document.getElementById('rp-modello');
+  if (!sel || !sel.value) return;
+  const mod = MODELLI_ROTAZIONE[sel.value];
+  if (!mod) return;
+  const giorni = {lun:'Lunedì',mar:'Martedì',mer:'Mercoledì',gio:'Giovedì',ven:'Venerdì',sab:'Sabato'};
+  const emoji = {
+    'Legumi':'🌱','Latte & Derivati':'🧀','Carne Bianca':'🍗','Carne Rossa':'🥩',
+    'Pesce (Cena)':'🐟','Pesce (Pranzo)':'🐟','Uova':'🥚','Insaccati & Salumi':'🍖','LIBERO':'🆓'
+  };
+  const fmt = arr => (arr||[]).map(c => (emoji[c]||'•')+' '+c.replace(' (Cena)','').replace(' (Pranzo)',' (conserv.)').replace('Latte & Derivati','Latticini')).join(' + ');
+  let html = '<div style="background:rgba(0,0,0,0.55);position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;" onclick="document.getElementById(\'modello-popup\').remove()">';
+  html += '<div id="modello-popup" style="background:var(--s1);border-radius:12px;padding:1.5rem;max-width:560px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;"><strong style="color:var(--teal2);font-size:1.05rem;">📋 Schema '+mod.nome+'</strong><button onclick="document.getElementById(\'modello-popup\').parentElement.remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;">×</button></div>';
+  html += '<p style="font-size:.8rem;color:var(--text3);margin-bottom:1rem;">'+mod.descrizione+'</p>';
+  html += '<div style="font-size:.7rem;color:var(--text3);margin-bottom:.6rem;">Cereali: pranzo '+(mod.cereali.pranzo?'✓':'✗')+' • cena '+(mod.cereali.cena?'✓':'✗')+'</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem;">';
+  html += '<thead><tr style="background:var(--bg);"><th style="padding:.4rem;text-align:left;border:1px solid var(--border);">Giorno</th><th style="padding:.4rem;text-align:left;border:1px solid var(--border);">Pranzo</th><th style="padding:.4rem;text-align:left;border:1px solid var(--border);">Cena</th></tr></thead><tbody>';
+  Object.entries(mod.griglia).forEach(([g, pasti]) => {
+    html += '<tr><td style="padding:.4rem;border:1px solid var(--border);font-weight:600;">'+giorni[g]+'</td>';
+    html += '<td style="padding:.4rem;border:1px solid var(--border);">'+fmt(pasti.pranzo)+'</td>';
+    html += '<td style="padding:.4rem;border:1px solid var(--border);">'+fmt(pasti.cena)+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<p style="font-size:.7rem;color:var(--text3);margin-top:1rem;font-style:italic;">A ogni pasto si aggiungono sempre verdura 200g e olio EVO. La domenica non è prevista in questo modello.</p>';
+  html += '</div></div>';
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap.firstChild);
 }
 
 function caricaRegolePiano(p){
@@ -7293,7 +7486,15 @@ function caricaRegolePiano(p){
   sc('rp-rotazione',r.rotazione,true);sc('rp-verdura200',r.verdura200,true);
   sc('rp-frsecca',r.frsecca,false);sc('rp-cenaleggera',r.cenaleggera,false);
   st('rp-uova-note',r.uovanote);
-
+  // Modello rotazione
+  const elM=document.getElementById('rp-modello');
+  if(elM){elM.value=r.modello||'';}
+  // Tipo colazione
+  const tipoCol=r.tipocolazione||'mista';
+  const radioCol=document.querySelector('input[name="rp-colazione"][value="'+tipoCol+'"]');
+  if(radioCol)radioCol.checked=true;
+  // Applica stato UI in base al modello
+  if(typeof aggiornaUImodello==='function')aggiornaUImodello();
 }
 
 function getAnthropicKey() {
