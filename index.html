@@ -15,7 +15,7 @@
 .cella-menu-wrap{position:relative;display:inline-block;flex-shrink:0;}
 .cella-menu-btn{background:transparent;border:0.5px solid transparent;border-radius:4px;width:22px;height:22px;cursor:pointer;color:var(--text3);font-size:1rem;font-weight:700;letter-spacing:1px;line-height:1;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
 .cella-menu-btn:hover{background:var(--s2);border-color:var(--border);color:var(--text2);}
-.cella-dropdown{position:fixed;background:var(--s1);border:1px solid var(--border);border-radius:8px;min-width:170px;z-index:99999;padding:3px 0;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+.cella-dropdown{position:absolute;right:0;top:25px;background:var(--s1);border:1px solid var(--border);border-radius:8px;min-width:170px;z-index:999;padding:3px 0;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.10);}
 .cella-dropdown.open{display:block;}
 .cella-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:.76rem;color:var(--text2);cursor:pointer;white-space:nowrap;transition:background .1s;}
 .cella-dd-item:hover{background:var(--teal-bg);color:var(--teal2);}
@@ -755,10 +755,18 @@ main{flex:1;overflow-y:auto;}
           <!-- SEZIONE 1: Frequenze settimanali -->
           <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Frequenze settimanali</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .8rem;margin-bottom:1rem;">
+            <!-- SX: Carne rossa, Carne bianca, Pesce, Affettati -->
             <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
-              <span style="font-size:.78rem;color:var(--text2);">🐟 Pesce</span>
-              <select id="rp-pesce" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
-                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2" selected>2×/sett</option><option value="3">3×/sett</option><option value="4">4×/sett</option>
+              <span style="font-size:.78rem;color:var(--text2);">🥩 Carne rossa</span>
+              <select id="rp-carnerossa" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
+              </select>
+            </div>
+            <!-- DX: Legumi -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🌱 Legumi</span>
+              <select id="rp-legumi" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2">2×/sett</option><option value="3" selected>3×/sett</option><option value="4">4×/sett</option>
               </select>
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
@@ -767,12 +775,7 @@ main{flex:1;overflow-y:auto;}
                 <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2">2×/sett</option><option value="3" selected>3×/sett</option><option value="4">4×/sett</option><option value="5">5×/sett</option>
               </select>
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
-              <span style="font-size:.78rem;color:var(--text2);">🥩 Carne rossa</span>
-              <select id="rp-carnerossa" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
-                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
-              </select>
-            </div>
+            <!-- DX: Uova -->
             <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
               <span style="font-size:.78rem;color:var(--text2);">🥚 Uova</span>
               <select id="rp-uova" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
@@ -780,27 +783,29 @@ main{flex:1;overflow-y:auto;}
               </select>
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
-              <span style="font-size:.78rem;color:var(--text2);">🥗 Affettati magri</span>
-              <select id="rp-affettati" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
-                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
+              <span style="font-size:.78rem;color:var(--text2);">🐟 Pesce</span>
+              <select id="rp-pesce" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2" selected>2×/sett</option><option value="3">3×/sett</option><option value="4">4×/sett</option>
               </select>
             </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
-              <span style="font-size:.78rem;color:var(--text2);">🧀 Latticini</span>
-              <select id="rp-latticini" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
-                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
-              </select>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
-              <span style="font-size:.78rem;color:var(--text2);">🫘 Legumi</span>
-              <select id="rp-legumi" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
-                <option value="0">0×/sett</option><option value="1">1×/sett</option><option value="2">2×/sett</option><option value="3" selected>3×/sett</option><option value="4">4×/sett</option>
-              </select>
-            </div>
+            <!-- DX: Pesce conservato -->
             <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
               <span style="font-size:.78rem;color:var(--text2);">🐟 Pesce conservato</span>
               <select id="rp-pesceconsv" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
                 <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🍖 Affettati magri</span>
+              <select id="rp-affettati" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
+              </select>
+            </div>
+            <!-- DX: Latticini -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;">
+              <span style="font-size:.78rem;color:var(--text2);">🧀 Latticini</span>
+              <select id="rp-latticini" onchange="salvaRegolePiano()" style="font-size:.75rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .3rem;background:var(--bg);">
+                <option value="0">0×/sett</option><option value="1" selected>1×/sett</option><option value="2">2×/sett</option><option value="3">3×/sett</option>
               </select>
             </div>
           </div>
@@ -7469,26 +7474,16 @@ function toggleCellaMenu(id) {
   var isOpen = dropdown && dropdown.classList.contains('open');
   closeAllCellaMenus();
   if (!isOpen && dropdown) {
-    // Posizionamento fixed: calcola coordinate esatte del bottone nel viewport
+    // Fix: rilevamento posizione — apre verso l'alto se vicino al bordo inferiore
     var btn = dropdown.previousElementSibling;
     var rect = btn ? btn.getBoundingClientRect() : null;
-    if (rect) {
-      var menuH = 160; // altezza stimata dropdown (4 voci ~40px l'una)
-      var spazioSotto = window.innerHeight - rect.bottom;
-      if (spazioSotto < menuH + 8) {
-        // Apre VERSO L'ALTO: il fondo del menu coincide con il top del bottone
-        dropdown.style.top = 'auto';
-        dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-      } else {
-        // Apre VERSO IL BASSO: il top del menu coincide con il bottom del bottone
-        dropdown.style.bottom = 'auto';
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-      }
-      // Allinea a destra del bottone, senza uscire dallo schermo a sinistra
-      var menuW = 175;
-      var leftPos = rect.right - menuW;
-      dropdown.style.left = Math.max(8, leftPos) + 'px';
-      dropdown.style.right = 'auto';
+    var spazioSotto = rect ? (window.innerHeight - rect.bottom) : 999;
+    if (spazioSotto < 180) {
+      dropdown.style.top = 'auto';
+      dropdown.style.bottom = '25px';
+    } else {
+      dropdown.style.top = '25px';
+      dropdown.style.bottom = 'auto';
     }
     dropdown.classList.add('open');
   }
@@ -8187,7 +8182,7 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
     'Cereali con Glutine':'🌾','Cereali senza Glutine':'🌾',
     'Carne Bianca':'🍗','Carne Rossa':'🥩',
     'Pesce (Pranzo)':'🐟','Pesce (Cena)':'🐟',
-    'Insaccati & Salumi':'🥓','Legumi':'🫘','Uova':'🥚',
+    'Insaccati & Salumi':'🍖','Legumi':'🌱','Uova':'🥚',
     'Latte & Derivati':'🧀','Latte Vegetale':'🥛',
     'Frutta Secca & Semi':'🥜','Superfoods':'✨',
     'Verdura':'🥦','Frutta':'🍎','Spezie':'🌿',
