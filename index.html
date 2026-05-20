@@ -7223,13 +7223,35 @@ ${(function(){
   righe.push(legumi===0?'LEGUMI: mai':'Legumi: '+legumi+'x/settimana');
   righe.push('Pesce conservato: '+pesceconsv+'x/settimana');
   var r2=p.regolePiano||{};
-  if(r2.legumi135!==false)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
+  if(r2.legumi135!==false && !r2.modello)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
   if(r2.sabatolibero!==false)righe.push('Sabato cena libera: '+(p.weekend||'pizza'));
-  if(r2.rotazione!==false)righe.push('Rotazione proteine: non ripetere la stessa proteina due giorni di fila');
+  if(r2.rotazione!==false && !r2.modello)righe.push('Rotazione proteine: non ripetere la stessa proteina due giorni di fila');
   if(r2.verdura200!==false)righe.push('Verdura sempre 200g a pranzo e cena');
   if(r2.frsecca)righe.push('Frutta secca 20g ogni giorno');
   if(r2.cenaleggera)righe.push('Cena leggera: nessun carbo complesso a cena');
   if(r2.uovanote)righe.push('Posizionamento uova: '+r2.uovanote);
+  // Tipo colazione
+  var tipoCol=r2.tipocolazione||'mista';
+  if(tipoCol==='dolce')righe.push('Colazione: SOLO dolce (yogurt, frutta, cereali, ecc. — no salata)');
+  if(tipoCol==='salata')righe.push('Colazione: SOLO salata (uova, affettati, formaggi, ecc. — no dolce)');
+  // Modello rotazione settimanale
+  if(r2.modello && typeof MODELLI_ROTAZIONE!=='undefined' && MODELLI_ROTAZIONE[r2.modello]){
+    var mod=MODELLI_ROTAZIONE[r2.modello];
+    var giorniLabel={lun:'Lunedì',mar:'Martedì',mer:'Mercoledì',gio:'Giovedì',ven:'Venerdì',sab:'Sabato'};
+    var catLabel=function(c){return c.replace(' (Cena)','').replace(' (Pranzo)',' conservato').replace('Latte & Derivati','Latticini');};
+    righe.push('');
+    righe.push('⚠️ SCHEMA PROTEICO OBBLIGATORIO — modello '+mod.nome+' — SEGUIRE ESATTAMENTE:');
+    righe.push('Cereali a pranzo: '+(mod.cereali.pranzo?'SÌ':'NO')+' | Cereali a cena: '+(mod.cereali.cena?'SÌ':'NO'));
+    Object.entries(mod.griglia).forEach(function(entry){
+      var g=entry[0], pasti=entry[1];
+      var pLabel=giorniLabel[g];
+      var pr=(pasti.pranzo||[]).map(catLabel).join('+');
+      var ce=(pasti.cena||[]).map(catLabel).join('+');
+      righe.push(pLabel+': pranzo='+pr+' | cena='+ce);
+    });
+    righe.push('REGOLA ASSOLUTA: scegli alimenti DALLE PREFERENZE PAZIENTE per ogni categoria indicata. Non cambiare la struttura proteica.');
+    righe.push('');
+  }
 
   return righe.join('\n');
 })()}
