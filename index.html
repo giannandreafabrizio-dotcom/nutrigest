@@ -2322,9 +2322,11 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
 // (sia con che senza glutine). Stessa logica estendibile in futuro.
 const _GRUPPI_SEMAFORO = {
   'Cereali con Glutine': 'cereali',
-  'Cereali senza Glutine': 'cereali'
+  'Cereali senza Glutine': 'cereali',
+  'Pesce (Pranzo)': 'pesce',
+  'Pesce (Cena)': 'pesce'
   // Tutto il resto NON è in un gruppo: ogni categoria è alternativa solo a se stessa
-  // Esempi futuri: 'Pesce (Pranzo)':'pesce', 'Pesce (Cena)':'pesce'  se un giorno vuoi unirli
+  // Es: Carne Bianca e Carne Rossa restano separate
 };
 
 // Dato un nome alimento, restituisce la sua categoria semaforo esatta (es. "Pesce (Cena)")
@@ -7707,14 +7709,34 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
     compatibili.push({n: nome, cat: categoriaFunzionale, catSem: catSemAlimento, colore: colore, gDefault: gDefault});
   });
 
-  // Se non trova nulla nel profilo, mostra messaggio utile
+  // Se non trova nulla nel profilo, propone fallback "mostra tutto il database"
   if (!compatibili.length) {
     var nomeCategoria = catSemPrinc || 'questa categoria';
-    var msg = 'Nessuna alternativa disponibile per "' + nomeCategoria + '".\n\n' +
-              'Il paziente non ha selezionato altri alimenti in questa categoria nelle Preferenze cibi.\n\n' +
-              'Vai su Pazienti → Preferenze cibi → ' + nomeCategoria + ' e aggiungi gli alimenti.';
-    alert(msg);
-    return;
+    var nomiCategorie = catSemAccettate.length ? catSemAccettate.join(' + ') : nomeCategoria;
+    var msg = 'Nessuna alternativa nelle Preferenze cibi del paziente per "' + nomiCategorie + '".\n\n' +
+              'Vuoi vedere TUTTI gli alimenti di questa categoria dal database?\n' +
+              '(Saranno tutti contrassegnati come "non valutati" per questo paziente)\n\n' +
+              'OK = mostra tutti dal database\n' +
+              'Annulla = vai in Preferenze cibi a configurarli';
+    if (!confirm(msg)) return;
+    // Fallback: carica tutti gli alimenti delle categorie accettate dal database
+    catSemAccettate.forEach(function(catSem) {
+      if (!ALIMENTI[catSem] || !ALIMENTI[catSem].items) return;
+      ALIMENTI[catSem].items.forEach(function(item) {
+        if (cella.alimenti.some(function(a){ return a.n === item.n; })) return; // skip duplicati
+        compatibili.push({
+          n: item.n,
+          cat: categoriaFunzionale,
+          catSem: catSem,
+          colore: 'verde',         // default neutro
+          gDefault: item.g || 100
+        });
+      });
+    });
+    if (!compatibili.length) {
+      alert('Nessun alimento trovato nemmeno nel database per "' + nomiCategorie + '".');
+      return;
+    }
   }
 
   // Grammatura base del principale (per calcolo equivalenza)
