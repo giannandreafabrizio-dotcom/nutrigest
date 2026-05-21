@@ -140,6 +140,14 @@ main{flex:1;overflow-y:auto;}
 .fg input,.fg select,.fg textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:.46rem .7rem;outline:none;transition:border-color .15s;}
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal);background:var(--s1);}
 .fg textarea{resize:vertical;min-height:56px;}
+/* B3 — Validazione input numerici */
+.inp-err{border-color:var(--red)!important;background:#fff8f8!important;}
+.inp-warn{border-color:#e67e22!important;background:#fffbf5!important;}
+.inp-ok{border-color:var(--teal)!important;}
+.inp-hint{font-size:.65rem;margin-top:.22rem;display:block;line-height:1.3;}
+.inp-hint.err{color:var(--red);}
+.inp-hint.warn{color:#e67e22;}
+.inp-hint.ok{color:var(--teal2);}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
 .fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;}
 .mf{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.2rem;padding-top:.9rem;border-top:1px solid var(--border);}
@@ -5876,6 +5884,7 @@ function renderPdMacros(p){
 
   html+=`</div></div>`;
   document.getElementById('pd-macros').innerHTML=html;
+  if(window.b3Attach)setTimeout(window.b3Attach,50);
   // Storico TDEE al caricamento
   setTimeout(()=>renderStoricoTDEE(p),0);
 
@@ -10631,6 +10640,7 @@ function openInbody(){
   document.getElementById('ib-data').value=today();
   ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('mo-inbody').classList.add('open');
+  if(window.b3Attach)setTimeout(window.b3Attach,50);
 }
 
 function salvaInbody(){
@@ -11234,8 +11244,8 @@ function renderRic(){
     </div>`).join('');
 }
 
-function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('mo-ric').classList.add('open');}
-function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';document.getElementById('r-cat').value=r.cat||'pranzo';document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');document.getElementById('mo-ric').classList.add('open');}
+function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';document.getElementById('r-cat').value=r.cat||'pranzo';document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
 async function salvaRic(){
   const nome=document.getElementById('r-nome').value.trim();if(!nome){alert('Inserisci nome');return;}
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
@@ -11384,6 +11394,7 @@ function openNuovaEntrata(){
     else document.getElementById('en-studio').value='';
   };
   document.getElementById('mo-entrata').classList.add('open');
+  if(window.b3Attach)setTimeout(window.b3Attach,50);
 }
 function salvaEntrata(){
   const imp=parseFloat(document.getElementById('en-imp').value)||0;
@@ -12801,6 +12812,77 @@ document.getElementById('p2-save').onclick = async function() {
     console.error('[PIANI] push Supabase fallito per piano:', nuovoPiano.id);
   }
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// B3 — VALIDAZIONE INPUT NUMERICI — feedback visivo immediato
+// ══════════════════════════════════════════════════════════════════════════
+(function(){
+  const RULES = {
+    'ib-peso':{min:20,max:300,warn_min:35,warn_max:250,unit:'kg'},
+    'ib-pg':{min:1,max:70,warn_min:5,warn_max:60,unit:'%'},
+    'ib-g':{min:1,max:200,warn_min:3,warn_max:150,unit:'kg'},
+    'ib-m':{min:15,max:150,warn_min:20,warn_max:120,unit:'kg'},
+    'ib-musc':{min:10,max:120,warn_min:15,warn_max:100,unit:'kg'},
+    'ib-acqua':{min:5,max:80,warn_min:20,warn_max:70,unit:'L'},
+    'ib-mb':{min:500,max:5000,warn_min:900,warn_max:4000,unit:'kcal'},
+    'ib-visc':{min:1,max:20,warn_min:1,warn_max:15,unit:'lv'},
+    'ib-bmi':{min:10,max:70,warn_min:16,warn_max:50,unit:''},
+    'ib-altezza':{min:100,max:230,warn_min:130,warn_max:215,unit:'cm'},
+    'ib-peso-ideale':{min:30,max:200,warn_min:40,warn_max:150,unit:'kg'},
+    'ib-cint-fianchi':{min:0.5,max:2.0,warn_min:0.65,warn_max:1.5,unit:''},
+    'mac-peso-target':{min:30,max:250,warn_min:40,warn_max:200,unit:'kg'},
+    'mac-prot':{min:0.5,max:4.0,warn_min:0.8,warn_max:3.5,unit:'g/kg'},
+    'mac-grassi':{min:0.3,max:3.0,warn_min:0.5,warn_max:2.5,unit:'g/kg'},
+    'r-porzioni':{min:1,max:20,warn_min:1,warn_max:12,unit:''},
+    'r-kcal':{min:1,max:3000,warn_min:50,warn_max:2000,unit:'kcal'},
+    'r-prot':{min:0,max:300,warn_min:0,warn_max:200,unit:'g'},
+    'r-carb':{min:0,max:500,warn_min:0,warn_max:400,unit:'g'},
+    'r-grassi':{min:0,max:200,warn_min:0,warn_max:150,unit:'g'},
+    'p-veg':{min:0,max:7,warn_min:0,warn_max:7,unit:'gg'},
+    'p-prezzo-visita':{min:0,max:1000,warn_min:0,warn_max:800,unit:'€'},
+    'p-prezzo-controllo':{min:0,max:1000,warn_min:0,warn_max:800,unit:'€'},
+    'ev-prezzo':{min:0,max:2000,warn_min:0,warn_max:1500,unit:'€'},
+    'en-imp':{min:0,max:50000,warn_min:0,warn_max:20000,unit:'€'},
+  };
+  function getHint(el){
+    let h=el.parentElement.querySelector('.inp-hint');
+    if(!h){h=document.createElement('span');h.className='inp-hint';el.after(h);}
+    return h;
+  }
+  function validaInput(el){
+    const rule=RULES[el.id];
+    if(!rule)return;
+    const raw=el.value.trim();
+    const hint=getHint(el);
+    el.classList.remove('inp-err','inp-warn','inp-ok');
+    hint.textContent='';hint.className='inp-hint';
+    if(raw==='')return;
+    const v=parseFloat(raw);
+    if(isNaN(v)){
+      el.classList.add('inp-err');hint.classList.add('err');hint.textContent='\u2715 Valore non valido';return;
+    }
+    if(v<rule.min||v>rule.max){
+      el.classList.add('inp-err');hint.classList.add('err');
+      hint.textContent='\u2715 Fuori range ('+rule.min+'\u2013'+rule.max+(rule.unit?' '+rule.unit:'')+ ')';return;
+    }
+    if(v<rule.warn_min||v>rule.warn_max){
+      el.classList.add('inp-warn');hint.classList.add('warn');hint.textContent='\u26a0 Valore insolito \u2014 verifica';return;
+    }
+    el.classList.add('inp-ok');hint.classList.add('ok');hint.textContent='\u2713';
+  }
+  function attacca(id){
+    const el=document.getElementById(id);
+    if(!el||el._b3)return;
+    el._b3=true;
+    el.addEventListener('input',()=>validaInput(el));
+    el.addEventListener('blur',()=>validaInput(el));
+  }
+  function attaccaTutti(){Object.keys(RULES).forEach(attacca);}
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',attaccaTutti);}
+  else{attaccaTutti();}
+  window.b3Attach=attaccaTutti;
+  window.b3ValidaInput=validaInput;
+})();
 </script>
 <div id="p2-ric-panel" style="position:fixed;top:0;right:0;bottom:0;width:300px;background:var(--s1);border-left:1px solid var(--border);z-index:1000;display:flex;flex-direction:column;box-shadow:-4px 0 20px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .25s ease;">
   <div style="padding:1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
