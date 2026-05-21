@@ -754,13 +754,16 @@ main{flex:1;overflow-y:auto;}
 
           <!-- SEZIONE 0: Rotazione settimanale (modelli) -->
           <div style="font-size:.65rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.6rem;">Rotazione settimanale</div>
-          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem;flex-wrap:wrap;">
             <select id="rp-modello" onchange="cambiaModelloRotazione()" style="font-size:.78rem;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;background:var(--bg);min-width:220px;">
               <option value="">Nessuno (AI decide liberamente)</option>
-              <option value="naruto">🍜 NARUTO (cereali a pranzo e cena)</option>
-              <option value="hinata">🌸 HINATA (cereali solo a pranzo)</option>
             </select>
-            <button type="button" onclick="mostraAnteprimaModello()" id="btn-anteprima-modello" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);display:none;">👁 Vedi schema</button>
+            <button type="button" onclick="mostraAnteprimaModello()" id="btn-anteprima-modello" title="Vedi schema" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);display:none;">👁</button>
+            <button type="button" onclick="apriEditorModello('modifica')" id="btn-modifica-modello" title="Modifica modello" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);display:none;">✏️</button>
+            <button type="button" onclick="apriEditorModello('duplica')" id="btn-duplica-modello" title="Duplica modello" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);display:none;">📋</button>
+            <button type="button" onclick="apriEditorModello('nuovo')" id="btn-nuovo-modello" title="Nuovo modello custom" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid var(--teal);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--teal);font-weight:600;">➕ Nuovo</button>
+            <button type="button" onclick="ripristinaModelloOriginale()" id="btn-ripristina-modello" title="Ripristina originale di sistema" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid #f59e0b;border-radius:6px;background:var(--bg);cursor:pointer;color:#f59e0b;display:none;">🔄 Ripristina</button>
+            <button type="button" onclick="eliminaModelloCustom()" id="btn-elimina-modello" title="Elimina modello custom" style="font-size:.72rem;padding:.3rem .55rem;border:1px solid #ef4444;border-radius:6px;background:var(--bg);cursor:pointer;color:#ef4444;display:none;">🗑️</button>
           </div>
           <div id="modello-info" style="font-size:.72rem;color:var(--text3);font-style:italic;margin-bottom:1rem;display:none;"></div>
 
@@ -2745,6 +2748,8 @@ async function pullFromSheets(){
     await pullPianiSupabase();
     await pullEntrateSupabase();
     await pullEventiSupabase();
+    // Pull modelli rotazione custom
+    try { await pullModelliSupabase(); } catch(e){ console.error('[MODELLI] pull error:', e); }
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
@@ -7237,14 +7242,14 @@ ${(function(){
   // Modello rotazione settimanale
   if(r2.modello && typeof MODELLI_ROTAZIONE!=='undefined' && MODELLI_ROTAZIONE[r2.modello]){
     var mod=MODELLI_ROTAZIONE[r2.modello];
-    var giorniLabel={lun:'Lunedì',mar:'Martedì',mer:'Mercoledì',gio:'Giovedì',ven:'Venerdì',sab:'Sabato'};
+    var giorniLabel={lun:'Lunedì',mar:'Martedì',mer:'Mercoledì',gio:'Giovedì',ven:'Venerdì',sab:'Sabato',dom:'Domenica'};
     var catLabel=function(c){return c.replace(' (Cena)','').replace(' (Pranzo)',' conservato').replace('Latte & Derivati','Latticini');};
     righe.push('');
     righe.push('⚠️ SCHEMA PROTEICO OBBLIGATORIO — modello '+mod.nome+' — SEGUIRE ESATTAMENTE:');
     righe.push('Cereali a pranzo: '+(mod.cereali.pranzo?'SÌ':'NO')+' | Cereali a cena: '+(mod.cereali.cena?'SÌ':'NO'));
     Object.entries(mod.griglia).forEach(function(entry){
       var g=entry[0], pasti=entry[1];
-      var pLabel=giorniLabel[g];
+      var pLabel=giorniLabel[g]||g;
       var pr=(pasti.pranzo||[]).map(catLabel).join('+');
       var ce=(pasti.cena||[]).map(catLabel).join('+');
       righe.push(pLabel+': pranzo='+pr+' | cena='+ce);
@@ -7328,7 +7333,8 @@ function salvaRegolePiano(){
 // Griglia: 6 giorni (lun→sab) × 2 pasti (pranzo, cena). Domenica esclusa.
 // Ogni cella è un array di categorie semaforo (es. ['Legumi','Latticini'])
 // Cereali sono SOTTOINTESI dal flag .cereali per pasto (true = aggiungi cereale)
-const MODELLI_ROTAZIONE = {
+// Schemi ORIGINALI di sistema — usati per "Ripristina originale" e per identificare modelli di sistema
+const MODELLI_ROTAZIONE_DEFAULT = {
   naruto: {
     nome: 'NARUTO',
     descrizione: 'Cereali a pranzo e cena, distribuzione classica 6 giorni',
@@ -7356,6 +7362,96 @@ const MODELLI_ROTAZIONE = {
     }
   }
 };
+
+// Modelli ATTIVI: parte dai default, viene modificato dall'utente (sistema modificato + custom)
+// Caricato all'avvio da localStorage/Supabase tramite caricaModelliCustom()
+let MODELLI_ROTAZIONE = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE_DEFAULT));
+
+// Helper: è un modello di sistema (NARUTO/HINATA)?
+function _isModelloSistema(key){ return Object.prototype.hasOwnProperty.call(MODELLI_ROTAZIONE_DEFAULT, key); }
+
+// Helper: è un modello di sistema MODIFICATO rispetto all'originale?
+function _isModelloSistemaModificato(key){
+  if(!_isModelloSistema(key)) return false;
+  return JSON.stringify(MODELLI_ROTAZIONE[key]) !== JSON.stringify(MODELLI_ROTAZIONE_DEFAULT[key]);
+}
+
+// Categorie disponibili nell'editor (devono coincidere con _CAT_TO_FREQ_ID più LIBERO)
+const _CATEGORIE_MODELLO = [
+  'Carne Bianca','Carne Rossa','Pesce (Cena)','Pesce (Pranzo)',
+  'Uova','Latte & Derivati','Legumi','Insaccati & Salumi','LIBERO'
+];
+
+// Carica modelli custom + override sistema da localStorage
+function caricaModelliCustomLocal(){
+  try {
+    const raw = localStorage.getItem('modelliRotazione');
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    if(!obj || typeof obj!=='object') return;
+    // Reset al default poi applica
+    MODELLI_ROTAZIONE = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE_DEFAULT));
+    Object.entries(obj).forEach(([k,v])=>{ if(v && v.nome && v.griglia) MODELLI_ROTAZIONE[k] = v; });
+    console.log('[MODELLI] caricati da localStorage:', Object.keys(obj).length);
+  } catch(e){ console.error('[MODELLI] errore caricamento locale:', e); }
+}
+
+// Salva modelli custom + override sistema in localStorage
+function salvaModelliCustomLocal(){
+  try {
+    // Salva solo quelli "diversi dal default" (custom puri o sistema modificato)
+    const toSave = {};
+    Object.entries(MODELLI_ROTAZIONE).forEach(([k,v])=>{
+      if(!_isModelloSistema(k)) toSave[k] = v; // custom puro
+      else if(_isModelloSistemaModificato(k)) toSave[k] = v; // sistema modificato
+    });
+    localStorage.setItem('modelliRotazione', JSON.stringify(toSave));
+    console.log('[MODELLI] salvati in localStorage:', Object.keys(toSave).length);
+  } catch(e){ console.error('[MODELLI] errore salvataggio locale:', e); }
+}
+
+// === SUPABASE SYNC modelli rotazione (riga dedicata in tabella pazienti) ===
+const _MODELLI_META_KEY = '__modelli_rotazione';
+
+async function pushModelliSupabase(){
+  try {
+    const toSave = {};
+    Object.entries(MODELLI_ROTAZIONE).forEach(([k,v])=>{
+      if(!_isModelloSistema(k)) toSave[k] = v;
+      else if(_isModelloSistemaModificato(k)) toSave[k] = v;
+    });
+    const payload = {id:_MODELLI_META_KEY, data:{modelli:toSave}, updated_at:new Date().toISOString()};
+    const r = await fetch(SUPA_URL+'/rest/v1/pazienti', {
+      method:'POST',
+      headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify(payload)
+    });
+    if(!r.ok && r.status!==200 && r.status!==201){
+      console.error('[MODELLI] push ERRORE — status:', r.status, await r.text());
+      return false;
+    }
+    console.log('[MODELLI] push OK —', Object.keys(toSave).length, 'modelli sincronizzati');
+    return true;
+  } catch(e){ console.error('[MODELLI] push ECCEZIONE:', e); return false; }
+}
+
+async function pullModelliSupabase(){
+  try {
+    const r = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_MODELLI_META_KEY+'&select=id,data', {method:'GET',headers:supaHeaders()});
+    if(!r.ok) return false;
+    const rows = await r.json();
+    if(!rows || !rows.length) return false;
+    const data = rows[0].data;
+    if(!data || !data.modelli) return false;
+    // Reset al default poi applica i salvati
+    MODELLI_ROTAZIONE = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE_DEFAULT));
+    Object.entries(data.modelli).forEach(([k,v])=>{ if(v && v.nome && v.griglia) MODELLI_ROTAZIONE[k] = v; });
+    // Sincronizza anche localStorage
+    salvaModelliCustomLocal();
+    console.log('[MODELLI] pull OK —', Object.keys(data.modelli).length, 'modelli caricati da Supabase');
+    return true;
+  } catch(e){ console.error('[MODELLI] pull ECCEZIONE:', e); return false; }
+}
 
 // Mappa categoria semaforo → id frequenza
 const _CAT_TO_FREQ_ID = {
@@ -7390,6 +7486,10 @@ function aggiornaUImodello() {
   if (!sel) return;
   const modKey = sel.value;
   const btnAnt = document.getElementById('btn-anteprima-modello');
+  const btnMod = document.getElementById('btn-modifica-modello');
+  const btnDup = document.getElementById('btn-duplica-modello');
+  const btnRip = document.getElementById('btn-ripristina-modello');
+  const btnDel = document.getElementById('btn-elimina-modello');
   const info = document.getElementById('modello-info');
   const labelFreq = document.getElementById('freq-settimanali-label');
 
@@ -7423,11 +7523,18 @@ function aggiornaUImodello() {
         }
       }
     });
-    // UI info
+    // UI bottoni
     if (btnAnt) btnAnt.style.display = 'inline-block';
+    if (btnMod) btnMod.style.display = 'inline-block';
+    if (btnDup) btnDup.style.display = 'inline-block';
+    // Ripristina visibile solo se modello di sistema MODIFICATO
+    if (btnRip) btnRip.style.display = _isModelloSistemaModificato(modKey) ? 'inline-block' : 'none';
+    // Elimina visibile solo per modelli custom (NON di sistema)
+    if (btnDel) btnDel.style.display = _isModelloSistema(modKey) ? 'none' : 'inline-block';
     if (info) {
       info.style.display = 'block';
-      info.textContent = '✓ Modello attivo: '+mod.nome+' — '+mod.descrizione+'. Le frequenze e regole posizionali sono derivate dallo schema.';
+      var suffix = _isModelloSistemaModificato(modKey) ? ' <span style="color:#f59e0b;">(modificato)</span>' : '';
+      info.innerHTML = '✓ Modello attivo: '+mod.nome+suffix+' — '+mod.descrizione+'. Le frequenze e regole posizionali sono derivate dallo schema.';
     }
     if (labelFreq) labelFreq.textContent = 'Frequenze settimanali (derivate da '+mod.nome+')';
   } else {
@@ -7453,8 +7560,40 @@ function aggiornaUImodello() {
       }
     });
     if (btnAnt) btnAnt.style.display = 'none';
+    if (btnMod) btnMod.style.display = 'none';
+    if (btnDup) btnDup.style.display = 'none';
+    if (btnRip) btnRip.style.display = 'none';
+    if (btnDel) btnDel.style.display = 'none';
     if (info) info.style.display = 'none';
     if (labelFreq) labelFreq.textContent = 'Frequenze settimanali';
+  }
+}
+
+// Popola il dropdown dei modelli dinamicamente
+function popolaDropdownModelli(){
+  const sel = document.getElementById('rp-modello');
+  if(!sel) return;
+  const valoreCorrente = sel.value;
+  // Mantieni solo l'opzione "Nessuno"
+  sel.innerHTML = '<option value="">Nessuno (AI decide liberamente)</option>';
+  // Aggiungi tutti i modelli (sistema prima, poi custom)
+  const chiaviSistema = Object.keys(MODELLI_ROTAZIONE_DEFAULT);
+  const chiaviCustom = Object.keys(MODELLI_ROTAZIONE).filter(k => !_isModelloSistema(k));
+  chiaviSistema.concat(chiaviCustom).forEach(k => {
+    if(!MODELLI_ROTAZIONE[k]) return;
+    const mod = MODELLI_ROTAZIONE[k];
+    const opt = document.createElement('option');
+    opt.value = k;
+    var iconaPrefix = _isModelloSistema(k)
+      ? (k==='naruto'?'🍜 ':k==='hinata'?'🌸 ':'⭐ ')
+      : '✨ ';
+    var suffix = _isModelloSistemaModificato(k) ? ' (modificato)' : '';
+    opt.textContent = iconaPrefix + mod.nome + suffix;
+    sel.appendChild(opt);
+  });
+  // Ripristina selezione se ancora valida
+  if(valoreCorrente && MODELLI_ROTAZIONE[valoreCorrente]){
+    sel.value = valoreCorrente;
   }
 }
 
@@ -7464,36 +7603,397 @@ function cambiaModelloRotazione() {
   salvaRegolePiano();
 }
 
-// Mostra popup anteprima dello schema settimanale
+// Ripristina modello di sistema all'originale
+async function ripristinaModelloOriginale(){
+  const sel = document.getElementById('rp-modello');
+  if(!sel || !sel.value) return;
+  const modKey = sel.value;
+  if(!_isModelloSistema(modKey)) return;
+  if(!_isModelloSistemaModificato(modKey)){
+    notif('Il modello è già nella versione originale', 2000);
+    return;
+  }
+  const nome = MODELLI_ROTAZIONE_DEFAULT[modKey].nome;
+  if(!confirm('Ripristinare il modello "'+nome+'" alla versione originale di sistema?\n\nLe tue modifiche andranno perse.')) return;
+  // Reset
+  MODELLI_ROTAZIONE[modKey] = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE_DEFAULT[modKey]));
+  salvaModelliCustomLocal();
+  pushModelliSupabase().catch(()=>{});
+  popolaDropdownModelli();
+  sel.value = modKey;
+  aggiornaUImodello();
+  salvaRegolePiano();
+  notif('✓ Modello "'+nome+'" ripristinato all\'originale', 2500);
+}
+
+// Elimina modello custom (NON di sistema)
+async function eliminaModelloCustom(){
+  const sel = document.getElementById('rp-modello');
+  if(!sel || !sel.value) return;
+  const modKey = sel.value;
+  if(_isModelloSistema(modKey)) return; // safety
+  const nome = MODELLI_ROTAZIONE[modKey].nome;
+  if(!confirm('Eliminare definitivamente il modello "'+nome+'"?\n\nL\'azione non è reversibile.')) return;
+  delete MODELLI_ROTAZIONE[modKey];
+  salvaModelliCustomLocal();
+  pushModelliSupabase().catch(()=>{});
+  sel.value = '';
+  popolaDropdownModelli();
+  aggiornaUImodello();
+  salvaRegolePiano();
+  notif('✓ Modello "'+nome+'" eliminato', 2500);
+}
+
+// Mostra popup anteprima dello schema settimanale (versione a griglia)
 function mostraAnteprimaModello() {
   const sel = document.getElementById('rp-modello');
   if (!sel || !sel.value) return;
   const mod = MODELLI_ROTAZIONE[sel.value];
   if (!mod) return;
-  const giorni = {lun:'Lunedì',mar:'Martedì',mer:'Mercoledì',gio:'Giovedì',ven:'Venerdì',sab:'Sabato'};
+  _renderGrigliaModello(mod, {readonly:true, modKey:sel.value});
+}
+
+// === EDITOR MODELLO ROTAZIONE ===
+// modalità: 'modifica' | 'duplica' | 'nuovo'
+function apriEditorModello(modalita){
+  const sel = document.getElementById('rp-modello');
+  let mod = null;
+  let modKey = null;
+  if(modalita === 'modifica'){
+    if(!sel || !sel.value){ alert('Seleziona prima un modello da modificare.'); return; }
+    modKey = sel.value;
+    mod = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE[modKey]));
+    if(_isModelloSistema(modKey)){
+      if(!confirm('Stai per modificare il modello di sistema "'+mod.nome+'".\n\nLe tue modifiche verranno salvate. Potrai sempre ripristinare l\'originale con il tasto 🔄. Continuare?')) return;
+    }
+  } else if(modalita === 'duplica'){
+    if(!sel || !sel.value){ alert('Seleziona prima un modello da duplicare.'); return; }
+    mod = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE[sel.value]));
+    mod.nome = mod.nome + ' (copia)';
+  } else { // nuovo
+    mod = {
+      nome: '',
+      descrizione: '',
+      cereali: {pranzo:true, cena:true},
+      griglia: {
+        lun:{pranzo:[], cena:[]}, mar:{pranzo:[], cena:[]}, mer:{pranzo:[], cena:[]},
+        gio:{pranzo:[], cena:[]}, ven:{pranzo:[], cena:[]}, sab:{pranzo:[], cena:[]}
+      }
+    };
+  }
+  _renderGrigliaModello(mod, {readonly:false, modalita, modKey});
+}
+
+// Render principale: gestisce sia anteprima (readonly) sia editor (editabile)
+function _renderGrigliaModello(mod, opts){
+  opts = opts || {};
+  const readonly = !!opts.readonly;
+  const modalita = opts.modalita || 'modifica';
+  const modKey = opts.modKey || null;
+  const giorniLabel = {lun:'Lun',mar:'Mar',mer:'Mer',gio:'Gio',ven:'Ven',sab:'Sab',dom:'Dom'};
   const emoji = {
-    'Legumi':'🌱','Latte & Derivati':'🧀','Carne Bianca':'🍗','Carne Rossa':'🥩',
-    'Pesce (Cena)':'🐟','Pesce (Pranzo)':'🐟','Uova':'🥚','Insaccati & Salumi':'🍖','LIBERO':'🆓'
+    'Carne Bianca':'🍗','Carne Rossa':'🥩','Pesce (Cena)':'🐟','Pesce (Pranzo)':'🐟',
+    'Uova':'🥚','Latte & Derivati':'🧀','Legumi':'🌱','Insaccati & Salumi':'🍖','LIBERO':'🆓'
   };
-  const fmt = arr => (arr||[]).map(c => (emoji[c]||'•')+' '+c.replace(' (Cena)','').replace(' (Pranzo)',' (conserv.)').replace('Latte & Derivati','Latticini')).join(' + ');
-  let html = '<div style="background:rgba(0,0,0,0.55);position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;" onclick="document.getElementById(\'modello-popup\').remove()">';
-  html += '<div id="modello-popup" style="background:var(--s1);border-radius:12px;padding:1.5rem;max-width:560px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">';
-  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;"><strong style="color:var(--teal2);font-size:1.05rem;">📋 Schema '+mod.nome+'</strong><button onclick="document.getElementById(\'modello-popup\').parentElement.remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;">×</button></div>';
-  html += '<p style="font-size:.8rem;color:var(--text3);margin-bottom:1rem;">'+mod.descrizione+'</p>';
-  html += '<div style="font-size:.7rem;color:var(--text3);margin-bottom:.6rem;">Cereali: pranzo '+(mod.cereali.pranzo?'✓':'✗')+' • cena '+(mod.cereali.cena?'✓':'✗')+'</div>';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:.78rem;">';
-  html += '<thead><tr style="background:var(--bg);"><th style="padding:.4rem;text-align:left;border:1px solid var(--border);">Giorno</th><th style="padding:.4rem;text-align:left;border:1px solid var(--border);">Pranzo</th><th style="padding:.4rem;text-align:left;border:1px solid var(--border);">Cena</th></tr></thead><tbody>';
-  Object.entries(mod.griglia).forEach(([g, pasti]) => {
-    html += '<tr><td style="padding:.4rem;border:1px solid var(--border);font-weight:600;">'+giorni[g]+'</td>';
-    html += '<td style="padding:.4rem;border:1px solid var(--border);">'+fmt(pasti.pranzo)+'</td>';
-    html += '<td style="padding:.4rem;border:1px solid var(--border);">'+fmt(pasti.cena)+'</td></tr>';
-  });
-  html += '</tbody></table>';
-  html += '<p style="font-size:.7rem;color:var(--text3);margin-top:1rem;font-style:italic;">A ogni pasto si aggiungono sempre verdura 200g e olio EVO. La domenica non è prevista in questo modello.</p>';
-  html += '</div></div>';
-  const wrap = document.createElement('div');
-  wrap.innerHTML = html;
-  document.body.appendChild(wrap.firstChild);
+
+  // Rimuovi eventuale popup precedente
+  const old = document.getElementById('modello-popup-overlay');
+  if(old) old.remove();
+
+  // Crea overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'modello-popup-overlay';
+  overlay.style.cssText = 'background:rgba(0,0,0,0.55);position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+  const popup = document.createElement('div');
+  popup.style.cssText = 'background:var(--s1);border-radius:12px;padding:1.5rem;max-width:780px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
+  popup.onclick = function(e){ e.stopPropagation(); };
+  overlay.appendChild(popup);
+
+  // Stato interno (mutato in editor mode)
+  const stato = {
+    mod: mod,
+    giorni: Object.keys(mod.griglia)
+  };
+  // Assicura ordine corretto
+  const ordineGiorni = ['lun','mar','mer','gio','ven','sab','dom'];
+  stato.giorni = ordineGiorni.filter(g => stato.mod.griglia[g]);
+
+  function rerender(){
+    popup.innerHTML = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;';
+    const titolo = document.createElement('strong');
+    titolo.style.cssText = 'color:var(--teal2);font-size:1.05rem;';
+    if(readonly){
+      titolo.textContent = '📋 Schema ' + (stato.mod.nome || 'modello');
+    } else {
+      titolo.textContent = (modalita==='nuovo'?'➕ Nuovo modello':modalita==='duplica'?'📋 Duplica modello':'✏️ Modifica modello');
+    }
+    const btnX = document.createElement('button');
+    btnX.style.cssText = 'background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;';
+    btnX.textContent = '×';
+    btnX.onclick = function(){ overlay.remove(); };
+    header.appendChild(titolo);
+    header.appendChild(btnX);
+    popup.appendChild(header);
+
+    // Sezione: Nome + descrizione + cereali + giorni
+    if(!readonly){
+      const meta = document.createElement('div');
+      meta.style.cssText = 'display:grid;grid-template-columns:1fr;gap:.6rem;margin-bottom:1rem;padding:.8rem;background:var(--bg);border-radius:8px;';
+      // Nome
+      const labelN = document.createElement('label');
+      labelN.style.cssText = 'font-size:.72rem;color:var(--text3);font-weight:600;';
+      labelN.textContent = 'Nome modello (obbligatorio)';
+      const inputN = document.createElement('input');
+      inputN.type = 'text';
+      inputN.value = stato.mod.nome || '';
+      inputN.placeholder = 'es. KETO-7, MEDITERRANEO, VEGETARIANO';
+      inputN.style.cssText = 'font-size:.85rem;padding:.4rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);width:100%;';
+      inputN.oninput = function(){ stato.mod.nome = this.value; };
+      labelN.appendChild(document.createElement('br'));
+      labelN.appendChild(inputN);
+      meta.appendChild(labelN);
+      // Descrizione
+      const labelD = document.createElement('label');
+      labelD.style.cssText = 'font-size:.72rem;color:var(--text3);font-weight:600;';
+      labelD.textContent = 'Descrizione breve (opzionale)';
+      const inputD = document.createElement('input');
+      inputD.type = 'text';
+      inputD.value = stato.mod.descrizione || '';
+      inputD.placeholder = 'es. Keto 7 giorni senza cereali';
+      inputD.style.cssText = 'font-size:.82rem;padding:.4rem .55rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);width:100%;';
+      inputD.oninput = function(){ stato.mod.descrizione = this.value; };
+      labelD.appendChild(document.createElement('br'));
+      labelD.appendChild(inputD);
+      meta.appendChild(labelD);
+      // Cereali + Giorni
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center;font-size:.78rem;';
+      // Cereali pranzo
+      const cP = document.createElement('label');
+      cP.style.cssText = 'display:flex;align-items:center;gap:.35rem;cursor:pointer;';
+      const cPi = document.createElement('input'); cPi.type='checkbox'; cPi.checked = !!stato.mod.cereali.pranzo;
+      cPi.onchange = function(){ stato.mod.cereali.pranzo = this.checked; };
+      cP.appendChild(cPi); cP.appendChild(document.createTextNode(' 🌾 Cereali a pranzo'));
+      // Cereali cena
+      const cC = document.createElement('label');
+      cC.style.cssText = 'display:flex;align-items:center;gap:.35rem;cursor:pointer;';
+      const cCi = document.createElement('input'); cCi.type='checkbox'; cCi.checked = !!stato.mod.cereali.cena;
+      cCi.onchange = function(){ stato.mod.cereali.cena = this.checked; };
+      cC.appendChild(cCi); cC.appendChild(document.createTextNode(' 🌾 Cereali a cena'));
+      // Giorni 6 o 7
+      const gT = document.createElement('label');
+      gT.style.cssText = 'display:flex;align-items:center;gap:.35rem;cursor:pointer;margin-left:auto;';
+      const gTi = document.createElement('input'); gTi.type='checkbox'; gTi.checked = stato.giorni.indexOf('dom')>=0;
+      gTi.onchange = function(){
+        if(this.checked){
+          if(!stato.mod.griglia.dom) stato.mod.griglia.dom = {pranzo:[], cena:[]};
+          if(stato.giorni.indexOf('dom')<0) stato.giorni.push('dom');
+        } else {
+          delete stato.mod.griglia.dom;
+          stato.giorni = stato.giorni.filter(g => g!=='dom');
+        }
+        rerender();
+      };
+      gT.appendChild(gTi); gT.appendChild(document.createTextNode(' 📅 Includi domenica'));
+      row.appendChild(cP); row.appendChild(cC); row.appendChild(gT);
+      meta.appendChild(row);
+      popup.appendChild(meta);
+    } else {
+      // Anteprima: descrizione + badge cereali
+      if(stato.mod.descrizione){
+        const desc = document.createElement('p');
+        desc.style.cssText = 'font-size:.8rem;color:var(--text3);margin-bottom:.6rem;';
+        desc.textContent = stato.mod.descrizione;
+        popup.appendChild(desc);
+      }
+      const badges = document.createElement('div');
+      badges.style.cssText = 'font-size:.72rem;color:var(--text3);margin-bottom:.8rem;display:flex;gap:.8rem;flex-wrap:wrap;';
+      badges.innerHTML =
+        '<span>🌾 Cereali pranzo: <strong>'+(stato.mod.cereali.pranzo?'sì':'no')+'</strong></span>'+
+        '<span>🌾 Cereali cena: <strong>'+(stato.mod.cereali.cena?'sì':'no')+'</strong></span>'+
+        '<span>📅 Giorni: <strong>'+stato.giorni.length+'</strong></span>';
+      popup.appendChild(badges);
+    }
+
+    // Griglia (header + righe)
+    const table = document.createElement('table');
+    table.style.cssText = 'width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:1rem;';
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    trh.style.cssText = 'background:var(--bg);';
+    ['Giorno','🌅 Pranzo','🌙 Cena'].forEach(t=>{
+      const th = document.createElement('th');
+      th.style.cssText = 'padding:.5rem;text-align:left;border:1px solid var(--border);font-weight:600;';
+      th.textContent = t;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    stato.giorni.forEach(g => {
+      const tr = document.createElement('tr');
+      // Colonna giorno
+      const tdG = document.createElement('td');
+      tdG.style.cssText = 'padding:.5rem;border:1px solid var(--border);font-weight:600;width:80px;';
+      tdG.textContent = giorniLabel[g] || g;
+      tr.appendChild(tdG);
+      // Colonne pranzo e cena
+      ['pranzo','cena'].forEach(pasto => {
+        const td = document.createElement('td');
+        td.style.cssText = 'padding:.5rem;border:1px solid var(--border);vertical-align:top;';
+        const cats = (stato.mod.griglia[g]||{})[pasto] || [];
+        if(readonly){
+          td.textContent = cats.length ? cats.map(c=>(emoji[c]||'•')+' '+c.replace(' (Cena)','').replace(' (Pranzo)',' (cons.)').replace('Latte & Derivati','Latticini')).join(' + ') : '—';
+        } else {
+          // Editor: chips per ogni categoria + bottone aggiungi
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;';
+          cats.forEach((cat, idx) => {
+            const chip = document.createElement('span');
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:.25rem;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:.15rem .5rem;font-size:.72rem;';
+            chip.innerHTML = '<span>'+(emoji[cat]||'•')+' '+cat.replace(' (Cena)','').replace(' (Pranzo)',' (cons.)').replace('Latte & Derivati','Latticini')+'</span>';
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.style.cssText = 'background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;line-height:1;padding:0 0 0 .15rem;';
+            rm.textContent = '×';
+            rm.onclick = function(){
+              stato.mod.griglia[g][pasto] = cats.filter((_,i)=>i!==idx);
+              rerender();
+            };
+            chip.appendChild(rm);
+            wrap.appendChild(chip);
+          });
+          // Select per aggiungere
+          const selAdd = document.createElement('select');
+          selAdd.style.cssText = 'font-size:.7rem;border:1px solid var(--border);border-radius:5px;padding:.15rem .25rem;background:var(--bg);';
+          selAdd.innerHTML = '<option value="">+ aggiungi…</option>';
+          _CATEGORIE_MODELLO.forEach(c => {
+            const o = document.createElement('option'); o.value = c; o.textContent = c; selAdd.appendChild(o);
+          });
+          selAdd.onchange = function(){
+            if(!this.value) return;
+            if(!stato.mod.griglia[g][pasto]) stato.mod.griglia[g][pasto] = [];
+            stato.mod.griglia[g][pasto].push(this.value);
+            rerender();
+          };
+          wrap.appendChild(selAdd);
+          td.appendChild(wrap);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    popup.appendChild(table);
+
+    // Riepilogo frequenze live
+    const freqDiv = document.createElement('div');
+    freqDiv.style.cssText = 'background:var(--bg);border-radius:8px;padding:.7rem .9rem;margin-bottom:1rem;font-size:.75rem;';
+    const conteggio = {};
+    stato.giorni.forEach(g => {
+      ['pranzo','cena'].forEach(p => {
+        ((stato.mod.griglia[g]||{})[p]||[]).forEach(c => {
+          if(c==='LIBERO') return;
+          conteggio[c] = (conteggio[c]||0)+1;
+        });
+      });
+    });
+    const entries = Object.entries(conteggio);
+    let freqHtml = '<strong style="color:var(--teal2);">📊 Frequenze settimanali:</strong> ';
+    if(entries.length){
+      freqHtml += entries.map(([c,n]) => (emoji[c]||'•')+' '+c.replace(' (Cena)','').replace(' (Pranzo)',' (cons.)').replace('Latte & Derivati','Latticini')+' <strong>'+n+'×</strong>').join(' · ');
+    } else {
+      freqHtml += '<em style="color:var(--text3);">nessuna proteina inserita</em>';
+    }
+    freqDiv.innerHTML = freqHtml;
+    popup.appendChild(freqDiv);
+
+    // Footer bottoni
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap;';
+    if(readonly){
+      const bClose = document.createElement('button');
+      bClose.type = 'button';
+      bClose.style.cssText = 'font-size:.82rem;padding:.45rem .9rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);';
+      bClose.textContent = 'Chiudi';
+      bClose.onclick = function(){ overlay.remove(); };
+      footer.appendChild(bClose);
+      const note = document.createElement('p');
+      note.style.cssText = 'font-size:.7rem;color:var(--text3);font-style:italic;margin:.5rem 0 0;flex-basis:100%;';
+      note.textContent = 'A ogni pasto si aggiungono sempre verdura 200g e olio EVO.';
+      footer.appendChild(note);
+    } else {
+      const bAnn = document.createElement('button');
+      bAnn.type = 'button';
+      bAnn.style.cssText = 'font-size:.82rem;padding:.45rem .9rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2);';
+      bAnn.textContent = 'Annulla';
+      bAnn.onclick = function(){ overlay.remove(); };
+      const bSave = document.createElement('button');
+      bSave.type = 'button';
+      bSave.style.cssText = 'font-size:.82rem;padding:.45rem .9rem;border:1px solid var(--teal);border-radius:6px;background:var(--teal);cursor:pointer;color:#fff;font-weight:600;';
+      bSave.textContent = '💾 Salva modello';
+      bSave.onclick = async function(){
+        await _salvaModelloDaEditor(stato, modalita, modKey);
+        overlay.remove();
+      };
+      footer.appendChild(bAnn);
+      footer.appendChild(bSave);
+    }
+    popup.appendChild(footer);
+  }
+
+  rerender();
+  document.body.appendChild(overlay);
+}
+
+// Salvataggio modello dall'editor
+async function _salvaModelloDaEditor(stato, modalita, modKeyOriginale){
+  const mod = stato.mod;
+  // Validazione
+  if(!mod.nome || !mod.nome.trim()){ alert('Il nome del modello è obbligatorio.'); return; }
+  mod.nome = mod.nome.trim();
+  mod.descrizione = (mod.descrizione || '').trim();
+  // Riordina griglia
+  const ordine = ['lun','mar','mer','gio','ven','sab','dom'];
+  const grigliaRiord = {};
+  ordine.forEach(g => { if(mod.griglia[g]) grigliaRiord[g] = mod.griglia[g]; });
+  mod.griglia = grigliaRiord;
+
+  // Determina chiave finale
+  let chiaveFinale;
+  if(modalita === 'modifica'){
+    chiaveFinale = modKeyOriginale;
+  } else {
+    // Duplica o nuovo: genera chiave da nome
+    chiaveFinale = mod.nome.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40) || ('custom_'+Date.now());
+    // Evita collisioni
+    let suffix = 1;
+    let candidato = chiaveFinale;
+    while(MODELLI_ROTAZIONE[candidato]){
+      suffix++;
+      candidato = chiaveFinale + '_' + suffix;
+    }
+    chiaveFinale = candidato;
+  }
+
+  MODELLI_ROTAZIONE[chiaveFinale] = mod;
+  salvaModelliCustomLocal();
+  pushModelliSupabase().catch(()=>{});
+  popolaDropdownModelli();
+
+  // Seleziona il modello appena salvato
+  const sel = document.getElementById('rp-modello');
+  if(sel){ sel.value = chiaveFinale; }
+  aggiornaUImodello();
+  salvaRegolePiano();
+  notif('✓ Modello "'+mod.nome+'" salvato', 2500);
 }
 
 function caricaRegolePiano(p){
@@ -7508,6 +8008,8 @@ function caricaRegolePiano(p){
   sc('rp-rotazione',r.rotazione,true);sc('rp-verdura200',r.verdura200,true);
   sc('rp-frsecca',r.frsecca,false);sc('rp-cenaleggera',r.cenaleggera,false);
   st('rp-uova-note',r.uovanote);
+  // Popola il dropdown con i modelli aggiornati (sistema + custom)
+  if(typeof popolaDropdownModelli==='function') popolaDropdownModelli();
   // Modello rotazione
   const elM=document.getElementById('rp-modello');
   if(elM){elM.value=r.modello||'';}
@@ -12047,6 +12549,8 @@ async function verificaSessioneEAvvia() {
 // ════════════════════════════════════════════════════════════════
 window._alStato={};
 loadLocal();
+// Carica modelli rotazione custom dal localStorage (saranno poi aggiornati dal pull Supabase)
+if(typeof caricaModelliCustomLocal === 'function') caricaModelliCustomLocal();
 // Aggiungi ricette precaricate se non già presenti
 const RICETTE_DEFAULT = [
   {id:'r_default_1',nome:'Pane di segale integrale con ricotta e miele',cat:'colazione',
