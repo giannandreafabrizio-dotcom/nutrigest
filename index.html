@@ -326,6 +326,27 @@ main{flex:1;overflow-y:auto;}
 .sync-wrap.is-ok .sync-fill{width:100%;background:#4ade80;animation:none;}
 .sync-wrap.is-err .sync-fill{width:100%;background:#dc2626;animation:none;}
 @keyframes sync-fill-anim{0%{width:0%}50%{width:85%}100%{width:100%}}
+/* BARRA-SYNC — stepper orizzontale */
+#sync-stepper{display:none;margin-bottom:.6rem;padding:.55rem .6rem .45rem;background:rgba(0,0,0,.18);border-radius:8px;}
+#sync-stepper.visible{display:block;}
+.stp-row{display:flex;align-items:center;gap:0;}
+.stp-node{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+.stp-dot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:.58rem;color:rgba(255,255,255,.35);transition:all .3s;flex-shrink:0;}
+.stp-node.done .stp-dot{background:#4ade80;border-color:#4ade80;color:#fff;}
+.stp-node.active .stp-dot{background:#fbbf24;border-color:#fbbf24;color:#fff;animation:stp-pulse .9s ease-in-out infinite;}
+.stp-node.err .stp-dot{background:#f87171;border-color:#f87171;color:#fff;}
+.stp-lbl{font-size:.52rem;color:rgba(255,255,255,.35);margin-top:3px;text-align:center;white-space:nowrap;transition:color .3s;letter-spacing:.2px;}
+.stp-node.done .stp-lbl{color:rgba(255,255,255,.6);}
+.stp-node.active .stp-lbl{color:#fbbf24;font-weight:600;}
+.stp-node.err .stp-lbl{color:#f87171;}
+.stp-line{height:2px;flex:1;background:rgba(255,255,255,.12);border-radius:1px;transition:background .3s;margin-top:-8px;}
+.stp-line.done{background:#4ade80;}
+.stp-line.active{background:linear-gradient(90deg,#4ade80,#fbbf24);animation:stp-line-anim 1.2s ease-in-out infinite;}
+@keyframes stp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.5)}50%{box-shadow:0 0 0 5px rgba(251,191,36,0)}}
+@keyframes stp-line-anim{0%,100%{opacity:1}50%{opacity:.5}}
+.stp-status{font-size:.6rem;color:rgba(255,255,255,.4);text-align:center;margin-top:.3rem;min-height:.8rem;transition:color .2s;}
+.stp-status.ok{color:#4ade80;}
+.stp-status.err{color:#f87171;}
 
 #piano-container{max-width:900px;}
 @media(max-width:768px){#piano-container{max-width:100%;}}
@@ -423,6 +444,11 @@ main{flex:1;overflow-y:auto;}
   </nav>
   <div class="aside-foot">
     <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-txt">Sincronizzazione...</span></div>
+    <!-- BARRA-SYNC stepper orizzontale -->
+    <div id="sync-stepper">
+      <div class="stp-row" id="stp-row"></div>
+      <div class="stp-status" id="stp-status"></div>
+    </div>
     <div class="sync-wrap" id="btn-sync-wrap">
       <button id="btn-sync-tutto" class="btn-sync-main" onclick="sincronizzaTutto()">🔄 Sincronizza</button>
       <div class="sync-track"><div class="sync-fill"></div></div>
@@ -2784,17 +2810,125 @@ async function sincronizzaTutto(){
   var wrap=document.getElementById('btn-sync-wrap');var btn=document.getElementById('btn-sync-tutto');
   if(wrap){wrap.classList.remove('is-ok','is-err');wrap.classList.add('is-loading');}
   if(btn){btn.disabled=true;btn.textContent='Sincronizzazione...';}
+
+  // ── BARRA-SYNC: inizializza stepper ────────────────────────────────────
+  const STP_DEFS=[
+    {id:'stp-paz',   label:'Pazienti'},
+    {id:'stp-ric',   label:'Ricette'},
+    {id:'stp-piani', label:'Piani'},
+    {id:'stp-extra', label:'Entrate'},
+    {id:'stp-push',  label:'Push'},
+  ];
+  const stepper=document.getElementById('sync-stepper');
+  const stpRow=document.getElementById('stp-row');
+  const stpStatus=document.getElementById('stp-status');
+  if(stpRow){
+    stpRow.innerHTML=STP_DEFS.map((s,i)=>{
+      const line=i<STP_DEFS.length-1?'<div class="stp-line" id="stp-line-'+i+'"></div>':'';
+      return`<div class="stp-node" id="${s.id}"><div class="stp-dot">${i+1}</div><div class="stp-lbl">${s.label}</div></div>${line}`;
+    }).join('');
+  }
+  if(stepper)stepper.classList.add('visible');
+  if(stpStatus){stpStatus.className='stp-status';stpStatus.textContent='Avvio sincronizzazione…';}
+
+  function stpSet(id, state, lineIdx){
+    const n=document.getElementById(id);
+    if(n){n.className='stp-node '+state;}
+    if(lineIdx!=null){const l=document.getElementById('stp-line-'+lineIdx);if(l)l.className='stp-line '+(state==='done'?'done':'active');}
+  }
+  function stpMsg(msg,cls){if(stpStatus){stpStatus.className='stp-status'+(cls?' '+cls:'');stpStatus.textContent=msg;}}
+
   var pullOk=false,pushOk=false;
-  try{pullOk=await pullFromSheets();if(pullOk){renderPaz();renderRic();renderCal();renderEntrate();}}catch(e){}
-  try{pushOk=await pushToSheets();}catch(e){}
+
+  // ── PULL ────────────────────────────────────────────────────────────────
+  try{
+    // Tappa 1 — Pazienti
+    stpSet('stp-paz','active',null);stpMsg('Download pazienti…');
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data',{method:'GET',headers:supaHeaders()});
+    if(!r.ok)throw new Error('status '+r.status);
+    const rows=await r.json();
+    if(!rows||!rows.length)throw new Error('nessun paziente');
+    const pr=rows.filter(row=>row.id!==META_KEY);
+    const mr=rows.find(row=>row.id===META_KEY);
+    if(!pr.length)throw new Error('nessun paziente valido');
+    db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
+    if(mr&&mr.data){
+      db.disponibilita=mr.data.disponibilita||{};
+      if(mr.data.eventi&&mr.data.eventi.length>0){db.eventi=mr.data.eventi;await pushEventiSupabase();}
+      if(mr.data.entrate&&mr.data.entrate.length>0){db.entrate=mr.data.entrate;await pushEntrateSupabase();}
+      if(mr.data.piani&&mr.data.piani.length>0&&!mr.data._pianiMigrati){
+        const pianiVecchi=mr.data.piani.filter(p=>p&&p.pazienteId);
+        pianiVecchi.forEach(p=>{if(!p.id)p.id='piano_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);});
+        db.piani=pianiVecchi;for(const p of pianiVecchi){await pushPianoSupabase(p);}
+      }
+      if(mr.data.ricette&&mr.data.ricette.length>0){
+        const rcV=mr.data.ricette.filter(r=>!RICETTE_DEFAULT.find(d=>d.id===r.id));
+        if(rcV.length>0){db.ricette=[...RICETTE_DEFAULT,...rcV];await pushRicetteSupabase();}
+      }
+    }
+    stpSet('stp-paz','done',0);stpMsg(db.pazienti.length+' pazienti');
+
+    // Tappa 2 — Ricette
+    stpSet('stp-ric','active',1);stpMsg('Download ricette…');
+    const ricPullOk=await pullRicetteSupabase();
+    if(!ricPullOk&&(!db.ricette||db.ricette.length===0))db.ricette=[...RICETTE_DEFAULT];
+    stpSet('stp-ric','done',1);stpMsg(db.ricette.length+' ricette');
+
+    // Tappa 3 — Piani
+    stpSet('stp-piani','active',2);stpMsg('Download piani…');
+    await pullPianiSupabase();
+    stpSet('stp-piani','done',2);stpMsg((db.piani||[]).length+' piani');
+
+    // Tappa 4 — Entrate & eventi
+    stpSet('stp-extra','active',3);stpMsg('Download entrate ed eventi…');
+    await pullEntrateSupabase();
+    await pullEventiSupabase();
+    try{await pullModelliSupabase();}catch(e){}
+    ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
+    if(!db.disponibilita)db.disponibilita={};
+    saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    stpSet('stp-extra','done',3);stpMsg('Entrate OK');
+    renderPaz();renderRic();renderCal();renderEntrate();
+    pullOk=true;
+  }catch(e){
+    // marca come errore la prima tappa non completata
+    ['stp-paz','stp-ric','stp-piani','stp-extra'].forEach(id=>{
+      const n=document.getElementById(id);
+      if(n&&n.classList.contains('active')){n.className='stp-node err';}
+    });
+    stpMsg('Pull fallito: '+e.message,'err');
+    setSyncStatus(false);
+  }
+
+  // Tappa 5 — Push
+  if(pullOk){
+    stpSet('stp-push','active',4);stpMsg('Upload dati…');
+    try{pushOk=await pushToSheets();stpSet('stp-push',pushOk?'done':'err',4);stpMsg(pushOk?'Completato ✓':'Push parziale',pushOk?'ok':'err');}
+    catch(e){stpSet('stp-push','err',4);stpMsg('Push fallito','err');}
+  }
+
+  // Aggiorna timestamp
   const tsEl=document.getElementById('ss-ts');
   if(tsEl){const now=new Date();tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT');}
   const recEl=document.getElementById('ss-rec');if(recEl)recEl.textContent=db.pazienti.length+' pazienti';
+
+  // Stato finale bottone
   if(wrap)wrap.classList.remove('is-loading');if(btn)btn.disabled=false;
-  if(pullOk&&pushOk){if(wrap)wrap.classList.add('is-ok');if(btn)btn.textContent='✅ Sincronizzato';notif('✅ Sincronizzazione completata',2500);}
-  else if(pullOk||pushOk){if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='⚠️ Parziale';notif('⚠️ Sincronizzazione parziale',3500);}
-  else{if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='❌ Errore';notif('❌ Sincronizzazione fallita',3500);}
-  setTimeout(function(){if(btn)btn.textContent='🔄 Sincronizza';if(wrap){wrap.classList.remove('is-ok','is-err');}},3000);
+  if(pullOk&&pushOk){
+    if(wrap)wrap.classList.add('is-ok');if(btn)btn.textContent='✅ Sincronizzato';notif('✅ Sincronizzazione completata',2500);
+  } else if(pullOk||pushOk){
+    if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='⚠️ Parziale';notif('⚠️ Sincronizzazione parziale',3500);
+  } else {
+    if(wrap)wrap.classList.add('is-err');if(btn)btn.textContent='❌ Errore';notif('❌ Sincronizzazione fallita',3500);
+  }
+
+  // Nascondi stepper dopo 4s
+  setTimeout(function(){
+    if(btn)btn.textContent='🔄 Sincronizza';
+    if(wrap){wrap.classList.remove('is-ok','is-err');}
+    if(stepper)stepper.classList.remove('visible');
+    if(stpStatus){stpStatus.textContent='';}
+  },4000);
 }
 
 async function testConnSupabase(){
@@ -9201,7 +9335,7 @@ function mostraLoadingSteps(loadEl){
           <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;
             background:${done?'#1D9E75':active?'#e6f7f2':'#e8e8e8'};
             color:${done?'#fff':active?'#1D9E75':'#aaa'};
-            border:2px solid ${done?'#1D9E75':active?'#1D9E75':'#d0d0d0'};">${done?'✓':i+1}</div>
+            border:2px solid ${done?'#1D9E75':active?'#1D9E75':'#d0d0d0'};">${done?'\u2713':i+1}</div>
           <div style="font-size:.81rem;font-weight:${active?700:400};color:${done?'#1D9E75':active?'#1a1814':'#aaa'};">
             ${s}${active?'<span style="animation:blink 1s infinite;display:inline-block;margin-left:2px">…</span>':''}
           </div>
