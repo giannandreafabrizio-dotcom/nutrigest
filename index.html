@@ -9779,10 +9779,17 @@ async function generaPiano(forceRegen){
     +"- Giorni 1-3-5 al pranzo: aggiungi legumi (barattolo 120g) con proteina leggera\n"
     +"- Giorni 2-4-6 al pranzo: proteina principale senza legumi\n"
     +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g\n\n"
-    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo. Per ogni giorno includi SOLO le chiavi corrispondenti ai pasti attivi ("+_listaPastiAttivi+"). Schema di riferimento per ogni possibile pasto (usa solo quelli attivi):\n"
-    +'[{"giorno":"Lunedì","colazione":{"descrizione":"testo breve","carboidrati":{"nome":"","grammi":0},"proteine":{"nome":"","grammi":0},"grassi":{"nome":"","grammi":0},"frutta":"(opzionale)"},'
-    +'"spuntino_mattina":"descrizione","pranzo":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"carboidrati":{"nome":"","grammi":'+carbGr+'},"proteina":{"nome":"","grammi":0},"legumi_g":0},'
-    +'"spuntino_pomeriggio":"descrizione","cena":{"nota_descrittiva":"testo","verdura":"tipo 200g","olio_g":'+olioG+',"proteina":{"nome":"","grammi":0}},"pre_nanna":"descrizione"},...]';
+    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo. Includi ESCLUSIVAMENTE le chiavi: giorno + "+_listaPastiAttivi+". NON includere mai: "+_listaPastiSkipped+". Schema dinamico con SOLO i pasti attivi:\n"
+    +(function(){
+      var schemaPasti = {};
+      if(_pastiCfg.find(function(x){return x.key==='colazione'&&x.attivo;})) schemaPasti['colazione']={'descrizione':'testo breve','carboidrati':{'nome':'','grammi':0},'proteine':{'nome':'','grammi':0},'grassi':{'nome':'','grammi':0},'frutta':'(opzionale)'};
+      if(_pastiCfg.find(function(x){return x.key==='spuntino_mattina'&&x.attivo;})) schemaPasti['spuntino_mattina']='descrizione spuntino mattina';
+      if(_pastiCfg.find(function(x){return x.key==='pranzo'&&x.attivo;})) schemaPasti['pranzo']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'carboidrati':{'nome':'','grammi':carbGr},'proteina':{'nome':'','grammi':0},'legumi_g':0};
+      if(_pastiCfg.find(function(x){return x.key==='spuntino_pomeriggio'&&x.attivo;})) schemaPasti['spuntino_pomeriggio']='descrizione spuntino pomeriggio';
+      if(_pastiCfg.find(function(x){return x.key==='cena'&&x.attivo;})) schemaPasti['cena']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'proteina':{'nome':'','grammi':0}};
+      if(_pastiCfg.find(function(x){return x.key==='pre_nanna'&&x.attivo;})) schemaPasti['pre_nanna']='descrizione pre-nanna';
+      return '[{\"giorno\":\"Lunedì\",'+Object.keys(schemaPasti).map(function(k){return JSON.stringify(k)+':'+JSON.stringify(schemaPasti[k]);}).join(',')+'},...]';
+    }());
 
   var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
   if (!_md && window._ragContextForPiano && window._ragContextForPiano.pazId === p.id) {
