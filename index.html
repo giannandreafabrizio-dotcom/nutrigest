@@ -9848,7 +9848,8 @@ async function generaPiano(forceRegen){
 
     +"REGOLE:\n"
     +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
-    +"- ⚑ TASSATIVO: genera SOLO i pasti elencati in 'PASTI DA GENERARE'. NON inserire i pasti elencati in 'PASTI DA NON GENERARE'. Le kcal/macros vanno distribuiti SOLO sui pasti attivi.\n"
+    +"- ⛔ REGOLA ASSOLUTA N.1: genera ESCLUSIVAMENTE i pasti: "+_listaPastiAttivi+". I pasti "+_listaPastiSkipped+" NON ESISTONO per questo paziente — non inserirli MAI nel JSON, nemmeno come chiave vuota. Il JSON non deve contenere le chiavi: "+_listaPastiSkipped+".\n"
+    +"- Le kcal/macros vanno distribuiti SOLO sui pasti attivi ("+_listaPastiAttivi+").\n"
     +"- Rispetta le kcal e i macronutrienti target\n"
     +"- Usa alimenti italiani comuni e reperibili al supermercato\n"
     +"- Rispetta allergie e alimenti scartati\n"
@@ -9914,6 +9915,18 @@ async function generaPiano(forceRegen){
 
     // Attendo 3 secondi che lo script finisca di salvare
     const pianoAI = risultato.piano.giorni || risultato.piano;
+
+    // ── FIX: rimuovi pasti non attivi eventualmente inclusi dall'AI ──────────
+    const _pastiNonAttivi = _pastiSkipped.map(function(x){return x.key;});
+    if (_pastiNonAttivi.length && Array.isArray(pianoAI)) {
+      pianoAI.forEach(function(giorno) {
+        _pastiNonAttivi.forEach(function(chiave) {
+          if (giorno[chiave] !== undefined) { delete giorno[chiave]; }
+          if (giorno.pasti && giorno.pasti[chiave] !== undefined) { delete giorno.pasti[chiave]; }
+        });
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     console.log('[RAW] risultato.piano (grezzo):', JSON.stringify(risultato.piano).substring(0, 500));
     console.log('[RAW] pianoAI tipo:', Array.isArray(pianoAI)?'array':'altro', '| lunghezza:', pianoAI&&pianoAI.length);
