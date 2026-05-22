@@ -869,7 +869,7 @@ main{flex:1;overflow-y:auto;}
             <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-frsecca" onchange="salvaRegolePiano()"> Frutta secca 20g quotidiana</label>
             <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="checkbox" id="rp-cenaleggera" onchange="salvaRegolePiano()"> Cena leggera (no carboidrati complessi)</label>
           </div>
-          <div style="margin-bottom:1rem;padding:.5rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;">
+          <div id="rp-colazione-box" style="margin-bottom:1rem;padding:.5rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;">
             <label style="font-size:.72rem;color:var(--text3);display:block;margin-bottom:.35rem;">🥐 Tipo colazione</label>
             <div style="display:flex;gap:.9rem;flex-wrap:wrap;">
               <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text2);cursor:pointer;"><input type="radio" name="rp-colazione" value="dolce" onchange="salvaRegolePiano()"> Dolce</label>
@@ -1187,7 +1187,7 @@ main{flex:1;overflow-y:auto;}
   <div class="tab-panel" id="tp-alim">
     <div class="sec-title">Pasti giornalieri</div>
     <div class="fr3">
-      <div class="fg"><label>Colazione</label><select id="p-colazione"><option value="si">Sì</option><option value="no">No</option></select></div>
+      <div class="fg"><label>Colazione</label><select id="p-colazione" onchange="aggiornaUIcolazione()"><option value="si">Sì</option><option value="no">No</option></select></div>
       <div class="fg"><label>Spuntino mattina</label><select id="p-spunt-m"><option value="si">Sì</option><option value="no">No</option></select></div>
       <div class="fg"><label>Pranzo</label><select id="p-pranzo"><option value="si">Sì</option><option value="no">No</option></select></div>
     </div>
@@ -7480,6 +7480,16 @@ function toggleRegolePiano(){
   if(arrow)arrow.textContent=vis?'▼':'▲';
 }
 
+function aggiornaUIcolazione(){
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  const box=document.getElementById('rp-colazione-box');
+  if(!box)return;
+  const noColazione=p&&p.colazione==='no';
+  box.style.opacity=noColazione?'0.38':'1';
+  box.style.pointerEvents=noColazione?'none':'auto';
+  box.title=noColazione?'Il paziente non fa colazione — disabilitato':'';
+}
+
 function salvaRegolePiano(){
   const pazId=document.getElementById('piano-select-paz')?.value;
   if(!pazId)return;
@@ -8226,6 +8236,8 @@ function caricaRegolePiano(p){
   const tipoCol=r.tipocolazione||'mista';
   const radioCol=document.querySelector('input[name="rp-colazione"][value="'+tipoCol+'"]');
   if(radioCol)radioCol.checked=true;
+  // Disabilita tipo colazione se paziente non fa colazione
+  aggiornaUIcolazione();
   // Applica stato UI in base al modello
   if(typeof aggiornaUImodello==='function')aggiornaUImodello();
 }
