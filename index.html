@@ -1435,7 +1435,7 @@ main{flex:1;overflow-y:auto;}
 <div class="modal" style="max-width:400px">
   <h3>➕ Nuovo alimento</h3>
   <div class="fg"><label>Nome alimento</label><input type="text" id="ac-nome" placeholder="es. Skyr naturale"></div>
-  <div class="fg"><label>Categoria semaforo</label><select id="ac-cat"><option value="Cereali con Glutine">Cereali con Glutine</option><option value="Cereali senza Glutine">Cereali senza Glutine</option><option value="Carne Bianca">Carne Bianca</option><option value="Carne Rossa">Carne Rossa</option><option value="Pesce (Pranzo)">Pesce (Pranzo)</option><option value="Pesce (Cena)">Pesce (Cena)</option><option value="Insaccati & Salumi">Insaccati & Salumi</option><option value="Legumi">Legumi</option><option value="Uova">Uova</option><option value="Latte & Derivati">Latte & Derivati</option><option value="Latte Vegetale">Latte Vegetale</option><option value="Frutta Secca & Semi">Frutta Secca & Semi</option><option value="Superfoods">Superfoods</option><option value="Verdura">Verdura</option><option value="Frutta">Frutta</option><option value="Spezie">Spezie</option><option value="Fit">Fit</option><option value="Dolcificanti & Conserve">Dolcificanti & Conserve</option><option value="Olio & Condimenti">Olio & Condimenti</option></select></div>
+  <div class="fg"><label>Categoria semaforo</label><select id="ac-cat"><option value="Cereali con Glutine">Cereali con Glutine</option><option value="Cereali senza Glutine">Cereali senza Glutine</option><option value="Carne Bianca">Carne Bianca</option><option value="Carne Rossa">Carne Rossa</option><option value="Pesce (Pranzo)">Pesce (Pranzo)</option><option value="Pesce (Cena)">Pesce (Cena)</option><option value="Insaccati & Salumi">Insaccati & Salumi</option><option value="Legumi">Legumi</option><option value="Uova">Uova</option><option value="Latte & Derivati">Latte & Derivati</option><option value="Bevande Vegetali">Bevande Vegetali</option><option value="Frutta Secca & Semi">Frutta Secca & Semi</option><option value="Superfoods">Superfoods</option><option value="Verdura">Verdura</option><option value="Frutta">Frutta</option><option value="Spezie">Spezie</option><option value="Fit">Fit</option><option value="Dolcificanti & Conserve">Dolcificanti & Conserve</option><option value="Olio & Condimenti">Olio & Condimenti</option></select></div>
   <div class="fg"><label>Grammatura default (g)</label><input type="number" id="ac-g" placeholder="es. 125" step="1" min="1"></div>
   <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:.7rem;margin-bottom:.8rem">
     <div style="font-size:.7rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">Valori per 100g (dall'etichetta)</div>
@@ -1546,7 +1546,7 @@ const ALIMENTI = {
     {n:'Patate dolci',g:280,gl:false},{n:'Gnocchi di patate',g:160,gl:false},
     {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:30,gl:false},
     {n:'Cornflakes',g:30,gl:false},
-    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false}
+    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false},{n:'Cous cous',g:80,gl:false}
   ]},
   'Carne Bianca': {items:[
     {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Fusi di pollo',g:200},{n:'Cosce di pollo',g:200},
@@ -1556,7 +1556,7 @@ const ALIMENTI = {
   'Carne Rossa': {items:[
     {n:'Fettina di vitello',g:220},{n:'Macinato di manzo',g:180},{n:'Hamburger di manzo',g:180},
     {n:'Tagliata di manzo',g:200},{n:'Fettina di cavallo',g:220},{n:'Arista di maiale',g:220},
-    {n:'Lonza di maiale',g:200},{n:'Agnello',g:200}
+    {n:'Lonza di maiale',g:200},{n:'Agnello',g:200},{n:'Fegato di vitello',g:150},{n:'Cuore di vitello',g:150}
   ]},
   'Pesce (Pranzo)': {items:[
     {n:'Tonno sottolio sgocciolato',g:120},{n:'Tonno al naturale',g:120},{n:'Salmone al naturale',g:120},{n:'Sgombro sottolio',g:120}
@@ -1594,9 +1594,10 @@ const ALIMENTI = {
     {n:'Robiola',g:60},{n:'Gorgonzola',g:60},{n:'Cacioricotta',g:60},
     {n:'Parmigiano',g:50},{n:'Grana padano',g:50},{n:'Pecorino',g:40}
   ]},
-  'Latte Vegetale': {items:[
+  'Bevande Vegetali': {items:[
     {n:'Latte di mandorla',g:200},{n:'Latte di cocco',g:200},{n:'Latte di soia',g:200},
-    {n:'Latte di riso',g:200},{n:'Latte di nocciola',g:200},{n:'Latte di avena',g:200}
+    {n:'Latte di riso',g:200},{n:'Latte di nocciola',g:200},{n:'Latte di avena',g:200},
+    {n:'Caffè',g:30},{n:'Tè',g:200}
   ]},
   'Frutta Secca & Semi': {items:[
     {n:'Frutta secca mista',g:25},
@@ -1693,6 +1694,7 @@ const CREA_ALIMENTI = {
   'Cornflakes': {kcal:361, p:6.6, c:87.4, g:0.8},
   'Pasta di mais': {kcal:353, p:10.9, c:79.1, g:1.4},
   'Grano saraceno': {kcal:314, p:12.4, c:62.5, g:3.3},
+  'Cous cous': {kcal:376, p:13.0, c:77.4, g:0.6},
   "Fiocchi d'avena": {kcal:373, p:8.0, c:72.8, g:7.5},
   // CARNE BIANCA
   'Petto di pollo': {kcal:100, p:23.3, c:0.0, g:0.8},
@@ -1712,6 +1714,8 @@ const CREA_ALIMENTI = {
   'Arista di maiale': {kcal:146, p:20.7, c:0.0, g:7.0},
   'Lonza di maiale': {kcal:135, p:21.5, c:0.0, g:5.5},
   'Agnello': {kcal:159, p:20.0, c:0.0, g:8.8},
+  'Fegato di vitello': {kcal:140, p:19.7, c:3.9, g:4.9},
+  'Cuore di vitello': {kcal:108, p:17.2, c:0.5, g:3.8},
   // PESCE PRANZO
   'Tonno sottolio sgocciolato': {kcal:192, p:25.2, c:0.0, g:10.1},
   'Tonno al naturale': {kcal:103, p:25.1, c:0.0, g:0.3},
@@ -1805,6 +1809,8 @@ const CREA_ALIMENTI = {
   'Latte di riso': {kcal:47, p:0.3, c:9.5, g:1.0},
   'Latte di nocciola': {kcal:30, p:0.4, c:3.0, g:1.6},
   'Latte di avena': {kcal:45, p:1.0, c:6.7, g:1.5},
+  'Caffè': {kcal:2, p:0.1, c:0.5, g:0.0},
+  'Tè': {kcal:1, p:0.1, c:0.2, g:0.0},
   // FRUTTA SECCA
   'Datteri': {kcal:253, p:2.7, c:63.1, g:0.6},
   'Cioccolato fondente 85%': {kcal:550, p:8.0, c:30.0, g:42.0},
@@ -2328,7 +2334,7 @@ const _CAT_SEMAFORO_TO_FUNZIONALE = {
   'Pesce (Cena)': 'proteine',
   'Insaccati & Salumi': 'proteine',
   'Latte & Derivati': 'proteine',
-  'Latte Vegetale': 'fit',
+  'Bevande Vegetali': 'fit',
   'Frutta Secca & Semi': 'grasso',
   'Superfoods': 'fit',
   'Spezie': 'condimento',
@@ -9111,7 +9117,7 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
     'Carne Bianca':'🍗','Carne Rossa':'🥩',
     'Pesce (Pranzo)':'🐟','Pesce (Cena)':'🐟',
     'Insaccati & Salumi':'🍖','Legumi':'🌱','Uova':'🥚',
-    'Latte & Derivati':'🧀','Latte Vegetale':'🥛',
+    'Latte & Derivati':'🧀','Bevande Vegetali':'🥛',
     'Frutta Secca & Semi':'🥜','Superfoods':'✨',
     'Verdura':'🥦','Frutta':'🍎','Spezie':'🌿',
     'Fit':'💪','Dolcificanti & Conserve':'🍯','Olio & Condimenti':'🫙'
