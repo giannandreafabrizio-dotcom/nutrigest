@@ -1431,6 +1431,28 @@ main{flex:1;overflow-y:auto;}
 </div>
 
 <!-- ══════════════ MODAL RICETTA -->
+<div class="overlay" id="mo-alim-custom">
+<div class="modal" style="max-width:400px">
+  <h3>➕ Nuovo alimento</h3>
+  <div class="fg"><label>Nome alimento</label><input type="text" id="ac-nome" placeholder="es. Skyr naturale"></div>
+  <div class="fg"><label>Categoria semaforo</label><select id="ac-cat"><option value="Cereali con Glutine">Cereali con Glutine</option><option value="Cereali senza Glutine">Cereali senza Glutine</option><option value="Carne Bianca">Carne Bianca</option><option value="Carne Rossa">Carne Rossa</option><option value="Pesce (Pranzo)">Pesce (Pranzo)</option><option value="Pesce (Cena)">Pesce (Cena)</option><option value="Insaccati & Salumi">Insaccati & Salumi</option><option value="Legumi">Legumi</option><option value="Uova">Uova</option><option value="Latte & Derivati">Latte & Derivati</option><option value="Latte Vegetale">Latte Vegetale</option><option value="Frutta Secca & Semi">Frutta Secca & Semi</option><option value="Superfoods">Superfoods</option><option value="Verdura">Verdura</option><option value="Frutta">Frutta</option><option value="Spezie">Spezie</option><option value="Fit">Fit</option><option value="Dolcificanti & Conserve">Dolcificanti & Conserve</option><option value="Olio & Condimenti">Olio & Condimenti</option></select></div>
+  <div class="fg"><label>Grammatura default (g)</label><input type="number" id="ac-g" placeholder="es. 125" step="1" min="1"></div>
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:.7rem;margin-bottom:.8rem">
+    <div style="font-size:.7rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.5rem">Valori per 100g (dall'etichetta)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      <div class="fg" style="margin:0"><label>Kcal</label><input type="number" id="ac-kcal" placeholder="es. 67" step="0.1" min="0"></div>
+      <div class="fg" style="margin:0"><label>Proteine (g)</label><input type="number" id="ac-prot" placeholder="es. 11" step="0.1" min="0"></div>
+      <div class="fg" style="margin:0"><label>Carboidrati (g)</label><input type="number" id="ac-carb" placeholder="es. 4" step="0.1" min="0"></div>
+      <div class="fg" style="margin:0"><label>Grassi (g)</label><input type="number" id="ac-gras" placeholder="es. 0.2" step="0.1" min="0"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:.5rem;justify-content:flex-end">
+    <button class="btn btn-g" onclick="closeM('mo-alim-custom')">Annulla</button>
+    <button class="btn btn-p" onclick="salvaAlimentoCustom()">Salva</button>
+  </div>
+</div>
+</div>
+
 <div class="overlay" id="mo-ric">
 <div class="modal">
   <h3 id="mo-ric-t">Nuova Ricetta</h3>
@@ -2549,7 +2571,7 @@ const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spu
 // STORAGE & SYNC
 // ════════════════════════════════════════════════════════════════
 const DB_KEY='ng_db', CFG_KEY='ng_cfg';
-let db={pazienti:[],ricette:[],eventi:[],entrate:[],piani:[],disponibilita:{}};
+let db={pazienti:[],ricette:[],eventi:[],entrate:[],piani:[],disponibilita:{},alimentiCustom:[]};
 let currentPazId=null, editPazId=null, editRicId=null;
 let calDate=new Date(), calView='month', selCalDay=null;
 window._alStato={};
@@ -2558,7 +2580,7 @@ function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catc
 function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 function getUrl(){return getCfg().scriptUrl||'';}
 function saveLocal(){localStorage.setItem(DB_KEY,JSON.stringify(db));if(document.getElementById('page-dashboard')?.classList.contains('active'))renderDashboard();}
-function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};}}catch(e){}}
+function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(!db.alimentiCustom)db.alimentiCustom=[];caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
 function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
@@ -2784,6 +2806,7 @@ async function pullFromSheets(){
     await pullEventiSupabase();
     // Pull modelli rotazione custom
     try { await pullModelliSupabase(); } catch(e){ console.error('[MODELLI] pull error:', e); }
+    try { await pullAlimentiCustomSupabase(); } catch(e){ console.error('[ALIM_CUSTOM] pull error:', e); }
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
@@ -2884,6 +2907,7 @@ async function sincronizzaTutto(){
     await pullEntrateSupabase();
     await pullEventiSupabase();
     try{await pullModelliSupabase();}catch(e){}
+    try{await pullAlimentiCustomSupabase();}catch(e){}
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
@@ -7554,6 +7578,42 @@ function salvaModelliCustomLocal(){
 }
 
 // === SUPABASE SYNC modelli rotazione (riga dedicata in tabella pazienti) ===
+const _ALIM_CUSTOM_KEY = '__alimenti_custom';
+
+// ── ALIMENTI CUSTOM: carica dal db in ALIMENTI + CREA_ALIMENTI ──
+function caricaAlimentiCustom(){
+  (db.alimentiCustom||[]).forEach(function(a){
+    // Aggiunge a ALIMENTI per il semaforo
+    if(!ALIMENTI[a.cat]) ALIMENTI[a.cat]={items:[]};
+    var esiste=ALIMENTI[a.cat].items.find(function(i){return i.n===a.n;});
+    if(!esiste) ALIMENTI[a.cat].items.push({n:a.n, g:a.g, _custom:true});
+    // Aggiunge a CREA_ALIMENTI per i macros
+    if(a.kcal!=null) CREA_ALIMENTI[a.n]={kcal:a.kcal, p:a.p||0, c:a.c||0, g100:a.g100||0};
+  });
+}
+
+async function pushAlimentiCustomSupabase(){
+  try{
+    const payload={id:_ALIM_CUSTOM_KEY, data:{alimenti:db.alimentiCustom||[]}, updated_at:new Date().toISOString()};
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_ALIM_CUSTOM_KEY,{method:'GET',headers:supaHeaders()});
+    const rows=await r.json();
+    const method=(rows&&rows.length)?'PATCH':'POST';
+    const url=SUPA_URL+'/rest/v1/pazienti'+(method==='PATCH'?'?id=eq.'+_ALIM_CUSTOM_KEY:'');
+    await fetch(url,{method,headers:supaHeaders(),body:JSON.stringify(payload)});
+  }catch(e){console.error('[ALIM_CUSTOM] push failed',e);}
+}
+
+async function pullAlimentiCustomSupabase(){
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_ALIM_CUSTOM_KEY+'&select=id,data',{method:'GET',headers:supaHeaders()});
+    const rows=await r.json();
+    if(rows&&rows[0]&&rows[0].data&&rows[0].data.alimenti){
+      db.alimentiCustom=rows[0].data.alimenti;
+      caricaAlimentiCustom();
+    }
+  }catch(e){console.error('[ALIM_CUSTOM] pull failed',e);}
+}
+
 const _MODELLI_META_KEY = '__modelli_rotazione';
 
 async function pushModelliSupabase(){
@@ -11032,12 +11092,63 @@ function renderAlEditor(){
       if(s==='celeste_1')_cls='celeste';
       if(s==='celeste_2')_cls='celeste-2';
       var _simbolo=_conflitto?'\u26a1 ':(s==='si'?'\u2713 ':s==='arancione'?'\u25d0 ':s==='rosso'?'\u2193 ':(s==='grigioScuro'||s==='grigio_scuro_1'||s==='grigio_scuro_2')?'\u2715 ':(s==='celeste'||s==='celeste_1'||s==='celeste_2')?'\u2605 ':'');
-      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}</span>`;
+      const _customBadge=item._custom?` <span style="font-size:.55rem;background:#7c3aed;color:#fff;padding:1px 4px;border-radius:3px;vertical-align:middle">✦custom</span>`:'';
+      const _delBtn=item._custom?` <span onclick="event.stopPropagation();eliminaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;color:#f87171;margin-left:2px" title="Rimuovi">✕</span>`:'';
+      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}${_customBadge}${_delBtn}</span>`;
     });
     html+='</div></div>';
   });
+  // Bottone aggiungi alimento custom
+  html+='<div style="padding:1rem 0 .5rem;text-align:center"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'mo-alim-custom\').classList.add(\'open\');document.getElementById(\'ac-nome\').focus()">➕ Aggiungi alimento personalizzato</button></div>';
   c.innerHTML=html;
 }
+
+function salvaAlimentoCustom(){
+  const nome=document.getElementById('ac-nome').value.trim();
+  const cat=document.getElementById('ac-cat').value;
+  const g=parseFloat(document.getElementById('ac-g').value)||100;
+  const kcal=parseFloat(document.getElementById('ac-kcal').value)||null;
+  const p=parseFloat(document.getElementById('ac-prot').value)||0;
+  const c=parseFloat(document.getElementById('ac-carb').value)||0;
+  const g100=parseFloat(document.getElementById('ac-gras').value)||0;
+  if(!nome){alert('Inserisci il nome dell\'alimento');return;}
+  // Evita duplicati
+  if(db.alimentiCustom.find(function(a){return a.n===nome;})){alert('Alimento "'+nome+'" già presente.');return;}
+  const alim={n:nome,cat:cat,g:g,kcal:kcal,p:p,c:c,g100:g100,_custom:true};
+  db.alimentiCustom.push(alim);
+  // Aggiorna ALIMENTI
+  if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
+  ALIMENTI[cat].items.push({n:nome,g:g,_custom:true});
+  // Aggiorna CREA_ALIMENTI
+  if(kcal!=null)CREA_ALIMENTI[nome]={kcal:kcal,p:p,c:c,g100:g100};
+  saveLocal();
+  pushAlimentiCustomSupabase();
+  closeM('mo-alim-custom');
+  // Reset form
+  ['ac-nome','ac-g','ac-kcal','ac-prot','ac-carb','ac-gras'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('ac-cat').value='Latte & Derivati';
+  // Riaggancia validazione B3
+  if(window.b3Attach)window.b3Attach();
+  // Ricarica editor alimenti se aperto
+  renderAlEditor();
+  notif('✓ Alimento "'+nome+'" aggiunto al database');
+}
+
+function eliminaAlimentoCustom(nome){
+  if(!confirm('Eliminare "'+nome+'" dal database personalizzato?'))return;
+  db.alimentiCustom=db.alimentiCustom.filter(function(a){return a.n!==nome;});
+  // Rimuovi da ALIMENTI
+  Object.values(ALIMENTI).forEach(function(data){
+    data.items=data.items.filter(function(i){return i.n!==nome||!i._custom;});
+  });
+  // Rimuovi da CREA_ALIMENTI
+  delete CREA_ALIMENTI[nome];
+  saveLocal();
+  pushAlimentiCustomSupabase();
+  renderAlEditor();
+  notif('✓ "'+nome+'" rimosso');
+}
+
 function togAl(el,key,nome){
   const coloriCeleste=['celeste','celeste_1','celeste_2'];
   const coloriGrigio=['grigioScuro','grigio_scuro_1','grigio_scuro_2'];
