@@ -3944,9 +3944,9 @@ function salvaPaz(){
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
-    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];db.pazienti[idx]=pd;}
+    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];db.pazienti[idx]=pd;}
   }else{
-    pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.routineGiornaliera=[];pd.creato=today();db.pazienti.push(pd);
+    pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
@@ -4344,6 +4344,138 @@ function removeRoutineVoce(idx) {
   notif('✓ ' + nome + ' rimosso');
 }
 
+// ═══════════════════════════════════════════════════════════
+// B5 — AGGIUSTAMENTI MACROS MENSILI
+// p.aggiustamentiMacros = [{id,data,macro,delta,totale,peso,nota}]
+// ═══════════════════════════════════════════════════════════
+
+function _renderAggiustamentiSection(p){
+  if(!p.aggiustamentiMacros)p.aggiustamentiMacros=[];
+  const ag=p.aggiustamentiMacros;
+  const cap15=ag.length>=15;
+  const oggi=today();
+
+  // Lista ordinata per data desc
+  const agDesc=[...ag].sort((a,b)=>b.data.localeCompare(a.data));
+  let listaHTML='';
+  if(agDesc.length){
+    // Tabella compatta stile opzione A
+    listaHTML=`<div style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:.7rem">
+      <div style="display:grid;grid-template-columns:80px 90px 110px 80px 1fr 28px;gap:6px;padding:6px 10px;background:var(--bg);font-size:.65rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">
+        <div>Data</div><div>Macro</div><div>Variazione</div><div>Peso ctrl.</div><div>Nota</div><div></div>
+      </div>`;
+    agDesc.forEach((a,i)=>{
+      const segno=a.delta>0?'+':'';
+      const macroLabel=a.macro==='C'?'Carboidrati':a.macro==='P'?'Proteine':'Grassi';
+      const macroCol=a.macro==='C'?'#1D9E75':a.macro==='P'?'#378ADD':'#EF9F27';
+      const macroBg=a.macro==='C'?'#E1F5EE':a.macro==='P'?'#E6F1FB':'#FAEEDA';
+      const macroTxt=a.macro==='C'?'#085041':a.macro==='P'?'#0C447C':'#633806';
+      // Δ peso rispetto al record precedente (cronologicamente)
+      const agAsc=[...ag].sort((x,y)=>x.data.localeCompare(y.data));
+      const posAsc=agAsc.findIndex(x=>x.id===a.id);
+      let deltaP='—';
+      if(a.peso&&posAsc>0){
+        const prev=agAsc[posAsc-1];
+        if(prev.peso){const d=(parseFloat(a.peso)-parseFloat(prev.peso)).toFixed(1);deltaP=(parseFloat(d)>0?'+':'')+d+' kg';}
+      }
+      const deltaPCol=deltaP!=='—'?(parseFloat(deltaP)<=0?'#0F6E56':'#A32D2D'):'var(--text3)';
+      const bg=i%2===0?'var(--card-bg,#fff)':'var(--bg)';
+      listaHTML+=`<div style="display:grid;grid-template-columns:80px 90px 110px 80px 1fr 28px;gap:6px;padding:7px 10px;border-top:0.5px solid var(--border);background:${bg};align-items:center">
+        <div style="font-size:.75rem;color:var(--text2)">${fData(a.data)}</div>
+        <div><span style="font-size:.68rem;padding:2px 6px;border-radius:4px;background:${macroBg};color:${macroTxt};font-weight:600">${macroLabel}</span></div>
+        <div style="font-size:.78rem;font-weight:600;color:var(--text)">${segno}${a.delta}g → <span style="color:var(--text2)">${a.totale}g tot</span></div>
+        <div style="font-size:.75rem;color:var(--text2)">${a.peso?a.peso+' kg':'—'} <span style="font-size:.65rem;color:${deltaPCol}">${deltaP!=='—'?'('+deltaP+')':''}</span></div>
+        <div style="font-size:.75rem;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.nota?a.nota.replace(/&/g,'&amp;').replace(/</g,'&lt;'):'—'}</div>
+        <div><button onclick="eliminaAggiustamento('${p.id}','${a.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.82rem;padding:2px 4px;border-radius:4px" title="Elimina">✕</button></div>
+      </div>`;
+    });
+    listaHTML+='</div>';
+  }else{
+    listaHTML='<div style="font-size:.78rem;color:var(--text3);text-align:center;padding:.8rem;font-style:italic">Nessun aggiustamento registrato</div>';
+  }
+
+  // Form aggiunta
+  const formHTML=cap15
+    ?'<div style="font-size:.75rem;color:#c0392b;padding:.3rem 0">⚠ Limite 15 raggiunto — elimina un record per aggiungerne un altro</div>'
+    :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem">
+        <div>
+          <label style="font-size:.68rem;color:var(--text3);display:block;margin-bottom:2px">Data</label>
+          <input type="date" id="ag-data" value="${oggi}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;font-size:.78rem;background:var(--bg);color:var(--text);box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:.68rem;color:var(--text3);display:block;margin-bottom:2px">Macro</label>
+          <select id="ag-macro" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;font-size:.78rem;background:var(--bg);color:var(--text);box-sizing:border-box">
+            <option value="C">Carboidrati</option>
+            <option value="P">Proteine</option>
+            <option value="G">Grassi</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.68rem;color:var(--text3);display:block;margin-bottom:2px">Variazione (g) — es. +20 o -10</label>
+          <input type="number" id="ag-delta" placeholder="es. 20" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;font-size:.78rem;background:var(--bg);color:var(--text);box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:.68rem;color:var(--text3);display:block;margin-bottom:2px">Peso al controllo (kg, opz.)</label>
+          <input type="number" id="ag-peso" step="0.1" placeholder="es. 76.8" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;font-size:.78rem;background:var(--bg);color:var(--text);box-sizing:border-box">
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:.68rem;color:var(--text3);display:block;margin-bottom:2px">Nota breve (opz.)</label>
+          <input type="text" id="ag-nota" placeholder="es. tollerato bene, energia ok..." style="width:100%;border:1px solid var(--border);border-radius:6px;padding:.28rem .5rem;font-size:.78rem;background:var(--bg);color:var(--text);box-sizing:border-box">
+        </div>
+      </div>
+      <button class="btn btn-p btn-sm" style="margin-top:.6rem" onclick="salvaAggiustamento('${p.id}')">📈 Registra aggiustamento</button>`;
+
+  return `<div class="card" style="margin-bottom:.8rem">
+    <div class="card-hd"><h3>📈 Aggiustamenti macros</h3><span style="font-size:.72rem;color:var(--text3)">${ag.length}/15</span></div>
+    <div class="card-bd">
+      ${listaHTML}
+      ${formHTML}
+    </div>
+  </div>`;
+}
+
+function salvaAggiustamento(pazId){
+  const p=db.pazienti.find(x=>x.id===pazId);if(!p)return;
+  if(!p.aggiustamentiMacros)p.aggiustamentiMacros=[];
+  if(p.aggiustamentiMacros.length>=15){notif('⚠ Limite 15 raggiunto');return;}
+  const data=document.getElementById('ag-data')?.value;
+  const macro=document.getElementById('ag-macro')?.value;
+  const deltaStr=document.getElementById('ag-delta')?.value;
+  const pesoStr=document.getElementById('ag-peso')?.value;
+  const nota=(document.getElementById('ag-nota')?.value||'').trim();
+  if(!data||!macro||!deltaStr){notif('⚠ Compila data, macro e variazione');return;}
+  const delta=parseInt(deltaStr);
+  if(isNaN(delta)||delta===0){notif('⚠ Variazione non valida');return;}
+  const peso=pesoStr?parseFloat(pesoStr):null;
+  // Calcola totale corrente dal macrosTarget
+  const mt=p.macrosTarget||{};
+  const campoMacro=macro==='C'?'carbG':macro==='P'?'protG':'grassiG';
+  const valoreCorrente=parseFloat(mt[campoMacro])||0;
+  const totale=Math.round(valoreCorrente+delta);
+  if(totale<0){notif('⚠ Il totale risultante è negativo');return;}
+  // Kcal per grammo: C/P=4, G=9
+  const kcalPerGr=macro==='G'?9:4;
+  const deltaKcal=delta*kcalPerGr;
+  // Salva aggiustamento
+  p.aggiustamentiMacros.push({id:uid(),data,macro,delta,totale,peso,nota:nota||null});
+  // Aggiorna macrosTarget
+  if(!p.macrosTarget)p.macrosTarget={};
+  p.macrosTarget[campoMacro]=totale;
+  p.macrosTarget.kcal=Math.round((parseFloat(p.macrosTarget.kcal)||0)+deltaKcal);
+  save();
+  renderPdNote(p);
+  notif('✓ Aggiustamento registrato — ricorda di rigenerare il piano con la nuova grammatura');
+}
+
+function eliminaAggiustamento(pazId,agId){
+  const p=db.pazienti.find(x=>x.id===pazId);if(!p||!p.aggiustamentiMacros)return;
+  if(!confirm('Eliminare questo aggiustamento?\n\nAttenzione: i macrosTarget NON verranno ripristinati automaticamente.'))return;
+  p.aggiustamentiMacros=p.aggiustamentiMacros.filter(x=>x.id!==agId);
+  save();
+  renderPdNote(p);
+  notif('✓ Aggiustamento eliminato');
+}
+
 function renderPdNote(p){
   if(!p.noteClinica)p.noteClinica=[];
   // Migrazione da vecchio campo stringa
@@ -4353,6 +4485,11 @@ function renderPdNote(p){
   }
   const el=document.getElementById('pd-note');
   if(!el)return;
+
+  // ── B5: sezione aggiustamenti macros in cima ──────────────
+  const agSection=_renderAggiustamentiSection(p);
+  // ─────────────────────────────────────────────────────────
+
   const note=p.noteClinica||[];
   const listaHTML=note.length?note.map((n,i)=>`
     <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.55rem .7rem;border-radius:8px;background:var(--bg);border:1px solid var(--border);margin-bottom:.5rem">
@@ -4364,7 +4501,7 @@ function renderPdNote(p){
     </div>`).join('')
     :'<div style="font-size:.8rem;color:var(--text3);text-align:center;padding:1rem;font-style:italic">Nessuna nota clinica</div>';
   const max15=note.length>=15;
-  el.innerHTML=`<div class="card"><div class="card-hd"><h3>Note cliniche</h3><span style="font-size:.72rem;color:var(--text3)">${note.length}/15</span></div><div class="card-bd">
+  el.innerHTML=agSection+`<div class="card"><div class="card-hd"><h3>Note cliniche</h3><span style="font-size:.72rem;color:var(--text3)">${note.length}/15</span></div><div class="card-bd">
     ${listaHTML}
     ${max15?'<div style="font-size:.75rem;color:#c0392b;padding:.3rem 0">⚠ Limite 15 note raggiunto — elimina una nota per aggiungerne un&#39;altra</div>':''}
     <div style="margin-top:.8rem;display:${max15?'none':'block'}">
@@ -5570,11 +5707,93 @@ function _ibFmtBreve(d){
   const mesi=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
   const dt=new Date(d);return dt.getDate()+' '+mesi[dt.getMonth()];
 }
+// ═══════════════════════════════════════════════════════════
+// C4 — PESI INTERMEDI CASALINGHI
+// p.pesiIntermedi[] = [{data:'YYYY-MM-DD', peso:XX.X}]
+// ═══════════════════════════════════════════════════════════
+
+function _renderPesiIntermediSection(p){
+  const pi=(p.pesiIntermedi||[]).slice().sort((a,b)=>a.data.localeCompare(b.data));
+  const oggi=today();
+
+  // Calcola delta rispetto al primo peso InBody (o p.peso)
+  const inbodySorted=(p.inbody||[]).filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
+  const pesoBase=inbodySorted.length?parseFloat(inbodySorted[0].peso):(parseFloat(p.peso)||null);
+
+  let listaHtml='';
+  if(pi.length){
+    const piDesc=[...pi].reverse();
+    listaHtml=piDesc.map((e,i)=>{
+      const delta=pesoBase!==null?(parseFloat(e.peso)-pesoBase).toFixed(1):null;
+      const deltaCol=delta===null?'':(parseFloat(delta)<=0?'color:#0F6E56':'color:#A32D2D');
+      const deltaStr=delta===null?'':`<span style="font-size:.72rem;font-weight:600;margin-left:.4rem;${deltaCol}">${parseFloat(delta)>0?'+':''}${delta} kg</span>`;
+      const ggFa=Math.round((new Date(oggi)-new Date(e.data))/86400000);
+      const ggStr=ggFa===0?'oggi':ggFa===1?'ieri':`${ggFa}gg fa`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.35rem .5rem;border-radius:6px;background:var(--bg);margin-bottom:.3rem">
+        <span style="font-size:.82rem;color:var(--text2)">${fData(e.data)} <span style="font-size:.7rem;color:var(--text3)">(${ggStr})</span></span>
+        <span style="font-size:.88rem;font-weight:600">${e.peso} kg${deltaStr}</span>
+        <button onclick="eliminaPesoIntermedio('${p.id}',${pi.length-1-i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:2px 6px;border-radius:4px" title="Elimina">✕</button>
+      </div>`;
+    }).join('');
+  }else{
+    listaHtml='<div style="font-size:.78rem;color:var(--text3);padding:.3rem .2rem">Nessuna pesata registrata</div>';
+  }
+
+  // Ultima pesata con delta rispetto alla precedente
+  let ultimaDeltaHtml='';
+  if(pi.length>=2){
+    const last=pi[pi.length-1],prev=pi[pi.length-2];
+    const d=(parseFloat(last.peso)-parseFloat(prev.peso)).toFixed(1);
+    const gg=Math.round((new Date(last.data)-new Date(prev.data))/86400000);
+    const col=parseFloat(d)<=0?'#0F6E56':'#A32D2D';
+    ultimaDeltaHtml=`<div style="font-size:.75rem;color:${col};margin-top:.3rem">Ultima settimana: <strong>${parseFloat(d)>0?'+':''}${d} kg</strong> in ${gg} giorni</div>`;
+  }
+
+  return `<div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:.8rem 1rem;margin-bottom:.9rem">
+    <div style="font-weight:700;font-size:.85rem;color:var(--teal2);margin-bottom:.6rem">⚖️ Peso casalingo</div>
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
+      <input type="date" id="pi-data" value="${oggi}" style="border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">
+      <input type="number" id="pi-peso" step="0.1" min="30" max="300" placeholder="kg" style="width:80px;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">
+      <button onclick="aggiungiPesoIntermedio('${p.id}')" style="padding:.3rem .9rem;background:var(--teal2);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer">+ Aggiungi</button>
+    </div>
+    ${listaHtml}
+    ${ultimaDeltaHtml}
+  </div>`;
+}
+
+function aggiungiPesoIntermedio(pazId){
+  const p=db.pazienti.find(x=>x.id===pazId);if(!p)return;
+  const data=document.getElementById('pi-data')?.value;
+  const pesoStr=document.getElementById('pi-peso')?.value;
+  if(!data||!pesoStr){notif('⚠ Inserisci data e peso');return;}
+  const peso=parseFloat(pesoStr);
+  if(isNaN(peso)||peso<30||peso>300){notif('⚠ Peso non valido');return;}
+  if(!p.pesiIntermedi)p.pesiIntermedi=[];
+  // Evita duplicati stessa data
+  const idx=p.pesiIntermedi.findIndex(e=>e.data===data);
+  if(idx>=0){p.pesiIntermedi[idx].peso=peso;}else{p.pesiIntermedi.push({data,peso});}
+  save();
+  renderPdInbody(p);
+  notif('✓ Pesata aggiunta!');
+}
+
+function eliminaPesoIntermedio(pazId,idx){
+  const p=db.pazienti.find(x=>x.id===pazId);if(!p||!p.pesiIntermedi)return;
+  p.pesiIntermedi.splice(idx,1);
+  save();
+  renderPdInbody(p);
+}
+
 function renderPdInbody(p){
   const list=p.inbody||[];
-  if(!list.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
+
+  // ── C4 — Sezione pesi intermedi casalinghi ────────────────────────────────
+  const piHtml = _renderPesiIntermediSection(p);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  if(!list.length){document.getElementById('pd-inbody').innerHTML=piHtml+'<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
   const sorted=[...list].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
-  if(!sorted.length){document.getElementById('pd-inbody').innerHTML='<div class="empty"><p>Nessuna misurazione InBody valida</p></div>';return;}
+  if(!sorted.length){document.getElementById('pd-inbody').innerHTML=piHtml+'<div class="empty"><p>Nessuna misurazione InBody valida</p></div>';return;}
   const sortedDesc=[...sorted].reverse();
   const last=sortedDesc[0],first=sorted[0];
   const hasMulti=sorted.length>=2;
@@ -5764,7 +5983,7 @@ function renderPdInbody(p){
         ${ib.note?`<div style="font-size:.77rem;color:var(--text2);margin-top:.4rem;padding:.5rem;background:var(--bg);border-radius:6px">${ib.note}</div>`:''}
       </div></div>`).join('');
 
-  document.getElementById('pd-inbody').innerHTML=html;
+  document.getElementById('pd-inbody').innerHTML=piHtml+html;
 
   // ── Render Chart.js — grafici InBody v3 finale ──────────────────────────
   if(hasMulti&&typeof Chart!=='undefined'){
@@ -9453,12 +9672,19 @@ function apriAIWhatsApp(pazId, tipoFase) {
   const kcalTarget = p.tdee ? Math.round(p.tdee - (p.deficit || 0)) : null;
   const deficit = p.deficit || null;
 
-  // Peso intermedio (C4)
-  const pesoIntermedio = ultimaInBody ? parseFloat(ultimaInBody.peso) : null;
+  // Peso intermedio (C4): prima usa InBody, poi fallback su pesiIntermedi casalinghi
+  let pesoIntermedio = ultimaInBody ? parseFloat(ultimaInBody.peso) : null;
+  let _fontePeso = ultimaInBody ? 'InBody' : null;
+  if (!pesoIntermedio && p.pesiIntermedi && p.pesiIntermedi.length) {
+    const _piSort = [...p.pesiIntermedi].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
+    const _ultimo = _piSort[_piSort.length-1];
+    if(_ultimo){ pesoIntermedio = parseFloat(_ultimo.peso); _fontePeso = 'casalingo del '+fData(_ultimo.data); }
+  }
   const pesoIniziale = parseFloat(p.peso) || null;
   const deltaPeso = (pesoIntermedio && pesoIniziale) ? (pesoIniziale - pesoIntermedio).toFixed(1) : null;
+  const fontePeso = _fontePeso;
 
-  _aiWaCtx = { p, pazId, tipoFase, settimana, ultimaInBody, kcalTarget, deficit, pesoIntermedio, pesoIniziale, deltaPeso };
+  _aiWaCtx = { p, pazId, tipoFase, settimana, ultimaInBody, kcalTarget, deficit, pesoIntermedio, pesoIniziale, deltaPeso, fontePeso };
 
   // Label fase
   const faseLabels = {
@@ -9493,7 +9719,7 @@ function apriAIWhatsApp(pazId, tipoFase) {
 }
 
 async function generaMessaggioAI() {
-  const { p, tipoFase, settimana, ultimaInBody, kcalTarget, deficit, deltaPeso, pesoIniziale, pesoIntermedio } = _aiWaCtx;
+  const { p, tipoFase, settimana, ultimaInBody, kcalTarget, deficit, deltaPeso, pesoIniziale, pesoIntermedio, fontePeso } = _aiWaCtx;
   const tono = document.getElementById('ai-wa-tono').value;
   const lunghezza = document.getElementById('ai-wa-lunghezza').value;
   const noteExtra = document.getElementById('ai-wa-note').value.trim();
@@ -9524,8 +9750,8 @@ async function generaMessaggioAI() {
   if (kcalTarget) datiClinici += `, target kcal: ${kcalTarget} kcal/die`;
   if (deficit) datiClinici += `, deficit: ${deficit} kcal`;
   datiClinici += `, settimana ${settimana} del percorso`;
-  if (deltaPeso && parseFloat(deltaPeso) > 0) datiClinici += `. Ha già perso ${deltaPeso}kg dall'inizio (peso iniziale ${pesoIniziale}kg, attuale ${pesoIntermedio}kg)`;
-  else if (deltaPeso && parseFloat(deltaPeso) < 0) datiClinici += `. Ha avuto un aumento di ${Math.abs(deltaPeso)}kg dall'inizio`;
+  if (deltaPeso && parseFloat(deltaPeso) > 0) datiClinici += `. Ha già perso ${deltaPeso}kg dall'inizio (peso iniziale ${pesoIniziale}kg, attuale ${pesoIntermedio}kg — rilevazione ${fontePeso||'disponibile'})`;
+  else if (deltaPeso && parseFloat(deltaPeso) < 0) datiClinici += `. Ha avuto un aumento di ${Math.abs(deltaPeso)}kg dall'inizio (rilevazione ${fontePeso||'disponibile'})`;
   else if (!deltaPeso) datiClinici += `. Non ci sono misurazioni intermedie disponibili`;
   if (p.patologie) datiClinici += `. Patologie: ${p.patologie}`;
   if (p.integratori) datiClinici += `. Integratori: ${p.integratori}`;
@@ -9857,7 +10083,7 @@ async function generaPiano(forceRegen){
     +"- Grammature realistiche e pratiche\n"
     +"- Giorni 1-3-5 al pranzo: aggiungi legumi (barattolo 120g) con proteina leggera\n"
     +"- Giorni 2-4-6 al pranzo: proteina principale senza legumi\n"
-    +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g\n\n"
+    +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g, grammi carboidrati cena: "+carbGr+"g\n\n"
     +"Restituisci SOLO un JSON valido, nessun testo prima o dopo. Includi ESCLUSIVAMENTE le chiavi: giorno + "+_listaPastiAttivi+". NON includere mai: "+_listaPastiSkipped+". Schema dinamico con SOLO i pasti attivi:\n"
     +(function(){
       var schemaPasti = {};
@@ -9865,7 +10091,7 @@ async function generaPiano(forceRegen){
       if(_pastiCfg.find(function(x){return x.key==='spuntino_mattina'&&x.attivo;})) schemaPasti['spuntino_mattina']='descrizione spuntino mattina';
       if(_pastiCfg.find(function(x){return x.key==='pranzo'&&x.attivo;})) schemaPasti['pranzo']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'carboidrati':{'nome':'','grammi':carbGr},'proteina':{'nome':'','grammi':0},'legumi_g':0};
       if(_pastiCfg.find(function(x){return x.key==='spuntino_pomeriggio'&&x.attivo;})) schemaPasti['spuntino_pomeriggio']='descrizione spuntino pomeriggio';
-      if(_pastiCfg.find(function(x){return x.key==='cena'&&x.attivo;})) schemaPasti['cena']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'proteina':{'nome':'','grammi':0}};
+      if(_pastiCfg.find(function(x){return x.key==='cena'&&x.attivo;})) schemaPasti['cena']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'carboidrati':{'nome':'','grammi':carbGr},'proteina':{'nome':'','grammi':0}};
       if(_pastiCfg.find(function(x){return x.key==='pre_nanna'&&x.attivo;})) schemaPasti['pre_nanna']='descrizione pre-nanna';
       return '[{\"giorno\":\"Lunedì\",'+Object.keys(schemaPasti).map(function(k){return JSON.stringify(k)+':'+JSON.stringify(schemaPasti[k]);}).join(',')+'},...]';
     }());
