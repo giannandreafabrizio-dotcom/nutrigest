@@ -7356,8 +7356,13 @@ function riapriPiano(pazId, idx) {
     }
     window._pianoCorrente = pianoAI;
     var p = (db.pazienti||[]).find(function(x){ return x.id === pazId; });
+    // Naviga e renderizza da JSON salvato (zero token)
+    goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
+    var _sp = document.getElementById('piano-select-paz');
+    if (_sp) { _sp.value = pazId; if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId); }
+    window._pdfPaziente = p; window._pdfPiano = pianoAI; window._pianoGiornoCorrente = 0;
+    // ── BUGFIX: imposta _pianoTargets DOPO pianoPazSelezionato (che lo azzerava su cambio paziente) ──
     if (p) {
-      // ── BUGFIX: leggi PRIMA i target attivi (rag.clinico / macrosTarget salvati) ──
       var _activeMT = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
       var _ct = calcolaTDEE(p);
       var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
@@ -7394,11 +7399,6 @@ function riapriPiano(pazId, idx) {
         window._pianoTargetsOFF = {kcal:_kcalOFF,p:_protOFF,c:_carbOFF,g:_grasOFF,source:'calcolo-off',laf:_lafOFF};
       }
     }
-    // Naviga e renderizza da JSON salvato (zero token)
-    goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
-    var _sp = document.getElementById('piano-select-paz');
-    if (_sp) { _sp.value = pazId; if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId); }
-    window._pdfPaziente = p; window._pdfPiano = pianoAI; window._pianoGiornoCorrente = 0;
     // piano-piano-box e' statico nell'HTML
     var _pianoEl = document.getElementById('piano-piano-box');
     if (!_pianoEl) return;
