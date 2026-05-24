@@ -7343,18 +7343,43 @@ function riapriPiano(pazId, idx) {
       return;
     }
     if (pianoAI.giorni) pianoAI = pianoAI.giorni;
+    // ── BUGFIX: applica risoluzione collisioni celle anche ai piani salvati prima della fix ──
+    if (typeof window._risolviCollisioniCelle === 'function' && Array.isArray(pianoAI)) {
+      pianoAI.forEach(function(g){
+        if (g && g.pasti) {
+          Object.keys(g.pasti).forEach(function(k){
+            var pa = g.pasti[k];
+            if (pa && pa.celle) window._risolviCollisioniCelle(pa.celle);
+          });
+        }
+      });
+    }
     window._pianoCorrente = pianoAI;
     var p = (db.pazienti||[]).find(function(x){ return x.id === pazId; });
     if (p) {
+      // ── BUGFIX: leggi PRIMA i target attivi (rag.clinico / macrosTarget salvati) ──
+      var _activeMT = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
       var _ct = calcolaTDEE(p);
       var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
         'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
         'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-      var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
-      var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
-      var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
-      var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
-      window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
+      if (_activeMT && _activeMT.kcal) {
+        // Priorità ai target decisi dal medico (rag.clinico o macrosTarget)
+        window._pianoTargets = {
+          kcal: _activeMT.kcal,
+          p: _activeMT.protG,
+          c: _activeMT.carbG,
+          g: _activeMT.grassiG,
+          source: _activeMT.source === 'f1' ? 'ragionamento' : 'calcolo'
+        };
+      } else {
+        // Fallback legacy: ricalcola da TDEE
+        var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
+        var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
+        var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
+        var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
+        window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
+      }
       window._pianoGiorniON = p.giorniAllenamento||[];
       var _passi = p.passiGiornalieri!=null?+p.passiGiornalieri:null;
       var _neat = _passi===null?0:_passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
@@ -8476,29 +8501,66 @@ function _normalizzaPianoNuovo(piano) {
   if (!piano || !piano.length) return piano;
   var catMap = {ca:'carbo',pr:'proteine',le:'legumi',ve:'verdura',fr:'frutta',oi:'olio',gx:'grasso',fi:'fit',co:'condimento'};
   var clMap = {v:'verde',a:'arancione',r:'rosso'};
+  // ── BUGFIX: risolve collisioni (colonna, ordine) tra celle, evitando alimenti "invisibili" ──
+  function _risolviCollisioniCelle(celle) {
+    if (!celle || !celle.length) return celle;
+    var usati = {}; // chiave "col|ord" → true
+    var daRiassegnare = [];
+    celle.forEach(function(c) {
+      var col = c.colonna || 'sx';
+      var ord = parseInt(c.ordine) || 1;
+      var k = col + '|' + ord;
+      if (usati[k]) { daRiassegnare.push(c); }
+      else { usati[k] = true; c.colonna = col; c.ordine = ord; }
+    });
+    // Per ogni cella in collisione, trova il primo slot libero (preferendo la colonna originale)
+    daRiassegnare.forEach(function(c) {
+      var colPref = c.colonna || 'sx';
+      var altCol = colPref === 'sx' ? 'dx' : 'sx';
+      var trovato = false;
+      // 1) Prova stessa colonna, ordine crescente
+      for (var o = 1; o <= 20 && !trovato; o++) {
+        if (!usati[colPref + '|' + o]) {
+          c.colonna = colPref; c.ordine = o; usati[colPref + '|' + o] = true; trovato = true;
+        }
+      }
+      // 2) Fallback colonna opposta
+      if (!trovato) {
+        for (var o2 = 1; o2 <= 20 && !trovato; o2++) {
+          if (!usati[altCol + '|' + o2]) {
+            c.colonna = altCol; c.ordine = o2; usati[altCol + '|' + o2] = true; trovato = true;
+          }
+        }
+      }
+    });
+    return celle;
+  }
+  // Esponi globalmente per riutilizzo (es. riapertura piano)
+  window._risolviCollisioniCelle = _risolviCollisioniCelle;
   return piano.map(function(g) {
     if (!g.pasti) return g;
     var nuoviPasti = {};
     Object.keys(g.pasti).forEach(function(k) {
       var p = g.pasti[k];
       if (!p) return;
+      var celleNorm = (p.celle || p.ce || []).map(function(c) {
+        return {
+          id: c.id,
+          colonna: c.colonna || c.co || 'sx',
+          ordine: c.ordine || c.or || 1,
+          alimenti: (c.alimenti || c.al || []).map(function(a) {
+            return {
+              n: a.n,
+              g: a.g,
+              categoria: a.categoria || catMap[a.cat] || a.cat || '',
+              colore: a.colore || clMap[a.cl] || a.cl || ''
+            };
+          })
+        };
+      });
       var nuovoP = {
         ricette: p.ricette || p.ric || [],
-        celle: (p.celle || p.ce || []).map(function(c) {
-          return {
-            id: c.id,
-            colonna: c.colonna || c.co || 'sx',
-            ordine: c.ordine || c.or || 1,
-            alimenti: (c.alimenti || c.al || []).map(function(a) {
-              return {
-                n: a.n,
-                g: a.g,
-                categoria: a.categoria || catMap[a.cat] || a.cat || '',
-                colore: a.colore || clMap[a.cl] || a.cl || ''
-              };
-            })
-          };
-        })
+        celle: _risolviCollisioniCelle(celleNorm)
       };
       if (p.nota_descrittiva) nuovoP.nota_descrittiva = p.nota_descrittiva;
       nuoviPasti[k] = nuovoP;
