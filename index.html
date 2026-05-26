@@ -129,6 +129,7 @@ main{flex:1;overflow-y:auto;}
 .overlay.open{display:flex;}
 .modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.6rem;width:720px;max-width:97vw;max-height:93vh;overflow-y:auto;box-shadow:var(--shadow2);}
 .modal-sm{width:480px;}
+.modal-lg{width:880px;}
 .modal h3{font-family:'DM Serif Display',serif;font-size:1.05rem;margin-bottom:1.2rem;}
 .modal-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem;flex-wrap:wrap;}
 .mtab{padding:.5rem .9rem;font-size:.76rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'DM Sans',sans-serif;}
@@ -149,6 +150,9 @@ main{flex:1;overflow-y:auto;}
 .inp-hint.warn{color:#e67e22;}
 .inp-hint.ok{color:var(--teal2);}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.fr-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;}
+.fr-5{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:.6rem;}
+@media (max-width:760px){.fr-3,.fr-5{grid-template-columns:1fr 1fr;}}
 .fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;}
 .mf{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.2rem;padding-top:.9rem;border-top:1px solid var(--border);}
 .sec-title{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--text);margin-bottom:.65rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);margin-top:.5rem;}
@@ -1250,62 +1254,54 @@ main{flex:1;overflow-y:auto;}
 
 <!-- ══════════════ MODAL INBODY -->
 <div class="overlay" id="mo-inbody">
-<div class="modal modal-sm">
+<div class="modal modal-lg">
   <h3>📊 Misurazione InBody</h3>
-  <div class="fg"><label>Data</label><input type="date" id="ib-data"></div>
-  <div class="fg">
-    <label>Carica PDF InBody (opzionale)</label>
-    <div class="upload-area" onclick="document.getElementById('ib-pdf-input').click()">
-      <p>📄 Clicca per caricare il PDF della bilancia InBody 120</p>
-      <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
+  <div class="fr-3">
+    <div class="fg"><label>Data</label><input type="date" id="ib-data"></div>
+    <div class="fg" style="grid-column:span 2">
+      <label>Carica PDF InBody (opzionale)</label>
+      <div class="upload-area" onclick="document.getElementById('ib-pdf-input').click()" style="padding:.5rem .9rem">
+        <p style="margin:0">📄 Clicca per caricare il PDF della bilancia InBody 120</p>
+        <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
+      </div>
+      <input type="file" id="ib-pdf-input" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="loadInbodyPDF(event)">
     </div>
-    <input type="file" id="ib-pdf-input" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="loadInbodyPDF(event)">
   </div>
   <div id="ib-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">
     ⏳ Estrazione dati dal PDF InBody in corso...
   </div>
-  <div class="fr">
+  <div class="fr-3">
     <div class="fg"><label>Peso totale (kg)</label><input type="number" id="ib-peso" step="0.1"></div>
     <div class="fg"><label>% Massa grassa</label><input type="number" id="ib-pg" step="0.1"></div>
+    <div class="fg"><label>BMI</label><input type="number" id="ib-bmi" step="0.1"></div>
   </div>
-  <div class="fr">
+  <div class="fr-3">
     <div class="fg"><label>Massa grassa (kg)</label><input type="number" id="ib-g" step="0.1"></div>
     <div class="fg"><label>Massa magra (kg)</label><input type="number" id="ib-m" step="0.1"></div>
-  </div>
-  <div class="fr">
     <div class="fg"><label>Massa muscolare (kg)</label><input type="number" id="ib-musc" step="0.1"></div>
-    <div class="fg"><label>Acqua totale (L)</label><input type="number" id="ib-acqua" step="0.1"></div>
   </div>
-  <div class="fr">
+  <div class="fr-3">
+    <div class="fg"><label>Acqua totale (L)</label><input type="number" id="ib-acqua" step="0.1"></div>
     <div class="fg"><label>Metabolismo basale (kcal)</label><input type="number" id="ib-mb" step="1"></div>
     <div class="fg"><label>Grasso viscerale (livello)</label><input type="number" id="ib-visc" step="1"></div>
   </div>
-  <div class="fr">
-    <div class="fg"><label>BMI</label><input type="number" id="ib-bmi" step="0.1"></div>
+  <div class="fr-3">
     <div class="fg"><label>Altezza (cm)</label><input type="number" id="ib-altezza" step="0.1" placeholder="es. 170"></div>
-  </div>
-  <div class="fr">
-    <div class="fg"><label>Peso Ideale InBody (kg) <span style="font-size:.68rem;color:var(--text3);font-weight:400">&#8212; riportato sul referto</span></label><input type="number" id="ib-peso-ideale" step="0.1" placeholder="es. 65.0"></div>
-  </div>
-  <div class="fr">
+    <div class="fg"><label>Peso ideale (kg)</label><input type="number" id="ib-peso-ideale" step="0.1" placeholder="es. 65.0"></div>
     <div class="fg"><label>Cintura/Fianchi</label><input type="number" id="ib-cint-fianchi" step="0.01" placeholder="es. 0.92"></div>
   </div>
   <div style="font-size:.72rem;font-weight:600;color:var(--teal2);margin:.6rem 0 .2rem;text-transform:uppercase;letter-spacing:.5px">Massa Magra Segmentale (kg)</div>
-  <div class="fr">
+  <div class="fr-5">
     <div class="fg"><label>Braccio SX</label><input type="number" id="ib-ms-bracsx" step="0.01"></div>
     <div class="fg"><label>Braccio DX</label><input type="number" id="ib-ms-bracdx" step="0.01"></div>
-  </div>
-  <div class="fr">
     <div class="fg"><label>Tronco</label><input type="number" id="ib-ms-tronco" step="0.01"></div>
     <div class="fg"><label>Gamba SX</label><input type="number" id="ib-ms-gambsx" step="0.01"></div>
     <div class="fg"><label>Gamba DX</label><input type="number" id="ib-ms-gambdx" step="0.01"></div>
   </div>
   <div style="font-size:.72rem;font-weight:600;color:var(--arancio,#E97B2A);margin:.6rem 0 .2rem;text-transform:uppercase;letter-spacing:.5px">Massa Grassa Segmentale (kg)</div>
-  <div class="fr">
+  <div class="fr-5">
     <div class="fg"><label>Braccio SX</label><input type="number" id="ib-gs-bracsx" step="0.01"></div>
     <div class="fg"><label>Braccio DX</label><input type="number" id="ib-gs-bracdx" step="0.01"></div>
-  </div>
-  <div class="fr">
     <div class="fg"><label>Tronco</label><input type="number" id="ib-gs-tronco" step="0.01"></div>
     <div class="fg"><label>Gamba SX</label><input type="number" id="ib-gs-gambsx" step="0.01"></div>
     <div class="fg"><label>Gamba DX</label><input type="number" id="ib-gs-gambdx" step="0.01"></div>
@@ -5794,6 +5790,131 @@ function eliminaPesoIntermedio(pazId,idx){
   renderPdInbody(p);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SILHOUETTE SEGMENTALE — Variante F (heatmap colore per scostamento)
+// ═══════════════════════════════════════════════════════════════
+function _ibSilhouetteSegmentale(ib){
+  if(!ib) return '';
+  const ms=ib.magraSegm||{}, gs=ib.grassaSegm||{};
+  const hasMs = ms.bracSx||ms.bracDx||ms.tronco||ms.gambSx||ms.gambDx;
+  const hasGs = gs.bracSx||gs.bracDx||gs.tronco||gs.gambSx||gs.gambDx;
+  if(!hasMs && !hasGs) return '';
+
+  // Calcolo del valore di riferimento "normale" per ciascun segmento, basato sulla somma totale.
+  // I rapporti standard InBody Sopra/Normale/Sotto si calcolano sul confronto col valore atteso
+  // segmentale del paziente; qui usiamo una stima percentuale rispetto al totale come proxy
+  // affidabile, con soglie InBody-standard (magra: <90/90-110/>110; grassa: <80/80-160/>160).
+  // L'intensità del colore varia in 3 livelli.
+  const totMs = (ms.bracSx||0)+(ms.bracDx||0)+(ms.tronco||0)+(ms.gambSx||0)+(ms.gambDx||0);
+  const totGs = (gs.bracSx||0)+(gs.bracDx||0)+(gs.tronco||0)+(gs.gambSx||0)+(gs.gambDx||0);
+
+  // Pesi proporzionali attesi per segmento (somma=100) - basati sulle medie InBody adulto
+  const wExpMs = {bracSx:7, bracDx:7, tronco:50, gambSx:18, gambDx:18};
+  const wExpGs = {bracSx:8, bracDx:8, tronco:55, gambSx:14.5, gambDx:14.5};
+
+  // Calcola % di scostamento dalla norma per ogni segmento
+  function pct(val, tot, expW){
+    if(!val||!tot) return null;
+    const expVal = tot * expW / 100;
+    return Math.round((val/expVal)*100);
+  }
+  // Colore in base alla classificazione InBody
+  function colMagra(p){
+    if(p===null) return '#9FE1CB';
+    if(p>110) return '#085041';      // sopra (intenso)
+    if(p>=90) return '#1D9E75';      // normale (medio)
+    return '#9FE1CB';                // sotto (chiaro)
+  }
+  function colGrassa(p){
+    if(p===null) return '#F5C4B3';
+    if(p>160) return '#993C1D';      // sopra (rosso scuro - allarme)
+    if(p>=80) return '#D85A30';      // normale-alto (arancio)
+    return '#F5C4B3';                // sotto (rosa chiaro)
+  }
+
+  // Per il tronco grassa che è il più indicativo, uso una palette dedicata più forte
+  function colTroncoGrassa(p){
+    if(p===null) return '#D85A30';
+    if(p>160) return '#993C1D';
+    if(p>=80) return '#D85A30';
+    return '#F0997B';
+  }
+
+  const m = {
+    bracSx: {v:ms.bracSx, p:pct(ms.bracSx,totMs,wExpMs.bracSx)},
+    bracDx: {v:ms.bracDx, p:pct(ms.bracDx,totMs,wExpMs.bracDx)},
+    tronco: {v:ms.tronco, p:pct(ms.tronco,totMs,wExpMs.tronco)},
+    gambSx: {v:ms.gambSx, p:pct(ms.gambSx,totMs,wExpMs.gambSx)},
+    gambDx: {v:ms.gambDx, p:pct(ms.gambDx,totMs,wExpMs.gambDx)}
+  };
+  const g = {
+    bracSx: {v:gs.bracSx, p:pct(gs.bracSx,totGs,wExpGs.bracSx)},
+    bracDx: {v:gs.bracDx, p:pct(gs.bracDx,totGs,wExpGs.bracDx)},
+    tronco: {v:gs.tronco, p:pct(gs.tronco,totGs,wExpGs.tronco)},
+    gambSx: {v:gs.gambSx, p:pct(gs.gambSx,totGs,wExpGs.gambSx)},
+    gambDx: {v:gs.gambDx, p:pct(gs.gambDx,totGs,wExpGs.gambDx)}
+  };
+
+  const fmt = v => v ? (Math.round(v*100)/100).toString().replace('.',',') : '—';
+
+  return `<div class="card" style="margin-bottom:.7rem">
+    <div class="card-hd"><h3>👤 Analisi Segmentale</h3></div>
+    <div class="card-bd" style="padding:.3rem">
+      <svg width="100%" viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;display:block">
+        <rect x="20" y="20" width="640" height="300" rx="12" fill="#FAFAFA" stroke="#D3D1C7" stroke-width="0.5"/>
+
+        <!-- MAGRA -->
+        <text x="190" y="45" text-anchor="middle" font-family="'DM Serif Display',serif" font-size="14" fill="#0F6E56">Massa Magra Segmentale</text>
+        <g transform="translate(140, 60)">
+          <circle cx="50" cy="11" r="9" fill="#F1EFE8" stroke="#888780" stroke-width="0.7"/>
+          <path d="M 18,32 Q 11,34 10,44 L 10,108 Q 10,120 18,122 Q 25,122 27,108 L 27,44 Q 27,34 18,32 Z" fill="${colMagra(m.bracSx.p)}"/>
+          <path d="M 82,32 Q 89,34 90,44 L 90,108 Q 90,120 82,122 Q 75,122 73,108 L 73,44 Q 73,34 82,32 Z" fill="${colMagra(m.bracDx.p)}"/>
+          <path d="M 35,24 Q 30,28 32,44 L 33,92 Q 34,108 39,112 L 61,112 Q 66,108 67,92 L 68,44 Q 70,28 65,24 Z" fill="${colMagra(m.tronco.p)}"/>
+          <path d="M 35,115 Q 30,119 32,131 L 33,184 Q 34,193 39,194 Q 44,194 45,184 L 46,131 Q 46,119 42,115 Z" fill="${colMagra(m.gambSx.p)}"/>
+          <path d="M 65,115 Q 70,119 68,131 L 67,184 Q 66,193 61,194 Q 56,193 55,184 L 54,131 Q 54,119 58,115 Z" fill="${colMagra(m.gambDx.p)}"/>
+        </g>
+        <text x="120" y="128" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Braccio SX</text>
+        <text x="120" y="144" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(m.bracSx.v)} kg</text>
+        <text x="260" y="128" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Braccio DX</text>
+        <text x="260" y="144" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(m.bracDx.v)} kg</text>
+        <text x="190" y="130" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="700" fill="#fff">${fmt(m.tronco.v)}</text>
+        <text x="190" y="143" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#fff">kg</text>
+        <text x="130" y="208" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Gamba SX</text>
+        <text x="130" y="224" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(m.gambSx.v)} kg</text>
+        <text x="250" y="208" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Gamba DX</text>
+        <text x="250" y="224" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(m.gambDx.v)} kg</text>
+
+        <!-- Divider -->
+        <line x1="340" y1="40" x2="340" y2="305" stroke="#D3D1C7" stroke-width="0.5"/>
+
+        <!-- GRASSA -->
+        <text x="500" y="45" text-anchor="middle" font-family="'DM Serif Display',serif" font-size="14" fill="#993C1D">Massa Grassa Segmentale</text>
+        <g transform="translate(450, 60)">
+          <circle cx="50" cy="11" r="9" fill="#F1EFE8" stroke="#888780" stroke-width="0.7"/>
+          <path d="M 18,32 Q 11,34 10,44 L 10,108 Q 10,120 18,122 Q 25,122 27,108 L 27,44 Q 27,34 18,32 Z" fill="${colGrassa(g.bracSx.p)}"/>
+          <path d="M 82,32 Q 89,34 90,44 L 90,108 Q 90,120 82,122 Q 75,122 73,108 L 73,44 Q 73,34 82,32 Z" fill="${colGrassa(g.bracDx.p)}"/>
+          <path d="M 35,24 Q 30,28 32,44 L 33,92 Q 34,108 39,112 L 61,112 Q 66,108 67,92 L 68,44 Q 70,28 65,24 Z" fill="${colTroncoGrassa(g.tronco.p)}"/>
+          <path d="M 35,115 Q 30,119 32,131 L 33,184 Q 34,193 39,194 Q 44,194 45,184 L 46,131 Q 46,119 42,115 Z" fill="${colGrassa(g.gambSx.p)}"/>
+          <path d="M 65,115 Q 70,119 68,131 L 67,184 Q 66,193 61,194 Q 56,193 55,184 L 54,131 Q 54,119 58,115 Z" fill="${colGrassa(g.gambDx.p)}"/>
+        </g>
+        <text x="430" y="128" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Braccio SX</text>
+        <text x="430" y="144" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(g.bracSx.v)} kg</text>
+        <text x="570" y="128" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Braccio DX</text>
+        <text x="570" y="144" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(g.bracDx.v)} kg</text>
+        <text x="500" y="130" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="700" fill="#fff">${fmt(g.tronco.v)}</text>
+        <text x="500" y="143" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#fff">kg</text>
+        <text x="440" y="208" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Gamba SX</text>
+        <text x="440" y="224" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(g.gambSx.v)} kg</text>
+        <text x="560" y="208" text-anchor="middle" font-family="system-ui" font-size="9" fill="#5F5E5A">Gamba DX</text>
+        <text x="560" y="224" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="600" fill="#2C2C2A">${fmt(g.gambDx.v)} kg</text>
+      </svg>
+      <div style="font-size:.65rem;color:var(--text3);text-align:center;margin-top:.3rem;padding:0 .5rem">
+        Intensità colore = scostamento dalla norma. Magra: <span style="color:#085041">■</span> sopra · <span style="color:#1D9E75">■</span> normale · <span style="color:#9FE1CB">■</span> sotto · Grassa: <span style="color:#993C1D">■</span> molto alta · <span style="color:#D85A30">■</span> normale · <span style="color:#F5C4B3">■</span> bassa
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderPdInbody(p){
   const list=p.inbody||[];
 
@@ -5972,6 +6093,9 @@ function renderPdInbody(p){
       </div>`;
     }
   }
+
+  // ── Silhouette segmentale (ultima misurazione) ───────────────────────────
+  html+=_ibSilhouetteSegmentale(last);
 
   // ── Cards singole misurazioni ─────────────────────────────────────────────
   html+=sortedDesc.map((ib,i)=>`
@@ -11169,8 +11293,6 @@ async function generaPDF(paziente, giorni) {
 function openInbody(){
   document.getElementById('ib-data').value=today();
   ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
-  const pdfInputEl=document.getElementById('ib-pdf-input');if(pdfInputEl)pdfInputEl.value='';
   document.getElementById('mo-inbody').classList.add('open');
   if(window.b3Attach)setTimeout(window.b3Attach,50);
 }
@@ -12130,7 +12252,7 @@ async function loadInbodyPDF(e) {
           max_tokens: 1000,
           messages: [{role:'user', content:[
             contentBlock,
-            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- cintura_fianchi (rapporto numerico es. 0.92)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
           ]}]
         })
       });
@@ -12141,7 +12263,7 @@ async function loadInbodyPDF(e) {
       const s=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null)el.value=v;};
       s('ib-peso',ib.peso); s('ib-pg',ib.percentuale_grassa); s('ib-g',ib.massa_grassa);
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
-      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza); s('ib-peso-ideale',ib.pesoIdeale);
+      s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza); s('ib-peso-ideale',ib.peso_ideale);
       s('ib-cint-fianchi', ib.cintura_fianchi);
       if(ib.magra_segmentale){
         s('ib-ms-bracsx', ib.magra_segmentale.braccio_sx);
