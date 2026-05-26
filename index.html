@@ -11169,6 +11169,8 @@ async function generaPDF(paziente, giorni) {
 function openInbody(){
   document.getElementById('ib-data').value=today();
   ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
+  const pdfInputEl=document.getElementById('ib-pdf-input');if(pdfInputEl)pdfInputEl.value='';
   document.getElementById('mo-inbody').classList.add('open');
   if(window.b3Attach)setTimeout(window.b3Attach,50);
 }
