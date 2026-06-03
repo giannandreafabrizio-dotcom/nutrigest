@@ -5628,7 +5628,7 @@ function renderPdAlimenti(p){
 
 function renderPdAnalisi(p){
   const as=p.analisiSangue||{};
-  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div><div class="card-bd">';
+  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti"></div>';
   Object.entries(ANALISI).forEach(([sez,items])=>{
     html+=`<div class="analisi-section"><h4>${sez}</h4><div class="analisi-grid3">`;
     items.forEach(item=>{
@@ -5660,6 +5660,124 @@ function updateAnalisi(){
   });
 }
 function salvaAnalisi(){updateAnalisi();save();notif('✓ Analisi salvate!');}
+
+/* ─── SUGGERITORE GRUPPI CLINICI ─────────────────────────────────── */
+const _GRUPPI_CLINICI=[
+  {id:'pat-diabete', nome:'Diabete / IR / PCOS'},
+  {id:'pat-lipidi',  nome:'Profilo lipidico alterato'},
+  {id:'pat-ipert',   nome:'Ipertensione'},
+  {id:'pat-ibs',     nome:'IBS / Colon irritabile'},
+  {id:'pat-reflusso',nome:'Reflusso'},
+  {id:'pat-irc',     nome:'IRC / Patologia renale'},
+  {id:'pat-tiroid',  nome:'Ipotiroidismo / Hashimoto'}
+];
+
+function applicaGruppoClinico(id){
+  const cb=document.getElementById(id);
+  if(cb){cb.checked=true;}
+  const btn=document.getElementById('btn-applica-'+id);
+  if(btn){btn.textContent='✓ Applicato';btn.disabled=true;btn.style.opacity='.5';}
+  notif('✓ Gruppo attivato → controlla semaforo');
+}
+
+async function suggerisciGruppiClinici(){
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p){notif('Nessun paziente selezionato');return;}
+  updateAnalisi();
+
+  /* Valori analisi del sangue compilati */
+  const as=p.analisiSangue||{};
+  const valoriSangue=[];
+  Object.entries(ANALISI).forEach(([,items])=>{
+    items.forEach(item=>{
+      const key=item.replace(/[^a-z0-9]/gi,'_');
+      const v=as[key+'_val'];
+      if(v&&String(v).trim()!=='') valoriSangue.push(item+': '+String(v).trim());
+    });
+  });
+
+  /* Dati InBody essenziali (ultimo disponibile) */
+  const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  const inbodyCtx=lastIb
+    ? '\n\nInBody ('+( lastIb.data||'ultima misurazione')+'): '
+      +( lastIb.bmi  ? 'BMI '+lastIb.bmi+' · ' : '')
+      +( lastIb.pg   ? '%Grassa '+lastIb.pg+'% · ' : '')
+      +( lastIb.visc ? 'Grasso viscerale liv. '+lastIb.visc : '')
+    : '';
+
+  const box=document.getElementById('gruppi-clinici-suggeriti');
+
+  if(!valoriSangue.length && !lastIb){
+    box.innerHTML='<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#92400e">⚠️ Nessun valore disponibile. Inserisci almeno qualche analisi del sangue prima di usare il suggeritore.</div>';
+    return;
+  }
+
+  const apiKey=localStorage.getItem('anthropicApiKey')||'';
+  if(!apiKey){
+    box.innerHTML='<div style="background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#991b1b">⚠️ Chiave API non configurata.</div>';
+    return;
+  }
+
+  box.innerHTML='<div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-bottom:.9rem;font-size:.85rem;color:var(--text2)">🔍 Analisi in corso…</div>';
+
+  const elencoGruppi=_GRUPPI_CLINICI.map(g=>'- '+g.id+' → '+g.nome).join('\n');
+  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea. Analizzi valori di laboratorio e dati InBody per suggerire quali gruppi clinici attivare nel semaforo alimentare. Sei prudente: suggerisci un gruppo solo se i dati lo giustificano clinicamente. Rispondi SOLO con JSON valido senza testo aggiuntivo né backtick.';
+  const prompt='DATI PAZIENTE:'
+    +(valoriSangue.length ? '\nAnalisi del sangue:\n'+valoriSangue.join('\n') : '\n(nessuna analisi compilata)')
+    +inbodyCtx
+    +'\n\nGRUPPI CLINICI DISPONIBILI (id → etichetta):\n'+elencoGruppi
+    +'\n\nIndica quali gruppi attivare. Per ognuno una motivazione breve (max 1 frase, cita il valore che la giustifica). Formato richiesto — SOLO questo JSON:\n{"gruppi":[{"id":"pat-...","nome":"...","motivazione":"..."}]}\nSe nessun dato giustifica alcun gruppo: {"gruppi":[]}';
+
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:600,system:system,messages:[{role:'user',content:prompt}]})
+    });
+    if(!r.ok) throw new Error('API errore '+r.status);
+    const data=await r.json();
+    let txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+    txt=txt.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(txt);
+    const gruppi=(parsed&&parsed.gruppi)||[];
+
+    if(!gruppi.length){
+      box.innerHTML='<div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#166534">✅ Nessun gruppo clinico necessario in base ai valori inseriti.</div>';
+      return;
+    }
+
+    let h='<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.85rem;margin-bottom:.9rem">'
+         +'<div style="font-weight:600;font-size:.88rem;margin-bottom:.5rem;color:var(--text)">🔍 Gruppi clinici suggeriti '
+         +'<span style="font-weight:400;font-size:.76rem;color:var(--text3)">— decidi tu quali applicare</span></div>';
+
+    gruppi.forEach(g=>{
+      const nome=g.nome||(_GRUPPI_CLINICI.find(x=>x.id===g.id)||{}).nome||g.id;
+      const cbEl=document.getElementById(g.id);
+      const already=cbEl&&cbEl.checked;
+      h+='<div style="display:flex;align-items:flex-start;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--border)">'
+        +'<div style="flex:1">'
+        +'<div style="font-weight:600;font-size:.84rem;color:var(--text)">'+nome+'</div>'
+        +'<div style="font-size:.79rem;color:var(--text2);margin-top:.12rem">'+(g.motivazione||'')+'</div>'
+        +'</div>'
+        +'<button id="btn-applica-'+g.id+'" class="btn btn-sm" '
+        +(already
+          ? 'disabled style="background:#16a34a;color:#fff;opacity:.55"'
+          : 'style="background:#16a34a;color:#fff"'
+        )+' onclick="applicaGruppoClinico(\''+g.id+'\')">'
+        +(already?'✓ Già attivo':'Applica')
+        +'</button></div>';
+    });
+
+    h+='<div style="font-size:.73rem;color:var(--text3);margin-top:.55rem;border-top:1px solid var(--border);padding-top:.45rem">'
+      +'Le caselle si trovano nella scheda <strong>Clinica → Anamnesi patologica</strong>. Decisione finale al medico.'
+      +'</div></div>';
+    box.innerHTML=h;
+
+  }catch(e){
+    box.innerHTML='<div style="background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#991b1b">⚠️ Errore: '+e.message+'</div>';
+  }
+}
+/* ─────────────────────────────────────────────────────────────────── */
 
 function renderMemoriaInbody(p,sorted){
   if(!sorted||!sorted.length)return'';
