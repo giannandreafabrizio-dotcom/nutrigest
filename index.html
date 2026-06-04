@@ -2316,27 +2316,28 @@ async function pullConcetiSupabase(){
 
 // Migrazione automatica: se non ci sono concetti su Supabase, unisce seed + localStorage e li salva.
 async function migraConcetti(){
-  const exists=await pullConcetiSupabase();
-  if(exists&&db.concetti&&db.concetti.length>0){
-    // Supabase ha già i concetti — aggiorna l'alias in memoria
+  await pullConcetiSupabase(); // carica eventuale stato remoto in db.concetti
+  if(!db.concetti)db.concetti=[];
+  // Se la migrazione del seed è già stata completata, non rifondere
+  const giaMigrato = db.concetti.some(c=>c._seed===true);
+  const seedPresente = CONCETTI_EDUCATIVI_SEED.every(s=>db.concetti.find(c=>c.id===s.id));
+  if(giaMigrato || (seedPresente && db.concetti.length>=CONCETTI_EDUCATIVI_SEED.length)){
     CONCETTI_EDUCATIVI=db.concetti;
     return;
   }
-  // Prima volta: fonde il seed con i custom/personalizzazioni già in localStorage
-  if(!db.concetti)db.concetti=[];
-  const fusi=[];
-  const usati=new Set();
-  // 1) Per ogni concetto del seed, fonde l'eventuale personalizzazione locale (testo/immagini sovrascrivono)
+  // Fonde il seed con i custom/personalizzazioni presenti
+  const fusi=[]; const usati=new Set();
+  // 1) Per ogni concetto del seed, fonde l'eventuale personalizzazione (testo/immagini locali vincono)
   CONCETTI_EDUCATIVI_SEED.forEach(s=>{
     const loc=db.concetti.find(c=>c.id===s.id);
     if(loc){
       usati.add(s.id);
-      fusi.push({...s, ...(loc.testo?{testo:loc.testo}:{}), ...(loc.immagini?{immagini:loc.immagini}:{})});
+      fusi.push({...s, _seed:true, ...(loc.testo?{testo:loc.testo}:{}), ...(loc.immagini?{immagini:loc.immagini}:{})});
     } else {
-      fusi.push({...s});
+      fusi.push({...s, _seed:true});
     }
   });
-  // 2) Aggiunge i concetti custom (quelli che NON esistono nel seed)
+  // 2) Aggiunge i concetti custom (NON presenti nel seed)
   db.concetti.forEach(c=>{
     if(!usati.has(c.id) && !CONCETTI_EDUCATIVI_SEED.find(s=>s.id===c.id)){
       fusi.push({...c, tier:c.tier||'plus', autore:c.autore||'fabrizio', categoria:c.categoria||'Personalizzato'});
