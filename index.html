@@ -950,9 +950,6 @@ main{flex:1;overflow-y:auto;}
       <option value="">Tutti i pazienti</option>
     </select>
   </div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
-    <button class="btn btn-d btn-sm" onclick="cancellaStoricoPiani()" style="font-size:.72rem">🗑 Cancella tutti i piani</button>
-  </div>
   <div id="storico-piani-list"></div>
 </div>
 <div class="page" id="page-impostazioni">
@@ -7810,19 +7807,6 @@ async function eliminaPiano(idx) {
   } else {
     notif('Piano eliminato', 2000);
   }
-}
-
-async function cancellaStoricoPiani() {
-  var tot = (db.piani||[]).length;
-  if (!tot) { notif('Nessun piano da cancellare'); return; }
-  if (!confirm('Eliminare tutti i ' + tot + ' piani salvati nello storico? Questa azione non è reversibile.')) return;
-  const ids = db.piani.map(p => p.id).filter(Boolean);
-  db.piani = [];
-  saveLocal();
-  renderStoricoPiani();
-  let errori = 0;
-  for(const id of ids){ const ok = await delPianoSupabase(id); if(!ok) errori++; }
-  notif(errori === 0 ? '✅ Storico piani cancellato' : '⚠️ Cancellati in locale, ' + errori + ' errori Supabase', 3000);
 }
 
 // ── BUG3 FIX: helper centrale per scegliere target attivi ──
