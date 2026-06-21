@@ -11092,8 +11092,9 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- MISURAZIONE altezza pasto ----------
-  function measurePasto(slotKey, pasto) {
+  function measurePasto(slotKey, pasto, compr) {
     if (!pasto) return 0;
+    var c = (compr == null) ? 1 : compr; // P12a: fattore compressione gap (1 = normale, min 0.85)
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
@@ -11108,7 +11109,7 @@ async function generaPDF(paziente, giorni) {
 
     if (notaTesto) {
       var lines = doc.splitTextToSize(safe(notaTesto), W - M * 2);
-      h += lines.length * 4.6 + 2;
+      h += lines.length * 4.6 + 2 * c;
       return h;
     }
 
@@ -11119,7 +11120,7 @@ async function generaPDF(paziente, giorni) {
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
         h += lines.length * 4.6;
       });
-      h += 2;
+      h += 2 * c;
     }
 
     if (hasCelle) {
@@ -11128,7 +11129,7 @@ async function generaPDF(paziente, giorni) {
       ordKeys.forEach(function(ord) {
         var hSx = cellHeight(righe[ord].sx);
         var hDx = cellHeight(righe[ord].dx);
-        h += Math.max(hSx, hDx) + 2.5;
+        h += Math.max(hSx, hDx) + 2.5 * c;
       });
     }
     return h;
@@ -11166,8 +11167,9 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- DISEGNO pasto ----------
-  function drawPasto(slotKey, pasto, y) {
+  function drawPasto(slotKey, pasto, y, compr) {
     if (!pasto) return y;
+    var c = (compr == null) ? 1 : compr; // P12a: fattore compressione gap (1 = normale, min 0.85)
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
@@ -11267,7 +11269,7 @@ async function generaPDF(paziente, giorni) {
           y += 5.2;
         }
       });
-      y += 2;
+      y += 2 * c;
     }
 
     if (hasCelle) {
@@ -11280,7 +11282,7 @@ async function generaPDF(paziente, giorni) {
         var hRow = Math.max(hSx, hDx);
         drawCella(riga.sx, M, y, COL_W);
         drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W);
-        y += hRow + 2.5;
+        y += hRow + 2.5 * c;
       });
     }
 
@@ -11390,9 +11392,24 @@ async function generaPDF(paziente, giorni) {
     if (!pastiAttivi.length) return;
 
     var hDisp = BOTTOM - TOP_CONTENT;
-    var hTot  = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
     var gapMin = 4;
     var nGaps = Math.max(pastiAttivi.length - 1, 1);
+
+    // P12a: se il contenuto a scala normale (compr=1) non entra, calcolo
+    // un fattore di compressione dei gap interni (min 0.85) e rimisuro.
+    var compr = 1;
+    var hTot = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
+    if (hTot + gapMin * nGaps > hDisp) {
+      // Stima il fattore necessario sulla parte comprimibile (gap interni),
+      // poi rimisura per avere l'altezza reale a quella compressione.
+      var stimaServe = hDisp - gapMin * nGaps;
+      compr = Math.max(0.85, Math.min(1, stimaServe / hTot));
+      pastiAttivi.forEach(function(p) {
+        p.h = measurePasto(p.key, p.pasto, compr);
+      });
+      hTot = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
+    }
+
     var spazioExtra = hDisp - hTot - gapMin * nGaps;
     var gapExtra = 0;
     if (spazioExtra > 0 && pastiAttivi.length > 1) {
@@ -11400,9 +11417,16 @@ async function generaPDF(paziente, giorni) {
     }
     var gap = gapMin + gapExtra;
 
+    // P12a: se anche al massimo della compressione il giorno non entra,
+    // avviso visibile invece di lasciare uscire il contenuto in silenzio.
+    if (hTot + gapMin * nGaps > hDisp) {
+      setFont('bold', 7.5, [200, 40, 40]);
+      doc.text('\u26a0 Contenuto compresso al minimo: verificare il piano di questo giorno', W / 2, TOP_HEADER + 13, { align: 'center' });
+    }
+
     var y = TOP_CONTENT;
     pastiAttivi.forEach(function(p, i) {
-      y = drawPasto(p.key, p.pasto, y);
+      y = drawPasto(p.key, p.pasto, y, compr);
       if (i < pastiAttivi.length - 1) {
         y += gap;
       }
