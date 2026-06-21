@@ -3453,7 +3453,7 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
@@ -3489,7 +3489,7 @@ function editPaz(){
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-crisi',p.crisi);
   s('p-cheto-note',p.chetoNote);
-  s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);s('p-polso',p.circonferenzaPolso);
+  s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);
   s('p-orario-all-note',p.orarioAllenamentoNote);
   const ss2=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
@@ -4013,7 +4013,7 @@ function salvaPaz(){
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
     giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
-    circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
+    cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
     studio:g('p-studio'),
@@ -5645,7 +5645,7 @@ function renderPdAnamnesi(p){
       ${r('Non rinuncia a',p.noRinuncia)}${r('Chetogenica',p.cheto==='si'?'Sì — '+p.chetoNote:p.cheto==='valutare'?'Da valutare':'')}
     </div></div>
     <div class="card"><div class="card-hd"><h3>Attività Fisica</h3></div><div class="card-bd">
-      <div class="fr">${r('Passi/giorno',p.passiGiornalieri?p.passiGiornalieri+' passi':'')+r('Polso',p.circonferenzaPolso?p.circonferenzaPolso+' cm':'')}</div>
+      <div class="fr">${r('Passi/giorno',p.passiGiornalieri?p.passiGiornalieri+' passi':'')}</div>
       ${r('Giorni allenamento',(p.giorniAllenamento||[]).length?p.giorniAllenamento.join(' · '):'')}
       <div class="fr">${r('Ore/sett.',p.oreAllenamento?p.oreAllenamento+' ore':'')+r('Tipo',p.tipoAllenamento)+r('Intensità',p.intensitaAllenamento)}</div>
       ${r('Orario',p.orarioAllenamento?(p.orarioAllenamento+(p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' — '+p.orarioAllenamentoNote:'')):'')}
@@ -6388,7 +6388,6 @@ function renderPdMacros(p){
   <div class="fr3">
     <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0"></div>
     <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 3-5 ore" min="0" step="0.5"></div>
-    <div class="fg"><label>Circonferenza polso (cm)</label><input type="number" id="p-polso" placeholder="es. 15-19 cm" step="0.1"></div>
   </div>
   <div class="fr3">
     <div class="fg"><label>Tipo allenamento</label>
@@ -6599,7 +6598,6 @@ function renderPdMacros(p){
   const _gs = (id,v) => { const el=document.getElementById(id); if(el&&v!=null)el.value=v; };
   _gn('p-passi', p.passiGiornalieri);
   _gn('p-ore-all', p.oreAllenamento);
-  _gn('p-polso', p.circonferenzaPolso);
   _gs('p-tipo-all', p.tipoAllenamento);
   _gs('p-intens-all', p.intensitaAllenamento);
   _gs('p-orario-all', p.orarioAllenamento);
@@ -6834,7 +6832,6 @@ function salvaCalcoloMacros(){
   const gs=id=>{const el=document.getElementById(id);return el?el.value:null;};
   p.passiGiornalieri=gn('p-passi');
   p.oreAllenamento=gn('p-ore-all');
-  p.circonferenzaPolso=gn('p-polso');
   p.tipoAllenamento=gs('p-tipo-all');
   p.intensitaAllenamento=gs('p-intens-all');
   p.orarioAllenamento=gs('p-orario-all');
