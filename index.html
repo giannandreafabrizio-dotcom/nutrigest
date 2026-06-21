@@ -10624,14 +10624,17 @@ window._pdfSenzaBilancia = false;
 window._pdfKcalGiorno = false;   // kcal totali per giorno, accanto al nome giorno
 window._pdfKcalPasto = false;    // kcal per singolo pasto, accanto al titolo pasto
 window._pdfKcalSettimana = false;// totale settimana, in copertina
+window._pdfMostraMacro = false;  // mostra anche P/C/G oltre alle kcal
+window._pdfMacroMode = 'prima';  // 'prima' = solo 1ª scelta | 'ponderata' = media 40/30/30 primi 3
 
-// P13: costruisce e appende i 3 toggle nutrizionali a un contenitore
+// P13: costruisce e appende i toggle nutrizionali + selettore modalità a un contenitore
 function _appendToggleNutrizionali(containerEl) {
   if (!containerEl) return;
   var opzioni = [
-    {flag:'_pdfKcalGiorno',   label:'\ud83d\udd25 Kcal per giorno (sul nome del giorno)'},
-    {flag:'_pdfKcalPasto',    label:'\ud83c\udf7d\ufe0f Kcal per pasto (accanto a ogni pasto)'},
-    {flag:'_pdfKcalSettimana',label:'\ud83d\udcc5 Media giornaliera in copertina'}
+    {flag:'_pdfKcalGiorno',   label:'\ud83d\udd25 Valori per giorno (sul nome del giorno)'},
+    {flag:'_pdfKcalPasto',    label:'\ud83c\udf7d\ufe0f Valori per pasto (accanto a ogni pasto)'},
+    {flag:'_pdfKcalSettimana',label:'\ud83d\udcc5 Media giornaliera in copertina'},
+    {flag:'_pdfMostraMacro',  label:'\ud83e\udd2c Mostra anche proteine / carboidrati / grassi'}
   ];
   opzioni.forEach(function(o){
     var wrap = document.createElement('label');
@@ -10645,6 +10648,26 @@ function _appendToggleNutrizionali(containerEl) {
     wrap.appendChild(document.createTextNode(o.label));
     containerEl.appendChild(wrap);
   });
+  // Selettore modalità di calcolo (prima scelta vs ponderata)
+  var modWrap = document.createElement('div');
+  modWrap.style.cssText='display:flex;align-items:center;gap:10px;margin:.4rem 0 .2rem;font-size:.8rem;color:#475569;flex-wrap:wrap;';
+  var lbl = document.createElement('span');
+  lbl.textContent='Modalità calcolo:';
+  lbl.style.cssText='font-weight:600;';
+  modWrap.appendChild(lbl);
+  [{v:'prima',t:'Prima scelta'},{v:'ponderata',t:'Media alternative (40/30/30)'}].forEach(function(opt){
+    var rl = document.createElement('label');
+    rl.style.cssText='display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;';
+    var r = document.createElement('input');
+    r.type='radio'; r.name='pdfMacroMode'; r.value=opt.v;
+    r.style.cssText='cursor:pointer;accent-color:var(--teal2);';
+    r.checked = (window._pdfMacroMode||'prima')===opt.v;
+    r.onchange = function(){ if(this.checked) window._pdfMacroMode=this.value; };
+    rl.appendChild(r);
+    rl.appendChild(document.createTextNode(opt.t));
+    modWrap.appendChild(rl);
+  });
+  containerEl.appendChild(modWrap);
 }
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
 
@@ -10936,37 +10959,84 @@ async function generaPDF(paziente, giorni) {
   }
 
   // P13: kcal di un singolo pasto = somma delle PRIME SCELTE (coerente col calcolo giornaliero reale)
-  function kcalDelPasto(pasto) {
-    if (!pasto) return 0;
-    var tot = 0;
+  // P13: valori nutrizionali di un singolo pasto → {kcal,p,c,g}
+  // modalità 'prima' = solo 1ª scelta di ogni cella | 'ponderata' = media 40/30/30 primi 3
+  function macroDelPasto(pasto) {
+    var tot = {kcal:0,p:0,c:0,g:0};
+    if (!pasto) return tot;
+    var mode = window._pdfMacroMode || 'prima';
     var celle = pasto.celle || [];
     if (celle.length) {
       celle.forEach(function(cella) {
         var ali = cella.alimenti || [];
-        var a0 = ali[0];
-        if (!a0) return;
-        var cat0 = a0.cat || a0.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(a0.n) : null);
-        var v0 = getValoriCREA(a0.n, cat0);
-        if (v0 && v0.kcal != null) tot += v0.kcal * ((parseFloat(a0.g) || 0) / 100);
+        if (!ali.length) return;
+        if (mode === 'ponderata') {
+          var pesi = [0.40, 0.30, 0.30];
+          var arr = ali.slice(0, 3);
+          arr.forEach(function(al, ai) {
+            if (!al) return;
+            var peso = arr.length === 1 ? 1 : (pesi[ai] || 0);
+            var cat = al.cat || al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
+            var v = getValoriCREA(al.n, cat);
+            if (!v) return;
+            var f = (parseFloat(al.g) || 0) / 100 * peso;
+            tot.kcal += (v.kcal||0)*f; tot.p += (v.p||0)*f; tot.c += (v.c||0)*f; tot.g += (v.g||0)*f;
+          });
+        } else {
+          var a0 = ali[0];
+          var cat0 = a0.cat || a0.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(a0.n) : null);
+          var v0 = getValoriCREA(a0.n, cat0);
+          if (v0) {
+            var f0 = (parseFloat(a0.g) || 0) / 100;
+            tot.kcal += (v0.kcal||0)*f0; tot.p += (v0.p||0)*f0; tot.c += (v0.c||0)*f0; tot.g += (v0.g||0)*f0;
+          }
+        }
       });
     } else {
-      // formato principale1/principale2 (piani vecchi)
+      // formato principale1/principale2 (piani vecchi): solo prima scelta
       [pasto.principale1, pasto.principale2].forEach(function(p) {
         if (!p || !p.nome) return;
         var v = getValoriCREA(p.nome, p.categoria || null);
-        if (v && v.kcal != null) tot += v.kcal * ((parseFloat(p.grammi) || 0) / 100);
+        if (!v) return;
+        var f = (parseFloat(p.grammi) || 0) / 100;
+        tot.kcal += (v.kcal||0)*f; tot.p += (v.p||0)*f; tot.c += (v.c||0)*f; tot.g += (v.g||0)*f;
       });
     }
     return tot;
   }
 
-  // P13: kcal totali di un giorno — usa g.macros se presente, altrimenti somma i pasti
-  function kcalDelGiorno(g) {
-    if (g && g.macros && g.macros.kcal > 0) return g.macros.kcal;
-    var tot = 0;
+  function kcalDelPasto(pasto) { return macroDelPasto(pasto).kcal; }
+
+  // P13: valori totali di un giorno → {kcal,p,c,g}
+  // usa g.macros se presente (dato AI già pesato), altrimenti somma i pasti
+  function macroDelGiorno(g) {
+    if (g && g.macros && g.macros.kcal > 0) {
+      return {
+        kcal: g.macros.kcal,
+        p: g.macros.proteine || 0,
+        c: g.macros.carboidrati || 0,
+        gr: g.macros.grassi || 0
+      };
+    }
+    var tot = {kcal:0,p:0,c:0,gr:0};
     var slots = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
-    slots.forEach(function(k) { tot += kcalDelPasto(pastoOf(g, k)); });
+    slots.forEach(function(k) {
+      var m = macroDelPasto(pastoOf(g, k));
+      tot.kcal += m.kcal; tot.p += m.p; tot.c += m.c; tot.gr += m.g;
+    });
     return tot;
+  }
+
+  function kcalDelGiorno(g) { return macroDelGiorno(g).kcal; }
+
+  // P13: formatta la stringa valori. m può avere .g o .gr per i grassi.
+  function formatValori(m) {
+    var grassi = (m.gr != null) ? m.gr : m.g;
+    var s = '~ ' + Math.round(m.kcal) + ' kcal';
+    if (window._pdfMostraMacro) {
+      s += '  ·  P ' + Math.round(m.p) + '  C ' + Math.round(m.c) + '  G ' + Math.round(grassi);
+    }
+    return s;
   }
 
   // ── COPERTINA ─────────────────────────────────────────────
@@ -10986,10 +11056,10 @@ async function generaPDF(paziente, giorni) {
     setFont('normal', 18, NERO);
     doc.text(safe(nomePaz), W / 2, 42, { align: 'center' });
 
-    // P13: media kcal/giorno della settimana
-    if (window._pdfKcalSettimana && mediaKcalSettimana > 0) {
+    // P13: media giornaliera della settimana
+    if (window._pdfKcalSettimana && mediaKcalSettimana && mediaKcalSettimana.kcal > 0) {
       setFont('normal', 10, TEAL);
-      doc.text('Media giornaliera ~ ' + Math.round(mediaKcalSettimana) + ' kcal', W / 2, 50, { align: 'center' });
+      doc.text('Media giornaliera ' + formatValori(mediaKcalSettimana), W / 2, 50, { align: 'center' });
     }
 
     // Frase centrale — molto grande, elegante, centrata
@@ -11074,13 +11144,16 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- HEADER giorno ----------
-  function drawDayHeader(giornoLabel, macros) {
+  function drawDayHeader(giornoLabel, gObj) {
     setFont('bold', 17, NERO);
     doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
-    // P13: kcal/giorno sotto il nome giorno
-    if (window._pdfKcalGiorno && macros && macros.kcal > 0) {
-      setFont('normal', 9, TEAL);
-      doc.text('~ ' + Math.round(macros.kcal) + ' kcal', W / 2, TOP_HEADER + 9, { align: 'center' });
+    // P13: valori/giorno sotto il nome giorno
+    if (window._pdfKcalGiorno) {
+      var m = macroDelGiorno(gObj);
+      if (m.kcal > 0) {
+        setFont('normal', 9, TEAL);
+        doc.text(formatValori(m), W / 2, TOP_HEADER + 9, { align: 'center' });
+      }
     }
   }
 
@@ -11108,12 +11181,12 @@ async function generaPDF(paziente, giorni) {
     }
     doc.text(titoloPasto, M + slotEmojiOffset, y);
 
-    // P13: kcal del pasto, allineate a destra sulla stessa riga del titolo
+    // P13: valori del pasto, allineati a destra sulla stessa riga del titolo
     if (window._pdfKcalPasto) {
-      var _kp = kcalDelPasto(pasto);
-      if (_kp > 0) {
+      var _mp = macroDelPasto(pasto);
+      if (_mp.kcal > 0) {
         setFont('normal', 9, GRIGIO);
-        doc.text('~ ' + Math.round(_kp) + ' kcal', W - M, y, { align: 'right' });
+        doc.text(formatValori(_mp), W - M, y, { align: 'right' });
       }
     }
 
@@ -11272,15 +11345,23 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- CICLO PRINCIPALE ----------
-  // P13: media kcal/giorno della settimana (per copertina)
-  var _mediaSettimana = 0;
+  // P13: media giornaliera della settimana (per copertina) → oggetto macro completo
+  var _mediaSettimana = null;
   if (window._pdfKcalSettimana && giorni && giorni.length) {
-    var _sommaK = 0, _nGiorniK = 0;
+    var _somma = {kcal:0,p:0,c:0,gr:0}, _nGiorniK = 0;
     giorni.forEach(function(g) {
-      var k = kcalDelGiorno(g);
-      if (k > 0) { _sommaK += k; _nGiorniK++; }
+      var m = macroDelGiorno(g);
+      if (m.kcal > 0) {
+        _somma.kcal += m.kcal; _somma.p += m.p; _somma.c += m.c; _somma.gr += m.gr;
+        _nGiorniK++;
+      }
     });
-    if (_nGiorniK > 0) _mediaSettimana = _sommaK / _nGiorniK;
+    if (_nGiorniK > 0) {
+      _mediaSettimana = {
+        kcal: _somma.kcal/_nGiorniK, p: _somma.p/_nGiorniK,
+        c: _somma.c/_nGiorniK, gr: _somma.gr/_nGiorniK
+      };
+    }
   }
 
   // Pagina 1: copertina
@@ -11290,7 +11371,7 @@ async function generaPDF(paziente, giorni) {
   giorni.forEach(function(g, idx) {
     doc.addPage();
     var giornoLabel = (g.giorno || g.g || '').toUpperCase();
-    drawDayHeader(giornoLabel, g.macros);
+    drawDayHeader(giornoLabel, g);
 
     var pastiAttivi = [];
     slotKeys.forEach(function(k) {
@@ -11372,9 +11453,21 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- FOOTER (su tutte le pagine tranne copertina) ----------
+  // P13: nota esplicativa valori — solo se almeno un toggle valori è attivo
+  var _mostraValori = window._pdfKcalGiorno || window._pdfKcalPasto || window._pdfKcalSettimana;
+  var _notaValori = '';
+  if (_mostraValori) {
+    _notaValori = (window._pdfMacroMode === 'ponderata')
+      ? 'Valori indicativi: media ponderata di prima scelta e alternative (variano in base agli alimenti scelti).'
+      : 'Valori indicativi, calcolati sulla prima scelta di ogni pasto (variano scegliendo le alternative).';
+  }
   var totPagine = doc.internal.getNumberOfPages();
   for (var i = 2; i <= totPagine; i++) {
     doc.setPage(i);
+    if (_notaValori) {
+      setFont('italic', 6.5, GRIGIO3);
+      doc.text(_notaValori, W / 2, FOOTER_Y - 3.5, { align: 'center' });
+    }
     setFont('normal', 7.5, GRIGIO);
     doc.text(safe(nomePaz), M, FOOTER_Y);
     var footerCenter = window._pdfSenzaBilancia
