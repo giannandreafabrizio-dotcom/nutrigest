@@ -2650,6 +2650,7 @@ let db={pazienti:[],ricette:[],eventi:[],entrate:[],piani:[],disponibilita:{},al
 let currentPazId=null, editPazId=null, editRicId=null;
 let calDate=new Date(), calView='month', selCalDay=null;
 window._alStato={};
+window._alGroupStato={};
 
 function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch(e){return{};}}
 function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
@@ -3463,7 +3464,7 @@ function openNuovoPaz(){
   ['p-nascita','p-visita','p-inizio','p-controllo','p-inizio2','p-controllo2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-visita').value=today();
   document.getElementById('p-inizio').value=today();
-  window._alStato={};renderAlEditor();aggDateCal();
+  window._alStato={};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -3516,7 +3517,7 @@ function editPaz(){
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
   ss('p-var',p.var);ss('p-cheto',p.cheto);
-  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};renderAlEditor();aggDateCal();
+  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -11693,7 +11694,10 @@ function renderAlEditor(){
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
     const sc=cat.replace(/'/g,"\\'");
-    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">\u2713 Tutti</button>`;
+    const _gst=(window._alGroupStato||{})[cat]||'';
+    const _gSym=_gst==='si'?'\u2713':_gst==='arancione'?'\u25d0':_gst==='rosso'?'\u2193':'\u25cb';
+    const _gCol=_gst==='si'?'#4ade80':_gst==='arancione'?'#fb923c':_gst==='rosso'?'#f87171':'#9ca3af';
+    const btns=`<button onclick="selCatAl('${sc}')" style="font-size:11px;padding:2px 8px;border:1px solid ${_gCol};color:${_gCol};background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">${_gSym} Tutti</button>`;
     html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4><div style="display:flex;gap:4px;align-items:center">${btns}</div></div><div class="al-grid">`;
     items.forEach(item=>{
       const key=cat+'__'+item.n;
@@ -11828,10 +11832,18 @@ function togAl(el,key,nome){
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
   el.innerHTML=(n==='si'?'\u2713 ':n==='arancione'?'\u25d0 ':n==='rosso'?'\u2193 ':'')+nome+glH+_badgeContatore;
 }
-function selCatAl(cat,stato){
+function selCatAl(cat){
   const data=ALIMENTI[cat];if(!data)return;
   const items=(data.items||[]);
-  items.forEach(i=>{window._alStato[cat+'__'+i.n]=stato;});
+  const g=window._alGroupStato=window._alGroupStato||{};
+  const cur=g[cat]||'';
+  const next=cur===''?'si':cur==='si'?'arancione':cur==='arancione'?'rosso':'';
+  g[cat]=next;
+  items.forEach(i=>{
+    const key=cat+'__'+i.n;
+    if(next==='')delete window._alStato[key];
+    else window._alStato[key]=next;
+  });
   renderAlEditor();
 }
 function selTuttiAl(cat,btn){
@@ -13435,6 +13447,7 @@ async function verificaSessioneEAvvia() {
 // INIT
 // ════════════════════════════════════════════════════════════════
 window._alStato={};
+window._alGroupStato={};
 loadLocal();
 // Carica modelli rotazione custom dal localStorage (saranno poi aggiornati dal pull Supabase)
 if(typeof caricaModelliCustomLocal === 'function') caricaModelliCustomLocal();
