@@ -10400,12 +10400,9 @@ async function generaPiano(forceRegen){
   const carbGr = kcalTarget!==null ? (kcalTarget<1200?60:kcalTarget<1400?70:kcalTarget<1600?80:kcalTarget<1800?90:kcalTarget<2000?100:kcalTarget<2200?110:kcalTarget<2500?120:150) : 80;
 
 
-  // ── Chiamata Google Apps Script → Anthropic ──────────────────────────────
-  const scriptUrl = getUrl();
-  if(!scriptUrl){
-    notif('⚠ URL Apps Script non configurato. Vai in Impostazioni e salvalo.');
-    return;
-  }
+  // ── Generazione piano via chiamata Anthropic diretta (getAnthropicKey) ────
+  // NB: la vecchia integrazione Google Apps Script (scriptUrl) è dismessa.
+  // La generazione usa la chiave API Anthropic salvata in Impostazioni.
 
   // Messaggio di caricamento
   let loadEl = document.getElementById('piano-load-msg');
