@@ -7468,6 +7468,7 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _toggleWrap1.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
     pianoEl.appendChild(_toggleWrap1);
     _appendToggleNutrizionali(pianoEl);
+    _appendTogglePromemoria(pianoEl);
     pianoEl.appendChild(btn);
     var btnWa=document.createElement('button');
     btnWa.textContent='📲 Invia su WhatsApp';
@@ -9863,6 +9864,7 @@ function _aggiornaPianoBox() {
       _tw2.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
       pianoEl.appendChild(_tw2);
       _appendToggleNutrizionali(pianoEl);
+      _appendTogglePromemoria(pianoEl);
       pianoEl.appendChild(btnPdf);
     }
   }
@@ -10635,6 +10637,14 @@ window._pdfKcalSettimana = false;// totale settimana, in copertina
 window._pdfMostraMacro = false;  // mostra anche P/C/G oltre alle kcal
 window._pdfMacroMode = 'prima';  // 'prima' = solo 1ª scelta | 'ponderata' = media 40/30/30 primi 3
 
+// P23: flag toggle promemoria nel footer del PDF (default: acqua, passi, sonno attivi)
+window._pdfRemAcqua = true;
+window._pdfRemPassi = true;
+window._pdfRemSonno = true;
+window._pdfRemAllenLow = false;
+window._pdfRemAllenHigh = false;
+window._pdfRemIntegratori = false;
+
 // P13: costruisce e appende i toggle nutrizionali + selettore modalità a un contenitore
 function _appendToggleNutrizionali(containerEl) {
   if (!containerEl) return;
@@ -10677,6 +10687,35 @@ function _appendToggleNutrizionali(containerEl) {
   });
   containerEl.appendChild(modWrap);
 }
+
+// P23: costruisce e appende i toggle promemoria (footer PDF) a un contenitore
+function _appendTogglePromemoria(containerEl) {
+  if (!containerEl) return;
+  var titolo = document.createElement('div');
+  titolo.textContent = '📋 Promemoria nel PDF (footer)';
+  titolo.style.cssText = 'font-weight:600;font-size:.82rem;color:#475569;margin:.6rem 0 .3rem;';
+  containerEl.appendChild(titolo);
+  var opzioni = [
+    {flag:'_pdfRemAcqua',       label:'\ud83d\udca7 Acqua'},
+    {flag:'_pdfRemPassi',       label:'\ud83d\udc63 Passi'},
+    {flag:'_pdfRemSonno',       label:'\ud83d\ude34 Sonno'},
+    {flag:'_pdfRemAllenLow',    label:'\ud83c\udfc3 Allenamento bassa intensità'},
+    {flag:'_pdfRemAllenHigh',   label:'\ud83c\udfcb\ufe0f Allenamento alta intensità'},
+    {flag:'_pdfRemIntegratori', label:'\ud83d\udc8a Integratori'}
+  ];
+  opzioni.forEach(function(o){
+    var wrap = document.createElement('label');
+    wrap.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:.3rem;cursor:pointer;font-size:.82rem;color:#475569;user-select:none;';
+    var chk = document.createElement('input');
+    chk.type='checkbox';
+    chk.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+    chk.checked = window[o.flag] || false;
+    chk.onchange = function(){ window[o.flag] = this.checked; };
+    wrap.appendChild(chk);
+    wrap.appendChild(document.createTextNode(o.label));
+    containerEl.appendChild(wrap);
+  });
+}
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
 
 async function generaPDF(paziente, giorni) {
@@ -10718,12 +10757,30 @@ async function generaPDF(paziente, giorni) {
   var M = 14;
   var TOP_HEADER = 16;
   var TOP_CONTENT = 26;
-  var BOTTOM = 282;
   var FOOTER_Y = 290;
   var COL_GAP = 8;
   var COL_W = (W - M * 2 - COL_GAP) / 2;
   var EMOJI_SIZE = 5;   // mm — dimensione emoji nel PDF
   var EMOJI_GAP  = 1.5; // mm — gap tra emoji e testo
+
+  // P23: promemoria attivi (footer, layout B) — peso da ultimo InBody o p.peso, fallback nessuna stima acqua
+  var _pesoPromemoria = (paziente.inbody && paziente.inbody.length)
+    ? (parseFloat(paziente.inbody[paziente.inbody.length - 1].peso) || null)
+    : (parseFloat(paziente.peso) || null);
+  var _acquaLitri = _pesoPromemoria ? Math.round(_pesoPromemoria * 32.5) / 1000 : null; // ~32.5 ml/kg, punto medio 30-35
+  var _promemoriaAttivi = [];
+  if (window._pdfRemAcqua) {
+    _promemoriaAttivi.push({ label: _acquaLitri ? ('Acqua ' + String(_acquaLitri).replace('.', ',') + ' L') : 'Acqua' });
+  }
+  if (window._pdfRemPassi)       _promemoriaAttivi.push({ label: 'Passi' });
+  if (window._pdfRemSonno)       _promemoriaAttivi.push({ label: 'Sonno' });
+  if (window._pdfRemAllenLow)    _promemoriaAttivi.push({ label: 'Allenamento bassa intensità' });
+  if (window._pdfRemAllenHigh)   _promemoriaAttivi.push({ label: 'Allenamento alta intensità' });
+  if (window._pdfRemIntegratori) _promemoriaAttivi.push({ label: 'Integratori' });
+
+  // Fascia promemoria: ~5mm per riga + margini, sottrae spazio ai pasti solo se attiva
+  var _hFasciaPromemoria = _promemoriaAttivi.length ? (_promemoriaAttivi.length * 5 + 3) : 0;
+  var BOTTOM = 282 - _hFasciaPromemoria;
 
   var nomePaz = ((paziente.nome || '') + ' ' + (paziente.cognome || '')).trim();
   var dataGen = (function(){
@@ -11496,6 +11553,24 @@ async function generaPDF(paziente, giorni) {
   var totPagine = doc.internal.getNumberOfPages();
   for (var i = 2; i <= totPagine; i++) {
     doc.setPage(i);
+    // P23: fascia promemoria, sopra la nota valori/footer testuale
+    if (_promemoriaAttivi.length) {
+      var _yProm = BOTTOM + 4;
+      var _boxSize = 3.2, _boxGap = 2.2, _nBox = 4;
+      var _labelW = 46;
+      _promemoriaAttivi.forEach(function(prm){
+        setFont('normal', 7.5, GRIGIO);
+        doc.text(safe(prm.label), M, _yProm + _boxSize);
+        var _bx = M + _labelW;
+        for (var bIdx = 0; bIdx < _nBox; bIdx++) {
+          doc.setDrawColor.apply(doc, GRIGIO2);
+          doc.setLineWidth(0.25);
+          doc.rect(_bx, _yProm, _boxSize, _boxSize);
+          _bx += _boxSize + _boxGap;
+        }
+        _yProm += 5;
+      });
+    }
     if (_notaValori) {
       setFont('italic', 6.5, GRIGIO3);
       doc.text(_notaValori, W / 2, FOOTER_Y - 3.5, { align: 'center' });
@@ -13782,6 +13857,7 @@ function renderPianoBox(piano) {
     _toggleWrap3.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
     pianoEl.appendChild(_toggleWrap3);
     _appendToggleNutrizionali(pianoEl);
+    _appendTogglePromemoria(pianoEl);
     pianoEl.appendChild(_btnPdf);
   }
 }
