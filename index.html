@@ -1983,9 +1983,9 @@ function calcolaMacrosPiano(piano) {
       const celle = pasto.celle || [];
       celle.forEach(cella => {
         if (!cella.alimenti || !cella.alimenti.length) return;
-        // — PONDERATA 40/30/30 —
-        var pesi = [0.40, 0.30, 0.30];
-        var alArr = cella.alimenti.slice(0, 3);
+        // — PONDERATA 35/25/15/10/8/7 (P12b: da 3 a 6 alimenti) —
+        var pesi = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+        var alArr = cella.alimenti.slice(0, 6);
         alArr.forEach(function(al, ai) {
           if (!al) return;
           var peso = alArr.length === 1 ? 1 : (pesi[ai] || 0);
@@ -7364,8 +7364,8 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
           // prima scelta
           var al0=cella.alimenti[0];
           if(al0){var cat0=al0.categoria||(typeof getCategoriaFunzionale==='function'?getCategoriaFunzionale(al0.n):null);var v0=getValoriCREA(al0.n,cat0);if(v0){var f0=(parseFloat(al0.g)||0)/100;_psG.kcal+=v0.kcal*f0;_psG.p+=v0.p*f0;_psG.c+=v0.c*f0;_psG.g+=v0.g*f0;}}
-          // ponderata 40/30/30
-          var pesi=[0.40,0.30,0.30],alArr=cella.alimenti.slice(0,3);
+          // ponderata 35/25/15/10/8/7 (P12b: da 3 a 6 alimenti)
+          var pesi=[0.35,0.25,0.15,0.10,0.08,0.07],alArr=cella.alimenti.slice(0,6);
           alArr.forEach(function(al,ai){if(!al)return;var peso=alArr.length===1?1:(pesi[ai]||0);var cat=al.categoria||(typeof getCategoriaFunzionale==='function'?getCategoriaFunzionale(al.n):null);var vals=getValoriCREA(al.n,cat);if(!vals)return;var f=(parseFloat(al.g)||0)/100*peso;_mpG.kcal+=vals.kcal*f;_mpG.p+=vals.p*f;_mpG.c+=vals.c*f;_mpG.g+=vals.g*f;});
         });
       });
@@ -7577,7 +7577,7 @@ function renderPanelMacrosGiorno(giornoObj) {
       html += '<div style="border-top:1px solid var(--border);margin:.3rem 0;"></div>';
     }
 
-    cella.alimenti.slice(0,3).forEach(function(al, ai) {
+    cella.alimenti.slice(0,6).forEach(function(al, ai) {
       if (!al) return;
       var isPrinc = ai === 0;
       var vals = getValoriCREA(al.n, al.categoria || null);
@@ -7588,21 +7588,13 @@ function renderPanelMacrosGiorno(giornoObj) {
       var c = vals ? Math.round(vals.c * f * 10)/10 : 0;
       var g = vals ? Math.round(vals.g * f * 10)/10 : 0;
 
-      // Somma solo per il principale (peso 40% se ci sono alternative, 100% se solo principale)
-      if (isPrinc) {
-        var nAlt = Math.min(cella.alimenti.length, 3);
-        var pesoPrinc = nAlt === 1 ? 1 : 0.40;
-        totKcal += (vals ? vals.kcal * f : 0) * pesoPrinc;
-        totP += (vals ? vals.p * f : 0) * pesoPrinc;
-        totC += (vals ? vals.c * f : 0) * pesoPrinc;
-        totG += (vals ? vals.g * f : 0) * pesoPrinc;
-      } else {
-        var pesoAlt = cella.alimenti.length >= 3 ? 0.30 : 0.60;
-        totKcal += (vals ? vals.kcal * f : 0) * pesoAlt;
-        totP += (vals ? vals.p * f : 0) * pesoAlt;
-        totC += (vals ? vals.c * f : 0) * pesoAlt;
-        totG += (vals ? vals.g * f : 0) * pesoAlt;
-      }
+      // P12b: ponderata 35/25/15/10/8/7 (da 3 a 6 alimenti) — peso pieno (1) se è l'unico alimento
+      var _pesiCella = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+      var pesoAl = cella.alimenti.length === 1 ? 1 : (_pesiCella[ai] || 0);
+      totKcal += (vals ? vals.kcal * f : 0) * pesoAl;
+      totP += (vals ? vals.p * f : 0) * pesoAl;
+      totC += (vals ? vals.c * f : 0) * pesoAl;
+      totG += (vals ? vals.g * f : 0) * pesoAl;
 
       var nomeDisplay = al.n.length > 18 ? al.n.slice(0,17)+'…' : al.n;
       var giornoPmg = (giornoObj.giorno||giornoObj.g||'');
@@ -8022,7 +8014,7 @@ OGNI ALIMENTO ha questi campi:
 
 REGOLE STRUTTURA CELLE:
 - Il primo alimento di ogni cella è il principale, gli altri sono alternative
-- MASSIMO 3 alimenti per cella (1 principale + max 2 alternative) per limitare output
+- MASSIMO 6 alimenti per cella (1 principale + max 5 alternative) per limitare output
 - Verdura, frutta, olio: una sola voce per cella, NESSUNA alternativa
 - Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
 - Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)
@@ -11036,8 +11028,9 @@ async function generaPDF(paziente, giorni) {
         var ali = cella.alimenti || [];
         if (!ali.length) return;
         if (mode === 'ponderata') {
-          var pesi = [0.40, 0.30, 0.30];
-          var arr = ali.slice(0, 3);
+          // P12b: ponderata 35/25/15/10/8/7 (da 3 a 6 alimenti)
+          var pesi = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+          var arr = ali.slice(0, 6);
           arr.forEach(function(al, ai) {
             if (!al) return;
             var peso = arr.length === 1 ? 1 : (pesi[ai] || 0);
