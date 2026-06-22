@@ -10770,7 +10770,7 @@ async function generaPDF(paziente, giorni) {
   if (window._pdfRemPassi)       _promemoriaAttivi.push({ label: 'Passi', cp: '1f45f', bg: [230,241,251], fg: [24,95,165] });
   if (window._pdfRemSonno)       _promemoriaAttivi.push({ label: 'Sonno', cp: '1f634', bg: [238,237,254], fg: [60,52,137] });
   if (window._pdfRemAllenLow)    _promemoriaAttivi.push({ label: 'Allenamento bassa intensità', cp: '1f3c3', bg: [250,236,231], fg: [153,60,29] });
-  if (window._pdfRemAllenHigh)   _promemoriaAttivi.push({ label: 'Allenamento alta intensità', cp: '1f3cb-fe0f', bg: [250,238,218], fg: [133,79,11] });
+  if (window._pdfRemAllenHigh)   _promemoriaAttivi.push({ label: 'Allenamento alta intensità', cp: '1f3cb', bg: [250,238,218], fg: [133,79,11] });
   if (window._pdfRemIntegratori) _promemoriaAttivi.push({ label: 'Integratori', cp: '1f48a', bg: [251,234,240], fg: [114,36,62] });
 
   // Fascia promemoria: una sola riga di pillole orizzontali, sottrae spazio ai pasti solo se attiva
@@ -11584,7 +11584,7 @@ async function generaPDF(paziente, giorni) {
 
         var tx = cx + _emojiSize + _gapEmojiTesto * _scalaProm;
         setFont('normal', _fontSize, prm.fg);
-        doc.text(safe(prm.label), tx, cy + _fontSize * 0.32);
+        doc.text(safe(prm.label), tx, cy, { baseline: 'middle' });
         var labelW = measure(prm.label, _fontSizeBase, 'normal') * _scalaProm;
 
         var bx = tx + labelW + _gapTestoBox * _scalaProm;
@@ -11774,7 +11774,7 @@ async function generaPDF(paziente, giorni) {
   // Aggiunge emoji titoli pasto (sempre pre-caricate)
   ['2600','26a1','1f37d','1f552','1f319','1f4a4'].forEach(function(cp){ cpSet.add(cp); });
   // P23-estetica: emoji pillole promemoria footer (sempre pre-caricate)
-  ['1f4a7','1f45f','1f634','1f3cb-fe0f','1f3c3','1f48a'].forEach(function(cp){ cpSet.add(cp); });
+  ['1f4a7','1f45f','1f634','1f3cb','1f3c3','1f48a'].forEach(function(cp){ cpSet.add(cp); });
 
   // Pre-carica tutte le emoji trovate in parallelo
   var cpArray = Array.from(cpSet);
