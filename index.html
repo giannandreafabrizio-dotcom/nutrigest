@@ -11147,31 +11147,31 @@ async function generaPDF(paziente, giorni) {
   // ---------- MISURAZIONE altezza pasto ----------
   function measurePasto(slotKey, pasto, compr) {
     if (!pasto) return 0;
-    var c = (compr == null) ? 1 : compr; // P12a: fattore compressione gap (1 = normale, min 0.85)
+    var c = (compr == null) ? 1 : compr; // scala unica font+gap (0.85 compressione .. 1.15 espansione)
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return 0;
 
     var h = 0;
-    h += 5.2;
+    h += 5.2 * c;
     var routineDelPastoMis = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
     }));
-    if (routineDelPastoMis.length > 3) h += 3.6;
+    if (routineDelPastoMis.length > 3) h += 3.6 * c;
 
     if (notaTesto) {
       var lines = doc.splitTextToSize(safe(notaTesto), W - M * 2);
-      h += lines.length * 4.6 + 2 * c;
+      h += lines.length * 4.6 * c + 2 * c;
       return h;
     }
 
     if (hasRicette) {
       pasto.ricette.forEach(function(r) {
         if (!r) return;
-        var prefixW = measure('1. ', 9.5, 'bold');
+        var prefixW = measure('1. ', 9.5 * c, 'bold');
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
-        h += lines.length * 4.6;
+        h += lines.length * 4.6 * c;
       });
       h += 2 * c;
     }
@@ -11180,8 +11180,8 @@ async function generaPDF(paziente, giorni) {
       var righe = groupCelleByOrdine(pasto.celle);
       var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
       ordKeys.forEach(function(ord) {
-        var hSx = cellHeight(righe[ord].sx);
-        var hDx = cellHeight(righe[ord].dx);
+        var hSx = cellHeight(righe[ord].sx, c);
+        var hDx = cellHeight(righe[ord].dx, c);
         h += Math.max(hSx, hDx) + 2.5 * c;
       });
     }
@@ -11198,23 +11198,25 @@ async function generaPDF(paziente, giorni) {
     return righe;
   }
 
-  function cellHeight(c) {
+  function cellHeight(c, s) {
     if (!c || !c.alimenti || !c.alimenti.length) return 0;
+    var sc = (s == null) ? 1 : s; // scala font/celle (0.85 compressione .. 1.15 espansione)
     var n = c.alimenti.length;
-    if (n === 1) return 6.2;
-    return 6.2 + 4 + (n - 1) * 4.6 + 1;
+    if (n === 1) return 6.2 * sc;
+    return (6.2 + 4 + (n - 1) * 4.6 + 1) * sc;
   }
 
   // ---------- HEADER giorno ----------
-  function drawDayHeader(giornoLabel, gObj) {
+  function drawDayHeader(giornoLabel, gObj, topContent) {
     setFont('bold', 17, NERO);
     doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
-    // P13: valori/giorno sotto il nome giorno
+    // P13: valori/giorno appena sopra il primo pasto (non attaccati al nome giorno)
     if (window._pdfKcalGiorno) {
       var m = macroDelGiorno(gObj);
       if (m.kcal > 0) {
+        var _tc = (topContent == null) ? TOP_CONTENT : topContent;
         setFont('normal', 9, TEAL);
-        doc.text(formatValori(m), W / 2, TOP_HEADER + 9, { align: 'center' });
+        doc.text(formatValori(m), W / 2, _tc - 3, { align: 'center' });
       }
     }
   }
@@ -11228,17 +11230,17 @@ async function generaPDF(paziente, giorni) {
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    setFont('bold', 11, TEAL);
+    setFont('bold', 11 * c, TEAL);
     var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
-    // Emoji pasto: 4.5mm, allineata alla baseline del testo
-    var SLOT_EMOJI_SIZE = 4.5;
-    var SLOT_EMOJI_GAP  = 1.5;
+    // Emoji pasto: 4.5mm scalata, allineata alla baseline del testo
+    var SLOT_EMOJI_SIZE = 4.5 * c;
+    var SLOT_EMOJI_GAP  = 1.5 * c;
     var slotEmojiOffset = 0;
     var slotCp = slotEmoji[slotKey];
     if (slotCp) {
       var slotEmojiData = loadEmojiSync(slotCp);
       if (slotEmojiData) {
-        doc.addImage(slotEmojiData, 'PNG', M, y - SLOT_EMOJI_SIZE + 0.8, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
+        doc.addImage(slotEmojiData, 'PNG', M, y - SLOT_EMOJI_SIZE + 0.8 * c, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
         slotEmojiOffset = SLOT_EMOJI_SIZE + SLOT_EMOJI_GAP;
       }
     }
@@ -11248,7 +11250,7 @@ async function generaPDF(paziente, giorni) {
     if (window._pdfKcalPasto) {
       var _mp = macroDelPasto(pasto);
       if (_mp.kcal > 0) {
-        setFont('normal', 9, GRIGIO);
+        setFont('normal', 9 * c, GRIGIO);
         doc.text(formatValori(_mp), W - M, y, { align: 'right' });
       }
     }
@@ -11273,9 +11275,9 @@ async function generaPDF(paziente, giorni) {
           righeRoutine.push(txt);
         });
       });
-      setFont('bold', 8.5, VERDE_MENTA_SCURO);
+      setFont('bold', 8.5 * c, VERDE_MENTA_SCURO);
       var titoloW = doc.getTextWidth(titoloPasto) + slotEmojiOffset;
-      var xRoutineStart = M + slotEmojiOffset + titoloW + 6;
+      var xRoutineStart = M + slotEmojiOffset + titoloW + 6 * c;
       var maxW = W - M - xRoutineStart;
       var rigaCorrente = '';
       var righeFinali = [];
@@ -11291,35 +11293,35 @@ async function generaPDF(paziente, giorni) {
       if (rigaCorrente) righeFinali.push(rigaCorrente);
       var righeStampate = righeFinali.slice(0, 3);
       righeStampate.forEach(function(r, i){
-        doc.text(r, xRoutineStart, y + (i * 4.2));
+        doc.text(r, xRoutineStart, y + (i * 4.2 * c));
       });
-      hRoutineExtra = Math.max(0, righeStampate.length * 4.2 - 5.6);
+      hRoutineExtra = Math.max(0, righeStampate.length * 4.2 * c - 5.6 * c);
     }
-    y += 5.6 + hRoutineExtra;
+    y += 5.6 * c + hRoutineExtra;
 
     if (notaTesto) {
-      setFont('italic', 10, NERO);
+      setFont('italic', 10 * c, NERO);
       doc.splitTextToSize(safe(notaTesto), W - M * 2).forEach(function(l) {
-        doc.text(l, M, y); y += 4.6;
+        doc.text(l, M, y); y += 4.6 * c;
       });
-      y += 2;
+      y += 2 * c;
       return y;
     }
 
     if (hasRicette) {
-      var prefixW = measure('1. ', 11, 'bold');
+      var prefixW = measure('1. ', 11 * c, 'bold');
       pasto.ricette.forEach(function(r, i) {
         if (!r) return;
         var prefix = (i + 1) + '. ';
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
-        setFont('bold', 11, NERO);
+        setFont('bold', 11 * c, NERO);
         doc.text(prefix, M, y);
-        setFont('normal', 11, NERO);
+        setFont('normal', 11 * c, NERO);
         doc.text(lines[0] || '', M + prefixW, y);
-        y += 5.2;
+        y += 5.2 * c;
         for (var k = 1; k < lines.length; k++) {
           doc.text(lines[k], M + prefixW, y);
-          y += 5.2;
+          y += 5.2 * c;
         }
       });
       y += 2 * c;
@@ -11330,11 +11332,11 @@ async function generaPDF(paziente, giorni) {
       var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
       ordKeys.forEach(function(ord) {
         var riga = righe[ord];
-        var hSx = cellHeight(riga.sx);
-        var hDx = cellHeight(riga.dx);
+        var hSx = cellHeight(riga.sx, c);
+        var hDx = cellHeight(riga.dx, c);
         var hRow = Math.max(hSx, hDx);
-        drawCella(riga.sx, M, y, COL_W);
-        drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W);
+        drawCella(riga.sx, M, y, COL_W, c);
+        drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W, c);
         y += hRow + 2.5 * c;
       });
     }
@@ -11343,8 +11345,9 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- DISEGNO CELLA con Twemoji ----------
-  function drawCella(c, x, yTop, wCell) {
+  function drawCella(c, x, yTop, wCell, s) {
     if (!c || !c.alimenti || !c.alimenti.length) return;
+    var sc = (s == null) ? 1 : s; // scala font/celle
     var ali = c.alimenti;
     var princ = ali[0];
 
@@ -11352,49 +11355,49 @@ async function generaPDF(paziente, giorni) {
     var gP = gramText(princ.g, princ.n);
     var cp = getEmojiCp(princ.n, princ.cat);
 
-    // Spazio per emoji (se disponibile)
-    var emojiOffset = cp ? (EMOJI_SIZE + EMOJI_GAP) : 0;
-    var gPwidth = gP ? measure(gP, 12, 'bold') + 2 : 0;
+    // Spazio per emoji (se disponibile) — scalato
+    var emojiSz = EMOJI_SIZE * sc;
+    var emojiOffset = cp ? (emojiSz + EMOJI_GAP * sc) : 0;
+    var gPwidth = gP ? measure(gP, 12 * sc, 'bold') + 2 * sc : 0;
     var nomeMaxW = wCell - gPwidth - emojiOffset;
 
-    // Disegna emoji
+    // Disegna emoji (dimensione scalata)
     if (cp) {
-      drawEmoji(cp, x, yTop + 3.8);
+      var _ed = loadEmojiSync(cp);
+      if (_ed) { try { doc.addImage(_ed, 'PNG', x, yTop + 3.8 * sc - emojiSz + 1, emojiSz, emojiSz); } catch(e) {} }
     }
 
     // Nome principale bold
-    setFont('bold', 12, NERO);
+    setFont('bold', 12 * sc, NERO);
     var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
     var nomeShown = nomeLines[0];
     if (nomeLines.length > 1) {
-      while (nomeShown.length > 0 && measure(nomeShown + '...', 12, 'bold') > nomeMaxW) {
+      while (nomeShown.length > 0 && measure(nomeShown + '...', 12 * sc, 'bold') > nomeMaxW) {
         nomeShown = nomeShown.slice(0, -1);
       }
       nomeShown += '...';
     }
-    doc.text(nomeShown, x + emojiOffset, yTop + 3.8);
-    if (gP) doc.text(gP, x + wCell, yTop + 3.8, { align: 'right' });
+    doc.text(nomeShown, x + emojiOffset, yTop + 3.8 * sc);
+    if (gP) doc.text(gP, x + wCell, yTop + 3.8 * sc, { align: 'right' });
 
     // ALTERNATIVE
     if (ali.length > 1) {
-      var ay = yTop + 9.2;
-      setFont('italic', 8, GRIGIO3);
+      var ay = yTop + 9.2 * sc;
+      setFont('italic', 8 * sc, GRIGIO3);
       doc.text('Alternative:', x + emojiOffset, ay);
-      ay += 4;
+      ay += 4 * sc;
 
-      setFont('italic', 10.5, GRIGIO);
+      setFont('italic', 10.5 * sc, GRIGIO);
       for (var i = 1; i < ali.length; i++) {
         var alt = ali[i];
         var nomeA = safe(alt.n || '');
         var gA = gramText(alt.g, alt.n);
-        var cpA = getEmojiCp(alt.n, alt.cat);
-        var emojiOffsetA = 0; // nessuna emoji sulle alternative
-        var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
+        var gAwidth = gA ? measure(gA, 10.5 * sc, 'italic') + 2 * sc : 0;
         var nomeAmaxW = wCell - gAwidth - emojiOffset;
         var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
         var nomeAshown = nomeAlines[0];
         if (nomeAlines.length > 1) {
-          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 10.5, 'italic') > nomeAmaxW) {
+          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 10.5 * sc, 'italic') > nomeAmaxW) {
             nomeAshown = nomeAshown.slice(0, -1);
           }
           nomeAshown += '...';
@@ -11402,7 +11405,7 @@ async function generaPDF(paziente, giorni) {
         // Nessuna emoji sulle alternative (solo sul primo alimento)
         doc.text(nomeAshown, x + emojiOffset, ay);
         if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
-        ay += 4.6;
+        ay += 4.6 * sc;
       }
     }
   }
@@ -11434,7 +11437,6 @@ async function generaPDF(paziente, giorni) {
   giorni.forEach(function(g, idx) {
     doc.addPage();
     var giornoLabel = (g.giorno || g.g || '').toUpperCase();
-    drawDayHeader(giornoLabel, g);
 
     var pastiAttivi = [];
     slotKeys.forEach(function(k) {
@@ -11442,42 +11444,56 @@ async function generaPDF(paziente, giorni) {
       var h = measurePasto(k, p);
       if (h > 0) pastiAttivi.push({ key: k, pasto: p, h: h });
     });
-    if (!pastiAttivi.length) return;
+    if (!pastiAttivi.length) { drawDayHeader(giornoLabel, g, TOP_CONTENT); return; }
 
-    var hDisp = BOTTOM - TOP_CONTENT;
     var gapMin = 4;
     var nGaps = Math.max(pastiAttivi.length - 1, 1);
 
-    // P12a: se il contenuto a scala normale (compr=1) non entra, calcolo
-    // un fattore di compressione dei gap interni (min 0.85) e rimisuro.
+    // Scala unica font+gap: 0.85 (compressione) .. 1.15 (espansione). Default 1.
+    // Misura a scala 1, poi decide se comprimere (non entra) o espandere (troppo spazio).
+    var hDispBase = BOTTOM - TOP_CONTENT;
     var compr = 1;
     var hTot = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
-    if (hTot + gapMin * nGaps > hDisp) {
-      // Stima il fattore necessario sulla parte comprimibile (gap interni),
-      // poi rimisura per avere l'altezza reale a quella compressione.
-      var stimaServe = hDisp - gapMin * nGaps;
+
+    if (hTot + gapMin * nGaps > hDispBase) {
+      // COMPRESSIONE: stima il fattore necessario e rimisura (min 0.85)
+      var stimaServe = hDispBase - gapMin * nGaps;
       compr = Math.max(0.85, Math.min(1, stimaServe / hTot));
-      pastiAttivi.forEach(function(p) {
-        p.h = measurePasto(p.key, p.pasto, compr);
-      });
+    } else {
+      // ESPANSIONE: c'è spazio libero, ingrandisco fino a max 1.15 senza sforare
+      var fattorePieno = (hDispBase - gapMin * nGaps) / hTot;
+      compr = Math.max(1, Math.min(1.15, fattorePieno));
+    }
+    if (compr !== 1) {
+      pastiAttivi.forEach(function(p) { p.h = measurePasto(p.key, p.pasto, compr); });
       hTot = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
     }
 
-    var spazioExtra = hDisp - hTot - gapMin * nGaps;
+    var spazioExtra = hDispBase - hTot - gapMin * nGaps;
+
+    // Distacco header proporzionale: una quota dello spazio libero va tra titolo e 1° pasto,
+    // il resto si distribuisce come gap tra i pasti.
+    var topGiorno = TOP_CONTENT;
     var gapExtra = 0;
-    if (spazioExtra > 0 && pastiAttivi.length > 1) {
-      gapExtra = Math.min(spazioExtra / nGaps, 14);
+    if (spazioExtra > 0) {
+      var quotaHeader = Math.min(spazioExtra * 0.35, 16); // max 16mm di distacco extra
+      topGiorno = TOP_CONTENT + quotaHeader;
+      var spazioResiduo = spazioExtra - quotaHeader;
+      if (pastiAttivi.length > 1) {
+        gapExtra = Math.min(spazioResiduo / nGaps, 10);
+      }
     }
     var gap = gapMin + gapExtra;
 
-    // P12a: se anche al massimo della compressione il giorno non entra,
-    // avviso visibile invece di lasciare uscire il contenuto in silenzio.
-    if (hTot + gapMin * nGaps > hDisp) {
+    drawDayHeader(giornoLabel, g, topGiorno);
+
+    // Se anche al massimo della compressione il giorno non entra, avviso visibile.
+    if (hTot + gapMin * nGaps > hDispBase) {
       setFont('bold', 7.5, [200, 40, 40]);
       doc.text('\u26a0 Contenuto compresso al minimo: verificare il piano di questo giorno', W / 2, TOP_HEADER + 13, { align: 'center' });
     }
 
-    var y = TOP_CONTENT;
+    var y = topGiorno;
     pastiAttivi.forEach(function(p, i) {
       y = drawPasto(p.key, p.pasto, y, compr);
       if (i < pastiAttivi.length - 1) {
@@ -11562,7 +11578,10 @@ async function generaPDF(paziente, giorni) {
       });
       var _wTot = _promemoriaAttivi.reduce(function(s,p){ return s + p._w; }, 0) + _gapPillole * Math.max(_promemoriaAttivi.length - 1, 0);
       var _wDisp = W - M * 2;
-      var _scalaProm = _wTot > _wDisp ? Math.max(0.7, _wDisp / _wTot) : 1;
+      // Si restringe (min 0.7) se troppe pillole, si espande (max 1.15) se c'è larghezza libera
+      var _scalaProm = _wTot > _wDisp
+        ? Math.max(0.7, _wDisp / _wTot)
+        : Math.min(1.15, _wDisp / _wTot);
 
       var _fontSize = _fontSizeBase * _scalaProm;
       var _emojiSize = _emojiSizeBase * _scalaProm;
