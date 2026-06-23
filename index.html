@@ -1160,6 +1160,8 @@ main{flex:1;overflow-y:auto;}
         <label class="chip-pill"><input type="checkbox" id="pat-ibs"> IBS / Colon irritabile</label>
         <label class="chip-pill"><input type="checkbox" id="pat-reflusso"> Reflusso</label>
         <label class="chip-pill"><input type="checkbox" id="pat-irc"> IRC / Patologia renale</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-uricemia"> Gotta / Iperuricemia</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-ossalati"> Calcolosi ossalica</label>
         <label class="chip-pill"><input type="checkbox" id="pat-tiroid"> Ipotiroidismo / Hashimoto</label>
       </div>
       <textarea id="p-patologie" style="margin-top:.5rem" placeholder="Altre patologie / note..."></textarea>
@@ -1610,7 +1612,7 @@ const ALIMENTI = {
     {n:'Verdura mista',g:200},
     {n:'Lattuga',g:100},{n:'Songino',g:80},{n:'Insalata mista',g:200},{n:'Rucola',g:80},{n:'Radicchio',g:150},
     {n:'Carote',g:200},{n:'Finocchio',g:200},{n:'Sedano',g:100},{n:'Cetriolo',g:200},{n:'Pomodori',g:200},{n:'Barbabietola',g:150},
-    {n:'Spinaci',g:200},{n:'Cicoria',g:200},{n:'Zucchine',g:200},{n:'Broccoli',g:200},{n:'Cavolfiore',g:200},
+    {n:'Spinaci',g:200},{n:'Bieta',g:200},{n:'Cicoria',g:200},{n:'Zucchine',g:200},{n:'Broccoli',g:200},{n:'Cavolfiore',g:200},
     {n:'Cavolo cappuccio',g:200},{n:'Cavolo nero',g:200},{n:'Verza',g:200},{n:'Cime di rapa',g:200},
     {n:'Melanzane',g:200},{n:'Peperoni rossi',g:200},{n:'Peperoni verdi',g:200},{n:'Carciofi',g:200},
     {n:'Fagiolini',g:200},{n:'Asparagi',g:200},{n:'Zucca',g:200},{n:'Porro',g:100},{n:'Cipolla',g:80},
@@ -3492,7 +3494,7 @@ function editPaz(){
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
-  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
+  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
   s('p-dove',p.dove);setDove(p.dove);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
@@ -3895,6 +3897,59 @@ function applicaRegoloSemaforo(p){
         // Idratazione
         'Zucchine','Cetriolo','Anguria','Arancia'
       ]
+    },
+
+    'pat-uricemia':{
+      // Gotta / Iperuricemia - Fonte: EULAR 2016/2020, linee guida ACR 2020
+      // Logica: limitare purine alte (carni rosse/frattaglie, pesce azzurro, frutti di mare, legumi secchi)
+      grigi:[
+        // Frutti di mare e pesce ad alto contenuto di purine
+        'Gamberetti','Cozze','Vongole','Polpo','Seppia','Calamari',
+        'Sgombro','Tonno rosso','Tonno al naturale','Salmone fresco',
+        // Frattaglie
+        'Fegato di vitello','Cuore di vitello',
+        // Carni rosse / insaccati
+        'Agnello','Salame','Mortadella','Speck','Bresaola',
+        // Legumi secchi (purine concentrate)
+        'Ceci (secchi)','Lenticchie (secche)','Fagioli borlotti (secchi)','Lupini'
+      ],
+      celesti:[
+        // Latticini magri (effetto uricosurico favorevole)
+        'Latte vaccino scremato','Latte vaccino p.scremato','Yogurt greco 2%','Yogurt','Ricotta di vacca',
+        // Proteine a basso contenuto di purine
+        'Uovo intero','Albumi',
+        // Carboidrati complessi
+        'Patate','Riso','Riso basmati','Pasta',
+        // Verdura e frutta a basso impatto
+        'Zucchine','Cetriolo','Lattuga','Carote','Mela','Pera','Fragole','Mirtilli'
+      ]
+    },
+
+    'pat-ossalati':{
+      // Calcolosi ossalica (calcoli renali di ossalato di calcio) - Fonte: EAU Urolithiasis 2023, AUA 2014
+      // Logica: limitare alimenti ad alto contenuto di ossalati
+      grigi:[
+        // Verdura ad alto ossalato
+        'Spinaci','Bieta','Barbabietola','Cime di rapa','Prezzemolo',
+        // Frutta a guscio
+        'Mandorle','Noci','Arachidi','Anacardi','Pistacchi',
+        // Cacao e derivati
+        'Cacao amaro','Cioccolato fondente 85%',
+        // Soia e derivati
+        'Soia surgelata (edamame)','Tofu',
+        // Altri ad alto ossalato
+        'Bacche di goji','Patate dolci'
+      ],
+      celesti:[
+        // Verdura a basso ossalato
+        'Cavolfiore','Cavolo cappuccio','Lattuga','Cetriolo','Zucchine','Funghi champignon','Carote','Peperoni rossi',
+        // Frutta a basso ossalato
+        'Mela','Pera','Banana','Anguria','Fragole',
+        // Latticini (il calcio lega gli ossalati nell'intestino)
+        'Latte vaccino scremato','Yogurt greco 2%',
+        // Carboidrati e proteine neutre
+        'Riso','Uovo intero','Petto di pollo'
+      ]
     }
 
   };
@@ -3913,6 +3968,8 @@ function applicaRegoloSemaforo(p){
     'pat-ibs':'Intestino irritabile',
     'pat-reflusso':'Reflusso',
     'pat-irc':'Patologia renale',
+    'pat-uricemia':'Gotta/Iperuricemia',
+    'pat-ossalati':'Calcolosi ossalica',
     'pat-tiroid':'Ipotiroidismo/Hashimoto',
     'all-glutine':'Glutine',
     'all-lattosio':'Lattosio',
@@ -3927,6 +3984,7 @@ function applicaRegoloSemaforo(p){
     'Intestino irritabile':'Alto FODMAP \u2715','Reflusso':'Acido \u2715','Patologia renale':'Alto fosforo/K \u2715',
     'Ipotiroidismo/Hashimoto':'Goitrogeno \u2715','Glutine':'Contiene glutine \u2715','Lattosio':'Contiene lattosio \u2715',
     'Nichel':'Alto nichel \u2715','Low-FODMAP':'Alto FODMAP \u2715',
+    'Gotta/Iperuricemia':'Alte purine \u2715','Calcolosi ossalica':'Alti ossalati \u2715',
     'Gravidanza':'Rischio gravidanza \u2715','Allattamento':'Sconsigliato \u2715'
   };
   const LABEL_CELESTE={
@@ -3934,6 +3992,7 @@ function applicaRegoloSemaforo(p){
     'Intestino irritabile':'Low FODMAP \u2713','Reflusso':'Gastroprotettivo \u2713','Patologia renale':'Basso fosforo \u2713',
     'Ipotiroidismo/Hashimoto':'Utile tiroide \u2713','Glutine':'Senza glutine \u2713','Lattosio':'Senza lattosio \u2713',
     'Nichel':'Basso nichel \u2713','Low-FODMAP':'Low FODMAP \u2713',
+    'Gotta/Iperuricemia':'Basse purine \u2713','Calcolosi ossalica':'Bassi ossalati \u2713',
     'Gravidanza':'Sicuro in gravidanza \u2713','Allattamento':'Sicuro \u2713'
   };
   window._LABEL_GRIGIO=LABEL_GRIGIO;window._LABEL_CELESTE=LABEL_CELESTE;
@@ -4009,7 +4068,7 @@ function salvaPaz(){
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:getIntegratori(),integraWant:getIntegraWant(),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
-    checkSemaforo:['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
+    checkSemaforo:['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
     dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
@@ -7890,6 +7949,45 @@ function costruisciPrompt(pazienteId) {
   // ── Calcolo totale ricette per regola 75/20/5 ──
   var totRicette = nGiorni === 7 ? 42 : 33; // 7gg cheto: 14x3=42 | 6gg: 11x3=33
 
+  // ── P20: VINCOLI CLINICI per il generatore (approccio A pragmatico) ──
+  // I dati clinici vengono passati come VINCOLI OPERATIVI sulla scelta degli alimenti,
+  // non come referto da commentare. Traduzione esplicita solo per i casi ad alto impatto
+  // (anticoagulanti↔vitamina K, alvo, flusso). Il contesto emotivo è ESCLUSO di proposito.
+  var vincoliClinici = (function(){
+    var righe = [];
+    if(p.patologie) righe.push('• Patologie: '+p.patologie+' → adatta la scelta degli alimenti a queste condizioni ed evita ciò che è controindicato.');
+    if(p.farmaci){
+      righe.push('• Farmaci in uso: '+p.farmaci);
+      if(/coumadin|warfarin|sintrom|acenocumarol|anticoagul/i.test(p.farmaci)){
+        righe.push('  ⚠️ Anticoagulante orale rilevato: mantieni COSTANTE giorno per giorno la quantità di verdura a foglia verde (vitamina K). Non alternare giorni ricchi e giorni poveri di foglia verde.');
+      }
+    }
+    if(p.analisiSangue){
+      var _as=[];
+      Object.entries(p.analisiSangue).forEach(function(e){
+        var k=e[0], v=e[1];
+        if(k.endsWith('_check') && v===true){
+          var nome=k.replace(/_check$/,'').replace(/_/g,' ');
+          var valore=p.analisiSangue[k.replace(/_check$/,'_val')];
+          _as.push(nome+(valore?' '+valore:''));
+        }
+      });
+      if(_as.length) righe.push('• Analisi del sangue rilevanti: '+_as.join(' · ')+' → tienine conto nella composizione (limita ciò che peggiora i valori alterati).');
+    }
+    var _intUso = Array.isArray(p.integratori)?p.integratori.filter(Boolean):(p.integratori?[p.integratori]:[]);
+    if(_intUso.length) righe.push('• Integratori già in uso: '+_intUso.join(', ')+' → non forzare alte dosi alimentari degli stessi nutrienti.');
+    if(p.alvo){
+      var _alvoHint='';
+      if(/stipsi|stitic|lento/i.test(p.alvo)) _alvoHint=' → privilegia fibra (verdura, legumi, cereali integrali) e buona idratazione.';
+      else if(/diarrea|accelerat|frequent/i.test(p.alvo)) _alvoHint=' → modera fibra insolubile in eccesso e alimenti irritanti.';
+      righe.push('• Alvo: '+p.alvo+_alvoHint);
+    }
+    if(p.flusso && p.flusso!=='') righe.push('• Flusso mestruale: '+p.flusso+(/abbondant|pesant/i.test(p.flusso)?' → favorisci alimenti ricchi di ferro (carne rossa magra, legumi, verdura a foglia).':''));
+    if(p.familiarita) righe.push('• Familiarità: '+p.familiarita+' → orientamento preventivo, non controindicazione assoluta.');
+    if(!righe.length) return '';
+    return '\n\nVINCOLI CLINICI — rispetta nella SCELTA degli alimenti. Sono vincoli operativi: applicali e basta, NON commentarli e NON aggiungere testo descrittivo al piano.\n'+righe.join('\n');
+  })();
+
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.
 Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
 Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
@@ -7901,7 +7999,7 @@ Allergie: ${p.allergie||'nessuna'}
 ${(function(){var nc=p.noteClinica&&p.noteClinica.length?p.noteClinica.slice(-4):[];return nc.length?'Note cliniche (ultime '+nc.length+'): '+nc.map(function(n){return '['+n.data+'] '+n.testo;}).join(' | '):'';})()}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · FFM ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
 ${(p.giorniAllenamento||[]).length?`Giorni allenamento (ON): ${p.giorniAllenamento.join(', ')}`:''}
-${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}
+${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}
 
 GRAMMATURE FISSE
 Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g
