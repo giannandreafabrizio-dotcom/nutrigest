@@ -922,7 +922,7 @@ main{flex:1;overflow-y:auto;}
 
     <!-- Salva piano definitivo -->
     <div id="p2-box" style="display:none;margin-top:1rem;">
-      <button id="p2-save" style="display:block;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
+      <button id="p2-save" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:.85rem 2rem;background:var(--teal2,#0d9488);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
     </div>
 
   </div><!-- fine piano-container -->
@@ -7512,8 +7512,8 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     dH+='</div></div>';
     pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+dH+'</div>';
     var btn=document.createElement('button');
-    btn.textContent='📄 Scarica Piano PDF';
-    btn.style.cssText='margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btn.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+    btn.innerHTML='⬇️ Scarica PDF';
     btn.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
     // Toggle senza bilancia
     var _toggleWrap1 = document.createElement('label');
@@ -7529,12 +7529,15 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _appendToggleNutrizionali(pianoEl);
     _appendTogglePromemoria(pianoEl);
     _appendBtnConcetti(pianoEl);
-    pianoEl.appendChild(btn);
     var btnWa=document.createElement('button');
-    btnWa.textContent='📲 Invia su WhatsApp';
-    btnWa.style.cssText='margin-top:.4rem;padding:.7rem 2rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btnWa.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+    btnWa.innerHTML='💬 WhatsApp';
     btnWa.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);setTimeout(apriWhatsApp,800);};
-    pianoEl.appendChild(btnWa);
+    var _rigaSecondaria1=document.createElement('div');
+    _rigaSecondaria1.style.cssText='display:flex;gap:.6rem;margin-top:.6rem;';
+    _rigaSecondaria1.appendChild(btn);
+    _rigaSecondaria1.appendChild(btnWa);
+    pianoEl.appendChild(_rigaSecondaria1);
     // Aggiorna pannello laterale macros
     if (typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(g);
   };
@@ -9936,15 +9939,13 @@ function _aggiornaPianoBox() {
     // Ripristina pulsante PDF dopo render
     if (window._pdfPaziente && window._pdfPiano) {
       var btnPdf = document.createElement('button');
-      btnPdf.textContent = '\ud83d\udcc4 Scarica Piano PDF';
-      btnPdf.style.cssText = 'margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnPdf.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+      btnPdf.innerHTML = '⬇️ Scarica PDF';
       btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
       var btnWa2=document.createElement('button');
-      btnWa2.textContent='📲 Invia su WhatsApp';
-      btnWa2.style.cssText='margin-top:.4rem;padding:.7rem 2rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnWa2.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+      btnWa2.innerHTML='💬 WhatsApp';
       btnWa2.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);setTimeout(apriWhatsApp,800);};
-      var _contWa2=document.getElementById('gen-output')||btnPdf.parentNode;
-      btnPdf.parentNode.insertBefore(btnWa2,btnPdf.nextSibling);
       var _tw2=document.createElement('label');
       _tw2.style.cssText='display:flex;align-items:center;gap:8px;margin-top:1.5rem;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
       var _ck2=document.createElement('input');_ck2.type='checkbox';
@@ -9957,7 +9958,11 @@ function _aggiornaPianoBox() {
       _appendToggleNutrizionali(pianoEl);
       _appendTogglePromemoria(pianoEl);
       _appendBtnConcetti(pianoEl);
-      pianoEl.appendChild(btnPdf);
+      var _rigaSecondaria2=document.createElement('div');
+      _rigaSecondaria2.style.cssText='display:flex;gap:.6rem;margin-top:.6rem;';
+      _rigaSecondaria2.appendChild(btnPdf);
+      _rigaSecondaria2.appendChild(btnWa2);
+      pianoEl.appendChild(_rigaSecondaria2);
     }
   }
 
@@ -10816,16 +10821,19 @@ function _appendBtnConcetti(containerEl) {
   var n = (p && p.concettiAllegati) ? p.concettiAllegati.length : 0;
   var btn = document.createElement('button');
   btn.id = 'btn-concetti-pdf';
-  btn.textContent = '📚 Concetti da allegare' + (n ? ' (' + n + ')' : '');
-  btn.style.cssText = 'margin-top:.5rem;padding:.7rem 2rem;background:var(--teal2,#0d9488);color:#fff;border:none;border-radius:8px;font-size:.92rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+  btn.style.cssText = 'margin-top:.9rem;display:flex;align-items:center;justify-content:space-between;width:100%;padding:.6rem .8rem;background:var(--color-background-secondary,#f1f5f9);color:var(--color-text-secondary,#475569);border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:.82rem;cursor:pointer;';
+  btn.innerHTML = '<span style="display:flex;align-items:center;gap:7px;">📚 Concetti da allegare</span>'
+    + '<span style="display:flex;align-items:center;gap:7px;">'
+    + (n ? '<span id="badge-concetti-pdf" style="background:#E1F5EE;color:#0F6E56;font-size:.74rem;font-weight:600;border-radius:999px;padding:1px 8px;">'+n+'</span>' : '<span id="badge-concetti-pdf"></span>')
+    + '<span style="opacity:.6;">›</span></span>';
   btn.onclick = function(){ apriConcettiModal(); };
   containerEl.appendChild(btn);
-  // permette a salvaConcettiAllegati di aggiornare l'etichetta col nuovo conteggio
+  // permette a salvaConcettiAllegati di aggiornare il badge col nuovo conteggio, senza ridisegnare il bottone
   window._refreshBtnConcetti = function(){
-    var b = document.getElementById('btn-concetti-pdf');
+    var badge = document.getElementById('badge-concetti-pdf');
     var pp = window._pdfPaziente;
     var nn = (pp && pp.concettiAllegati) ? pp.concettiAllegati.length : 0;
-    if (b) b.textContent = '📚 Concetti da allegare' + (nn ? ' (' + nn + ')' : '');
+    if (badge) badge.outerHTML = nn ? ('<span id="badge-concetti-pdf" style="background:#E1F5EE;color:#0F6E56;font-size:.74rem;font-weight:600;border-radius:999px;padding:1px 8px;">'+nn+'</span>') : '<span id="badge-concetti-pdf"></span>';
   };
 }
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
@@ -11623,6 +11631,9 @@ async function generaPDF(paziente, giorni) {
   });
 
   // ---------- Concetti educativi ----------
+  // Memorizza da quale pagina iniziano i "Consigli per te": il footer promemoria
+  // (P23-bis) deve restare confinato alle pagine dei giorni, non comparire qui.
+  var _primaPaginaConcetti = doc.internal.getNumberOfPages() + 1;
   // P31 — risolve gli id allegati al paziente in oggetti concetto da db.concetti (fonte unica).
   // Fallback legacy: se esiste ancora paziente.concetti (vecchio formato a oggetti), usalo.
   var _fonteConc = (typeof db !== 'undefined' && db.concetti && db.concetti.length) ? db.concetti
@@ -11697,7 +11708,9 @@ async function generaPDF(paziente, giorni) {
   for (var i = 2; i <= totPagine; i++) {
     doc.setPage(i);
     // P23-estetica: fascia promemoria a pillole orizzontali, sopra la nota valori/footer testuale
-    if (_promemoriaAttivi.length) {
+    // Esclusa dalle pagine "Consigli per te" (concetti educativi) — non sono giorni del piano.
+    var _isPaginaConcetti = (i >= _primaPaginaConcetti);
+    if (_promemoriaAttivi.length && !_isPaginaConcetti) {
       var _padX = 3.4, _gapEmojiTesto = 3.2, _gapTestoBox = 2.6, _boxSize = 2.4, _boxGap = 1.6, _nBox = 4, _gapPillole = 3.2;
       var _fontSizeBase = 7.3, _emojiSizeBase = 4;
 
@@ -14068,8 +14081,8 @@ function renderPianoBox(piano) {
   // Ripristina pulsante PDF se esiste il piano
   if(window._pdfPaziente && window._pdfPiano){
     var _btnPdf=document.createElement('button');
-    _btnPdf.textContent='📄 Scarica Piano PDF';
-    _btnPdf.style.cssText='margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    _btnPdf.style.cssText='margin-top:.6rem;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;width:100%;';
+    _btnPdf.innerHTML='⬇️ Scarica PDF';
     _btnPdf.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
     // Toggle senza bilancia
     var _toggleWrap3=document.createElement('label');
