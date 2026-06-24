@@ -7108,17 +7108,12 @@ function renderRiepilogoSettimana(piano) {
 
   function buildVistaA() {
     var SLOTS = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
-    var freq = {};
-    piano.forEach(function(g){
-      var pasti = g.pasti || {};
-      Object.values(pasti).forEach(function(pasto){
-        (pasto.celle||[]).forEach(function(cella){
-          var al = (cella.alimenti||[])[0];
-          if (al && al.n) freq[al.n] = (freq[al.n]||0)+1;
-        });
-      });
-    });
-    var h = '<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat('+piano.length+',1fr);gap:5px;min-width:520px">';
+    var CAT_BG = {carbo:'#E6F1FB', proteine:'#FAECE7', legumi:'#EAF3DE', frutta:'#FAEEDA'};
+    var CAT_COL = {carbo:'#0C447C', proteine:'#4A1B0C', legumi:'#173404', frutta:'#412402'};
+    function righeCategoria(alimenti, cat) {
+      return alimenti.filter(function(a){ return a.categoria === cat; });
+    }
+    var h = '<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat('+piano.length+',1fr);gap:5px;min-width:560px">';
     piano.forEach(function(g) {
       var nome = g.giorno||g.g||'G';
       var ab = abbr(nome);
@@ -7130,17 +7125,31 @@ function renderRiepilogoSettimana(piano) {
       SLOTS.forEach(function(slotKey) {
         var pasto = g.pasti && g.pasti[slotKey];
         if (!pasto || !pasto.celle || !pasto.celle.length) return;
-        var al0 = (pasto.celle[0].alimenti||[])[0];
-        if (!al0) return;
-        var nome0 = al0.n || '';
-        var isRep = freq[nome0] >= 4;
-        var bg = isRep ? '#EDE9FE' : 'var(--s1,#f8fafc)';
-        var col = isRep ? '#4C1D95' : 'var(--text2)';
+        var alimenti = [];
+        pasto.celle.forEach(function(cella){ (cella.alimenti||[]).forEach(function(a){ if (a && a.n) alimenti.push(a); }); });
+        if (!alimenti.length) return;
         var lbl = SLOT_LABELS[slotKey] || slotKey;
-        var corto = nome0.length > 12 ? nome0.slice(0,11)+'...' : nome0;
-        h += '<div style="margin-bottom:3px">';
-        h += '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">'+lbl+'</div>';
-        h += '<div style="font-size:10px;padding:2px 4px;border-radius:4px;background:'+bg+';color:'+col+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+nome0+'">'+corto+'</div>';
+        h += '<div style="margin-bottom:4px">';
+        h += '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:1px">'+lbl+'</div>';
+        var CATS_WHITELIST = ['carbo','proteine','legumi','frutta'];
+        var mostratiAlmenoUno = false;
+        CATS_WHITELIST.forEach(function(cat){
+          var righe = righeCategoria(alimenti, cat);
+          if (!righe.length) return;
+          mostratiAlmenoUno = true;
+          righe.forEach(function(a){
+            var corto = a.n.length > 14 ? a.n.slice(0,13)+'...' : a.n;
+            h += '<div style="font-size:10px;padding:2px 4px;border-radius:4px;background:'+CAT_BG[cat]+';color:'+CAT_COL[cat]+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px" title="'+a.n+'">'+corto+'</div>';
+          });
+        });
+        if (!mostratiAlmenoUno) {
+          // Fallback: pasto con solo categorie fuori whitelist (es. fit, piatto unico, condimento) — mostra comunque, niente pasto vuoto
+          alimenti.forEach(function(a){
+            if (a.categoria === 'verdura') return;
+            var corto = a.n.length > 14 ? a.n.slice(0,13)+'...' : a.n;
+            h += '<div style="font-size:10px;padding:2px 4px;border-radius:4px;background:var(--s1,#f8fafc);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px" title="'+a.n+'">'+corto+'</div>';
+          });
+        }
         h += '</div>';
       });
       if (isSabato) {
@@ -7149,7 +7158,7 @@ function renderRiepilogoSettimana(piano) {
       h += '</div></div>';
     });
     h += '</div></div>';
-    h += '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Sfondo viola = alimento ripetuto 4+ volte</div>';
+    h += '<div style="margin-top:8px;font-size:11px;color:var(--text3)">Verdura omessa (sempre presente). Frutta mostrata solo se prevista nel pasto.</div>';
     return h;
   }
 
@@ -7166,20 +7175,20 @@ function renderRiepilogoSettimana(piano) {
     }
     function barW(v, t) { if (!t) return 0; return Math.min(Math.round(v/t*100), 115); }
     var h = '';
-    if (tKcal) h += '<div style="font-size:.72rem;color:var(--text3);margin-bottom:.8rem;">Target: <strong style="color:var(--text2)">'+tKcal+' kcal &middot; P '+tP+'g &middot; C '+tC+'g &middot; G '+tG+'g</strong></div>';
+    if (tKcal) h += '<div style="font-size:.66rem;color:var(--text3);margin-bottom:.5rem;">Target: <strong style="color:var(--text2)">'+tKcal+' kcal &middot; P '+tP+'g &middot; C '+tC+'g &middot; G '+tG+'g</strong></div>';
     calc.giornalieri.forEach(function(gd) {
       var isSabato = (gd.giorno||'').toLowerCase().includes('sab');
       var ab = abbr(gd.giorno||'');
-      h += '<div style="margin-bottom:8px;padding:.55rem .8rem;background:var(--bg);border:0.5px solid var(--border);border-radius:8px;">';
-      h += '<div style="font-size:.78rem;font-weight:600;color:var(--text1);margin-bottom:.4rem;">'+ab+(isSabato?' <span style="font-size:.68rem;color:#6366f1;">(cena libera stimata)</span>':'')+'</div>';
+      h += '<div style="margin-bottom:5px;padding:.35rem .6rem;background:var(--bg);border:0.5px solid var(--border);border-radius:7px;">';
+      h += '<div style="font-size:.68rem;font-weight:600;color:var(--text1);margin-bottom:.25rem;">'+ab+(isSabato?' <span style="font-size:.6rem;color:#6366f1;">(cena libera stimata)</span>':'')+'</div>';
       function barRow(lbl, v, t, u) {
         var bc = barColor(v,t), bw = barW(v,t);
-        return '<div style="display:grid;grid-template-columns:52px 1fr 56px;gap:6px;align-items:center;margin-bottom:3px;">'
-          +'<span style="font-size:.68rem;color:var(--text3);text-align:right">'+lbl+'</span>'
-          +'<div style="height:13px;background:var(--s1,#f1f5f9);border-radius:3px;overflow:hidden;">'
+        return '<div style="display:grid;grid-template-columns:42px 1fr 48px;gap:5px;align-items:center;margin-bottom:2px;">'
+          +'<span style="font-size:.6rem;color:var(--text3);text-align:right">'+lbl+'</span>'
+          +'<div style="height:9px;background:var(--s1,#f1f5f9);border-radius:3px;overflow:hidden;">'
           +'<div style="height:100%;width:'+Math.min(bw,100)+'%;background:'+bc+';border-radius:3px"></div>'
           +'</div>'
-          +'<span style="font-size:.72rem;font-weight:600;color:'+bc+'">'+v+u+'</span>'
+          +'<span style="font-size:.63rem;font-weight:600;color:'+bc+'">'+v+u+'</span>'
           +'</div>';
       }
       h += barRow('Kcal', gd.psKcal, tKcal, ' kcal');
@@ -7188,47 +7197,14 @@ function renderRiepilogoSettimana(piano) {
       h += barRow('Grassi', gd.psG, tG, 'g');
       h += '</div>';
     });
-    h += '<div style="font-size:.7rem;color:var(--text3);margin-top:.4rem;">Valori prime scelte. Barra piena = target raggiunto.</div>';
-    return h;
-  }
-
-  function buildVistaC() {
-    var freq = {};
-    piano.forEach(function(g){
-      var pasti = g.pasti || {};
-      Object.values(pasti).forEach(function(pasto){
-        (pasto.celle||[]).forEach(function(cella){
-          var al = (cella.alimenti||[])[0];
-          if (al && al.n) freq[al.n] = (freq[al.n]||0)+1;
-        });
-      });
-    });
-    var sorted = Object.keys(freq).map(function(n){ return {n:n, c:freq[n]}; })
-      .sort(function(a,b){ return b.c - a.c; }).slice(0, 20);
-    var maxC = sorted.length ? sorted[0].c : 1;
-    var h = '<div style="font-size:.72rem;color:var(--text3);margin-bottom:.8rem;">Prime scelte di ogni cella, ordinate per frequenza</div>';
-    sorted.forEach(function(item, i) {
-      var pct = Math.round(item.c/maxC*100);
-      var isRep = item.c >= 4;
-      var barC = isRep ? '#7C3AED' : '#1D9E75';
-      h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);">';
-      h += '<span style="font-size:.7rem;color:var(--text3);min-width:16px;text-align:right">'+(i+1)+'</span>';
-      h += '<span style="flex:1;font-size:.81rem;color:var(--text1)">'+item.n+'</span>';
-      h += '<div style="width:60px;height:7px;background:var(--s1,#f1f5f9);border-radius:3px;overflow:hidden;">'
-        +'<div style="height:100%;width:'+pct+'%;background:'+barC+';border-radius:3px"></div></div>';
-      h += '<span style="font-size:.74rem;color:var(--text2);min-width:22px;text-align:right">'+item.c+'x</span>';
-      if (isRep) h += '<span style="font-size:.67rem;padding:1px 5px;border-radius:999px;background:#EDE9FE;color:#4C1D95">alta rip.</span>';
-      h += '</div>';
-    });
-    h += '<div style="margin-top:8px;font-size:.7rem;color:var(--text3)">Badge viola = usato 4+ volte. Valuta di variare.</div>';
+    h += '<div style="font-size:.62rem;color:var(--text3);margin-top:.3rem;">Valori prime scelte. Barra piena = target raggiunto.</div>';
     return h;
   }
 
   var activeTab = window._riepilogoTab || 0;
   function getTabContent(t) {
     if (t===0) return buildVistaA();
-    if (t===1) return buildVistaB();
-    return buildVistaC();
+    return buildVistaB();
   }
   function tabBtn(idx, lbl) {
     var act = idx === activeTab;
@@ -7239,7 +7215,7 @@ function renderRiepilogoSettimana(piano) {
   var html = '<div style="margin-bottom:1rem;background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:.55rem 1rem;background:var(--s1,#f8fafc);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:.3rem;">';
   html += '<span style="font-size:.82rem;font-weight:600;color:var(--text1);">&#x1F4CA; Riepilogo settimana</span>';
-  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);">'+tabBtn(0,'Griglia giorni')+tabBtn(1,'Macros / giorno')+tabBtn(2,'Alimenti usati')+'</div>';
+  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);">'+tabBtn(0,'Griglia giorni')+tabBtn(1,'Macros / giorno')+'</div>';
   html += '</div>';
   html += '<div style="padding:.75rem 1rem;">'+getTabContent(activeTab)+'</div>';
   html += '</div>';
@@ -14317,3 +14293,4 @@ document.getElementById('p2-save').onclick = async function() {
 </div><!-- /ng-app-shell -->
 </body>
 </html>
+  
