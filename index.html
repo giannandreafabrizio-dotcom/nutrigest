@@ -922,7 +922,7 @@ main{flex:1;overflow-y:auto;}
 
     <!-- Salva piano definitivo -->
     <div id="p2-box" style="display:none;margin-top:1rem;">
-      <button id="p2-save" style="display:block;padding:.9rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
+      <button id="p2-save" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:.85rem 2rem;background:var(--teal2,#0d9488);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
     </div>
 
   </div><!-- fine piano-container -->
@@ -949,9 +949,6 @@ main{flex:1;overflow-y:auto;}
     <select id="storico-filter-paz" onchange="renderStoricoPiani()" style="min-width:200px;">
       <option value="">Tutti i pazienti</option>
     </select>
-  </div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
-    <button class="btn btn-d btn-sm" onclick="cancellaStoricoPiani()" style="font-size:.72rem">🗑 Cancella tutti i piani</button>
   </div>
   <div id="storico-piani-list"></div>
 </div>
@@ -1163,6 +1160,8 @@ main{flex:1;overflow-y:auto;}
         <label class="chip-pill"><input type="checkbox" id="pat-ibs"> IBS / Colon irritabile</label>
         <label class="chip-pill"><input type="checkbox" id="pat-reflusso"> Reflusso</label>
         <label class="chip-pill"><input type="checkbox" id="pat-irc"> IRC / Patologia renale</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-uricemia"> Gotta / Iperuricemia</label>
+        <label class="chip-pill"><input type="checkbox" id="pat-ossalati"> Calcolosi ossalica</label>
         <label class="chip-pill"><input type="checkbox" id="pat-tiroid"> Ipotiroidismo / Hashimoto</label>
       </div>
       <textarea id="p-patologie" style="margin-top:.5rem" placeholder="Altre patologie / note..."></textarea>
@@ -1613,7 +1612,7 @@ const ALIMENTI = {
     {n:'Verdura mista',g:200},
     {n:'Lattuga',g:100},{n:'Songino',g:80},{n:'Insalata mista',g:200},{n:'Rucola',g:80},{n:'Radicchio',g:150},
     {n:'Carote',g:200},{n:'Finocchio',g:200},{n:'Sedano',g:100},{n:'Cetriolo',g:200},{n:'Pomodori',g:200},{n:'Barbabietola',g:150},
-    {n:'Spinaci',g:200},{n:'Cicoria',g:200},{n:'Zucchine',g:200},{n:'Broccoli',g:200},{n:'Cavolfiore',g:200},
+    {n:'Spinaci',g:200},{n:'Bieta',g:200},{n:'Cicoria',g:200},{n:'Zucchine',g:200},{n:'Broccoli',g:200},{n:'Cavolfiore',g:200},
     {n:'Cavolo cappuccio',g:200},{n:'Cavolo nero',g:200},{n:'Verza',g:200},{n:'Cime di rapa',g:200},
     {n:'Melanzane',g:200},{n:'Peperoni rossi',g:200},{n:'Peperoni verdi',g:200},{n:'Carciofi',g:200},
     {n:'Fagiolini',g:200},{n:'Asparagi',g:200},{n:'Zucca',g:200},{n:'Porro',g:100},{n:'Cipolla',g:80},
@@ -1986,9 +1985,9 @@ function calcolaMacrosPiano(piano) {
       const celle = pasto.celle || [];
       celle.forEach(cella => {
         if (!cella.alimenti || !cella.alimenti.length) return;
-        // — PONDERATA 40/30/30 —
-        var pesi = [0.40, 0.30, 0.30];
-        var alArr = cella.alimenti.slice(0, 3);
+        // — PONDERATA 35/25/15/10/8/7 (P12b: da 3 a 6 alimenti) —
+        var pesi = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+        var alArr = cella.alimenti.slice(0, 6);
         alArr.forEach(function(al, ai) {
           if (!al) return;
           var peso = alArr.length === 1 ? 1 : (pesi[ai] || 0);
@@ -2653,6 +2652,7 @@ let db={pazienti:[],ricette:[],eventi:[],entrate:[],piani:[],disponibilita:{},al
 let currentPazId=null, editPazId=null, editRicId=null;
 let calDate=new Date(), calView='month', selCalDay=null;
 window._alStato={};
+window._alGroupStato={};
 
 function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catch(e){return{};}}
 function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
@@ -3456,17 +3456,25 @@ function renderPaz(){
 function openNuovoPaz(){
   editPazId=null;
   document.getElementById('mo-paz-t').textContent='Nuovo Paziente';
-  ['p-nome','p-cognome','p-tel','p-bia','p-obiettivo','p-fumo','p-alcol','p-caffe','p-acqua','p-diuresi','p-alvo','p-ciclo','p-gravidanza','p-integratori','p-int-vuole','p-patologie','p-farmaci','p-allergie','p-dove','p-veg','p-cibi-pref','p-no-rinuncia','p-weekend','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-crisi','p-cheto-note','p-passi','p-ore-all','p-polso','p-orario-all-note','p-studio'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
-  ['p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+
+  // P21: fix strutturale — azzera TUTTI gli input/textarea/select dentro il modal,
+  // invece di una lista manuale (che dimenticava campi, es. contesto emotivo).
+  // Elimina l'intera classe di bug: ogni campo futuro del modal si resetta da solo.
+  document.querySelectorAll('#mo-paz input, #mo-paz textarea, #mo-paz select').forEach(el=>{
+    if(el.type==='checkbox'||el.type==='radio') el.checked=false;
+    else el.value='';
+  });
+
+  // Campi FUORI dal modal (sezione "Calcola Macronutrienti" della scheda paziente,
+  // visibili sotto al modal): vanno azzerati esplicitamente, il selector sopra non li tocca.
+  ['p-obiettivo','p-integratori','p-int-vuole','p-dove','p-no-rinuncia','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-cheto-note','p-passi','p-ore-all','p-orario-all-note','p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto','p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
   toggleOrarioNote();
-  ['p-peso','p-altezza','p-peso-target','p-prezzo-visita','p-prezzo-controllo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  const stEl=document.getElementById('p-studio');if(stEl)stEl.value='';
-  ['p-nascita','p-visita','p-inizio','p-controllo','p-inizio2','p-controllo2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+
+  // Date: azzerate dal reset generico sopra, poi impostate ai default odierni.
   document.getElementById('p-visita').value=today();
   document.getElementById('p-inizio').value=today();
-  window._alStato={};renderAlEditor();aggDateCal();
+  window._alStato={};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -3486,13 +3494,13 @@ function editPaz(){
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
-  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
+  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
   s('p-dove',p.dove);setDove(p.dove);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-crisi',p.crisi);
   s('p-cheto-note',p.chetoNote);
-  s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);s('p-polso',p.circonferenzaPolso);
+  s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);
   s('p-orario-all-note',p.orarioAllenamentoNote);
   const ss2=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
@@ -3519,7 +3527,7 @@ function editPaz(){
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
   ss('p-var',p.var);ss('p-cheto',p.cheto);
-  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};renderAlEditor();aggDateCal();
+  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -3889,6 +3897,59 @@ function applicaRegoloSemaforo(p){
         // Idratazione
         'Zucchine','Cetriolo','Anguria','Arancia'
       ]
+    },
+
+    'pat-uricemia':{
+      // Gotta / Iperuricemia - Fonte: EULAR 2016/2020, linee guida ACR 2020
+      // Logica: limitare purine alte (carni rosse/frattaglie, pesce azzurro, frutti di mare, legumi secchi)
+      grigi:[
+        // Frutti di mare e pesce ad alto contenuto di purine
+        'Gamberetti','Cozze','Vongole','Polpo','Seppia','Calamari',
+        'Sgombro','Tonno rosso','Tonno al naturale','Salmone fresco',
+        // Frattaglie
+        'Fegato di vitello','Cuore di vitello',
+        // Carni rosse / insaccati
+        'Agnello','Salame','Mortadella','Speck','Bresaola',
+        // Legumi secchi (purine concentrate)
+        'Ceci (secchi)','Lenticchie (secche)','Fagioli borlotti (secchi)','Lupini'
+      ],
+      celesti:[
+        // Latticini magri (effetto uricosurico favorevole)
+        'Latte vaccino scremato','Latte vaccino p.scremato','Yogurt greco 2%','Yogurt','Ricotta di vacca',
+        // Proteine a basso contenuto di purine
+        'Uovo intero','Albumi',
+        // Carboidrati complessi
+        'Patate','Riso','Riso basmati','Pasta',
+        // Verdura e frutta a basso impatto
+        'Zucchine','Cetriolo','Lattuga','Carote','Mela','Pera','Fragole','Mirtilli'
+      ]
+    },
+
+    'pat-ossalati':{
+      // Calcolosi ossalica (calcoli renali di ossalato di calcio) - Fonte: EAU Urolithiasis 2023, AUA 2014
+      // Logica: limitare alimenti ad alto contenuto di ossalati
+      grigi:[
+        // Verdura ad alto ossalato
+        'Spinaci','Bieta','Barbabietola','Cime di rapa','Prezzemolo',
+        // Frutta a guscio
+        'Mandorle','Noci','Arachidi','Anacardi','Pistacchi',
+        // Cacao e derivati
+        'Cacao amaro','Cioccolato fondente 85%',
+        // Soia e derivati
+        'Soia surgelata (edamame)','Tofu',
+        // Altri ad alto ossalato
+        'Bacche di goji','Patate dolci'
+      ],
+      celesti:[
+        // Verdura a basso ossalato
+        'Cavolfiore','Cavolo cappuccio','Lattuga','Cetriolo','Zucchine','Funghi champignon','Carote','Peperoni rossi',
+        // Frutta a basso ossalato
+        'Mela','Pera','Banana','Anguria','Fragole',
+        // Latticini (il calcio lega gli ossalati nell'intestino)
+        'Latte vaccino scremato','Yogurt greco 2%',
+        // Carboidrati e proteine neutre
+        'Riso','Uovo intero','Petto di pollo'
+      ]
     }
 
   };
@@ -3907,6 +3968,8 @@ function applicaRegoloSemaforo(p){
     'pat-ibs':'Intestino irritabile',
     'pat-reflusso':'Reflusso',
     'pat-irc':'Patologia renale',
+    'pat-uricemia':'Gotta/Iperuricemia',
+    'pat-ossalati':'Calcolosi ossalica',
     'pat-tiroid':'Ipotiroidismo/Hashimoto',
     'all-glutine':'Glutine',
     'all-lattosio':'Lattosio',
@@ -3921,6 +3984,7 @@ function applicaRegoloSemaforo(p){
     'Intestino irritabile':'Alto FODMAP \u2715','Reflusso':'Acido \u2715','Patologia renale':'Alto fosforo/K \u2715',
     'Ipotiroidismo/Hashimoto':'Goitrogeno \u2715','Glutine':'Contiene glutine \u2715','Lattosio':'Contiene lattosio \u2715',
     'Nichel':'Alto nichel \u2715','Low-FODMAP':'Alto FODMAP \u2715',
+    'Gotta/Iperuricemia':'Alte purine \u2715','Calcolosi ossalica':'Alti ossalati \u2715',
     'Gravidanza':'Rischio gravidanza \u2715','Allattamento':'Sconsigliato \u2715'
   };
   const LABEL_CELESTE={
@@ -3928,6 +3992,7 @@ function applicaRegoloSemaforo(p){
     'Intestino irritabile':'Low FODMAP \u2713','Reflusso':'Gastroprotettivo \u2713','Patologia renale':'Basso fosforo \u2713',
     'Ipotiroidismo/Hashimoto':'Utile tiroide \u2713','Glutine':'Senza glutine \u2713','Lattosio':'Senza lattosio \u2713',
     'Nichel':'Basso nichel \u2713','Low-FODMAP':'Low FODMAP \u2713',
+    'Gotta/Iperuricemia':'Basse purine \u2713','Calcolosi ossalica':'Bassi ossalati \u2713',
     'Gravidanza':'Sicuro in gravidanza \u2713','Allattamento':'Sicuro \u2713'
   };
   window._LABEL_GRIGIO=LABEL_GRIGIO;window._LABEL_CELESTE=LABEL_CELESTE;
@@ -4003,7 +4068,7 @@ function salvaPaz(){
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:getIntegratori(),integraWant:getIntegraWant(),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
-    checkSemaforo:['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
+    checkSemaforo:['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
     dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
@@ -4016,7 +4081,7 @@ function salvaPaz(){
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
     giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
-    circonferenzaPolso:gn('p-polso'),cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
+    cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
     studio:g('p-studio'),
@@ -5648,7 +5713,7 @@ function renderPdAnamnesi(p){
       ${r('Non rinuncia a',p.noRinuncia)}${r('Chetogenica',p.cheto==='si'?'Sì — '+p.chetoNote:p.cheto==='valutare'?'Da valutare':'')}
     </div></div>
     <div class="card"><div class="card-hd"><h3>Attività Fisica</h3></div><div class="card-bd">
-      <div class="fr">${r('Passi/giorno',p.passiGiornalieri?p.passiGiornalieri+' passi':'')+r('Polso',p.circonferenzaPolso?p.circonferenzaPolso+' cm':'')}</div>
+      <div class="fr">${r('Passi/giorno',p.passiGiornalieri?p.passiGiornalieri+' passi':'')}</div>
       ${r('Giorni allenamento',(p.giorniAllenamento||[]).length?p.giorniAllenamento.join(' · '):'')}
       <div class="fr">${r('Ore/sett.',p.oreAllenamento?p.oreAllenamento+' ore':'')+r('Tipo',p.tipoAllenamento)+r('Intensità',p.intensitaAllenamento)}</div>
       ${r('Orario',p.orarioAllenamento?(p.orarioAllenamento+(p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote?' — '+p.orarioAllenamentoNote:'')):'')}
@@ -6391,7 +6456,6 @@ function renderPdMacros(p){
   <div class="fr3">
     <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0"></div>
     <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 3-5 ore" min="0" step="0.5"></div>
-    <div class="fg"><label>Circonferenza polso (cm)</label><input type="number" id="p-polso" placeholder="es. 15-19 cm" step="0.1"></div>
   </div>
   <div class="fr3">
     <div class="fg"><label>Tipo allenamento</label>
@@ -6602,7 +6666,6 @@ function renderPdMacros(p){
   const _gs = (id,v) => { const el=document.getElementById(id); if(el&&v!=null)el.value=v; };
   _gn('p-passi', p.passiGiornalieri);
   _gn('p-ore-all', p.oreAllenamento);
-  _gn('p-polso', p.circonferenzaPolso);
   _gs('p-tipo-all', p.tipoAllenamento);
   _gs('p-intens-all', p.intensitaAllenamento);
   _gs('p-orario-all', p.orarioAllenamento);
@@ -6837,7 +6900,6 @@ function salvaCalcoloMacros(){
   const gs=id=>{const el=document.getElementById(id);return el?el.value:null;};
   p.passiGiornalieri=gn('p-passi');
   p.oreAllenamento=gn('p-ore-all');
-  p.circonferenzaPolso=gn('p-polso');
   p.tipoAllenamento=gs('p-tipo-all');
   p.intensitaAllenamento=gs('p-intens-all');
   p.orarioAllenamento=gs('p-orario-all');
@@ -7361,8 +7423,8 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
           // prima scelta
           var al0=cella.alimenti[0];
           if(al0){var cat0=al0.categoria||(typeof getCategoriaFunzionale==='function'?getCategoriaFunzionale(al0.n):null);var v0=getValoriCREA(al0.n,cat0);if(v0){var f0=(parseFloat(al0.g)||0)/100;_psG.kcal+=v0.kcal*f0;_psG.p+=v0.p*f0;_psG.c+=v0.c*f0;_psG.g+=v0.g*f0;}}
-          // ponderata 40/30/30
-          var pesi=[0.40,0.30,0.30],alArr=cella.alimenti.slice(0,3);
+          // ponderata 35/25/15/10/8/7 (P12b: da 3 a 6 alimenti)
+          var pesi=[0.35,0.25,0.15,0.10,0.08,0.07],alArr=cella.alimenti.slice(0,6);
           alArr.forEach(function(al,ai){if(!al)return;var peso=alArr.length===1?1:(pesi[ai]||0);var cat=al.categoria||(typeof getCategoriaFunzionale==='function'?getCategoriaFunzionale(al.n):null);var vals=getValoriCREA(al.n,cat);if(!vals)return;var f=(parseFloat(al.g)||0)/100*peso;_mpG.kcal+=vals.kcal*f;_mpG.p+=vals.p*f;_mpG.c+=vals.c*f;_mpG.g+=vals.g*f;});
         });
       });
@@ -7450,8 +7512,8 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     dH+='</div></div>';
     pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+dH+'</div>';
     var btn=document.createElement('button');
-    btn.textContent='📄 Scarica Piano PDF';
-    btn.style.cssText='margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btn.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+    btn.innerHTML='⬇️ Scarica PDF';
     btn.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
     // Toggle senza bilancia
     var _toggleWrap1 = document.createElement('label');
@@ -7464,12 +7526,18 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _toggleWrap1.appendChild(_chk1);
     _toggleWrap1.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
     pianoEl.appendChild(_toggleWrap1);
-    pianoEl.appendChild(btn);
+    _appendToggleNutrizionali(pianoEl);
+    _appendTogglePromemoria(pianoEl);
+    _appendBtnConcetti(pianoEl);
     var btnWa=document.createElement('button');
-    btnWa.textContent='📲 Invia su WhatsApp';
-    btnWa.style.cssText='margin-top:.4rem;padding:.7rem 2rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    btnWa.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+    btnWa.innerHTML='💬 WhatsApp';
     btnWa.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);setTimeout(apriWhatsApp,800);};
-    pianoEl.appendChild(btnWa);
+    var _rigaSecondaria1=document.createElement('div');
+    _rigaSecondaria1.style.cssText='display:flex;gap:.6rem;margin-top:.6rem;';
+    _rigaSecondaria1.appendChild(btn);
+    _rigaSecondaria1.appendChild(btnWa);
+    pianoEl.appendChild(_rigaSecondaria1);
     // Aggiorna pannello laterale macros
     if (typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(g);
   };
@@ -7572,7 +7640,7 @@ function renderPanelMacrosGiorno(giornoObj) {
       html += '<div style="border-top:1px solid var(--border);margin:.3rem 0;"></div>';
     }
 
-    cella.alimenti.slice(0,3).forEach(function(al, ai) {
+    cella.alimenti.slice(0,6).forEach(function(al, ai) {
       if (!al) return;
       var isPrinc = ai === 0;
       var vals = getValoriCREA(al.n, al.categoria || null);
@@ -7583,21 +7651,13 @@ function renderPanelMacrosGiorno(giornoObj) {
       var c = vals ? Math.round(vals.c * f * 10)/10 : 0;
       var g = vals ? Math.round(vals.g * f * 10)/10 : 0;
 
-      // Somma solo per il principale (peso 40% se ci sono alternative, 100% se solo principale)
-      if (isPrinc) {
-        var nAlt = Math.min(cella.alimenti.length, 3);
-        var pesoPrinc = nAlt === 1 ? 1 : 0.40;
-        totKcal += (vals ? vals.kcal * f : 0) * pesoPrinc;
-        totP += (vals ? vals.p * f : 0) * pesoPrinc;
-        totC += (vals ? vals.c * f : 0) * pesoPrinc;
-        totG += (vals ? vals.g * f : 0) * pesoPrinc;
-      } else {
-        var pesoAlt = cella.alimenti.length >= 3 ? 0.30 : 0.60;
-        totKcal += (vals ? vals.kcal * f : 0) * pesoAlt;
-        totP += (vals ? vals.p * f : 0) * pesoAlt;
-        totC += (vals ? vals.c * f : 0) * pesoAlt;
-        totG += (vals ? vals.g * f : 0) * pesoAlt;
-      }
+      // P12b: ponderata 35/25/15/10/8/7 (da 3 a 6 alimenti) — peso pieno (1) se è l'unico alimento
+      var _pesiCella = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+      var pesoAl = cella.alimenti.length === 1 ? 1 : (_pesiCella[ai] || 0);
+      totKcal += (vals ? vals.kcal * f : 0) * pesoAl;
+      totP += (vals ? vals.p * f : 0) * pesoAl;
+      totC += (vals ? vals.c * f : 0) * pesoAl;
+      totG += (vals ? vals.g * f : 0) * pesoAl;
 
       var nomeDisplay = al.n.length > 18 ? al.n.slice(0,17)+'…' : al.n;
       var giornoPmg = (giornoObj.giorno||giornoObj.g||'');
@@ -7812,19 +7872,6 @@ async function eliminaPiano(idx) {
   }
 }
 
-async function cancellaStoricoPiani() {
-  var tot = (db.piani||[]).length;
-  if (!tot) { notif('Nessun piano da cancellare'); return; }
-  if (!confirm('Eliminare tutti i ' + tot + ' piani salvati nello storico? Questa azione non è reversibile.')) return;
-  const ids = db.piani.map(p => p.id).filter(Boolean);
-  db.piani = [];
-  saveLocal();
-  renderStoricoPiani();
-  let errori = 0;
-  for(const id of ids){ const ok = await delPianoSupabase(id); if(!ok) errori++; }
-  notif(errori === 0 ? '✅ Storico piani cancellato' : '⚠️ Cancellati in locale, ' + errori + ' errori Supabase', 3000);
-}
-
 // ── BUG3 FIX: helper centrale per scegliere target attivi ──
 // Vince l'ultimo aggiornato tra TDEE (p.macrosTarget) e F1 (p.ragionamentoClinico.macrosDecisi)
 function _getActiveMacrosTarget(p){
@@ -7906,6 +7953,45 @@ function costruisciPrompt(pazienteId) {
   // ── Calcolo totale ricette per regola 75/20/5 ──
   var totRicette = nGiorni === 7 ? 42 : 33; // 7gg cheto: 14x3=42 | 6gg: 11x3=33
 
+  // ── P20: VINCOLI CLINICI per il generatore (approccio A pragmatico) ──
+  // I dati clinici vengono passati come VINCOLI OPERATIVI sulla scelta degli alimenti,
+  // non come referto da commentare. Traduzione esplicita solo per i casi ad alto impatto
+  // (anticoagulanti↔vitamina K, alvo, flusso). Il contesto emotivo è ESCLUSO di proposito.
+  var vincoliClinici = (function(){
+    var righe = [];
+    if(p.patologie) righe.push('• Patologie: '+p.patologie+' → adatta la scelta degli alimenti a queste condizioni ed evita ciò che è controindicato.');
+    if(p.farmaci){
+      righe.push('• Farmaci in uso: '+p.farmaci);
+      if(/coumadin|warfarin|sintrom|acenocumarol|anticoagul/i.test(p.farmaci)){
+        righe.push('  ⚠️ Anticoagulante orale rilevato: mantieni COSTANTE giorno per giorno la quantità di verdura a foglia verde (vitamina K). Non alternare giorni ricchi e giorni poveri di foglia verde.');
+      }
+    }
+    if(p.analisiSangue){
+      var _as=[];
+      Object.entries(p.analisiSangue).forEach(function(e){
+        var k=e[0], v=e[1];
+        if(k.endsWith('_check') && v===true){
+          var nome=k.replace(/_check$/,'').replace(/_/g,' ');
+          var valore=p.analisiSangue[k.replace(/_check$/,'_val')];
+          _as.push(nome+(valore?' '+valore:''));
+        }
+      });
+      if(_as.length) righe.push('• Analisi del sangue rilevanti: '+_as.join(' · ')+' → tienine conto nella composizione (limita ciò che peggiora i valori alterati).');
+    }
+    var _intUso = Array.isArray(p.integratori)?p.integratori.filter(Boolean):(p.integratori?[p.integratori]:[]);
+    if(_intUso.length) righe.push('• Integratori già in uso: '+_intUso.join(', ')+' → non forzare alte dosi alimentari degli stessi nutrienti.');
+    if(p.alvo){
+      var _alvoHint='';
+      if(/stipsi|stitic|lento/i.test(p.alvo)) _alvoHint=' → privilegia fibra (verdura, legumi, cereali integrali) e buona idratazione.';
+      else if(/diarrea|accelerat|frequent/i.test(p.alvo)) _alvoHint=' → modera fibra insolubile in eccesso e alimenti irritanti.';
+      righe.push('• Alvo: '+p.alvo+_alvoHint);
+    }
+    if(p.flusso && p.flusso!=='') righe.push('• Flusso mestruale: '+p.flusso+(/abbondant|pesant/i.test(p.flusso)?' → favorisci alimenti ricchi di ferro (carne rossa magra, legumi, verdura a foglia).':''));
+    if(p.familiarita) righe.push('• Familiarità: '+p.familiarita+' → orientamento preventivo, non controindicazione assoluta.');
+    if(!righe.length) return '';
+    return '\n\nVINCOLI CLINICI — rispetta nella SCELTA degli alimenti. Sono vincoli operativi: applicali e basta, NON commentarli e NON aggiungere testo descrittivo al piano.\n'+righe.join('\n');
+  })();
+
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.
 Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
 Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
@@ -7917,7 +8003,7 @@ Allergie: ${p.allergie||'nessuna'}
 ${(function(){var nc=p.noteClinica&&p.noteClinica.length?p.noteClinica.slice(-4):[];return nc.length?'Note cliniche (ultime '+nc.length+'): '+nc.map(function(n){return '['+n.data+'] '+n.testo;}).join(' | '):'';})()}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · FFM ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
 ${(p.giorniAllenamento||[]).length?`Giorni allenamento (ON): ${p.giorniAllenamento.join(', ')}`:''}
-${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}
+${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}
 
 GRAMMATURE FISSE
 Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g
@@ -8030,7 +8116,7 @@ OGNI ALIMENTO ha questi campi:
 
 REGOLE STRUTTURA CELLE:
 - Il primo alimento di ogni cella è il principale, gli altri sono alternative
-- MASSIMO 3 alimenti per cella (1 principale + max 2 alternative) per limitare output
+- MASSIMO 6 alimenti per cella (1 principale + max 5 alternative) per limitare output
 - Verdura, frutta, olio: una sola voce per cella, NESSUNA alternativa
 - Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
 - Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)
@@ -9853,15 +9939,13 @@ function _aggiornaPianoBox() {
     // Ripristina pulsante PDF dopo render
     if (window._pdfPaziente && window._pdfPiano) {
       var btnPdf = document.createElement('button');
-      btnPdf.textContent = '\ud83d\udcc4 Scarica Piano PDF';
-      btnPdf.style.cssText = 'margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnPdf.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+      btnPdf.innerHTML = '⬇️ Scarica PDF';
       btnPdf.onclick = function() { generaPDF(window._pdfPaziente, window._pdfPiano); };
       var btnWa2=document.createElement('button');
-      btnWa2.textContent='📲 Invia su WhatsApp';
-      btnWa2.style.cssText='margin-top:.4rem;padding:.7rem 2rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+      btnWa2.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+      btnWa2.innerHTML='💬 WhatsApp';
       btnWa2.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);setTimeout(apriWhatsApp,800);};
-      var _contWa2=document.getElementById('gen-output')||btnPdf.parentNode;
-      btnPdf.parentNode.insertBefore(btnWa2,btnPdf.nextSibling);
       var _tw2=document.createElement('label');
       _tw2.style.cssText='display:flex;align-items:center;gap:8px;margin-top:1.5rem;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
       var _ck2=document.createElement('input');_ck2.type='checkbox';
@@ -9871,7 +9955,14 @@ function _aggiornaPianoBox() {
       _tw2.appendChild(_ck2);
       _tw2.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
       pianoEl.appendChild(_tw2);
-      pianoEl.appendChild(btnPdf);
+      _appendToggleNutrizionali(pianoEl);
+      _appendTogglePromemoria(pianoEl);
+      _appendBtnConcetti(pianoEl);
+      var _rigaSecondaria2=document.createElement('div');
+      _rigaSecondaria2.style.cssText='display:flex;gap:.6rem;margin-top:.6rem;';
+      _rigaSecondaria2.appendChild(btnPdf);
+      _rigaSecondaria2.appendChild(btnWa2);
+      pianoEl.appendChild(_rigaSecondaria2);
     }
   }
 
@@ -10416,12 +10507,9 @@ async function generaPiano(forceRegen){
   const carbGr = kcalTarget!==null ? (kcalTarget<1200?60:kcalTarget<1400?70:kcalTarget<1600?80:kcalTarget<1800?90:kcalTarget<2000?100:kcalTarget<2200?110:kcalTarget<2500?120:150) : 80;
 
 
-  // ── Chiamata Google Apps Script → Anthropic ──────────────────────────────
-  const scriptUrl = getUrl();
-  if(!scriptUrl){
-    notif('⚠ URL Apps Script non configurato. Vai in Impostazioni e salvalo.');
-    return;
-  }
+  // ── Generazione piano via chiamata Anthropic diretta (getAnthropicKey) ────
+  // NB: la vecchia integrazione Google Apps Script (scriptUrl) è dismessa.
+  // La generazione usa la chiave API Anthropic salvata in Impostazioni.
 
   // Messaggio di caricamento
   let loadEl = document.getElementById('piano-load-msg');
@@ -10639,6 +10727,115 @@ function gramTestoCasalingo(nomeAlimento, grammi) {
 
 // Flag globale: true = modalita' senza bilancia attiva per il prossimo PDF
 window._pdfSenzaBilancia = false;
+// P13: flag toggle valori nutrizionali nel PDF (indipendenti)
+window._pdfKcalGiorno = false;   // kcal totali per giorno, accanto al nome giorno
+window._pdfKcalPasto = false;    // kcal per singolo pasto, accanto al titolo pasto
+window._pdfKcalSettimana = false;// totale settimana, in copertina
+window._pdfMostraMacro = false;  // mostra anche P/C/G oltre alle kcal
+window._pdfMacroMode = 'prima';  // 'prima' = solo 1ª scelta | 'ponderata' = media 40/30/30 primi 3
+
+// P23: flag toggle promemoria nel footer del PDF (default: acqua, passi, sonno attivi)
+window._pdfRemAcqua = true;
+window._pdfRemPassi = true;
+window._pdfRemSonno = true;
+window._pdfRemAllenLow = false;
+window._pdfRemAllenHigh = false;
+window._pdfRemIntegratori = false;
+
+// P13: costruisce e appende i toggle nutrizionali + selettore modalità a un contenitore
+function _appendToggleNutrizionali(containerEl) {
+  if (!containerEl) return;
+  var opzioni = [
+    {flag:'_pdfKcalGiorno',   label:'\ud83d\udd25 Valori per giorno (sul nome del giorno)'},
+    {flag:'_pdfKcalPasto',    label:'\ud83c\udf7d\ufe0f Valori per pasto (accanto a ogni pasto)'},
+    {flag:'_pdfKcalSettimana',label:'\ud83d\udcc5 Media giornaliera in copertina'},
+    {flag:'_pdfMostraMacro',  label:'\ud83e\udd2c Mostra anche proteine / carboidrati / grassi'}
+  ];
+  opzioni.forEach(function(o){
+    var wrap = document.createElement('label');
+    wrap.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:.3rem;cursor:pointer;font-size:.82rem;color:#475569;user-select:none;';
+    var chk = document.createElement('input');
+    chk.type='checkbox';
+    chk.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+    chk.checked = window[o.flag] || false;
+    chk.onchange = function(){ window[o.flag] = this.checked; };
+    wrap.appendChild(chk);
+    wrap.appendChild(document.createTextNode(o.label));
+    containerEl.appendChild(wrap);
+  });
+  // Selettore modalità di calcolo (prima scelta vs ponderata)
+  var modWrap = document.createElement('div');
+  modWrap.style.cssText='display:flex;align-items:center;gap:10px;margin:.4rem 0 .2rem;font-size:.8rem;color:#475569;flex-wrap:wrap;';
+  var lbl = document.createElement('span');
+  lbl.textContent='Modalità calcolo:';
+  lbl.style.cssText='font-weight:600;';
+  modWrap.appendChild(lbl);
+  [{v:'prima',t:'Prima scelta'},{v:'ponderata',t:'Media alternative (40/30/30)'}].forEach(function(opt){
+    var rl = document.createElement('label');
+    rl.style.cssText='display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;';
+    var r = document.createElement('input');
+    r.type='radio'; r.name='pdfMacroMode'; r.value=opt.v;
+    r.style.cssText='cursor:pointer;accent-color:var(--teal2);';
+    r.checked = (window._pdfMacroMode||'prima')===opt.v;
+    r.onchange = function(){ if(this.checked) window._pdfMacroMode=this.value; };
+    rl.appendChild(r);
+    rl.appendChild(document.createTextNode(opt.t));
+    modWrap.appendChild(rl);
+  });
+  containerEl.appendChild(modWrap);
+}
+
+// P23: costruisce e appende i toggle promemoria (footer PDF) a un contenitore
+function _appendTogglePromemoria(containerEl) {
+  if (!containerEl) return;
+  var titolo = document.createElement('div');
+  titolo.textContent = '📋 Promemoria nel PDF (footer)';
+  titolo.style.cssText = 'font-weight:600;font-size:.82rem;color:#475569;margin:.6rem 0 .3rem;';
+  containerEl.appendChild(titolo);
+  var opzioni = [
+    {flag:'_pdfRemAcqua',       label:'\ud83d\udca7 Acqua'},
+    {flag:'_pdfRemPassi',       label:'\ud83d\udc63 Passi'},
+    {flag:'_pdfRemSonno',       label:'\ud83d\ude34 Sonno'},
+    {flag:'_pdfRemAllenLow',    label:'\ud83c\udfc3 Allenamento bassa intensità'},
+    {flag:'_pdfRemAllenHigh',   label:'\ud83c\udfcb\ufe0f Allenamento alta intensità'},
+    {flag:'_pdfRemIntegratori', label:'\ud83d\udc8a Integratori'}
+  ];
+  opzioni.forEach(function(o){
+    var wrap = document.createElement('label');
+    wrap.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:.3rem;cursor:pointer;font-size:.82rem;color:#475569;user-select:none;';
+    var chk = document.createElement('input');
+    chk.type='checkbox';
+    chk.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+    chk.checked = window[o.flag] || false;
+    chk.onchange = function(){ window[o.flag] = this.checked; };
+    wrap.appendChild(chk);
+    wrap.appendChild(document.createTextNode(o.label));
+    containerEl.appendChild(wrap);
+  });
+}
+
+// P31 — pulsante "Concetti da allegare" accanto all'export PDF
+function _appendBtnConcetti(containerEl) {
+  if (!containerEl) return;
+  var p = window._pdfPaziente;
+  var n = (p && p.concettiAllegati) ? p.concettiAllegati.length : 0;
+  var btn = document.createElement('button');
+  btn.id = 'btn-concetti-pdf';
+  btn.style.cssText = 'margin-top:.9rem;display:flex;align-items:center;justify-content:space-between;width:100%;padding:.6rem .8rem;background:var(--color-background-secondary,#f1f5f9);color:var(--color-text-secondary,#475569);border:1px solid var(--border,#e2e8f0);border-radius:8px;font-size:.82rem;cursor:pointer;';
+  btn.innerHTML = '<span style="display:flex;align-items:center;gap:7px;">📚 Concetti da allegare</span>'
+    + '<span style="display:flex;align-items:center;gap:7px;">'
+    + (n ? '<span id="badge-concetti-pdf" style="background:#E1F5EE;color:#0F6E56;font-size:.74rem;font-weight:600;border-radius:999px;padding:1px 8px;">'+n+'</span>' : '<span id="badge-concetti-pdf"></span>')
+    + '<span style="opacity:.6;">›</span></span>';
+  btn.onclick = function(){ apriConcettiModal(); };
+  containerEl.appendChild(btn);
+  // permette a salvaConcettiAllegati di aggiornare il badge col nuovo conteggio, senza ridisegnare il bottone
+  window._refreshBtnConcetti = function(){
+    var badge = document.getElementById('badge-concetti-pdf');
+    var pp = window._pdfPaziente;
+    var nn = (pp && pp.concettiAllegati) ? pp.concettiAllegati.length : 0;
+    if (badge) badge.outerHTML = nn ? ('<span id="badge-concetti-pdf" style="background:#E1F5EE;color:#0F6E56;font-size:.74rem;font-weight:600;border-radius:999px;padding:1px 8px;">'+nn+'</span>') : '<span id="badge-concetti-pdf"></span>';
+  };
+}
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
 
 async function generaPDF(paziente, giorni) {
@@ -10680,12 +10877,33 @@ async function generaPDF(paziente, giorni) {
   var M = 14;
   var TOP_HEADER = 16;
   var TOP_CONTENT = 26;
-  var BOTTOM = 282;
   var FOOTER_Y = 290;
   var COL_GAP = 8;
   var COL_W = (W - M * 2 - COL_GAP) / 2;
   var EMOJI_SIZE = 5;   // mm — dimensione emoji nel PDF
   var EMOJI_GAP  = 1.5; // mm — gap tra emoji e testo
+
+  // P23: promemoria attivi (footer, layout B) — peso da ultimo InBody o p.peso, fallback nessuna stima acqua
+  var _pesoPromemoria = (paziente.inbody && paziente.inbody.length)
+    ? (parseFloat(paziente.inbody[paziente.inbody.length - 1].peso) || null)
+    : (parseFloat(paziente.peso) || null);
+  var _acquaLitri = _pesoPromemoria ? Math.round(_pesoPromemoria * 32.5) / 1000 : null; // ~32.5 ml/kg, punto medio 30-35
+  var _promemoriaAttivi = [];
+  if (window._pdfRemAcqua) {
+    _promemoriaAttivi.push({
+      label: _acquaLitri ? ('Acqua ' + String(_acquaLitri).replace('.', ',') + ' L') : 'Acqua',
+      cp: '1f4a7', bg: [225,245,238], fg: [15,110,86]
+    });
+  }
+  if (window._pdfRemPassi)       _promemoriaAttivi.push({ label: 'Passi', cp: '1f45f', bg: [230,241,251], fg: [24,95,165] });
+  if (window._pdfRemSonno)       _promemoriaAttivi.push({ label: 'Sonno', cp: '1f634', bg: [238,237,254], fg: [60,52,137] });
+  if (window._pdfRemAllenLow)    _promemoriaAttivi.push({ label: 'Allenamento bassa intensità', cp: '1f3c3', bg: [250,236,231], fg: [153,60,29] });
+  if (window._pdfRemAllenHigh)   _promemoriaAttivi.push({ label: 'Allenamento alta intensità', cp: '1f3cb', bg: [250,238,218], fg: [133,79,11] });
+  if (window._pdfRemIntegratori) _promemoriaAttivi.push({ label: 'Integratori', cp: '1f48a', bg: [251,234,240], fg: [114,36,62] });
+
+  // Fascia promemoria: una sola riga di pillole orizzontali, sottrae spazio ai pasti solo se attiva
+  var _hFasciaPromemoria = _promemoriaAttivi.length ? 10 : 0;
+  var BOTTOM = 282 - _hFasciaPromemoria;
 
   var nomePaz = ((paziente.nome || '') + ' ' + (paziente.cognome || '')).trim();
   var dataGen = (function(){
@@ -10928,8 +11146,90 @@ async function generaPDF(paziente, giorni) {
     return null;
   }
 
+  // P13: kcal di un singolo pasto = somma delle PRIME SCELTE (coerente col calcolo giornaliero reale)
+  // P13: valori nutrizionali di un singolo pasto → {kcal,p,c,g}
+  // modalità 'prima' = solo 1ª scelta di ogni cella | 'ponderata' = media 40/30/30 primi 3
+  function macroDelPasto(pasto) {
+    var tot = {kcal:0,p:0,c:0,g:0};
+    if (!pasto) return tot;
+    var mode = window._pdfMacroMode || 'prima';
+    var celle = pasto.celle || [];
+    if (celle.length) {
+      celle.forEach(function(cella) {
+        var ali = cella.alimenti || [];
+        if (!ali.length) return;
+        if (mode === 'ponderata') {
+          // P12b: ponderata 35/25/15/10/8/7 (da 3 a 6 alimenti)
+          var pesi = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+          var arr = ali.slice(0, 6);
+          arr.forEach(function(al, ai) {
+            if (!al) return;
+            var peso = arr.length === 1 ? 1 : (pesi[ai] || 0);
+            var cat = al.cat || al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
+            var v = getValoriCREA(al.n, cat);
+            if (!v) return;
+            var f = (parseFloat(al.g) || 0) / 100 * peso;
+            tot.kcal += (v.kcal||0)*f; tot.p += (v.p||0)*f; tot.c += (v.c||0)*f; tot.g += (v.g||0)*f;
+          });
+        } else {
+          var a0 = ali[0];
+          var cat0 = a0.cat || a0.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(a0.n) : null);
+          var v0 = getValoriCREA(a0.n, cat0);
+          if (v0) {
+            var f0 = (parseFloat(a0.g) || 0) / 100;
+            tot.kcal += (v0.kcal||0)*f0; tot.p += (v0.p||0)*f0; tot.c += (v0.c||0)*f0; tot.g += (v0.g||0)*f0;
+          }
+        }
+      });
+    } else {
+      // formato principale1/principale2 (piani vecchi): solo prima scelta
+      [pasto.principale1, pasto.principale2].forEach(function(p) {
+        if (!p || !p.nome) return;
+        var v = getValoriCREA(p.nome, p.categoria || null);
+        if (!v) return;
+        var f = (parseFloat(p.grammi) || 0) / 100;
+        tot.kcal += (v.kcal||0)*f; tot.p += (v.p||0)*f; tot.c += (v.c||0)*f; tot.g += (v.g||0)*f;
+      });
+    }
+    return tot;
+  }
+
+  function kcalDelPasto(pasto) { return macroDelPasto(pasto).kcal; }
+
+  // P13: valori totali di un giorno → {kcal,p,c,g}
+  // usa g.macros se presente (dato AI già pesato), altrimenti somma i pasti
+  function macroDelGiorno(g) {
+    if (g && g.macros && g.macros.kcal > 0) {
+      return {
+        kcal: g.macros.kcal,
+        p: g.macros.proteine || 0,
+        c: g.macros.carboidrati || 0,
+        gr: g.macros.grassi || 0
+      };
+    }
+    var tot = {kcal:0,p:0,c:0,gr:0};
+    var slots = ['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+    slots.forEach(function(k) {
+      var m = macroDelPasto(pastoOf(g, k));
+      tot.kcal += m.kcal; tot.p += m.p; tot.c += m.c; tot.gr += m.g;
+    });
+    return tot;
+  }
+
+  function kcalDelGiorno(g) { return macroDelGiorno(g).kcal; }
+
+  // P13: formatta la stringa valori. m può avere .g o .gr per i grassi.
+  function formatValori(m) {
+    var grassi = (m.gr != null) ? m.gr : m.g;
+    var s = '~ ' + Math.round(m.kcal) + ' kcal';
+    if (window._pdfMostraMacro) {
+      s += '  ·  P ' + Math.round(m.p) + '  C ' + Math.round(m.c) + '  G ' + Math.round(grassi);
+    }
+    return s;
+  }
+
   // ── COPERTINA ─────────────────────────────────────────────
-  function drawCopertina() {
+  function drawCopertina(mediaKcalSettimana) {
     var frase = FRASI_COPERTINA[Math.floor(Math.random() * FRASI_COPERTINA.length)];
 
     // "CONSIGLI ALIMENTARI" — piccolo, teal, in alto centrato
@@ -10944,6 +11244,12 @@ async function generaPDF(paziente, giorni) {
     // Nome paziente — elegante, grande, centrato
     setFont('normal', 18, NERO);
     doc.text(safe(nomePaz), W / 2, 42, { align: 'center' });
+
+    // P13: media giornaliera della settimana
+    if (window._pdfKcalSettimana && mediaKcalSettimana && mediaKcalSettimana.kcal > 0) {
+      setFont('normal', 10, TEAL);
+      doc.text('Media giornaliera ' + formatValori(mediaKcalSettimana), W / 2, 50, { align: 'center' });
+    }
 
     // Frase centrale — molto grande, elegante, centrata
     // Ogni \n è una riga separata
@@ -10967,43 +11273,44 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- MISURAZIONE altezza pasto ----------
-  function measurePasto(slotKey, pasto) {
+  function measurePasto(slotKey, pasto, compr) {
     if (!pasto) return 0;
+    var c = (compr == null) ? 1 : compr; // scala unica font+gap (0.85 compressione .. 1.15 espansione)
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return 0;
 
     var h = 0;
-    h += 5.2;
+    h += 5.2 * c;
     var routineDelPastoMis = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
     }));
-    if (routineDelPastoMis.length > 3) h += 3.6;
+    if (routineDelPastoMis.length > 3) h += 3.6 * c;
 
     if (notaTesto) {
       var lines = doc.splitTextToSize(safe(notaTesto), W - M * 2);
-      h += lines.length * 4.6 + 2;
+      h += lines.length * 4.6 * c + 2 * c;
       return h;
     }
 
     if (hasRicette) {
       pasto.ricette.forEach(function(r) {
         if (!r) return;
-        var prefixW = measure('1. ', 9.5, 'bold');
+        var prefixW = measure('1. ', 9.5 * c, 'bold');
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
-        h += lines.length * 4.6;
+        h += lines.length * 4.6 * c;
       });
-      h += 2;
+      h += 2 * c;
     }
 
     if (hasCelle) {
       var righe = groupCelleByOrdine(pasto.celle);
       var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
       ordKeys.forEach(function(ord) {
-        var hSx = cellHeight(righe[ord].sx);
-        var hDx = cellHeight(righe[ord].dx);
-        h += Math.max(hSx, hDx) + 2.5;
+        var hSx = cellHeight(righe[ord].sx, c);
+        var hDx = cellHeight(righe[ord].dx, c);
+        h += Math.max(hSx, hDx) + 2.5 * c;
       });
     }
     return h;
@@ -11019,42 +11326,62 @@ async function generaPDF(paziente, giorni) {
     return righe;
   }
 
-  function cellHeight(c) {
+  function cellHeight(c, s) {
     if (!c || !c.alimenti || !c.alimenti.length) return 0;
+    var sc = (s == null) ? 1 : s; // scala font/celle (0.85 compressione .. 1.15 espansione)
     var n = c.alimenti.length;
-    if (n === 1) return 6.2;
-    return 6.2 + 4 + (n - 1) * 4.6 + 1;
+    if (n === 1) return 6.2 * sc;
+    return (6.2 + 4 + (n - 1) * 4.6 + 1) * sc;
   }
 
   // ---------- HEADER giorno ----------
-  function drawDayHeader(giornoLabel, macros) {
+  function drawDayHeader(giornoLabel, gObj, topContent) {
     setFont('bold', 17, NERO);
     doc.text(safe(giornoLabel), W / 2, TOP_HEADER + 4, { align: 'center' });
+    // P13: valori/giorno appena sopra il primo pasto (non attaccati al nome giorno)
+    if (window._pdfKcalGiorno) {
+      var m = macroDelGiorno(gObj);
+      if (m.kcal > 0) {
+        var _tc = (topContent == null) ? TOP_CONTENT : topContent;
+        setFont('normal', 9, TEAL);
+        doc.text(formatValori(m), W / 2, _tc - 3, { align: 'center' });
+      }
+    }
   }
 
   // ---------- DISEGNO pasto ----------
-  function drawPasto(slotKey, pasto, y) {
+  function drawPasto(slotKey, pasto, y, compr) {
     if (!pasto) return y;
+    var c = (compr == null) ? 1 : compr; // P12a: fattore compressione gap (1 = normale, min 0.85)
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
     if (!hasCelle && !hasRicette && !notaTesto) return y;
 
-    setFont('bold', 11, TEAL);
+    setFont('bold', 11 * c, TEAL);
     var titoloPasto = slotLabel[slotKey] || slotKey.toUpperCase();
-    // Emoji pasto: 4.5mm, allineata alla baseline del testo
-    var SLOT_EMOJI_SIZE = 4.5;
-    var SLOT_EMOJI_GAP  = 1.5;
+    // Emoji pasto: 4.5mm scalata, allineata alla baseline del testo
+    var SLOT_EMOJI_SIZE = 4.5 * c;
+    var SLOT_EMOJI_GAP  = 1.5 * c;
     var slotEmojiOffset = 0;
     var slotCp = slotEmoji[slotKey];
     if (slotCp) {
       var slotEmojiData = loadEmojiSync(slotCp);
       if (slotEmojiData) {
-        doc.addImage(slotEmojiData, 'PNG', M, y - SLOT_EMOJI_SIZE + 0.8, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
+        doc.addImage(slotEmojiData, 'PNG', M, y - SLOT_EMOJI_SIZE + 0.8 * c, SLOT_EMOJI_SIZE, SLOT_EMOJI_SIZE);
         slotEmojiOffset = SLOT_EMOJI_SIZE + SLOT_EMOJI_GAP;
       }
     }
     doc.text(titoloPasto, M + slotEmojiOffset, y);
+
+    // P13: valori del pasto, allineati a destra sulla stessa riga del titolo
+    if (window._pdfKcalPasto) {
+      var _mp = macroDelPasto(pasto);
+      if (_mp.kcal > 0) {
+        setFont('normal', 9 * c, GRIGIO);
+        doc.text(formatValori(_mp), W - M, y, { align: 'right' });
+      }
+    }
 
     var routineDelPasto = ((paziente.routineGiornaliera || []).filter(function(v){
       return v.attivo !== false && v.pastoRif === slotKey;
@@ -11076,9 +11403,9 @@ async function generaPDF(paziente, giorni) {
           righeRoutine.push(txt);
         });
       });
-      setFont('bold', 8.5, VERDE_MENTA_SCURO);
+      setFont('bold', 8.5 * c, VERDE_MENTA_SCURO);
       var titoloW = doc.getTextWidth(titoloPasto) + slotEmojiOffset;
-      var xRoutineStart = M + slotEmojiOffset + titoloW + 6;
+      var xRoutineStart = M + slotEmojiOffset + titoloW + 6 * c;
       var maxW = W - M - xRoutineStart;
       var rigaCorrente = '';
       var righeFinali = [];
@@ -11094,38 +11421,38 @@ async function generaPDF(paziente, giorni) {
       if (rigaCorrente) righeFinali.push(rigaCorrente);
       var righeStampate = righeFinali.slice(0, 3);
       righeStampate.forEach(function(r, i){
-        doc.text(r, xRoutineStart, y + (i * 4.2));
+        doc.text(r, xRoutineStart, y + (i * 4.2 * c));
       });
-      hRoutineExtra = Math.max(0, righeStampate.length * 4.2 - 5.6);
+      hRoutineExtra = Math.max(0, righeStampate.length * 4.2 * c - 5.6 * c);
     }
-    y += 5.6 + hRoutineExtra;
+    y += 5.6 * c + hRoutineExtra;
 
     if (notaTesto) {
-      setFont('italic', 10, NERO);
+      setFont('italic', 10 * c, NERO);
       doc.splitTextToSize(safe(notaTesto), W - M * 2).forEach(function(l) {
-        doc.text(l, M, y); y += 4.6;
+        doc.text(l, M, y); y += 4.6 * c;
       });
-      y += 2;
+      y += 2 * c;
       return y;
     }
 
     if (hasRicette) {
-      var prefixW = measure('1. ', 11, 'bold');
+      var prefixW = measure('1. ', 11 * c, 'bold');
       pasto.ricette.forEach(function(r, i) {
         if (!r) return;
         var prefix = (i + 1) + '. ';
         var lines = doc.splitTextToSize(safe(r), W - M * 2 - prefixW);
-        setFont('bold', 11, NERO);
+        setFont('bold', 11 * c, NERO);
         doc.text(prefix, M, y);
-        setFont('normal', 11, NERO);
+        setFont('normal', 11 * c, NERO);
         doc.text(lines[0] || '', M + prefixW, y);
-        y += 5.2;
+        y += 5.2 * c;
         for (var k = 1; k < lines.length; k++) {
           doc.text(lines[k], M + prefixW, y);
-          y += 5.2;
+          y += 5.2 * c;
         }
       });
-      y += 2;
+      y += 2 * c;
     }
 
     if (hasCelle) {
@@ -11133,12 +11460,12 @@ async function generaPDF(paziente, giorni) {
       var ordKeys = Object.keys(righe).sort(function(a,b){ return Number(a)-Number(b); });
       ordKeys.forEach(function(ord) {
         var riga = righe[ord];
-        var hSx = cellHeight(riga.sx);
-        var hDx = cellHeight(riga.dx);
+        var hSx = cellHeight(riga.sx, c);
+        var hDx = cellHeight(riga.dx, c);
         var hRow = Math.max(hSx, hDx);
-        drawCella(riga.sx, M, y, COL_W);
-        drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W);
-        y += hRow + 2.5;
+        drawCella(riga.sx, M, y, COL_W, c);
+        drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W, c);
+        y += hRow + 2.5 * c;
       });
     }
 
@@ -11146,8 +11473,9 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- DISEGNO CELLA con Twemoji ----------
-  function drawCella(c, x, yTop, wCell) {
+  function drawCella(c, x, yTop, wCell, s) {
     if (!c || !c.alimenti || !c.alimenti.length) return;
+    var sc = (s == null) ? 1 : s; // scala font/celle
     var ali = c.alimenti;
     var princ = ali[0];
 
@@ -11155,49 +11483,49 @@ async function generaPDF(paziente, giorni) {
     var gP = gramText(princ.g, princ.n);
     var cp = getEmojiCp(princ.n, princ.cat);
 
-    // Spazio per emoji (se disponibile)
-    var emojiOffset = cp ? (EMOJI_SIZE + EMOJI_GAP) : 0;
-    var gPwidth = gP ? measure(gP, 12, 'bold') + 2 : 0;
+    // Spazio per emoji (se disponibile) — scalato
+    var emojiSz = EMOJI_SIZE * sc;
+    var emojiOffset = cp ? (emojiSz + EMOJI_GAP * sc) : 0;
+    var gPwidth = gP ? measure(gP, 12 * sc, 'bold') + 2 * sc : 0;
     var nomeMaxW = wCell - gPwidth - emojiOffset;
 
-    // Disegna emoji
+    // Disegna emoji (dimensione scalata)
     if (cp) {
-      drawEmoji(cp, x, yTop + 3.8);
+      var _ed = loadEmojiSync(cp);
+      if (_ed) { try { doc.addImage(_ed, 'PNG', x, yTop + 3.8 * sc - emojiSz + 1, emojiSz, emojiSz); } catch(e) {} }
     }
 
     // Nome principale bold
-    setFont('bold', 12, NERO);
+    setFont('bold', 12 * sc, NERO);
     var nomeLines = doc.splitTextToSize(nomeP, nomeMaxW);
     var nomeShown = nomeLines[0];
     if (nomeLines.length > 1) {
-      while (nomeShown.length > 0 && measure(nomeShown + '...', 12, 'bold') > nomeMaxW) {
+      while (nomeShown.length > 0 && measure(nomeShown + '...', 12 * sc, 'bold') > nomeMaxW) {
         nomeShown = nomeShown.slice(0, -1);
       }
       nomeShown += '...';
     }
-    doc.text(nomeShown, x + emojiOffset, yTop + 3.8);
-    if (gP) doc.text(gP, x + wCell, yTop + 3.8, { align: 'right' });
+    doc.text(nomeShown, x + emojiOffset, yTop + 3.8 * sc);
+    if (gP) doc.text(gP, x + wCell, yTop + 3.8 * sc, { align: 'right' });
 
     // ALTERNATIVE
     if (ali.length > 1) {
-      var ay = yTop + 9.2;
-      setFont('italic', 8, GRIGIO3);
+      var ay = yTop + 9.2 * sc;
+      setFont('italic', 8 * sc, GRIGIO3);
       doc.text('Alternative:', x + emojiOffset, ay);
-      ay += 4;
+      ay += 4 * sc;
 
-      setFont('italic', 10.5, GRIGIO);
+      setFont('italic', 10.5 * sc, GRIGIO);
       for (var i = 1; i < ali.length; i++) {
         var alt = ali[i];
         var nomeA = safe(alt.n || '');
         var gA = gramText(alt.g, alt.n);
-        var cpA = getEmojiCp(alt.n, alt.cat);
-        var emojiOffsetA = 0; // nessuna emoji sulle alternative
-        var gAwidth = gA ? measure(gA, 10.5, 'italic') + 2 : 0;
+        var gAwidth = gA ? measure(gA, 10.5 * sc, 'italic') + 2 * sc : 0;
         var nomeAmaxW = wCell - gAwidth - emojiOffset;
         var nomeAlines = doc.splitTextToSize(nomeA, nomeAmaxW);
         var nomeAshown = nomeAlines[0];
         if (nomeAlines.length > 1) {
-          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 10.5, 'italic') > nomeAmaxW) {
+          while (nomeAshown.length > 0 && measure(nomeAshown + '...', 10.5 * sc, 'italic') > nomeAmaxW) {
             nomeAshown = nomeAshown.slice(0, -1);
           }
           nomeAshown += '...';
@@ -11205,20 +11533,38 @@ async function generaPDF(paziente, giorni) {
         // Nessuna emoji sulle alternative (solo sul primo alimento)
         doc.text(nomeAshown, x + emojiOffset, ay);
         if (gA) doc.text(gA, x + wCell, ay, { align: 'right' });
-        ay += 4.6;
+        ay += 4.6 * sc;
       }
     }
   }
 
   // ---------- CICLO PRINCIPALE ----------
+  // P13: media giornaliera della settimana (per copertina) → oggetto macro completo
+  var _mediaSettimana = null;
+  if (window._pdfKcalSettimana && giorni && giorni.length) {
+    var _somma = {kcal:0,p:0,c:0,gr:0}, _nGiorniK = 0;
+    giorni.forEach(function(g) {
+      var m = macroDelGiorno(g);
+      if (m.kcal > 0) {
+        _somma.kcal += m.kcal; _somma.p += m.p; _somma.c += m.c; _somma.gr += m.gr;
+        _nGiorniK++;
+      }
+    });
+    if (_nGiorniK > 0) {
+      _mediaSettimana = {
+        kcal: _somma.kcal/_nGiorniK, p: _somma.p/_nGiorniK,
+        c: _somma.c/_nGiorniK, gr: _somma.gr/_nGiorniK
+      };
+    }
+  }
+
   // Pagina 1: copertina
-  drawCopertina();
+  drawCopertina(_mediaSettimana);
 
   // Pagine giorni
   giorni.forEach(function(g, idx) {
     doc.addPage();
     var giornoLabel = (g.giorno || g.g || '').toUpperCase();
-    drawDayHeader(giornoLabel, g.macros);
 
     var pastiAttivi = [];
     slotKeys.forEach(function(k) {
@@ -11226,22 +11572,58 @@ async function generaPDF(paziente, giorni) {
       var h = measurePasto(k, p);
       if (h > 0) pastiAttivi.push({ key: k, pasto: p, h: h });
     });
-    if (!pastiAttivi.length) return;
+    if (!pastiAttivi.length) { drawDayHeader(giornoLabel, g, TOP_CONTENT); return; }
 
-    var hDisp = BOTTOM - TOP_CONTENT;
-    var hTot  = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
     var gapMin = 4;
     var nGaps = Math.max(pastiAttivi.length - 1, 1);
-    var spazioExtra = hDisp - hTot - gapMin * nGaps;
+
+    // Scala unica font+gap: 0.85 (compressione) .. 1.15 (espansione). Default 1.
+    // Misura a scala 1, poi decide se comprimere (non entra) o espandere (troppo spazio).
+    var hDispBase = BOTTOM - TOP_CONTENT;
+    var compr = 1;
+    var hTot = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
+
+    if (hTot + gapMin * nGaps > hDispBase) {
+      // COMPRESSIONE: stima il fattore necessario e rimisura (min 0.85)
+      var stimaServe = hDispBase - gapMin * nGaps;
+      compr = Math.max(0.85, Math.min(1, stimaServe / hTot));
+    } else {
+      // ESPANSIONE: c'è spazio libero, ingrandisco fino a max 1.15 senza sforare
+      var fattorePieno = (hDispBase - gapMin * nGaps) / hTot;
+      compr = Math.max(1, Math.min(1.15, fattorePieno));
+    }
+    if (compr !== 1) {
+      pastiAttivi.forEach(function(p) { p.h = measurePasto(p.key, p.pasto, compr); });
+      hTot = pastiAttivi.reduce(function(s,p){ return s + p.h; }, 0);
+    }
+
+    var spazioExtra = hDispBase - hTot - gapMin * nGaps;
+
+    // Distacco header proporzionale: una quota dello spazio libero va tra titolo e 1° pasto,
+    // il resto si distribuisce come gap tra i pasti.
+    var topGiorno = TOP_CONTENT;
     var gapExtra = 0;
-    if (spazioExtra > 0 && pastiAttivi.length > 1) {
-      gapExtra = Math.min(spazioExtra / nGaps, 14);
+    if (spazioExtra > 0) {
+      var quotaHeader = Math.min(spazioExtra * 0.35, 16); // max 16mm di distacco extra
+      topGiorno = TOP_CONTENT + quotaHeader;
+      var spazioResiduo = spazioExtra - quotaHeader;
+      if (pastiAttivi.length > 1) {
+        gapExtra = Math.min(spazioResiduo / nGaps, 10);
+      }
     }
     var gap = gapMin + gapExtra;
 
-    var y = TOP_CONTENT;
+    drawDayHeader(giornoLabel, g, topGiorno);
+
+    // Se anche al massimo della compressione il giorno non entra, avviso visibile.
+    if (hTot + gapMin * nGaps > hDispBase) {
+      setFont('bold', 7.5, [200, 40, 40]);
+      doc.text('\u26a0 Contenuto compresso al minimo: verificare il piano di questo giorno', W / 2, TOP_HEADER + 13, { align: 'center' });
+    }
+
+    var y = topGiorno;
     pastiAttivi.forEach(function(p, i) {
-      y = drawPasto(p.key, p.pasto, y);
+      y = drawPasto(p.key, p.pasto, y, compr);
       if (i < pastiAttivi.length - 1) {
         y += gap;
       }
@@ -11249,7 +11631,21 @@ async function generaPDF(paziente, giorni) {
   });
 
   // ---------- Concetti educativi ----------
-  var concetti = paziente.concetti || [];
+  // Memorizza da quale pagina iniziano i "Consigli per te": il footer promemoria
+  // (P23-bis) deve restare confinato alle pagine dei giorni, non comparire qui.
+  var _primaPaginaConcetti = doc.internal.getNumberOfPages() + 1;
+  // P31 — risolve gli id allegati al paziente in oggetti concetto da db.concetti (fonte unica).
+  // Fallback legacy: se esiste ancora paziente.concetti (vecchio formato a oggetti), usalo.
+  var _fonteConc = (typeof db !== 'undefined' && db.concetti && db.concetti.length) ? db.concetti
+                   : (typeof CONCETTI_EDUCATIVI !== 'undefined' ? CONCETTI_EDUCATIVI : []);
+  var concetti;
+  if (paziente.concettiAllegati && paziente.concettiAllegati.length) {
+    concetti = paziente.concettiAllegati
+      .map(function(id){ return _fonteConc.find(function(c){ return c.id === id; }); })
+      .filter(Boolean);
+  } else {
+    concetti = paziente.concetti || [];
+  }
   if (concetti.length) {
     doc.addPage();
     setFont('bold', 14, NERO);
@@ -11300,9 +11696,77 @@ async function generaPDF(paziente, giorni) {
   }
 
   // ---------- FOOTER (su tutte le pagine tranne copertina) ----------
+  // P13: nota esplicativa valori — solo se almeno un toggle valori è attivo
+  var _mostraValori = window._pdfKcalGiorno || window._pdfKcalPasto || window._pdfKcalSettimana;
+  var _notaValori = '';
+  if (_mostraValori) {
+    _notaValori = (window._pdfMacroMode === 'ponderata')
+      ? 'Valori indicativi: media ponderata di prima scelta e alternative (variano in base agli alimenti scelti).'
+      : 'Valori indicativi, calcolati sulla prima scelta di ogni pasto (variano scegliendo le alternative).';
+  }
   var totPagine = doc.internal.getNumberOfPages();
   for (var i = 2; i <= totPagine; i++) {
     doc.setPage(i);
+    // P23-estetica: fascia promemoria a pillole orizzontali, sopra la nota valori/footer testuale
+    // Esclusa dalle pagine "Consigli per te" (concetti educativi) — non sono giorni del piano.
+    var _isPaginaConcetti = (i >= _primaPaginaConcetti);
+    if (_promemoriaAttivi.length && !_isPaginaConcetti) {
+      var _padX = 3.4, _gapEmojiTesto = 3.2, _gapTestoBox = 2.6, _boxSize = 2.4, _boxGap = 1.6, _nBox = 4, _gapPillole = 3.2;
+      var _fontSizeBase = 7.3, _emojiSizeBase = 4;
+
+      // Misura ogni pillola alla scala 1.0
+      _promemoriaAttivi.forEach(function(prm){
+        var labelW = measure(prm.label, _fontSizeBase, 'normal');
+        var boxesW = _boxSize * _nBox + _boxGap * (_nBox - 1);
+        prm._w = _padX + _emojiSizeBase + _gapEmojiTesto + labelW + _gapTestoBox + boxesW + _padX;
+      });
+      var _wTot = _promemoriaAttivi.reduce(function(s,p){ return s + p._w; }, 0) + _gapPillole * Math.max(_promemoriaAttivi.length - 1, 0);
+      var _wDisp = W - M * 2;
+      // Si restringe (min 0.7) se troppe pillole, si espande (max 1.15) se c'è larghezza libera
+      var _scalaProm = _wTot > _wDisp
+        ? Math.max(0.7, _wDisp / _wTot)
+        : Math.min(1.15, _wDisp / _wTot);
+
+      var _fontSize = _fontSizeBase * _scalaProm;
+      var _emojiSize = _emojiSizeBase * _scalaProm;
+      var _pillH = 7 * _scalaProm;
+      var _yProm = BOTTOM + (10 - _pillH) / 2 + 1;
+      var _xProm = M;
+
+      _promemoriaAttivi.forEach(function(prm){
+        var pw = prm._w * _scalaProm;
+        doc.setFillColor.apply(doc, prm.bg);
+        doc.roundedRect(_xProm, _yProm, pw, _pillH, _pillH/2, _pillH/2, 'F');
+
+        var cx = _xProm + _padX * _scalaProm;
+        var cy = _yProm + _pillH / 2;
+        var _emojiData = loadEmojiSync(prm.cp);
+        if (_emojiData) {
+          try { doc.addImage(_emojiData, 'PNG', cx, cy - _emojiSize/2, _emojiSize, _emojiSize); } catch(e) {}
+        }
+
+        var tx = cx + _emojiSize + _gapEmojiTesto * _scalaProm;
+        setFont('normal', _fontSize, prm.fg);
+        doc.text(safe(prm.label), tx, cy, { baseline: 'middle' });
+        var labelW = measure(prm.label, _fontSizeBase, 'normal') * _scalaProm;
+
+        var bx = tx + labelW + _gapTestoBox * _scalaProm;
+        var bs = _boxSize * _scalaProm, bg = _boxGap * _scalaProm;
+        var by = cy - bs / 2;
+        for (var bIdx = 0; bIdx < _nBox; bIdx++) {
+          doc.setDrawColor.apply(doc, prm.fg);
+          doc.setLineWidth(0.2);
+          doc.rect(bx, by, bs, bs);
+          bx += bs + bg;
+        }
+
+        _xProm += pw + _gapPillole * _scalaProm;
+      });
+    }
+    if (_notaValori) {
+      setFont('italic', 6.5, GRIGIO3);
+      doc.text(_notaValori, W / 2, FOOTER_Y - 3.5, { align: 'center' });
+    }
     setFont('normal', 7.5, GRIGIO);
     doc.text(safe(nomePaz), M, FOOTER_Y);
     var footerCenter = window._pdfSenzaBilancia
@@ -11472,6 +11936,8 @@ async function generaPDF(paziente, giorni) {
 
   // Aggiunge emoji titoli pasto (sempre pre-caricate)
   ['2600','26a1','1f37d','1f552','1f319','1f4a4'].forEach(function(cp){ cpSet.add(cp); });
+  // P23-estetica: emoji pillole promemoria footer (sempre pre-caricate)
+  ['1f4a7','1f45f','1f634','1f3cb','1f3c3','1f48a'].forEach(function(cp){ cpSet.add(cp); });
 
   // Pre-carica tutte le emoji trovate in parallelo
   var cpArray = Array.from(cpSet);
@@ -11712,7 +12178,10 @@ function renderAlEditor(){
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
     const sc=cat.replace(/'/g,"\\'");
-    const btns=`<button onclick="selCatAl('${sc}','si')" style="font-size:11px;padding:2px 8px;border:1px solid #4ade80;color:#4ade80;background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">\u2713 Tutti</button>`;
+    const _gst=(window._alGroupStato||{})[cat]||'';
+    const _gSym=_gst==='si'?'\u2713':_gst==='arancione'?'\u25d0':_gst==='rosso'?'\u2193':'\u25cb';
+    const _gCol=_gst==='si'?'#4ade80':_gst==='arancione'?'#fb923c':_gst==='rosso'?'#f87171':'#9ca3af';
+    const btns=`<button onclick="selCatAl('${sc}')" style="font-size:11px;padding:2px 8px;border:1px solid ${_gCol};color:${_gCol};background:transparent;border-radius:4px;cursor:pointer;line-height:1.4">${_gSym} Tutti</button>`;
     html+=`<div class="al-section"><div class="al-section-hd"><h4>${cat}</h4><div style="display:flex;gap:4px;align-items:center">${btns}</div></div><div class="al-grid">`;
     items.forEach(item=>{
       const key=cat+'__'+item.n;
@@ -11847,10 +12316,18 @@ function togAl(el,key,nome){
   const gl=el.querySelector('.gluten');const glH=gl?gl.outerHTML:'';
   el.innerHTML=(n==='si'?'\u2713 ':n==='arancione'?'\u25d0 ':n==='rosso'?'\u2193 ':'')+nome+glH+_badgeContatore;
 }
-function selCatAl(cat,stato){
+function selCatAl(cat){
   const data=ALIMENTI[cat];if(!data)return;
   const items=(data.items||[]);
-  items.forEach(i=>{window._alStato[cat+'__'+i.n]=stato;});
+  const g=window._alGroupStato=window._alGroupStato||{};
+  const cur=g[cat]||'';
+  const next=cur===''?'si':cur==='si'?'arancione':cur==='arancione'?'rosso':'';
+  g[cat]=next;
+  items.forEach(i=>{
+    const key=cat+'__'+i.n;
+    if(next==='')delete window._alStato[key];
+    else window._alStato[key]=next;
+  });
   renderAlEditor();
 }
 function selTuttiAl(cat,btn){
@@ -12405,20 +12882,65 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
 // ═══════════════════════════════════════════
 // CONCETTI EDUCATIVI nel modal ricette — da aggiungere alla sezione PDF paziente
 // ═══════════════════════════════════════════
-function renderConcettiModal() {
-  const cats = [...new Set(CONCETTI_EDUCATIVI.map(c=>c.categoria))];
+// P31 — legge da db.concetti (fonte primaria), pre-seleziona gli id già allegati al paziente
+function renderConcettiModal(selectedIds) {
+  const fonte = (db.concetti && db.concetti.length) ? db.concetti : CONCETTI_EDUCATIVI;
+  const sel = new Set(selectedIds || []);
+  const cats = [...new Set(fonte.map(c=>c.categoria||'Generale'))];
   let html = '<div style="max-height:350px;overflow-y:auto">';
   cats.forEach(cat => {
     html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);font-weight:600;margin:.7rem 0 .3rem">${cat}</div>`;
-    CONCETTI_EDUCATIVI.filter(c=>c.categoria===cat).forEach(c => {
+    fonte.filter(c=>(c.categoria||'Generale')===cat).forEach(c => {
       html += `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
-        <input type="checkbox" id="conc-${c.id}" style="accent-color:var(--teal)">
-        <label for="conc-${c.id}" style="font-size:.78rem;cursor:pointer">${c.titolo}</label>
+        <input type="checkbox" id="conc-${c.id}" ${sel.has(c.id)?'checked':''} style="accent-color:var(--teal)">
+        <label for="conc-${c.id}" style="font-size:.78rem;cursor:pointer">${c.titolo||c.id}</label>
       </div>`;
     });
   });
   html += '</div>';
   return html;
+}
+
+// P31 — apre la modale di selezione concetti per il paziente del piano corrente
+function apriConcettiModal() {
+  const p = window._pdfPaziente;
+  if (!p) { notif('⚠ Genera prima un piano per un paziente'); return; }
+  const fonte = (db.concetti && db.concetti.length) ? db.concetti : CONCETTI_EDUCATIVI;
+  if (!fonte.length) { notif('⚠ Nessun concetto disponibile — creane prima nella sezione Concetti'); return; }
+  const modal = document.createElement('div');
+  modal.className = 'overlay open';
+  modal.innerHTML = `<div class="modal" style="width:560px">
+    <h3 style="margin:0 0 .2rem">📚 Concetti da allegare al PDF</h3>
+    <div style="font-size:.75rem;color:var(--text2);margin-bottom:.3rem">Paziente: <strong>${(p.nome||'')+' '+(p.cognome||'')}</strong> — spunta i concetti da includere nelle pagine finali del piano.</div>
+    <div style="display:flex;gap:.6rem;margin-bottom:.2rem">
+      <button class="btn btn-g" style="font-size:.72rem;padding:.25rem .6rem" onclick="this.closest('.overlay').querySelectorAll('input[id^=&quot;conc-&quot;]').forEach(c=>c.checked=true)">Seleziona tutti</button>
+      <button class="btn btn-g" style="font-size:.72rem;padding:.25rem .6rem" onclick="this.closest('.overlay').querySelectorAll('input[id^=&quot;conc-&quot;]').forEach(c=>c.checked=false)">Deseleziona tutti</button>
+    </div>
+  </div>`;
+  const cont = document.createElement('div');
+  cont.innerHTML = renderConcettiModal(p.concettiAllegati || []);
+  modal.querySelector('.modal').appendChild(cont.firstChild);
+  const mf = document.createElement('div'); mf.className = 'mf';
+  mf.innerHTML = `<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
+    <button class="btn btn-p" onclick="salvaConcettiAllegati(this)">Salva selezione</button>`;
+  modal.querySelector('.modal').appendChild(mf);
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+// P31 — salva gli id selezionati su p.concettiAllegati (solo id; il PDF risolve da db.concetti)
+function salvaConcettiAllegati(btn) {
+  const p = window._pdfPaziente;
+  if (!p) { btn.closest('.overlay').remove(); return; }
+  const overlay = btn.closest('.overlay');
+  const ids = [...overlay.querySelectorAll('input[id^="conc-"]:checked')].map(c=>c.id.replace(/^conc-/,''));
+  p.concettiAllegati = ids;
+  const pdb = db.pazienti.find(x=>x.id===p.id);
+  if (pdb) pdb.concettiAllegati = ids;
+  save();
+  overlay.remove();
+  notif(ids.length ? ('✓ '+ids.length+' concetti allegati al piano') : '✓ Nessun concetto allegato');
+  if (typeof window._refreshBtnConcetti === 'function') window._refreshBtnConcetti();
 }
 
 
@@ -13454,6 +13976,7 @@ async function verificaSessioneEAvvia() {
 // INIT
 // ════════════════════════════════════════════════════════════════
 window._alStato={};
+window._alGroupStato={};
 loadLocal();
 // Carica modelli rotazione custom dal localStorage (saranno poi aggiornati dal pull Supabase)
 if(typeof caricaModelliCustomLocal === 'function') caricaModelliCustomLocal();
@@ -13558,8 +14081,8 @@ function renderPianoBox(piano) {
   // Ripristina pulsante PDF se esiste il piano
   if(window._pdfPaziente && window._pdfPiano){
     var _btnPdf=document.createElement('button');
-    _btnPdf.textContent='📄 Scarica Piano PDF';
-    _btnPdf.style.cssText='margin-top:.5rem;padding:.8rem 2rem;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;display:block;width:100%;';
+    _btnPdf.style.cssText='margin-top:.6rem;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;width:100%;';
+    _btnPdf.innerHTML='⬇️ Scarica PDF';
     _btnPdf.onclick=function(){generaPDF(window._pdfPaziente,window._pdfPiano);};
     // Toggle senza bilancia
     var _toggleWrap3=document.createElement('label');
@@ -13571,6 +14094,10 @@ function renderPianoBox(piano) {
     _chk3.onchange=function(){window._pdfSenzaBilancia=this.checked;};
     _toggleWrap3.appendChild(_chk3);
     _toggleWrap3.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
+    pianoEl.appendChild(_toggleWrap3);
+    _appendToggleNutrizionali(pianoEl);
+    _appendTogglePromemoria(pianoEl);
+    _appendBtnConcetti(pianoEl);
     pianoEl.appendChild(_btnPdf);
   }
 }
