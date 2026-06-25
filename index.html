@@ -289,6 +289,15 @@ main{flex:1;overflow-y:auto;}
 .analisi-item input[type=checkbox]{accent-color:var(--teal);width:13px;height:13px;cursor:pointer;flex-shrink:0;}
 .analisi-val{margin-left:auto;width:78px;flex-shrink:0;}
 .analisi-val input{padding:.18rem .35rem;font-size:.72rem;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);outline:none;font-family:'DM Sans',sans-serif;}
+/* P18 Fase A: voci compilate evidenziate + sezioni collassabili */
+.analisi-section h4{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+.analisi-section h4 .caret{display:inline-block;font-size:.6rem;margin-right:.4rem;transition:transform .15s;color:var(--text3);}
+.analisi-section.collapsed h4 .caret{transform:rotate(-90deg);}
+.analisi-section.collapsed .analisi-grid3{display:none;}
+.analisi-section h4 .an-count{font-size:.68rem;font-weight:500;letter-spacing:0;text-transform:none;padding:1px 8px;border-radius:10px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;}
+.analisi-section h4 .an-count.empty{background:transparent;color:var(--text3);border:none;}
+.analisi-item.compilata{background:#ecfdf5;border-color:#86efac;}
+.analisi-item.compilata .analisi-val input{background:#fff;border-color:#86efac;font-weight:600;}
 /* DISPONIBILITA */
 .disp-bar{display:flex;gap:.4rem;margin-bottom:.6rem;flex-wrap:wrap;}
 .disp-btn{padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:.72rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
@@ -5395,14 +5404,14 @@ function costruisciContestoPaziente(p){
   if(_intVuole.length)ctx+='\nIntegratori che vorrebbe prendere: '+_intVuole.join(', ');
 
   // Analisi del sangue — passa i valori inseriti all'AI
+  // P18.1 (Fase A): filtro su _val non vuoto (prima richiedeva _check===true → trappola
+  // se il medico inseriva un valore senza spuntare la casella).
   if(p.analisiSangue){
     const _asVoci=[];
     Object.entries(p.analisiSangue).forEach(function([k,v]){
-      if(k.endsWith('_check')&&v===true){
-        const nome=k.replace(/_check$/,'').replace(/_/g,' ');
-        const valKey=k.replace(/_check$/,'_val');
-        const valore=p.analisiSangue[valKey];
-        _asVoci.push(nome+(valore?' '+valore:''));
+      if(k.endsWith('_val') && v && String(v).trim()!==''){
+        const nome=k.replace(/_val$/,'').replace(/_/g,' ');
+        _asVoci.push(nome+' '+String(v).trim());
       }
     });
     if(_asVoci.length)ctx+='\n\nAnalisi del sangue disponibili: '+_asVoci.join(' · ');
@@ -5770,15 +5779,25 @@ function renderPdAnalisi(p){
   const as=p.analisiSangue||{};
   let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti"></div>';
   Object.entries(ANALISI).forEach(([sez,items])=>{
-    html+=`<div class="analisi-section"><h4>${sez}</h4><div class="analisi-grid3">`;
+    // P18 Fase A: conta voci compilate per decidere stato di partenza (collapsed se 0)
+    let nCompil=0;
     items.forEach(item=>{
       const key=item.replace(/[^a-z0-9]/gi,'_');
-      const checked=as[key+'_check']?'checked':'';
+      const v=as[key+'_val'];
+      if(v && String(v).trim()!=='') nCompil++;
+    });
+    const sezClass = nCompil===0 ? 'analisi-section collapsed' : 'analisi-section';
+    const countLabel = nCompil>0 ? nCompil+' compilat'+(nCompil===1?'a':'e') : 'vuota';
+    const countClass = nCompil>0 ? 'an-count' : 'an-count empty';
+    html+=`<div class="${sezClass}"><h4 onclick="toggleAnalisiSection(this.parentNode)"><span><span class="caret">▼</span>${sez}</span><span class="${countClass}">${countLabel}</span></h4><div class="analisi-grid3">`;
+    items.forEach(item=>{
+      const key=item.replace(/[^a-z0-9]/gi,'_');
       const val=as[key+'_val']||'';
-      html+=`<div class="analisi-item">
-        <input type="checkbox" id="an-${key}" ${checked} onchange="updateAnalisi()">
-        <label for="an-${key}" style="cursor:pointer;flex:1;line-height:1.2">${item}</label>
-        <div class="analisi-val"><input type="text" id="an-val-${key}" value="${val}" placeholder="val." oninput="updateAnalisi()"></div>
+      const compiled = val && String(val).trim()!=='';
+      const itemClass = compiled ? 'analisi-item compilata' : 'analisi-item';
+      html+=`<div class="${itemClass}" id="ai-${key}">
+        <label for="an-val-${key}" style="cursor:text;flex:1;line-height:1.2">${item}</label>
+        <div class="analisi-val"><input type="text" id="an-val-${key}" value="${val}" placeholder="val." oninput="updateAnalisi('${key}')"></div>
       </div>`;
     });
     html+='</div></div>';
@@ -5787,17 +5806,41 @@ function renderPdAnalisi(p){
   document.getElementById('pd-analisi').innerHTML=html;
 }
 
-function updateAnalisi(){
+function toggleAnalisiSection(secEl){
+  if(secEl) secEl.classList.toggle('collapsed');
+}
+
+function updateAnalisi(changedKey){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   if(!p.analisiSangue)p.analisiSangue={};
+  // P18 Fase A: niente più _check (checkbox rimossa). Persistiamo solo i _val.
+  // Eventuali _check legacy nel db restano lì come dead-data e sono ignorati dai consumer.
   Object.entries(ANALISI).forEach(([,items])=>{
     items.forEach(item=>{
       const key=item.replace(/[^a-z0-9]/gi,'_');
-      const cb=document.getElementById('an-'+key);const vi=document.getElementById('an-val-'+key);
-      if(cb)p.analisiSangue[key+'_check']=cb.checked;
-      if(vi)p.analisiSangue[key+'_val']=vi.value;
+      const vi=document.getElementById('an-val-'+key);
+      if(vi) p.analisiSangue[key+'_val']=vi.value;
     });
   });
+  // Aggiornamento UI incrementale (evidenza + counter) solo per il campo modificato
+  if(changedKey){
+    const item=document.getElementById('ai-'+changedKey);
+    const vi=document.getElementById('an-val-'+changedKey);
+    if(item && vi){
+      const compiled = vi.value && vi.value.trim()!=='';
+      item.classList.toggle('compilata',compiled);
+      const sec=item.closest('.analisi-section');
+      if(sec){
+        let n=0;
+        sec.querySelectorAll('.analisi-item').forEach(it=>{if(it.classList.contains('compilata'))n++;});
+        const countSpan=sec.querySelector('.an-count');
+        if(countSpan){
+          if(n>0){countSpan.classList.remove('empty');countSpan.textContent=n+' compilat'+(n===1?'a':'e');}
+          else{countSpan.classList.add('empty');countSpan.textContent='vuota';}
+        }
+      }
+    }
+  }
 }
 function salvaAnalisi(){updateAnalisi();save();notif('✓ Analisi salvate!');}
 
@@ -7944,13 +7987,13 @@ function costruisciPrompt(pazienteId) {
       }
     }
     if(p.analisiSangue){
+      // P18.1 (Fase A): filtro su _val non vuoto, come in costruisciContestoPaziente.
       var _as=[];
       Object.entries(p.analisiSangue).forEach(function(e){
         var k=e[0], v=e[1];
-        if(k.endsWith('_check') && v===true){
-          var nome=k.replace(/_check$/,'').replace(/_/g,' ');
-          var valore=p.analisiSangue[k.replace(/_check$/,'_val')];
-          _as.push(nome+(valore?' '+valore:''));
+        if(k.endsWith('_val') && v && String(v).trim()!==''){
+          var nome=k.replace(/_val$/,'').replace(/_/g,' ');
+          _as.push(nome+' '+String(v).trim());
         }
       });
       if(_as.length) righe.push('• Analisi del sangue rilevanti: '+_as.join(' · ')+' → tienine conto nella composizione (limita ciò che peggiora i valori alterati).');
