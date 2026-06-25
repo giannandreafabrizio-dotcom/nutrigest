@@ -5602,7 +5602,7 @@ async function concludiERiassumi(){
   notif('⏳ Elaborazione riassunto clinico...');
   const flussiTesto=_ragFlussi.fx?'ANALISI CLINICA (MACROS + FLAG):\n'+_ragFlussi.fx+'\n\n':'';
   const conv=_ragMessages.length?_ragMessages.map(function(m){return (m.role==='user'?'Dott. Fabrizio':'Claude')+': '+m.content;}).join('\n\n'):'';
-  const promptRiass='Sei un assistente clinico. Leggi l analisi prodotta e la conversazione di raffinamento riguardo al paziente '+p.nome+' '+p.cognome+'. Estrai SOLO le decisioni cliniche finali. Produci un riassunto strutturato con: Obiettivo, Kcal decise, Macros definitivi (scrivi esattamente: Proteine: Xg, Carboidrati: Xg, Grassi: Xg), Note cliniche importanti, Integratori consigliati se decisi, Prossimo controllo se menzionato. Sii preciso e conciso.\n\nANALISI PRODOTTA:\n'+flussiTesto+(conv?'\n\nCONVERSAZIONE DI RAFFINAMENTO:\n'+conv:'');
+  const promptRiass='Sei un assistente clinico. Leggi l analisi prodotta e la conversazione di raffinamento riguardo al paziente '+p.nome+' '+p.cognome+'. Estrai SOLO le decisioni cliniche finali. Produci un riassunto strutturato con, in questo ordine: Obiettivo; poi una riga scritta ESATTAMENTE COSI con le kcal finali decise (post-raffinamento): "🎯 TARGET FINALE: X kcal" (X = numero intero, es. 1900) — questa riga e OBBLIGATORIA e deve contenere il valore calorico definitivo, non MB ne TDEE; Macros definitivi (scrivi esattamente: Proteine: Xg, Carboidrati: Xg, Grassi: Xg); Note cliniche importanti; Integratori consigliati se decisi; Prossimo controllo se menzionato. Sii preciso e conciso.\n\nANALISI PRODOTTA:\n'+flussiTesto+(conv?'\n\nCONVERSAZIONE DI RAFFINAMENTO:\n'+conv:'');
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -5618,11 +5618,21 @@ async function concludiERiassumi(){
 
 function salvaRagionamento(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});if(!p||!_ragRiassunto)return;
-  const mKcal=_ragRiassunto.match(/(\d{3,4})\s*kcal/i);
+  // P26: kcal ancorate alla riga "TARGET FINALE: X kcal" imposta nel prompt del riassunto
+  // (prima agganciava il primo numero+kcal → poteva prendere MB o TDEE invece del target).
+  const mKcal=_ragRiassunto.match(/TARGET FINALE:\s*(\d+)\s*kcal/i);
   const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
   const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
   const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
-  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'fx'}:null;
+  // P26 opzione 2: se l'ancora kcal o un macro manca, NON salvo numeri potenzialmente sbagliati.
+  // Il testo del ragionamento si salva comunque; macrosDecisi resta null e avviso di rilanciare.
+  if(!(mKcal&&mProt&&mCarb&&mGras)){
+    p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi:null,flussi:{fx:_ragFlussi.fx}};
+    save();renderPdRagionamento(p);
+    notif('⚠ Riassunto salvato, ma target non estratto in modo affidabile — rilancia "Concludi e Riassumi" per salvare i macros');
+    return;
+  }
+  const macrosDecisi={kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'fx'};
   p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{fx:_ragFlussi.fx}};
   save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
@@ -10542,7 +10552,9 @@ async function generaPiano(forceRegen){
   var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
   if (!_md && window._ragContextForPiano && window._ragContextForPiano.pazId === p.id) {
     var _rt = window._ragContextForPiano.riassunto || '';
-    var _mk=_rt.match(/(\d{3,4})\s*kcal/i), _mp=_rt.match(/[Pp]roteine[^\d]*(\d+)/), _mc=_rt.match(/[Cc]arboidrati[^\d]*(\d+)/), _mg=_rt.match(/[Gg]rassi[^\d]*(\d+)/);
+    // P26: stessa ancora di salvaRagionamento. Se manca "TARGET FINALE: X kcal" (o un macro),
+    // _md resta null → il generatore ricade sul target calcolato da TDEE (nessun numero inventato).
+    var _mk=_rt.match(/TARGET FINALE:\s*(\d+)\s*kcal/i), _mp=_rt.match(/[Pp]roteine[^\d]*(\d+)/), _mc=_rt.match(/[Cc]arboidrati[^\d]*(\d+)/), _mg=_rt.match(/[Gg]rassi[^\d]*(\d+)/);
     if (_mk&&_mp&&_mc&&_mg) _md={kcal:+_mk[1],P:+_mp[1],C:+_mc[1],G:+_mg[1]};
   }
   // Calcolo targets separati per giorni ON e OFF (piani ciclizzati)
