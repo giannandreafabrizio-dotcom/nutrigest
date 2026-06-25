@@ -5250,7 +5250,7 @@ function resetSemaforoAuto(p){
 // ── RAGIONAMENTO CLINICO — 4 FLUSSI PARALLELI ─────────────────────────────
 
 let _ragMessages=[], _ragPazId=null, _ragRiassunto=null, _ragLoading=false;
-let _ragFlussi={f1:'',f3:'',loading:[]};
+let _ragFlussi={fx:'',loading:[]};
 
 const RAG_SYSTEM_PROMPT=`Sei un assistente clinico specializzato in dietologia che affianca il Dott. Fabrizio Giannandrea, dietologo con studio a Napoli (Magic e Centro Curae).
 
@@ -5305,7 +5305,7 @@ function costruisciContestoPaziente(p){
     grassiG     = _activeMt.grassiG;
     protGkg     = _activeMt.raw && _activeMt.raw.protGkg ? _activeMt.raw.protGkg : (peso ? +(_activeMt.protG/peso).toFixed(2) : null);
     grassiGkg   = _activeMt.raw && _activeMt.raw.grassiGkg ? _activeMt.raw.grassiGkg : (peso ? +(_activeMt.grassiG/peso).toFixed(2) : null);
-    _macrosSorgente = _activeMt.source === 'f1' ? 'ragionamento-clinico' : 'TDEE-salvato';
+    _macrosSorgente = _activeMt.source === 'fx' ? 'ragionamento-clinico' : 'TDEE-salvato';
   } else {
     kcalTarget  = tdee ? tdee+offset : null;
     protGkg     = p.proteine_gkg || 1.8;
@@ -5413,12 +5413,14 @@ function costruisciContestoPaziente(p){
   return ctx;
 }
 
-async function avviaF1(p,apiKey){
+async function avviaFX(p,apiKey){
   const _ct=calcolaTDEE(p);
   const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
   const kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nNel contesto trovi i dati del paziente. Se è presente la riga "⚑ MACROS DECISI DAL MEDICO", quei valori sono i macros scelti da Fabrizio — NON ricalcolarli, NON proporre alternative. Il tuo compito è commentarli criticamente come farebbe un secondo specialista.\n\nPRODUCI ESATTAMENTE questo formato — niente di più, niente di meno:\n\n📊 MACROS SCELTI DAL MEDICO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal rispetto TDEE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET MEDICO: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — 1 commento clinico]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 PARERE CLINICO SUI MACROS SCELTI\n[3-5 righe. Rispondi a: i macros scelti dal medico sono coerenti col profilo InBody e con il regime? Cosa funziona bene? C\'è qualcosa da tenere d\'occhio o che cambieresti e perché? Se ci sono analisi del sangue anomale, commentale. Se il profilo è semplice e tutto torna, dillo chiaramente senza inventare problemi. La decisione finale resta a Fabrizio.]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚡ FLAG RAPIDI  [SOLO se presenti — altrimenti ometti]\n• [flag 1]\n• [flag 2]\n\nSe nel contesto NON ci sono macros salvati dal medico, produci la scheda con i macros calcolati automaticamente e segnalalo con: ⚠️ Nessun target salvato — valori stimati automaticamente.\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:900,system:system,messages:[{role:'user',content:(()=>{
+  // P16: FX = unione F1 (scheda macros + composizione + parere) + F3 (flag clinici) in UNA sola chiamata.
+  // Il contesto paziente viaggia una volta sola (prima era duplicato tra F1 e F3).
+  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nNel contesto trovi i dati del paziente. Se è presente la riga "⚑ MACROS DECISI DAL MEDICO", quei valori sono i macros scelti da Fabrizio — NON ricalcolarli, NON proporre alternative. Il tuo compito è commentarli criticamente come farebbe un secondo specialista.\n\nPRODUCI ESATTAMENTE queste DUE sezioni, in questo ordine — niente di più, niente di meno.\n\n═══ SEZIONE 1 — SCHEDA MACROS ═══\n\n📊 MACROS SCELTI DAL MEDICO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal rispetto TDEE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET MEDICO: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — 1 commento clinico]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 PARERE CLINICO SUI MACROS SCELTI\n[3-5 righe. Rispondi a: i macros scelti dal medico sono coerenti col profilo InBody e con il regime? Cosa funziona bene? C\'è qualcosa da tenere d\'occhio o che cambieresti e perché? Se ci sono analisi del sangue anomale, commentale. Se il profilo è semplice e tutto torna, dillo chiaramente senza inventare problemi. La decisione finale resta a Fabrizio.]\n\nSe nel contesto NON ci sono macros salvati dal medico, produci la scheda con i macros calcolati automaticamente e segnalalo con: ⚠️ Nessun target salvato — valori stimati automaticamente.\n\n═══ SEZIONE 2 — FLAG CLINICI ═══\n\n🏥 FLAG CLINICI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Per ogni condizione/farmaco rilevante:]\n⚠️ [NOME CONDIZIONE]\n   → [vincolo diretto sul piano: cosa fare o evitare — 1 riga]\n   → [seconda indicazione se serve — 1 riga]\n\n[Per ogni interazione farmaco-nutriente:]\n💊 [FARMACO]\n   → [interazione nutrizionale rilevante — 1 riga]\n\n🔴 AVVISI PRIORITARI\n   1. [cosa piu importante da tenere a mente]\n   2. [seconda priorita se esiste]\n\nSe non ci sono condizioni rilevanti per la Sezione 2 scrivi SOLO: ✅ Profilo standard — nessun vincolo clinico specifico.\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli. Nella Sezione 2: niente testo narrativo, solo flag e frecce, massimo 15 righe.';
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1400,system:system,messages:[{role:'user',content:(()=>{
     const _ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
     const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
     const _bmi=_ib&&_ib.bmi?parseFloat(_ib.bmi):null;
@@ -5434,37 +5436,28 @@ async function avviaF1(p,apiKey){
       const _lMin=Math.round(0.8*_ref),_lMax=Math.round(1.0*_ref);
       extra+='\nRange P: '+_pMin+'-'+_pMax+'g · Range G: '+_lMin+'-'+_lMax+'g · Kcal indicativo: '+_kcalBase+' (TDEE '+_ct.tdee+' '+(_kcalBase-_ct.tdee>0?'+':'')+(_kcalBase-_ct.tdee)+')';
     }
-    return costruisciContestoPaziente(p)+extra+'\n\nProduci la scheda macros per questo paziente nel formato esatto indicato.';
+    return costruisciContestoPaziente(p)+extra+'\n\nProduci le DUE sezioni (scheda macros + flag clinici) per questo paziente nel formato esatto indicato.';
   })()}]})});
-  if(!r.ok)throw new Error('F1 errore '+r.status);
+  if(!r.ok)throw new Error('FX errore '+r.status);
   const data=await r.json();
   return data.content?.[0]?.text||'';
 }
 
 
-async function avviaF3(p,apiKey){
-  const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nAnalizza il profilo clinico e produci SOLO una lista di flag nel formato:\n\n🏥 FLAG CLINICI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Per ogni condizione/farmaco rilevante:]\n⚠️ [NOME CONDIZIONE]\n   → [vincolo diretto sul piano: cosa fare o evitare — 1 riga]\n   → [seconda indicazione se serve — 1 riga]\n\n[Per ogni interazione farmaco-nutriente:]\n💊 [FARMACO]\n   → [interazione nutrizionale rilevante — 1 riga]\n\n🔴 AVVISI PRIORITARI\n   1. [cosa piu importante da tenere a mente]\n   2. [seconda priorita se esiste]\n\nSe non ci sono condizioni rilevanti scrivi SOLO:\n✅ Profilo standard — nessun vincolo clinico specifico.\n\nREGOLE: niente testo narrativo. Solo flag e frecce. Massimo 15 righe totali.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:450,system:system,messages:[{role:'user',content:costruisciContestoPaziente(p)+'\n\nProduci i flag clinici per il piano di questo paziente.'}]})});
-  if(!r.ok)throw new Error('F3 errore '+r.status);
-  const data=await r.json();
-  return data.content?.[0]?.text||'';
-}
-
-
-async function avviaAnalisiParallela(){
+async function avviaAnalisi(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
   if(!p)return;
   const apiKey=localStorage.getItem('anthropicApiKey')||'';
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
-  _ragFlussi={f1:'',f3:'',loading:['f1','f3']};
+  _ragFlussi={fx:'',loading:['fx']};
   renderPdRagionamento(p);
-  notif('⏳ Analisi in corso — 2 flussi paralleli avviati...');
-  const risultati=await Promise.allSettled([avviaF1(p,apiKey),avviaF3(p,apiKey)]);
+  notif('⏳ Analisi clinica in corso...');
+  try{
+    _ragFlussi.fx=await avviaFX(p,apiKey);
+  }catch(e){
+    _ragFlussi.fx='⚠ Errore FX: '+e.message;
+  }
   _ragFlussi.loading=[];
-  if(risultati[0].status==='fulfilled')_ragFlussi.f1=risultati[0].value;
-  else _ragFlussi.f1='⚠ Errore F1: '+risultati[0].reason.message;
-  if(risultati[1].status==='fulfilled')_ragFlussi.f3=risultati[1].value;
-  else _ragFlussi.f3='⚠ Errore F3: '+risultati[1].reason.message;
   renderPdRagionamento(p);
   notif('✓ Analisi completata!');
 }
@@ -5495,11 +5488,13 @@ function renderPdRagionamento(p){
     // ── BUG3 FIX: ricarica flussi salvati invece di azzerarli ──
     const _rc=p.ragionamentoClinico;
     if(_rc&&_rc.flussi){
-      _ragFlussi={f1:_rc.flussi.f1||'',f3:_rc.flussi.f3||'',loading:[]};
+      // P16: nuovo formato {fx}. Retrocompat: pazienti vecchi hanno {f1,f3} → concatena in fx.
+      const _fx=_rc.flussi.fx||[_rc.flussi.f1,_rc.flussi.f3].filter(Boolean).join('\n\n');
+      _ragFlussi={fx:_fx||'',loading:[]};
       // Ricarica anche il riassunto salvato così è subito visibile
       _ragRiassunto=_rc.testo||null;
     } else {
-      _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+      _ragFlussi={fx:'',loading:[]};
     }
   }
   let html='';
@@ -5517,16 +5512,15 @@ function renderPdRagionamento(p){
   }
 
   const isLoading=_ragFlussi.loading.length>0;
-  const hasAnyFlusso=_ragFlussi.f1||_ragFlussi.f3;
+  const hasAnyFlusso=_ragFlussi.fx;
   html+='<div style="margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">'
-    +'<button class="btn" style="background:var(--teal);color:#fff;font-size:.82rem;padding:.45rem 1.1rem;border-radius:8px;border:none;cursor:'+(isLoading?'not-allowed':'pointer')+';opacity:'+(isLoading?'.6':'1')+'" onclick="'+(isLoading?'':'avviaAnalisiParallela()')+'" '+(isLoading?'disabled':'')+'>'+( isLoading?'⏳ Analisi in corso...':'▶ Avvia Analisi')+'</button>'
-    +(hasAnyFlusso&&!isLoading?'<button class="btn btn-g btn-sm" onclick="avviaAnalisiParallela()">🔄 Rianalizza</button>':'')
-    +'<span style="font-size:.72rem;color:var(--text3)">Lancia 2 analisi parallele su questo paziente</span>'
+    +'<button class="btn" style="background:var(--teal);color:#fff;font-size:.82rem;padding:.45rem 1.1rem;border-radius:8px;border:none;cursor:'+(isLoading?'not-allowed':'pointer')+';opacity:'+(isLoading?'.6':'1')+'" onclick="'+(isLoading?'':'avviaAnalisi()')+'" '+(isLoading?'disabled':'')+'>'+( isLoading?'⏳ Analisi in corso...':'▶ Avvia Analisi')+'</button>'
+    +(hasAnyFlusso&&!isLoading?'<button class="btn btn-g btn-sm" onclick="avviaAnalisi()">🔄 Rianalizza</button>':'')
+    +'<span style="font-size:.72rem;color:var(--text3)">Avvia l\'analisi clinica di questo paziente</span>'
     +'</div>';
 
   html+='<div class="f1f3-wrapper">';
-  html+=_renderFlussoPanel('f1','📊','Macros & Bilancio',_ragFlussi.f1,_ragFlussi.loading);
-  html+=_renderFlussoPanel('f3','⚠️','Alert Clinici',_ragFlussi.f3,_ragFlussi.loading);
+  html+=_renderFlussoPanel('fx','🧠','Analisi clinica (FX)',_ragFlussi.fx,_ragFlussi.loading);
   html+='</div>';
 
   if(hasAnyFlusso&&!isLoading&&!_ragRiassunto){
@@ -5583,10 +5577,8 @@ async function inviaMessaggioRag(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});if(!p)return;
   const apiKey=localStorage.getItem('anthropicApiKey')||'';
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
-  const contestoFlussi=(_ragFlussi.f1||_ragFlussi.f3)
-    ?'\n\nANALISI GIA PRODOTTA:\n'
-      +(_ragFlussi.f1?'--- F1 MACROS ---\n'+_ragFlussi.f1.substring(0,700)+'\n':'')
-      +(_ragFlussi.f3?'--- F3 FLAG CLINICI ---\n'+_ragFlussi.f3.substring(0,400)+'\n':'')
+  const contestoFlussi=_ragFlussi.fx
+    ?'\n\nANALISI GIA PRODOTTA:\n'+_ragFlussi.fx.substring(0,1100)+'\n'
     :'';
   _ragMessages.push({role:'user',content:msg});
   _ragLoading=true;renderPdRagionamento(p);
@@ -5608,8 +5600,7 @@ async function concludiERiassumi(){
   const apiKey=localStorage.getItem('anthropicApiKey')||'';
   if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
   notif('⏳ Elaborazione riassunto clinico...');
-  const flussiTesto=(_ragFlussi.f1?'F1 MACROS & COMPOSIZIONE:\n'+_ragFlussi.f1+'\n\n':'')
-    +(_ragFlussi.f3?'F3 FLAG CLINICI:\n'+_ragFlussi.f3+'\n\n':'');
+  const flussiTesto=_ragFlussi.fx?'ANALISI CLINICA (MACROS + FLAG):\n'+_ragFlussi.fx+'\n\n':'';
   const conv=_ragMessages.length?_ragMessages.map(function(m){return (m.role==='user'?'Dott. Fabrizio':'Claude')+': '+m.content;}).join('\n\n'):'';
   const promptRiass='Sei un assistente clinico. Leggi l analisi prodotta e la conversazione di raffinamento riguardo al paziente '+p.nome+' '+p.cognome+'. Estrai SOLO le decisioni cliniche finali. Produci un riassunto strutturato con: Obiettivo, Kcal decise, Macros definitivi (scrivi esattamente: Proteine: Xg, Carboidrati: Xg, Grassi: Xg), Note cliniche importanti, Integratori consigliati se decisi, Prossimo controllo se menzionato. Sii preciso e conciso.\n\nANALISI PRODOTTA:\n'+flussiTesto+(conv?'\n\nCONVERSAZIONE DI RAFFINAMENTO:\n'+conv:'');
   try{
@@ -5631,8 +5622,8 @@ function salvaRagionamento(){
   const mProt=_ragRiassunto.match(/[Pp]roteine[^\d]*(\d+)/);
   const mCarb=_ragRiassunto.match(/[Cc]arboidrati[^\d]*(\d+)/);
   const mGras=_ragRiassunto.match(/[Gg]rassi[^\d]*(\d+)/);
-  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'f1'}:null;
-  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{f1:_ragFlussi.f1,f3:_ragFlussi.f3}};
+  const macrosDecisi=(mKcal&&mProt&&mCarb&&mGras)?{kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'fx'}:null;
+  p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{fx:_ragFlussi.fx}};
   save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
 
@@ -5645,7 +5636,7 @@ function apriGeneratoreDaRag(){
 }
 
 function nuovaSessioneRag(){
-  _ragMessages=[];_ragRiassunto=null;_ragFlussi={f1:'',f3:'',loading:[]};
+  _ragMessages=[];_ragRiassunto=null;_ragFlussi={fx:'',loading:[]};
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
   if(p)renderPdRagionamento(p);
 }
@@ -5656,7 +5647,7 @@ function cancellaSavedRag(){
   if(!p)return;
   p.ragionamentoClinico=null;
   _ragRiassunto=null;
-  _ragFlussi={f1:'',f2:'',f3:'',f4:'',loading:[]};
+  _ragFlussi={fx:'',loading:[]};
   save();notif('Ragionamento eliminato');renderPdRagionamento(p);
 }
 
@@ -7013,13 +7004,13 @@ function renderTargetBadge(p){
       +'<div style="font-size:.72rem;color:#854F0B;line-height:1.4;">Vai in TDEE → <b>Calcola</b> → <b>💾 Salva dati</b>, oppure completa un Ragionamento clinico (Concludi e Riassumi → Salva nel profilo), prima di generare il piano.</div>'
       +'</div>';
   }
-  const srcLabel=a.source==='tdee'?'TDEE':'Ragionamento clinico F1';
+  const srcLabel=a.source==='tdee'?'TDEE':'Ragionamento clinico FX';
   const srcColor=a.source==='tdee'?'#0F6E56':'#185FA5';
   const srcBg=a.source==='tdee'?'#E1F5EE':'#E6F1FB';
   const srcBorder=a.source==='tdee'?'#9FE1CB':'#A8C9E8';
   let altInfo='';
   if(tT&&tF){
-    const altSrc=a.source==='tdee'?'F1':'TDEE';
+    const altSrc=a.source==='tdee'?'FX':'TDEE';
     const altTs=a.source==='tdee'?tF.timestamp:tT.timestamp;
     altInfo='<div style="font-size:.65rem;color:var(--text3);margin-top:.3rem;font-style:italic;">'+altSrc+' disponibile del '+fmt(altTs)+' — non usato perché meno recente</div>';
   }
@@ -7311,12 +7302,12 @@ function pianoPazSelezionato(id){
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Kcal target</div>
         <div style="font-size:1rem;font-weight:600;color:var(--green);">${kcalDisp} <span style="font-size:.7rem;font-weight:400;color:var(--text2);">kcal</span></div>
-        <div style="font-size:.65rem;color:var(--text3);">${_activeDisp?('da '+(_activeDisp.source==='tdee'?'TDEE':('F1'))):((offset===0?'Mantenimento':offset>0?'+'+offset:offset)+' kcal')}</div>
+        <div style="font-size:.65rem;color:var(--text3);">${_activeDisp?('da '+(_activeDisp.source==='tdee'?'TDEE':('FX'))):((offset===0?'Mantenimento':offset>0?'+'+offset:offset)+' kcal')}</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Proteine</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${protG}g</div>
-        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.protGkg?_activeDisp.raw.protGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'F1')):'1.8 g/kg '+refLabel} · ${kcalProt} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.protGkg?_activeDisp.raw.protGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'FX')):'1.8 g/kg '+refLabel} · ${kcalProt} kcal</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Carboidrati</div>
@@ -7326,7 +7317,7 @@ function pianoPazSelezionato(id){
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;grid-column:span 2;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Grassi</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
-        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.grassiGkg?_activeDisp.raw.grassiGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'F1')):'0.9 g/kg '+refLabel} · ${kcalGrassi} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.grassiGkg?_activeDisp.raw.grassiGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'FX')):'0.9 g/kg '+refLabel} · ${kcalGrassi} kcal</div>
       </div>
       ${ciclizzatoBadge}${renderTargetBadge(p)}`;
 
@@ -7737,7 +7728,7 @@ function riapriPiano(pazId, idx) {
           p: _activeMT.protG,
           c: _activeMT.carbG,
           g: _activeMT.grassiG,
-          source: _activeMT.source === 'f1' ? 'ragionamento' : 'calcolo'
+          source: _activeMT.source === 'fx' ? 'ragionamento' : 'calcolo'
         };
       } else {
         // Fallback legacy: ricalcola da TDEE
@@ -7849,17 +7840,17 @@ async function eliminaPiano(idx) {
 }
 
 // ── BUG3 FIX: helper centrale per scegliere target attivi ──
-// Vince l'ultimo aggiornato tra TDEE (p.macrosTarget) e F1 (p.ragionamentoClinico.macrosDecisi)
+// Vince l'ultimo aggiornato tra TDEE (p.macrosTarget) e FX (p.ragionamentoClinico.macrosDecisi)
 function _getActiveMacrosTarget(p){
   if(!p)return null;
   const tT=p.macrosTarget&&p.macrosTarget.timestamp?p.macrosTarget:null;
   const tF=p.ragionamentoClinico&&p.ragionamentoClinico.macrosDecisi&&p.ragionamentoClinico.macrosDecisi.timestamp?p.ragionamentoClinico.macrosDecisi:null;
   if(!tT&&!tF)return null;
   if(tT&&!tF)return {kcal:tT.kcal,protG:tT.protG,carbG:tT.carbG,grassiG:tT.grassiG,source:'tdee',timestamp:tT.timestamp,raw:tT};
-  if(tF&&!tT)return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'f1',timestamp:tF.timestamp,raw:tF};
+  if(tF&&!tT)return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'fx',timestamp:tF.timestamp,raw:tF};
   // entrambi presenti — vince l'ultimo aggiornato
   if(tT.timestamp>=tF.timestamp)return {kcal:tT.kcal,protG:tT.protG,carbG:tT.carbG,grassiG:tT.grassiG,source:'tdee',timestamp:tT.timestamp,raw:tT};
-  return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'f1',timestamp:tF.timestamp,raw:tF};
+  return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'fx',timestamp:tF.timestamp,raw:tF};
 }
 
 function costruisciPrompt(pazienteId) {
