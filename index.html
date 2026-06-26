@@ -1322,6 +1322,11 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>Peso ideale (kg)</label><input type="number" id="ib-peso-ideale" step="0.1" placeholder="es. 65.0"></div>
     <div class="fg"><label>Cintura/Fianchi</label><input type="number" id="ib-cint-fianchi" step="0.01" placeholder="es. 0.92"></div>
   </div>
+  <div class="fr-3">
+    <div class="fg"><label>Girovita (cm)</label><input type="number" id="ib-girovita" step="0.1" placeholder="es. 88"></div>
+    <div class="fg"><label>Pressione SIST. (mmHg)</label><input type="number" id="ib-pa-sbp" step="1" placeholder="es. 125"></div>
+    <div class="fg"><label>Pressione DIAST. (mmHg)</label><input type="number" id="ib-pa-dbp" step="1" placeholder="es. 80"></div>
+  </div>
   <div style="font-size:.72rem;font-weight:600;color:var(--teal2);margin:.6rem 0 .2rem;text-transform:uppercase;letter-spacing:.5px">Massa Magra Segmentale (kg)</div>
   <div class="fr-5">
     <div class="fg"><label>Braccio SX</label><input type="number" id="ib-ms-bracsx" step="0.01"></div>
@@ -2172,7 +2177,7 @@ const ANALISI = {
     'Emoglobina glicata (HbA1c)','C-peptide','Matsuda Index','QUICKI'
   ],
   'Profilo cardiovascolare alterato':[
-    'ApoB (Apolipoproteina B)','Lipoproteina(a) [Lp(a)]',
+    'ApoB (Apolipoproteina B)','ApoA1 (Apolipoproteina A1)','Lipoproteina(a) [Lp(a)]',
     'hsCRP (PCR alta sensibilità)','Omocisteina'
   ],
   'Funzionalità epatica alterata':[
@@ -2301,7 +2306,39 @@ const CALCOLI_CLINICI = [
    soglie:[{max:30,sem:'verde'},{max:300,sem:'giallo'},{sem:'rosso'}],
    cosa:'Albumin-Creatinine Ratio — screening di danno renale precoce.',
    range:'<30 mg/g normale · 30–300 microalbuminuria · >300 macroalbuminuria.',
-   alert:'Microalbuminuria è il primo segno di nefropatia diabetica o ipertensiva. Inserire Albumina urinaria in mg/L e Creatinina urinaria in mg/dL.'}
+   alert:'Microalbuminuria è il primo segno di nefropatia diabetica o ipertensiva. Inserire Albumina urinaria in mg/L e Creatinina urinaria in mg/dL.'},
+  {id:'whr', nome:'WHR (vita/fianchi)', deps:['_cintFianchi'],
+   formula:(v)=>v['_cintFianchi'],
+   unit:'',
+   soglie:[
+     {sesso:'M',max:0.90,sem:'verde'},{sesso:'M',max:1.00,sem:'giallo'},{sesso:'M',sem:'rosso'},
+     {sesso:'F',max:0.80,sem:'verde'},{sesso:'F',max:0.85,sem:'giallo'},{sesso:'F',sem:'rosso'},
+     {sem:'info'}
+   ],
+   cosa:'Rapporto vita/fianchi — indicatore di obesità centrale (viscerale).',
+   range:'M: <0.90 ok · 0.90–1.00 rischio · >1.00 alto rischio. F: <0.80 ok · 0.80–0.85 rischio · >0.85 alto rischio.',
+   alert:'Predittore di rischio cardiovascolare indipendente dal BMI. Letto direttamente dall\'InBody (campo Cintura/Fianchi).'},
+  {id:'whtr', nome:'WHtR (vita/altezza)', deps:['_girovita','_altezza'],
+   formula:(v)=>v['_girovita']/v['_altezza'],
+   unit:'',
+   soglie:[{max:0.5,sem:'verde'},{max:0.55,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto vita/altezza — indicatore semplice di adiposità centrale.',
+   range:'<0.5 normale · 0.5–0.55 sovrappeso centrale · >0.55 obesità centrale.',
+   alert:'Cutoff universale 0.5 valido per uomo, donna ed etnie diverse. Inserire girovita misurato a metà tra cresta iliaca e ultima costa.'},
+  {id:'pa_media', nome:'PA media', deps:['_sbp','_dbp'],
+   formula:(v)=>v['_dbp']+(v['_sbp']-v['_dbp'])/3,
+   unit:'mmHg',
+   soglie:[{min:70,max:100,sem:'verde'},{min:60,max:110,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Pressione arteriosa media — pressione di perfusione effettiva degli organi.',
+   range:'70–100 mmHg fisiologica · 60–70 o 100–110 borderline · <60 ipotensione · >110 ipertensione.',
+   alert:'Formula: DBP + (SBP-DBP)/3. La PA media è prognostica più della sola sistolica nei pazienti cardio-nefro-pazienti.'},
+  {id:'apo_b_a1', nome:'ApoB/ApoA1', deps:['ApoB (Apolipoproteina B)','ApoA1 (Apolipoproteina A1)'],
+   formula:(v)=>v['ApoB (Apolipoproteina B)']/v['ApoA1 (Apolipoproteina A1)'],
+   unit:'',
+   soglie:[{max:0.7,sem:'verde'},{max:0.9,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto ApoB/ApoA1 — bilancio tra particelle aterogene (ApoB) e antiaterogene (ApoA1).',
+   range:'<0.7 ottimo · 0.7–0.9 borderline · >0.9 rischio cardiovascolare alto.',
+   alert:'Considerato dal INTERHEART study come il singolo miglior predittore di infarto miocardico, superiore al solo LDL.'}
 ];
 
 // Parser numero robusto: estrae il primo numero da una stringa libera (es. "108 mg/dL", "1,5", "1.5 mEq").
@@ -2317,14 +2354,27 @@ function calcolaIndice(p, def){
   // Filtro sesso (T/E2 maschi-only)
   if(def.sesso && p.sesso !== def.sesso) return {ok:false, hidden:true};
   const as = p.analisiSangue || {};
+  const lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+  // Dipendenze speciali (da anagrafica/InBody anziché dalle analisi del sangue)
+  const ibDeps = {
+    '_peso': lastIb && lastIb.peso ? +lastIb.peso : (p.peso ? +p.peso : null),
+    '_altezza': lastIb && lastIb.altezza ? +lastIb.altezza : (p.altezza ? +p.altezza : null),
+    '_girovita': lastIb && lastIb.girovita ? +lastIb.girovita : null,
+    '_cintFianchi': lastIb && lastIb.cintFianchi ? +lastIb.cintFianchi : null,
+    '_sbp': lastIb && lastIb.paSbp ? +lastIb.paSbp : null,
+    '_dbp': lastIb && lastIb.paDbp ? +lastIb.paDbp : null
+  };
+  const ibLabels = {
+    '_peso':'peso','_altezza':'altezza','_girovita':'girovita',
+    '_cintFianchi':'rapporto vita/fianchi','_sbp':'pressione sistolica','_dbp':'pressione diastolica'
+  };
   const vals = {};
   const missing = [];
   for(const dep of def.deps){
-    if(dep === '_peso'){
-      const lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
-      const peso = (lastIb && lastIb.peso) || p.peso;
-      if(!peso){ missing.push('peso'); continue; }
-      vals[dep] = +peso;
+    if(dep.startsWith('_')){
+      const v = ibDeps[dep];
+      if(v == null){ missing.push(ibLabels[dep]||dep); continue; }
+      vals[dep] = v;
     } else {
       const k = ANALISI_KEY(dep) + '_val';
       const n = _parseAnalisiNum(as[k]);
@@ -2336,9 +2386,10 @@ function calcolaIndice(p, def){
   let val;
   try{ val = def.formula(vals); } catch(e){ return {ok:false, error:e.message}; }
   if(val == null || !isFinite(val)) return {ok:false, error:'risultato non valido'};
-  // Determina semaforo
+  // Determina semaforo (con supporto a soglie sesso-specifiche: {min/max,sem,sesso})
   let sem = 'info';
   for(const s of def.soglie){
+    if(s.sesso && s.sesso !== p.sesso) continue;
     const okMin = s.min == null || val >= s.min;
     const okMax = s.max == null || val <= s.max;
     if(okMin && okMax){ sem = s.sem; break; }
@@ -12252,7 +12303,7 @@ async function generaPDF(paziente, giorni) {
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
-  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-girovita','ib-pa-sbp','ib-pa-dbp','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
   const pdfInputEl=document.getElementById('ib-pdf-input');if(pdfInputEl)pdfInputEl.value='';
   document.getElementById('mo-inbody').classList.add('open');
@@ -12267,6 +12318,7 @@ function salvaInbody(){
     musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
     visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),pesoIdeale:gn('ib-peso-ideale'),
     cintFianchi:gn('ib-cint-fianchi'),
+    girovita:gn('ib-girovita'),paSbp:gn('ib-pa-sbp'),paDbp:gn('ib-pa-dbp'),
     magraSegm:{bracSx:gn('ib-ms-bracsx'),bracDx:gn('ib-ms-bracdx'),tronco:gn('ib-ms-tronco'),gambSx:gn('ib-ms-gambsx'),gambDx:gn('ib-ms-gambdx')},
     grassaSegm:{bracSx:gn('ib-gs-bracsx'),bracDx:gn('ib-gs-bracdx'),tronco:gn('ib-gs-tronco'),gambSx:gn('ib-gs-gambsx'),gambDx:gn('ib-gs-gambdx')},
     note:document.getElementById('ib-note').value.trim()};
@@ -14554,6 +14606,9 @@ document.getElementById('p2-save').onclick = async function() {
     'ib-altezza':{min:100,max:230,warn_min:130,warn_max:215,unit:'cm'},
     'ib-peso-ideale':{min:30,max:200,warn_min:40,warn_max:150,unit:'kg'},
     'ib-cint-fianchi':{min:0.5,max:2.0,warn_min:0.65,warn_max:1.5,unit:''},
+    'ib-girovita':{min:40,max:200,warn_min:50,warn_max:160,unit:'cm'},
+    'ib-pa-sbp':{min:60,max:260,warn_min:80,warn_max:200,unit:'mmHg'},
+    'ib-pa-dbp':{min:30,max:180,warn_min:50,warn_max:130,unit:'mmHg'},
     'mac-peso-target':{min:30,max:250,warn_min:40,warn_max:200,unit:'kg'},
     'mac-prot':{min:0.5,max:4.0,warn_min:0.8,warn_max:3.5,unit:'g/kg'},
     'mac-grassi':{min:0.3,max:3.0,warn_min:0.5,warn_max:2.5,unit:'g/kg'},
