@@ -997,13 +997,8 @@ main{flex:1;overflow-y:auto;}
       <div style="margin-top:.4rem;display:flex;gap:.4rem;flex-wrap:wrap">
         <button class="btn btn-g btn-sm" onclick="syncNow()">↺ Sincronizza ora</button>
         <button class="btn btn-g btn-sm" onclick="testConnSupabase()">🔌 Testa connessione</button>
-        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette()" title="Crea la tabella ricette su Supabase e migra le ricette esistenti">🍽 Inizializza tabella ricette</button>
-        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('piani')" title="Crea la tabella piani su Supabase e migra i piani esistenti">📋 Inizializza tabella piani</button>
-        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('entrate')" title="Migra le entrate su tabella dedicata">💶 Inizializza tabella entrate</button>
-        <button class="btn btn-g btn-sm" onclick="inizializzaTabellaRicette('eventi')" title="Migra gli eventi su tabella dedicata">📅 Inizializza tabella eventi</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3);margin-left:.3rem"></span>
       </div>
-      <div id="ric-table-status" style="font-size:.75rem;margin-top:.3rem;color:var(--text3)"></div>
     </div>
   </div>
   <div class="card">
@@ -3490,48 +3485,6 @@ async function delEventoSupabase(id){
     if(!resp.ok){ console.error('[EVENTI] delete ERRORE — status:', resp.status); return false; }
     return true;
   } catch(e) { return false; }
-}
-
-// ── INIZIALIZZAZIONE TABELLA RICETTE SUPABASE ────────────────────────────────
-async function inizializzaTabellaRicette(tipo){
-  tipo = tipo || 'ricette';
-  const el = document.getElementById('ric-table-status');
-  const nomeTabella = tipo === 'piani' ? 'piani' : 'ricette';
-  const endpoint = SUPA_URL+'/rest/v1/'+nomeTabella+'?select=id&limit=1';
-  if(el) el.textContent = '⏳ Verifica tabella ' + nomeTabella + ' in corso...';
-  try {
-    const resp = await fetch(endpoint, {method:'GET', headers: supaHeaders()});
-    if(resp.ok){
-      const rows = await resp.json();
-      if(el) el.textContent = '✅ Tabella ' + nomeTabella + ' OK — ' + rows.length + ' righe. Migro...';
-      let ok = false;
-      if(tipo === 'piani'){
-        const pianiDaMigrare = (db.piani||[]).filter(p => p && p.pazienteId);
-        pianiDaMigrare.forEach(p => { if(!p.id) p.id = 'piano_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); });
-        let errori = 0;
-        for(const p of pianiDaMigrare){ const r = await pushPianoSupabase(p); if(!r) errori++; }
-        ok = errori === 0;
-        notif(ok ? '✅ ' + pianiDaMigrare.length + ' piani migrati!' : '⚠️ Migrazione parziale — ' + errori + ' errori', 3000);
-      } else if(tipo === 'entrate'){
-        ok = await pushEntrateSupabase();
-        notif(ok ? '✅ ' + (db.entrate||[]).length + ' entrate migrate!' : '⚠️ Migrazione entrate fallita', 3000);
-      } else if(tipo === 'eventi'){
-        ok = await pushEventiSupabase();
-        notif(ok ? '✅ ' + (db.eventi||[]).length + ' eventi migrati!' : '⚠️ Migrazione eventi fallita', 3000);
-      } else {
-        ok = await pushRicetteSupabase();
-        notif(ok ? '✅ Ricette migrate su Supabase!' : '⚠️ Migrazione ricette fallita', 3000);
-      }
-      if(el) el.textContent = ok ? '✅ Tabella ' + nomeTabella + ' OK + migrazione completata!' : '⚠️ Migrazione parziale — vedi console F12';
-    } else if(resp.status === 404 || resp.status === 400){
-      if(el) el.innerHTML = '❌ Tabella "'+nomeTabella+'" non trovata.<br>👉 Vai su <b>supabase.com → SQL Editor</b> e incolla:<br><code>CREATE TABLE '+nomeTabella+' (id text PRIMARY KEY, '+(tipo==='piani'?'"pazienteId" text, ':'')+' data jsonb, updated_at text); ALTER TABLE '+nomeTabella+' DISABLE ROW LEVEL SECURITY;</code>';
-    } else {
-      if(el) el.innerHTML = '⚠️ Errore status: ' + resp.status + ' — <b>vedi console F12</b>';
-    }
-  } catch(e) {
-    console.error('['+nomeTabella.toUpperCase()+'] inizializza ERRORE:', e);
-    if(el) el.textContent = '❌ Errore: ' + e.message;
-  }
 }
 
 // ── CACHE PIANI SU SUPABASE ──────────────────────────────────────────────────
