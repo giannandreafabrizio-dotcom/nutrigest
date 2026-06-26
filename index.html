@@ -298,6 +298,26 @@ main{flex:1;overflow-y:auto;}
 .analisi-section h4 .an-count.empty{background:transparent;color:var(--text3);border:none;}
 .analisi-item.compilata{background:#ecfdf5;border-color:#86efac;}
 .analisi-item.compilata .analisi-val input{background:#fff;border-color:#86efac;font-weight:600;}
+/* P17 Fase B: pannello Calcoli automatici */
+.calcoli-pannello{background:linear-gradient(135deg,#f0f9ff 0%,#f5f3ff 100%);border:1px solid #c7d2fe;border-radius:10px;padding:.8rem;margin-bottom:1rem;}
+.calcoli-pannello h4{font-size:.78rem;font-weight:700;color:#3730a3;margin:0 0 .6rem;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:.4rem;}
+.calcoli-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.4rem;}
+.calc-card{background:#fff;border:1px solid var(--border);border-radius:7px;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.25rem;font-size:.78rem;position:relative;}
+.calc-card-hd{display:flex;align-items:center;justify-content:space-between;gap:.4rem;}
+.calc-nome{font-weight:600;color:var(--text);font-size:.75rem;}
+.calc-info-btn{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 2px;color:var(--text3);line-height:1;}
+.calc-info-btn:hover{color:var(--teal);}
+.calc-val{font-size:1.05rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
+.calc-unit{font-size:.65rem;font-weight:500;color:var(--text3);margin-left:.2rem;}
+.calc-sem{display:inline-block;width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.calc-sem.verde{background:#22c55e;box-shadow:0 0 0 2px #dcfce7;}
+.calc-sem.giallo{background:#eab308;box-shadow:0 0 0 2px #fef3c7;}
+.calc-sem.rosso{background:#ef4444;box-shadow:0 0 0 2px #fee2e2;}
+.calc-sem.info{background:#94a3b8;box-shadow:0 0 0 2px #f1f5f9;}
+.calc-missing{font-size:.68rem;color:#92400e;font-style:italic;}
+.calc-glossario{display:none;margin-top:.4rem;padding:.45rem .55rem;background:#fafafa;border:1px solid #e5e7eb;border-radius:5px;font-size:.7rem;color:var(--text2);line-height:1.45;}
+.calc-glossario.open{display:block;}
+.calc-glossario b{color:var(--text);font-weight:600;}
 /* DISPONIBILITA */
 .disp-bar{display:flex;gap:.4rem;margin-bottom:.6rem;flex-wrap:wrap;}
 .disp-btn{padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:.72rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
@@ -2136,7 +2156,7 @@ function renderBadgeMacrosReali_DOM(piano) {
 
 const ANALISI = {
   'Base — Consigliate a tutti':[
-    'Emocromo','Glicemia a digiuno','Insulina a digiuno',
+    'Emocromo','Neutrofili','Linfociti','Glicemia a digiuno','Insulina a digiuno',
     'Colesterolo totale','HDL','LDL','Trigliceridi',
     'Creatinina + eGFR','Sodio','Potassio',
     'AST (transaminasi)','ALT (transaminasi)','Azotemia','Acido urico',
@@ -2160,6 +2180,12 @@ const ANALISI = {
   'Metabolismo del ferro alterato':[
     'Transferrina','Saturazione transferrina','PCR'
   ],
+  'Endocrino — Su sospetto clinico':[
+    'Testosterone totale','Estradiolo'
+  ],
+  'Renale — Microalbuminuria':[
+    'Albumina urinaria','Creatinina urinaria'
+  ],
   'Vitamine — Su sospetto clinico':[
     'Vitamina B6 (piridossina)','Vitamina A (retinolo)','Vitamina E','Vitamina K'
   ],
@@ -2167,6 +2193,154 @@ const ANALISI = {
     'Zinco sierico','Rame sierico','Selenio sierico','Magnesio sierico','8-OHdG urinario'
   ]
 };
+
+const ANALISI_KEY = function(item){return item.replace(/[^a-z0-9]/gi,'_');};
+
+// P17 — Calcoli clinici derivati (Fase B). Ogni indice dichiara: i campi sorgente
+// (nomi delle voci ANALISI o "_inbody"/"_anagrafica"), la formula, le soglie del
+// semaforo, e i testi del glossario (cosa misura / range / quando preoccuparsi).
+const CALCOLI_CLINICI = [
+  {id:'tot_hdl', nome:'Tot/HDL', deps:['Colesterolo totale','HDL'],
+   formula:(v)=>v['Colesterolo totale']/v['HDL'],
+   unit:'',
+   soglie:[{max:3.5,sem:'verde'},{max:4.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto colesterolo totale / HDL — indicatore di rischio cardiovascolare.',
+   range:'<3.5 ottimo · 3.5–4.5 accettabile · >4.5 rischio aumentato.',
+   alert:'Valori >5 indicano rischio aterogeno significativo.'},
+  {id:'ldl_hdl', nome:'LDL/HDL', deps:['LDL','HDL'],
+   formula:(v)=>v['LDL']/v['HDL'],
+   unit:'',
+   soglie:[{max:2.5,sem:'verde'},{max:3.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto LDL/HDL — bilancio tra colesterolo aterogeno e protettivo.',
+   range:'<2.5 ottimo · 2.5–3.5 borderline · >3.5 alto rischio.',
+   alert:'Più sensibile del solo LDL nel predire eventi cardiovascolari.'},
+  {id:'tg_hdl', nome:'TG/HDL', deps:['Trigliceridi','HDL'],
+   formula:(v)=>v['Trigliceridi']/v['HDL'],
+   unit:'',
+   soglie:[{max:2,sem:'verde'},{max:3.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto trigliceridi/HDL — proxy di insulino-resistenza e particelle LDL piccole-dense.',
+   range:'<2 ottimo · 2–3.5 borderline · >3.5 IR probabile · >5 IR franca.',
+   alert:'>3.5 fortemente correlato a sindrome metabolica anche con LDL normale.'},
+  {id:'non_hdl', nome:'non-HDL', deps:['Colesterolo totale','HDL'],
+   formula:(v)=>v['Colesterolo totale']-v['HDL'],
+   unit:'mg/dL',
+   soglie:[{max:130,sem:'verde'},{max:160,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Colesterolo totale meno HDL — somma di tutto il colesterolo aterogeno (LDL + VLDL + Lp(a)).',
+   range:'<130 ottimo · 130–160 borderline · >160 alto.',
+   alert:'Target principale nelle linee guida cardiologiche recenti, sostituisce l\'LDL.'},
+  {id:'homa_ir', nome:'HOMA-IR', deps:['Glicemia a digiuno','Insulina a digiuno'],
+   formula:(v)=>(v['Glicemia a digiuno']*v['Insulina a digiuno'])/405,
+   unit:'',
+   soglie:[{max:2,sem:'verde'},{max:2.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Indice di insulino-resistenza calcolato da glicemia e insulina a digiuno.',
+   range:'<2 ottimo · 2–2.5 limite · 2.5–3.5 IR iniziale · >3.5 IR.',
+   alert:'Valori elevati con glicemia normale = iperinsulinemia compensatoria, da intervenire prima del diabete.'},
+  {id:'tyg', nome:'TyG', deps:['Trigliceridi','Glicemia a digiuno'],
+   formula:(v)=>Math.log(v['Trigliceridi']*v['Glicemia a digiuno']/2),
+   unit:'',
+   soglie:[{max:8.6,sem:'verde'},{max:9,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Indice trigliceridi-glucosio — proxy di insulino-resistenza alternativo a HOMA, non richiede insulina.',
+   range:'<8.6 normale · 8.6–9.0 borderline · >9.0 IR (cutoff può variare per etnia/popolazione).',
+   alert:'Utile quando l\'insulinemia non è disponibile; correla con steatosi epatica.'},
+  {id:'bun_creat', nome:'BUN/Creatinina', deps:['Azotemia','Creatinina + eGFR'],
+   formula:(v)=>v['Azotemia']/v['Creatinina + eGFR'],
+   unit:'',
+   soglie:[{min:10,max:20,sem:'verde'},{min:20,max:25,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto azotemia/creatinina — distingue cause pre-renali (disidratazione, dieta iperproteica) da renali.',
+   range:'10–20 normale · >20 disidratazione/iperproteica · <10 danno epatico o malnutrizione.',
+   alert:'Inserire creatinina sierica in mg/dL (non eGFR). Se in lista hai inserito eGFR il valore è inutilizzabile qui.'},
+  {id:'h2o', nome:'Fabbisogno idrico', deps:['_peso'],
+   formula:(v)=>v['_peso']*33,
+   unit:'ml/die',
+   soglie:[{sem:'info'}],
+   cosa:'Stima del fabbisogno idrico giornaliero per un adulto sedentario.',
+   range:'30–35 ml/kg al giorno (range fisiologico).',
+   alert:'Aggiungere 500–1000 ml in caso di sport intenso, caldo, allattamento, febbre.'},
+  {id:'ft3_ft4', nome:'FT3/FT4', deps:['FT3','FT4'],
+   formula:(v)=>v['FT3']/v['FT4'],
+   unit:'',
+   soglie:[{min:3,max:5,sem:'verde'},{min:2.5,max:5.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto T3/T4 liberi — riflette la capacità di conversione tiroidea periferica.',
+   range:'3–5 normale (FT3 pg/mL e FT4 ng/dL) · valori bassi indicano scarsa conversione.',
+   alert:'Ratio basso in restrizione calorica cronica, low-T3 syndrome, Hashimoto, sovra-allenamento.'},
+  {id:'ast_alt', nome:'AST/ALT (De Ritis)', deps:['AST (transaminasi)','ALT (transaminasi)'],
+   formula:(v)=>v['AST (transaminasi)']/v['ALT (transaminasi)'],
+   unit:'',
+   soglie:[{min:0.8,max:1.3,sem:'verde'},{min:0.6,max:1.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto De Ritis (AST/ALT) — orientamento eziologico nei danni epatici.',
+   range:'~1 normale · <0.8 epatite virale o steatosi · >1.5 epatopatia alcolica/cirrosi.',
+   alert:'>2 in contesto clinico compatibile è fortemente suggestivo di danno alcolico.'},
+  {id:'nlr', nome:'NLR (Neutrofili/Linfociti)', deps:['Neutrofili','Linfociti'],
+   formula:(v)=>v['Neutrofili']/v['Linfociti'],
+   unit:'',
+   soglie:[{max:2,sem:'verde'},{max:3.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto neutrofili/linfociti — marker robusto di infiammazione sistemica e stress.',
+   range:'<2 ok · 2–3.5 borderline · >3.5 infiammazione franca.',
+   alert:'Correla con sindrome metabolica, NAFLD, prognosi cardiovascolare e oncologica. Usare valori assoluti (10³/µL), non percentuali.'},
+  {id:'ferr_tf', nome:'Ferritina/Transferrina', deps:['Ferritina','Transferrina'],
+   formula:(v)=>v['Ferritina']/v['Transferrina'],
+   unit:'',
+   soglie:[{min:0.3,max:1.5,sem:'verde'},{min:0.15,max:3,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto ferritina/transferrina — distingue infiammazione, sovraccarico e carenza funzionale di ferro.',
+   range:'~0.3–1.5 fisiologico · alto = sovraccarico o infiammazione · basso = carenza vera.',
+   alert:'Ferritina alta + transferrina normale-bassa = sovraccarico. Ferritina alta + transferrina bassa = infiammazione (ferritina è proteina di fase acuta). Ferritina bassa = carenza marziale.'},
+  {id:'t_e2', nome:'T/E2', deps:['Testosterone totale','Estradiolo'], sesso:'M',
+   formula:(v)=>v['Testosterone totale']/v['Estradiolo'],
+   unit:'',
+   soglie:[{min:15,sem:'verde'},{min:10,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto testosterone/estradiolo — indicatore di equilibrio androgeno nel maschio.',
+   range:'≥15 ottimo · 10–15 borderline · <10 squilibrio (aromatizzazione eccessiva).',
+   alert:'Ratio basso in obesità centrale (tessuto adiposo ricco di aromatasi), ipogonadismo metabolico, andropausa. Calcolo mostrato solo nei maschi.'},
+  {id:'acr', nome:'ACR (Albumina/Creatinina urinaria)', deps:['Albumina urinaria','Creatinina urinaria'],
+   formula:(v)=>v['Albumina urinaria']*100/v['Creatinina urinaria'],
+   unit:'mg/g',
+   soglie:[{max:30,sem:'verde'},{max:300,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Albumin-Creatinine Ratio — screening di danno renale precoce.',
+   range:'<30 mg/g normale · 30–300 microalbuminuria · >300 macroalbuminuria.',
+   alert:'Microalbuminuria è il primo segno di nefropatia diabetica o ipertensiva. Inserire Albumina urinaria in mg/L e Creatinina urinaria in mg/dL.'}
+];
+
+// Parser numero robusto: estrae il primo numero da una stringa libera (es. "108 mg/dL", "1,5", "1.5 mEq").
+function _parseAnalisiNum(s){
+  if(s==null) return null;
+  const t=String(s).trim().replace(',','.');
+  const m=t.match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+}
+
+// Restituisce {ok, val, sem, missing}. Se il calcolo è sesso-specifico e non applicabile → ok:false, hidden:true.
+function calcolaIndice(p, def){
+  // Filtro sesso (T/E2 maschi-only)
+  if(def.sesso && p.sesso !== def.sesso) return {ok:false, hidden:true};
+  const as = p.analisiSangue || {};
+  const vals = {};
+  const missing = [];
+  for(const dep of def.deps){
+    if(dep === '_peso'){
+      const lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+      const peso = (lastIb && lastIb.peso) || p.peso;
+      if(!peso){ missing.push('peso'); continue; }
+      vals[dep] = +peso;
+    } else {
+      const k = ANALISI_KEY(dep) + '_val';
+      const n = _parseAnalisiNum(as[k]);
+      if(n == null || isNaN(n)){ missing.push(dep); continue; }
+      vals[dep] = n;
+    }
+  }
+  if(missing.length) return {ok:false, missing};
+  let val;
+  try{ val = def.formula(vals); } catch(e){ return {ok:false, error:e.message}; }
+  if(val == null || !isFinite(val)) return {ok:false, error:'risultato non valido'};
+  // Determina semaforo
+  let sem = 'info';
+  for(const s of def.soglie){
+    const okMin = s.min == null || val >= s.min;
+    const okMax = s.max == null || val <= s.max;
+    if(okMin && okMax){ sem = s.sem; break; }
+  }
+  return {ok:true, val, sem};
+}
 
 const EV_TYPES = {
   visita:   {label:'🏥 Prima visita',   cls:'ev-visita',   color:'#4c1d95'},
@@ -5778,6 +5952,9 @@ function renderPdAlimenti(p){
 function renderPdAnalisi(p){
   const as=p.analisiSangue||{};
   let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti"></div>';
+  // P17 Fase B: pannello "Calcoli automatici" in cima — mostra solo gli indici calcolabili,
+  // gli altri con avviso "manca X". Indici sesso-specifici hidden se non applicabili.
+  html+=_renderCalcoliPannello(p);
   Object.entries(ANALISI).forEach(([sez,items])=>{
     // P18 Fase A: conta voci compilate per decidere stato di partenza (collapsed se 0)
     let nCompil=0;
@@ -5810,6 +5987,45 @@ function toggleAnalisiSection(secEl){
   if(secEl) secEl.classList.toggle('collapsed');
 }
 
+// P17 Fase B: render del pannello "Calcoli automatici" sopra le sezioni.
+function _renderCalcoliPannello(p){
+  const cards=[];
+  CALCOLI_CLINICI.forEach(def=>{
+    const r=calcolaIndice(p,def);
+    if(r.hidden) return; // es. T/E2 su femmina
+    const id='calc-'+def.id;
+    let body;
+    if(r.ok){
+      const valTxt = r.val.toFixed(r.val>=100?0:2);
+      body = `<div class="calc-val">${valTxt}<span class="calc-unit">${def.unit||''}</span></div>
+              <span class="calc-sem ${r.sem}" title="${r.sem}"></span>`;
+    } else if(r.missing) {
+      body = `<div class="calc-missing">manca: ${r.missing.join(', ')}</div>`;
+    } else {
+      body = `<div class="calc-missing">${r.error||'calcolo non disponibile'}</div>`;
+    }
+    cards.push(`<div class="calc-card">
+      <div class="calc-card-hd">
+        <span class="calc-nome">${def.nome}</span>
+        <button class="calc-info-btn" onclick="toggleGlossario('${id}')" title="Informazioni">ℹ️</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">${body}</div>
+      <div class="calc-glossario" id="${id}-gloss">
+        <div><b>Cosa misura:</b> ${def.cosa}</div>
+        <div><b>Range:</b> ${def.range}</div>
+        <div><b>Nota:</b> ${def.alert}</div>
+      </div>
+    </div>`);
+  });
+  if(!cards.length) return '';
+  return `<div class="calcoli-pannello"><h4>📐 Calcoli automatici <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#6b7280;font-size:.68rem">— derivati dai valori sopra</span></h4><div class="calcoli-grid">${cards.join('')}</div></div>`;
+}
+
+function toggleGlossario(calcId){
+  const el=document.getElementById(calcId+'-gloss');
+  if(el) el.classList.toggle('open');
+}
+
 function updateAnalisi(changedKey){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   if(!p.analisiSangue)p.analisiSangue={};
@@ -5838,6 +6054,20 @@ function updateAnalisi(changedKey){
           if(n>0){countSpan.classList.remove('empty');countSpan.textContent=n+' compilat'+(n===1?'a':'e');}
           else{countSpan.classList.add('empty');countSpan.textContent='vuota';}
         }
+      }
+    }
+    // P17 Fase B: ri-render del pannello calcoli automatici dopo ogni cambio valore.
+    // Preservo lo stato "open" dei glossari aperti.
+    const card=document.querySelector('.card-bd .calcoli-pannello');
+    if(card){
+      const aperti=new Set();
+      card.querySelectorAll('.calc-glossario.open').forEach(g=>aperti.add(g.id));
+      const wrap=document.createElement('div');
+      wrap.innerHTML=_renderCalcoliPannello(p);
+      const nuovo=wrap.firstChild;
+      if(nuovo){
+        card.replaceWith(nuovo);
+        aperti.forEach(id=>{const g=document.getElementById(id);if(g)g.classList.add('open');});
       }
     }
   }
