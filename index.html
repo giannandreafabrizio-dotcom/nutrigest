@@ -318,6 +318,10 @@ main{flex:1;overflow-y:auto;}
 .calc-glossario{display:none;margin-top:.4rem;padding:.45rem .55rem;background:#fafafa;border:1px solid #e5e7eb;border-radius:5px;font-size:.7rem;color:var(--text2);line-height:1.45;}
 .calc-glossario.open{display:block;}
 .calc-glossario b{color:var(--text);font-weight:600;}
+/* P17 Fase C: toggle "includi nel ragionamento FX" per ogni calcolo */
+.calc-toggle-fx{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 2px;line-height:1;opacity:1;transition:opacity .15s;}
+.calc-toggle-fx.off{opacity:.28;filter:grayscale(1);}
+.calc-toggle-fx:hover{transform:scale(1.1);}
 /* DISPONIBILITA */
 .disp-bar{display:flex;gap:.4rem;margin-bottom:.6rem;flex-wrap:wrap;}
 .disp-btn{padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:.72rem;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
@@ -5590,6 +5594,20 @@ function costruisciContestoPaziente(p){
     });
     if(_asVoci.length)ctx+='\n\nAnalisi del sangue disponibili: '+_asVoci.join(' · ');
   }
+  // P17 Fase C: calcoli derivati inclusi nel ragionamento FX (toggle per-indice).
+  // Default ON: tutti i calcoli ok vanno a FX salvo che il medico non li abbia esclusi.
+  if(typeof CALCOLI_CLINICI !== 'undefined'){
+    const _calcVoci=[];
+    CALCOLI_CLINICI.forEach(function(def){
+      if(!_calcoloIncluso(p, def.id)) return;
+      const r=calcolaIndice(p,def);
+      if(!r.ok) return;
+      const v = r.val.toFixed(r.val>=100?0:2);
+      const semLbl = r.sem==='verde'?'ok':r.sem==='giallo'?'borderline':r.sem==='rosso'?'ALTERATO':'';
+      _calcVoci.push(def.nome+' '+v+(def.unit?' '+def.unit:'')+(semLbl?' ('+semLbl+')':''));
+    });
+    if(_calcVoci.length) ctx+='\n\nCalcoli derivati rilevanti: '+_calcVoci.join(' · ');
+  }
 
   if(p.ragionamentoClinico)ctx+='\n\nRagionamento clinico precedente ('+p.ragionamentoClinico.data+'):\n'+p.ragionamentoClinico.testo;
 
@@ -5987,6 +6005,35 @@ function toggleAnalisiSection(secEl){
   if(secEl) secEl.classList.toggle('collapsed');
 }
 
+// P17 Fase C: stato "includi nel ragionamento FX" per-indice. Default ON: il calcolo
+// va a FX salvo che il medico non l'abbia esplicitamente escluso (flag in db).
+function _calcoloIncluso(p, id){
+  if(!p.calcoliClinici || !p.calcoliClinici.includi) return true;
+  const v = p.calcoliClinici.includi[id];
+  return v !== false; // default true (undefined → true)
+}
+
+function toggleCalcoloIncluso(id){
+  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
+  if(!p.calcoliClinici) p.calcoliClinici={includi:{}};
+  if(!p.calcoliClinici.includi) p.calcoliClinici.includi={};
+  // toggle binario: se mai stato toccato è true; primo toccare → false; secondo → true; ...
+  const corrente = p.calcoliClinici.includi[id];
+  p.calcoliClinici.includi[id] = corrente === false ? true : false;
+  save();
+  // Aggiorna solo il bottone del calcolo toccato, non l'intero pannello
+  const btn=document.querySelector('.calc-toggle-fx[data-cid="'+id+'"]');
+  if(btn){
+    if(p.calcoliClinici.includi[id] === false){
+      btn.classList.add('off');
+      btn.title='Escluso dal ragionamento FX — click per includerlo';
+    } else {
+      btn.classList.remove('off');
+      btn.title='Incluso nel ragionamento FX — click per escluderlo';
+    }
+  }
+}
+
 // P17 Fase B: render del pannello "Calcoli automatici" sopra le sezioni.
 function _renderCalcoliPannello(p){
   const cards=[];
@@ -6007,7 +6054,10 @@ function _renderCalcoliPannello(p){
     cards.push(`<div class="calc-card">
       <div class="calc-card-hd">
         <span class="calc-nome">${def.nome}</span>
-        <button class="calc-info-btn" onclick="toggleGlossario('${id}')" title="Informazioni">ℹ️</button>
+        <div style="display:flex;align-items:center;gap:.1rem">
+          ${r.ok ? `<button class="calc-toggle-fx ${_calcoloIncluso(p,def.id)?'':'off'}" data-cid="${def.id}" onclick="toggleCalcoloIncluso('${def.id}')" title="${_calcoloIncluso(p,def.id)?'Incluso nel ragionamento FX — click per escluderlo':'Escluso dal ragionamento FX — click per includerlo'}">📤</button>` : ''}
+          <button class="calc-info-btn" onclick="toggleGlossario('${id}')" title="Informazioni">ℹ️</button>
+        </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">${body}</div>
       <div class="calc-glossario" id="${id}-gloss">
