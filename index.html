@@ -1164,6 +1164,10 @@ main{flex:1;overflow-y:auto;}
           Vitamina D
         </div>
         <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-k2" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-k2" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Vitamina K2
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
           <span style="display:flex;gap:3px"><input type="checkbox" id="int-prot" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-prot" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
           Proteine in polvere
         </div>
@@ -13313,11 +13317,11 @@ async function loadInbodyPDF(e) {
 // ═══════════════════════════════════════
 // INTEGRATORI — save/load
 // ═══════════════════════════════════════
-const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd','prot','bcaa','eaa'];
+const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd','k2','prot','bcaa','eaa'];
 const INTEGR_LABELS = {
   'omega3':'Omega-3','magpot':'Magnesio + Potassio','mag':'Solo Magnesio',
   'multi':'Multivitaminico','prob':'Probiotici','creat':'Creatina',
-  'ferro':'Ferro','vitd':'Vitamina D','prot':'Proteine in polvere',
+  'ferro':'Ferro','vitd':'Vitamina D','k2':'Vitamina K2','prot':'Proteine in polvere',
   'bcaa':'BCAA (ramificati)','eaa':'EAA (essenziali)'
 };
 function getIntegratori() {
