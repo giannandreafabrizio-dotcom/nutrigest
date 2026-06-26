@@ -10006,8 +10006,8 @@ function apriAggiungiCella(giorno, slotKey) {
     catData.items.forEach(function(item) {
       var key = catAlim + '__' + item.n;
       var stato = al[key];
-      if (!stato || stato === '') return;
-      if (stato === 'no') return; // escludi solo i "no" espliciti
+      // P28: whitelist pura — passano solo gli stati impostati manualmente dal medico
+      if (['si','verde','arancione','rosso'].indexOf(stato) === -1) return;
 
       // B7: se è una ricetta composta, gestisci separatamente
       if (item.ricettaComposta) {
