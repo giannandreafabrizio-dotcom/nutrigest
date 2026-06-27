@@ -2579,7 +2579,7 @@ let CONCETTI_EDUCATIVI = CONCETTI_EDUCATIVI_SEED;
 // ── CONCETTI SU SUPABASE ──────────────────────────────────────────────────────
 async function pushConcetiSupabase(){
   try{
-    const payload={id:_CONCETTI_META_KEY, data:{concetti:db.concetti||[]}, updated_at:new Date().toISOString()};
+    const payload={id:_CONCETTI_META_KEY, data:{concetti:db.concetti||[], migrato:db.concettiMigrato===true}, updated_at:new Date().toISOString()};
     const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_CONCETTI_META_KEY,{method:'GET',headers:supaHeaders()});
     const rows=await r.json();
     const method=(rows&&rows.length)?'PATCH':'POST';
@@ -2598,6 +2598,7 @@ async function pullConcetiSupabase(){
     const rows=await r.json();
     if(!rows||!rows[0]||!rows[0].data||!rows[0].data.concetti)return false;
     db.concetti=rows[0].data.concetti;
+    if(rows[0].data.migrato===true)db.concettiMigrato=true;
     console.log('[CONCETTI] pull OK —',db.concetti.length,'concetti');
     return true;
   }catch(e){console.error('[CONCETTI] pull failed',e);return false;}
@@ -2607,10 +2608,13 @@ async function pullConcetiSupabase(){
 async function migraConcetti(){
   await pullConcetiSupabase(); // carica eventuale stato remoto in db.concetti
   if(!db.concetti)db.concetti=[];
-  // Se la migrazione del seed è già stata completata, non rifondere
-  const giaMigrato = db.concetti.some(c=>c._seed===true);
+  // Se la migrazione del seed è già stata completata, non rifondere.
+  // db.concettiMigrato è il flag persistente (Supabase) che impedisce ai concetti
+  // eliminati dall'utente di "resuscitare" anche dopo aver rimosso tutti i seed.
+  const giaMigrato = db.concettiMigrato===true || db.concetti.some(c=>c._seed===true);
   const seedPresente = CONCETTI_EDUCATIVI_SEED.every(s=>db.concetti.find(c=>c.id===s.id));
   if(giaMigrato || (seedPresente && db.concetti.length>=CONCETTI_EDUCATIVI_SEED.length)){
+    db.concettiMigrato=true; // backfill per installazioni migrate prima di questa feature
     CONCETTI_EDUCATIVI=db.concetti;
     return;
   }
@@ -2633,6 +2637,7 @@ async function migraConcetti(){
     }
   });
   db.concetti=fusi;
+  db.concettiMigrato=true;
   CONCETTI_EDUCATIVI=db.concetti;
   await pushConcetiSupabase();
   saveLocal();
@@ -13838,11 +13843,17 @@ function rimuoviImmagineConcetto(id,idx){
   save();renderConcettiPage();notif('Immagine rimossa');
 }
 
+// Stato della modalità selezione/eliminazione dei concetti
+let _concettiSelMode = false;
+const _concettiSel = new Set();
+
 function renderConcettiPage() {
   const page = document.getElementById('page-concetti');
   if(!page) return;
   // Fonte unica: db.concetti (include seed migrato + custom creati dall'UI)
   const tutti = db.concetti || [];
+  // Se in modalità selezione ma non c'è nulla da selezionare, esci dalla modalità
+  if(_concettiSelMode && !tutti.length){ _concettiSelMode=false; _concettiSel.clear(); }
   const cats = [...new Set(tutti.map(c=>c.categoria||'Personalizzato'))];
   let html = '';
   cats.forEach(cat => {
@@ -13857,14 +13868,23 @@ function renderConcettiPage() {
           <button onclick="rimuoviImmagineConcetto('${c.id}',${i})" style="position:absolute;top:2px;right:2px;border:none;background:rgba(0,0,0,.5);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:1;padding:0">&#10005;</button>
         </div>`).join('') + `</div>` : '';
       const tierBadge = c.tier==='plus' ? `<span style="font-size:.55rem;background:var(--teal);color:#fff;border-radius:4px;padding:1px 5px;margin-left:.4rem;vertical-align:middle">PLUS</span>` : '';
-      html += `<div class="card" style="margin-bottom:.6rem">
-        <div class="card-hd">
-          <h3>${c.titolo||''}${tierBadge}</h3>
-          <div style="display:flex;gap:.3rem;flex-wrap:wrap">
+      const sel = _concettiSel.has(c.id);
+      // In modalità selezione: checkbox + click sulla card per (de)selezionare, azioni nascoste
+      const checkbox = _concettiSelMode
+        ? `<input type="checkbox" ${sel?'checked':''} style="width:18px;height:18px;accent-color:var(--teal);flex:0 0 auto;pointer-events:none">`
+        : '';
+      const azioni = _concettiSelMode ? '' : `<div style="display:flex;gap:.3rem;flex-wrap:wrap">
             <button class="btn btn-g btn-sm" onclick="editConcetto('${c.id}')">&#9998; Modifica</button>
             <button class="btn btn-g btn-sm" onclick="uploadImmagineConcetto('${c.id}')">&#128247; Foto</button>
             <button class="btn btn-g btn-sm" onclick="aiRiscriviConcetto('${c.id}')">&#10024; AI</button>
-          </div>
+          </div>`;
+      const cardClick = _concettiSelMode ? ` onclick="toggleConcettoSel('${c.id}')"` : '';
+      const cardStyle = `margin-bottom:.6rem;${_concettiSelMode?'cursor:pointer;':''}${sel?'outline:2px solid var(--teal);outline-offset:-1px;':''}`;
+      html += `<div class="card" style="${cardStyle}"${cardClick}>
+        <div class="card-hd" style="display:flex;align-items:center;gap:.6rem">
+          ${checkbox}
+          <h3 style="flex:1 1 auto;margin:0">${c.titolo||''}${tierBadge}</h3>
+          ${azioni}
         </div>
         <div class="card-bd">
           ${imgsHtml}
@@ -13873,11 +13893,65 @@ function renderConcettiPage() {
       </div>`;
     });
   });
-  // Aggiungi nuovo
-  html += `<div style="text-align:center;margin-top:1rem">
-    <button class="btn btn-p" onclick="openNuovoConcetto()">+ Aggiungi nuovo concetto</button>
+  // Aggiungi nuovo (nascosto durante la selezione)
+  if(!_concettiSelMode){
+    html += `<div style="text-align:center;margin-top:1rem">
+      <button class="btn btn-p" onclick="openNuovoConcetto()">+ Aggiungi nuovo concetto</button>
+    </div>`;
+  }
+  // Azioni in testata: pulsante "Seleziona" oppure barra "Elimina/Annulla"
+  const headerActions = _concettiSelMode
+    ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap">
+         <button class="btn btn-d btn-sm" onclick="eliminaConcettiSelezionati()" ${_concettiSel.size?'':'disabled'}>&#128465; Elimina (${_concettiSel.size})</button>
+         <button class="btn btn-g btn-sm" onclick="annullaSelConcetti()">Annulla</button>
+       </div>`
+    : (tutti.length ? `<button class="btn btn-g btn-sm" onclick="entraSelConcetti()">&#9745; Seleziona</button>` : '');
+  page.innerHTML = `<div class="page-hd" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+      <div><h2>Concetti Educativi</h2><p>${tutti.length} concetti disponibili${_concettiSelMode?` — ${_concettiSel.size} selezionat${_concettiSel.size===1?'o':'i'}`:''}</p></div>
+      ${headerActions}
+    </div>` + html;
+}
+
+// ── Modalità selezione / eliminazione concetti ──────────────────────────────
+function entraSelConcetti(){ _concettiSelMode=true; _concettiSel.clear(); renderConcettiPage(); }
+function annullaSelConcetti(){ _concettiSelMode=false; _concettiSel.clear(); renderConcettiPage(); }
+function toggleConcettoSel(id){
+  if(_concettiSel.has(id)) _concettiSel.delete(id); else _concettiSel.add(id);
+  renderConcettiPage();
+}
+
+function eliminaConcettiSelezionati(){
+  if(!_concettiSel.size) return;
+  const ids=[..._concettiSel];
+  const nomi=ids.map(id=>((db.concetti||[]).find(c=>c.id===id)||{}).titolo||id);
+  const modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.innerHTML=`<div class="modal" style="width:440px">
+    <h3>&#128465; Elimina concett${ids.length>1?'i':'o'}</h3>
+    <p style="font-size:.85rem;color:var(--text2);margin:.4rem 0 .6rem">Stai per eliminare ${ids.length} concett${ids.length>1?'i':'o'}. L'operazione è definitiva e non può essere annullata.</p>
+    <ul style="font-size:.8rem;color:var(--text2);margin:0;padding-left:1.1rem;max-height:170px;overflow:auto">${nomi.map(n=>`<li style="margin-bottom:.15rem">${n}</li>`).join('')}</ul>
   </div>`;
-  page.innerHTML = `<div class="page-hd"><div><h2>Concetti Educativi</h2><p>${tutti.length} concetti disponibili</p></div></div>` + html;
+  const mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
+    <button class="btn btn-d" onclick="confermaEliminaConcetti(this)">Elimina definitivamente</button>`;
+  modal.querySelector('.modal').appendChild(mf);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+async function confermaEliminaConcetti(btn){
+  const ids=[..._concettiSel];
+  if(!ids.length){ if(btn)btn.closest('.overlay').remove(); return; }
+  if(!db.concetti) db.concetti=[];
+  db.concetti = db.concetti.filter(c=>!_concettiSel.has(c.id));
+  db.concettiMigrato=true; // i concetti rimossi non devono "resuscitare" alla prossima migrazione
+  CONCETTI_EDUCATIVI = db.concetti;
+  if(btn) btn.closest('.overlay').remove();
+  _concettiSelMode=false; _concettiSel.clear();
+  renderConcettiPage();
+  notif('⏳ Eliminazione in corso...');
+  try{ await save(); notif(ids.length>1?'Concetti eliminati':'Concetto eliminato'); }
+  catch(e){ console.error('[CONCETTI] eliminazione fallita',e); notif('⚠ Errore durante l\'eliminazione'); }
 }
 
 async function aiRiscriviConcetto(id) {
