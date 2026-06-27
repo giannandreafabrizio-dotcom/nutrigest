@@ -938,6 +938,12 @@ main{flex:1;overflow-y:auto;}
         onclick="generaPiano(true)">
         🔄 Rigenera
       </button>
+      <button id="piano-btn-template" class="btn"
+        style="background:#fff;border:1.5px solid var(--teal2,#0d9488);color:var(--teal2,#0d9488);padding:.75rem 1.4rem;font-size:.85rem;border-radius:8px;cursor:pointer;transition:all .2s;"
+        title="Applica un template salvato al paziente selezionato"
+        onclick="apriPickerTemplate()">
+        📚 Usa template
+      </button>
     </div>
 
     <!-- Box dati piano (verde) -->
@@ -956,6 +962,7 @@ main{flex:1;overflow-y:auto;}
     <!-- Salva piano definitivo -->
     <div id="p2-box" style="display:none;margin-top:1rem;">
       <button id="p2-save" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:.85rem 2rem;background:var(--teal2,#0d9488);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;width:100%;">💾 Salva piano definitivo</button>
+      <button id="p2-save-template" onclick="salvaComeTemplate()" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:.6rem;padding:.7rem 2rem;background:#fff;color:var(--teal2,#0d9488);border:1.5px solid var(--teal2,#0d9488);border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;width:100%;">📚 Salva come template riutilizzabile</button>
     </div>
 
   </div><!-- fine piano-container -->
@@ -976,6 +983,17 @@ main{flex:1;overflow-y:auto;}
 <div id="page-storico-piani" class="page">
   <div class="page-hd">
     <div><h2>Storico Piani</h2><p>Tutti i piani salvati, ordinati per data</p></div>
+  </div>
+  <div class="card" style="margin-bottom:1.2rem;border:1.5px solid #a8ddd6;">
+    <div class="card-bd">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.7rem;">
+        <div>
+          <h3 style="margin:0;font-size:1rem;">📚 Template di piano</h3>
+          <p style="margin:.15rem 0 0;font-size:.74rem;color:var(--text3);">Piani salvati come modello, riutilizzabili su qualsiasi paziente</p>
+        </div>
+      </div>
+      <div id="template-libreria-list"></div>
+    </div>
   </div>
   <div class="sbar">
     <input id="storico-search" placeholder="🔍 Cerca paziente..." oninput="renderStoricoPiani()" style="max-width:280px;">
@@ -2885,7 +2903,7 @@ const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spu
 // STORAGE & SYNC
 // ════════════════════════════════════════════════════════════════
 const DB_KEY='ng_db', CFG_KEY='ng_cfg';
-let db={pazienti:[],ricette:[],eventi:[],entrate:[],piani:[],disponibilita:{},alimentiCustom:[]};
+let db={pazienti:[],ricette:[],eventi:[],entrate:[],piani:[],templatePiani:[],disponibilita:{},alimentiCustom:[]};
 let currentPazId=null, editPazId=null, editRicId=null;
 let calDate=new Date(), calView='month', selCalDay=null;
 window._alStato={};
@@ -2895,7 +2913,7 @@ function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catc
 function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 function getUrl(){return getCfg().scriptUrl||'';}
 function saveLocal(){localStorage.setItem(DB_KEY,JSON.stringify(db));if(document.getElementById('page-dashboard')?.classList.contains('active'))renderDashboard();}
-function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(!db.alimentiCustom)db.alimentiCustom=[];caricaAlimentiCustom();}}catch(e){}}
+function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate','piani','templatePiani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(!db.alimentiCustom)db.alimentiCustom=[];caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
 function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
@@ -3122,6 +3140,7 @@ async function pullFromSheets(){
     await pullEventiSupabase();
     // Pull modelli rotazione custom
     try { await pullModelliSupabase(); } catch(e){ console.error('[MODELLI] pull error:', e); }
+    try { await pullTemplateSupabase(); } catch(e){ console.error('[TEMPLATE] pull error:', e); }
     try { await pullAlimentiCustomSupabase(); } catch(e){ console.error('[ALIM_CUSTOM] pull error:', e); }
     try { const cOk=await pullConcetiSupabase();if(cOk){CONCETTI_EDUCATIVI=db.concetti;} } catch(e){ console.error('[CONCETTI] pull error:', e); }
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
@@ -3224,6 +3243,7 @@ async function sincronizzaTutto(){
     await pullEntrateSupabase();
     await pullEventiSupabase();
     try{await pullModelliSupabase();}catch(e){}
+    try{await pullTemplateSupabase();}catch(e){}
     try{await pullAlimentiCustomSupabase();}catch(e){}
     try{const cOk=await pullConcetiSupabase();if(cOk){CONCETTI_EDUCATIVI=db.concetti;}}catch(e){}
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
@@ -3315,7 +3335,7 @@ async function pullPianiSupabase(){
     if(!resp.ok){ console.error('[PIANI] pull ERRORE — status:', resp.status); return false; }
     const rows = await resp.json();
     console.log('[PIANI] pull — righe ricevute:', rows.length);
-    db.piani = (rows||[]).map(row => row.data).filter(function(d){ return d && !d._isCache && d.pianoJSON; });
+    db.piani = (rows||[]).map(row => row.data).filter(function(d){ return d && !d._isCache && !d._isTemplate && d.pianoJSON; });
     console.log('[PIANI] pull OK — piani caricati:', db.piani.length);
     return true;
   } catch(e) {
@@ -3586,7 +3606,7 @@ function goTo(name,btn){
   if(name==='dashboard')renderDashboard();
   if(name==='concetti')renderConcettiPage();
   if(name==='piano')renderPianoPage();
-  if(name==='storico-piani')renderStoricoPiani();
+  if(name==='storico-piani'){renderStoricoPiani();renderLibreriaTemplate();}
   if(name==='impostazioni'){initAntCard();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
@@ -8036,76 +8056,370 @@ function riapriPiano(pazId, idx) {
       notif('⚠ Piano non leggibile: formato non riconosciuto');
       return;
     }
-    if (pianoAI.giorni) pianoAI = pianoAI.giorni;
-    // ── BUGFIX: applica risoluzione collisioni celle anche ai piani salvati prima della fix ──
-    if (typeof window._risolviCollisioniCelle === 'function' && Array.isArray(pianoAI)) {
-      pianoAI.forEach(function(g){
-        if (g && g.pasti) {
-          Object.keys(g.pasti).forEach(function(k){
-            var pa = g.pasti[k];
-            if (pa && pa.celle) window._risolviCollisioniCelle(pa.celle);
-          });
-        }
-      });
-    }
-    window._pianoCorrente = pianoAI;
-    var p = (db.pazienti||[]).find(function(x){ return x.id === pazId; });
-    // Naviga e renderizza da JSON salvato (zero token)
-    goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
-    var _sp = document.getElementById('piano-select-paz');
-    if (_sp) { _sp.value = pazId; if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId); }
-    window._pdfPaziente = p; window._pdfPiano = pianoAI; window._pianoGiornoCorrente = 0;
-    // ── BUGFIX: imposta _pianoTargets DOPO pianoPazSelezionato (che lo azzerava su cambio paziente) ──
-    if (p) {
-      var _activeMT = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
-      var _ct = calcolaTDEE(p);
-      var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
-        'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
-        'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-      if (_activeMT && _activeMT.kcal) {
-        // Priorità ai target decisi dal medico (rag.clinico o macrosTarget)
-        window._pianoTargets = {
-          kcal: _activeMT.kcal,
-          p: _activeMT.protG,
-          c: _activeMT.carbG,
-          g: _activeMT.grassiG,
-          source: _activeMT.source === 'fx' ? 'ragionamento' : 'calcolo'
-        };
-      } else {
-        // Fallback legacy: ricalcola da TDEE
-        var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
-        var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
-        var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
-        var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
-        window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
-      }
-      window._pianoGiorniON = p.giorniAllenamento||[];
-      var _passi = p.passiGiornalieri!=null?+p.passiGiornalieri:null;
-      var _neat = _passi===null?0:_passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
-      var _lafOFF = +((1.20+_neat).toFixed(3));
-      var _lastIb = p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
-      if (_lastIb&&_lastIb.mb&&_ct.peso) {
-        var _tdeeOFF = Math.round(_lastIb.mb*_lafOFF);
-        var _kcalOFF = _tdeeOFF+(_regOff[p.regime]||0);
-        var _protOFF = Math.round(1.8*_ct.peso);
-        var _grasOFF = Math.round(0.9*_ct.peso);
-        var _carbOFF = Math.max(0,Math.round((_kcalOFF-_protOFF*4-_grasOFF*9)/4));
-        window._pianoTargetsOFF = {kcal:_kcalOFF,p:_protOFF,c:_carbOFF,g:_grasOFF,source:'calcolo-off',laf:_lafOFF};
-      }
-    }
-    // piano-piano-box e' statico nell'HTML
-    var _pianoEl = document.getElementById('piano-piano-box');
-    if (!_pianoEl) return;
-    renderPianoConPillTabs(pianoAI, _pianoEl);
-    inizializzaP2(pianoAI);
-    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(pianoAI);
-    if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(pianoAI);
-    if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(pianoAI);
+    // ── Montaggio piano + calcolo target: logica condivisa con applicaTemplate ──
+    if (!_montaPianoCorrente(pianoAI, pazId)) return;
     var _dRiapri = new Date(piano.timestamp || piano.createdAt || Date.now());
     notif('✓ Piano del '+(!isNaN(_dRiapri)?_dRiapri.toLocaleDateString('it-IT'):'data n/d')+' riaperto');
   } catch(e) {
     notif('⚠ Errore nel riaprire il piano: '+e.message);
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// HELPER CONDIVISO — monta un piano sul paziente selezionato e ricalcola i target
+// Estratto da riapriPiano per essere riusato da applicaTemplate (single source of truth)
+// ══════════════════════════════════════════════════════════════════════════
+function _montaPianoCorrente(pianoAI, pazId){
+  if (pianoAI.giorni) pianoAI = pianoAI.giorni;
+  // ── BUGFIX: applica risoluzione collisioni celle anche ai piani salvati prima della fix ──
+  if (typeof window._risolviCollisioniCelle === 'function' && Array.isArray(pianoAI)) {
+    pianoAI.forEach(function(g){
+      if (g && g.pasti) {
+        Object.keys(g.pasti).forEach(function(k){
+          var pa = g.pasti[k];
+          if (pa && pa.celle) window._risolviCollisioniCelle(pa.celle);
+        });
+      }
+    });
+  }
+  window._pianoCorrente = pianoAI;
+  var p = (db.pazienti||[]).find(function(x){ return x.id === pazId; });
+  // Naviga e renderizza da JSON salvato (zero token)
+  goTo('piano', document.querySelector('.nav-item[onclick*="piano"]'));
+  var _sp = document.getElementById('piano-select-paz');
+  if (_sp) { _sp.value = pazId; if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId); }
+  window._pdfPaziente = p; window._pdfPiano = pianoAI; window._pianoGiornoCorrente = 0;
+  // ── BUGFIX: imposta _pianoTargets DOPO pianoPazSelezionato (che lo azzerava su cambio paziente) ──
+  if (p) {
+    var _activeMT = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
+    var _ct = calcolaTDEE(p);
+    var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
+      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
+      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    if (_activeMT && _activeMT.kcal) {
+      // Priorità ai target decisi dal medico (rag.clinico o macrosTarget)
+      window._pianoTargets = {
+        kcal: _activeMT.kcal,
+        p: _activeMT.protG,
+        c: _activeMT.carbG,
+        g: _activeMT.grassiG,
+        source: _activeMT.source === 'fx' ? 'ragionamento' : 'calcolo'
+      };
+    } else {
+      // Fallback legacy: ricalcola da TDEE
+      var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
+      var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
+      var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
+      var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
+      window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
+    }
+    window._pianoGiorniON = p.giorniAllenamento||[];
+    var _passi = p.passiGiornalieri!=null?+p.passiGiornalieri:null;
+    var _neat = _passi===null?0:_passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
+    var _lafOFF = +((1.20+_neat).toFixed(3));
+    var _lastIb = p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+    if (_lastIb&&_lastIb.mb&&_ct.peso) {
+      var _tdeeOFF = Math.round(_lastIb.mb*_lafOFF);
+      var _kcalOFF = _tdeeOFF+(_regOff[p.regime]||0);
+      var _protOFF = Math.round(1.8*_ct.peso);
+      var _grasOFF = Math.round(0.9*_ct.peso);
+      var _carbOFF = Math.max(0,Math.round((_kcalOFF-_protOFF*4-_grasOFF*9)/4));
+      window._pianoTargetsOFF = {kcal:_kcalOFF,p:_protOFF,c:_carbOFF,g:_grasOFF,source:'calcolo-off',laf:_lafOFF};
+    }
+  }
+  // piano-piano-box e' statico nell'HTML
+  var _pianoEl = document.getElementById('piano-piano-box');
+  if (!_pianoEl) return false;
+  renderPianoConPillTabs(pianoAI, _pianoEl);
+  inizializzaP2(pianoAI);
+  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(pianoAI);
+  if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(pianoAI);
+  if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(pianoAI);
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TEMPLATE DI PIANO — libreria di piani riutilizzabili su qualsiasi paziente
+// Salvataggio: tabella Supabase "piani" con flag _isTemplate (pazienteId='__TEMPLATE__')
+// ══════════════════════════════════════════════════════════════════════════
+
+async function pushTemplateSupabase(tpl){
+  try{
+    const payload={id:tpl.id, pazienteId:'__TEMPLATE__', data:tpl, updated_at:new Date().toISOString()};
+    const resp=await fetch(SUPA_URL+'/rest/v1/piani',{method:'POST',headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(payload)});
+    if(!resp.ok && resp.status!==200 && resp.status!==201){console.error('[TEMPLATE] push ERRORE — status:',resp.status, await resp.text());return false;}
+    console.log('[TEMPLATE] push OK — id:',tpl.id);
+    return true;
+  }catch(e){console.error('[TEMPLATE] push ECCEZIONE:',e);return false;}
+}
+
+async function pullTemplateSupabase(){
+  try{
+    const resp=await fetch(SUPA_URL+'/rest/v1/piani?pazienteId=eq.__TEMPLATE__&select=id,data&order=updated_at.desc',{method:'GET',headers:supaHeaders()});
+    if(!resp.ok){console.error('[TEMPLATE] pull ERRORE — status:',resp.status);return false;}
+    const rows=await resp.json();
+    db.templatePiani=(rows||[]).map(function(r){return r.data;}).filter(function(d){return d && d._isTemplate===true && d.pianoJSON;});
+    console.log('[TEMPLATE] pull OK —',db.templatePiani.length,'template caricati');
+    return true;
+  }catch(e){console.error('[TEMPLATE] pull ECCEZIONE:',e);return false;}
+}
+
+async function delTemplateSupabase(id){
+  try{
+    const resp=await fetch(SUPA_URL+'/rest/v1/piani?id=eq.'+id,{method:'DELETE',headers:supaHeaders()});
+    if(!resp.ok){console.error('[TEMPLATE] del ERRORE — status:',resp.status);return false;}
+    return true;
+  }catch(e){console.error('[TEMPLATE] del ECCEZIONE:',e);return false;}
+}
+
+// ── Modale: nome + descrizione del template ──
+function _promptTemplateNome(defaultNome, defaultDesc, cb){
+  var modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.innerHTML='<div class="modal" style="width:440px">'
+    +'<h3 style="margin:0 0 .6rem">📚 Salva come template</h3>'
+    +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem">Dai un nome riconoscibile (es. "Ipocalorico mediterraneo 1600 kcal").</div>'
+    +'<input id="tpl-nome-input" placeholder="Nome del template" value="'+(defaultNome||'').replace(/"/g,'&quot;')+'" style="width:100%;padding:.6rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.9rem;margin-bottom:.6rem;box-sizing:border-box">'
+    +'<textarea id="tpl-desc-input" placeholder="Descrizione / note (facoltativo)" style="width:100%;padding:.6rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.82rem;min-height:60px;resize:vertical;box-sizing:border-box">'+(defaultDesc||'').replace(/</g,'&lt;')+'</textarea>'
+    +'</div>';
+  var mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML='<button class="btn btn-g">Annulla</button><button class="btn btn-p">Salva template</button>';
+  modal.querySelector('.modal').appendChild(mf);
+  mf.children[0].onclick=function(){modal.remove();};
+  mf.children[1].onclick=function(){
+    var nome=(modal.querySelector('#tpl-nome-input').value||'').trim();
+    if(!nome){notif('⚠ Inserisci un nome');return;}
+    var desc=(modal.querySelector('#tpl-desc-input').value||'').trim();
+    modal.remove();
+    cb(nome,desc);
+  };
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+  setTimeout(function(){var i=modal.querySelector('#tpl-nome-input');if(i){i.focus();i.select();}},50);
+}
+
+function _creaTemplateDaJSON(pianoJSON, defNome, kcalRif){
+  _promptTemplateNome(defNome, '', async function(nome,desc){
+    var tpl={
+      id:'tpl_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      _isTemplate:true,
+      pazienteId:'__TEMPLATE__',
+      nome:nome,
+      descrizione:desc||'',
+      kcalRif:kcalRif||null,
+      creato:new Date().toISOString(),
+      pianoJSON:pianoJSON
+    };
+    if(!db.templatePiani)db.templatePiani=[];
+    db.templatePiani.push(tpl);
+    saveLocal();
+    renderLibreriaTemplate();
+    notif('💾 Salvataggio template in corso...');
+    var ok=await pushTemplateSupabase(tpl);
+    notif(ok?('✅ Template "'+nome+'" salvato!'):'⚠️ Template salvato solo in locale — sync fallito', ok?2500:4000);
+  });
+}
+
+// Salva il piano attualmente visualizzato (pagina Piano) come template
+function salvaComeTemplate(){
+  if(!window._pianoCorrente){notif('⚠ Nessun piano da salvare');return;}
+  var sp=document.getElementById('piano-select-paz');
+  var pid=sp?sp.value:'';
+  var paz=(db.pazienti||[]).find(function(x){return x.id===pid;});
+  var def=paz?('Piano '+(paz.regime||'')).trim():'Nuovo template';
+  var kcalRif=(window._pianoTargets&&window._pianoTargets.kcal)?window._pianoTargets.kcal:null;
+  _creaTemplateDaJSON(JSON.stringify(window._pianoCorrente), def, kcalRif);
+}
+
+// Salva un piano dello storico come template
+function salvaComeTemplateDaPiano(idx){
+  var pl=(db.piani||[])[idx];
+  if(!pl||!pl.pianoJSON){notif('⚠ Piano non valido');return;}
+  var paz=(db.pazienti||[]).find(function(x){return x.id===pl.pazienteId;});
+  var def=paz?('Piano '+(paz.regime||'')).trim():'Nuovo template';
+  _creaTemplateDaJSON(pl.pianoJSON, def, null);
+}
+
+// ── Conflict check: alimenti del template che il paziente di destinazione non gradisce ──
+function _normNomeAlim(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
+function _escRegAlim(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function _raccogliAlimentiDaPiano(o, acc){
+  acc=acc||[];
+  if(!o||typeof o!=='object') return acc;
+  if(Array.isArray(o)){ o.forEach(function(x){_raccogliAlimentiDaPiano(x,acc);}); return acc; }
+  Object.keys(o).forEach(function(k){
+    var v=o[k];
+    if((k==='n'||k==='nome')&&typeof v==='string'&&v.trim()) acc.push(v.trim());
+    else if(v&&typeof v==='object') _raccogliAlimentiDaPiano(v,acc);
+  });
+  return acc;
+}
+function _alimentiEsclusiPaziente(p){
+  var al=p.alimenti||{};
+  var out=[];
+  Object.keys(al).forEach(function(k){
+    var v=al[k];
+    if(v==='rosso'||v==='no'||v==='grigioScuro'){
+      var nome=k.indexOf('__')>=0?k.split('__')[1]:k;
+      if(nome) out.push(nome);
+    }
+  });
+  return out;
+}
+function _trovaConflittiTemplate(pianoAI, p){
+  var esclusi=_alimentiEsclusiPaziente(p).map(function(n){return {raw:n,norm:_normNomeAlim(n)};}).filter(function(x){return x.norm&&x.norm.length>=2;});
+  if(!esclusi.length) return [];
+  var nomiPiano=_raccogliAlimentiDaPiano(pianoAI,[]);
+  var out=[]; var visti={};
+  nomiPiano.forEach(function(nm){
+    var nn=_normNomeAlim(nm);
+    if(!nn) return;
+    esclusi.forEach(function(ex){
+      var re=new RegExp('(^|\\s)'+_escRegAlim(ex.norm)+'(\\s|$)');
+      if(re.test(nn)){
+        var key=nn+'||'+ex.raw;
+        if(!visti[key]){visti[key]=1; out.push({piano:nm, escluso:ex.raw});}
+      }
+    });
+  });
+  return out;
+}
+function _mostraAvvisoConflitti(conflitti, p){
+  var lista=conflitti.map(function(c){
+    var same=_normNomeAlim(c.piano)===_normNomeAlim(c.escluso);
+    var match=same?'':(' <span style="color:var(--text3)">(escluso: '+c.escluso.replace(/</g,'&lt;')+')</span>');
+    return '<li style="margin-bottom:.25rem">'+c.piano.replace(/</g,'&lt;')+match+'</li>';
+  }).join('');
+  var modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.innerHTML='<div class="modal" style="width:480px">'
+    +'<h3 style="margin:0 0 .4rem;color:#c0392b">⚠ Alimenti non graditi nel template</h3>'
+    +'<div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem">Il template è stato applicato a <strong>'+((p.nome||'')+' '+(p.cognome||'')).trim()+'</strong>, ma contiene '+conflitti.length+' aliment'+(conflitti.length===1?'o':'i')+' che il paziente ha segnato come rossi/esclusi. Valuta se sostituirli a mano nei pasti interessati.</div>'
+    +'<ul style="font-size:.82rem;color:var(--text1);margin:.3rem 0 .2rem;padding-left:1.2rem;max-height:240px;overflow:auto">'+lista+'</ul>'
+    +'<div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Il confronto è sul nome dell\'alimento: controlla comunque a vista i pasti.</div>'
+    +'</div>';
+  var mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML='<button class="btn btn-p">Ho capito</button>';
+  modal.querySelector('.modal').appendChild(mf);
+  mf.children[0].onclick=function(){modal.remove();};
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+// ── Applica un template a un paziente (core) ──
+function applicaTemplate(templateId, pazId){
+  var tpl=(db.templatePiani||[]).find(function(t){return t.id===templateId;});
+  if(!tpl){notif('⚠ Template non trovato');return;}
+  var p=(db.pazienti||[]).find(function(x){return x.id===pazId;});
+  if(!p){notif('⚠ Paziente non trovato');return;}
+  var pianoAI;
+  try{ pianoAI=JSON.parse(tpl.pianoJSON); }catch(e){ notif('⚠ Template non leggibile'); return; }
+  // Conflict check sui dati grezzi del template, prima del montaggio
+  var conflitti=_trovaConflittiTemplate(pianoAI, p);
+  if(!_montaPianoCorrente(pianoAI, pazId)){ notif('⚠ Errore nell\'applicazione del template'); return; }
+  notif('✓ Template "'+(tpl.nome||'')+'" applicato a '+((p.nome||'')+' '+(p.cognome||'')).trim(), 3000);
+  if(conflitti.length){ setTimeout(function(){_mostraAvvisoConflitti(conflitti, p);}, 400); }
+}
+
+// Dalla pagina Piano: scegli un template da applicare al paziente selezionato
+function apriPickerTemplate(){
+  var sp=document.getElementById('piano-select-paz');
+  var pid=sp?sp.value:'';
+  if(!pid){notif('⚠ Seleziona prima un paziente');return;}
+  var tpls=(db.templatePiani||[]).slice().sort(function(a,b){return (b.creato||'').localeCompare(a.creato||'');});
+  if(!tpls.length){notif('⚠ Nessun template salvato. Crea un template da un piano generato.', 3500);return;}
+  var modal=document.createElement('div');
+  modal.className='overlay open';
+  var lista=tpls.map(function(t){
+    var nomeEsc=(t.nome||'Senza nome').replace(/</g,'&lt;');
+    var kcal=t.kcalRif?(' · ~'+t.kcalRif+' kcal'):'';
+    return '<button class="btn btn-g" style="display:block;width:100%;text-align:left;margin-bottom:.4rem;padding:.6rem .8rem;font-size:.82rem" onclick="this.closest(\'.overlay\').remove();applicaTemplate(\''+t.id+'\',\''+pid+'\')">📋 '+nomeEsc+kcal+'</button>';
+  }).join('');
+  modal.innerHTML='<div class="modal" style="width:460px">'
+    +'<h3 style="margin:0 0 .5rem">📚 Scegli un template</h3>'
+    +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem">Verrà applicato al paziente selezionato, con ricalcolo automatico dei target.</div>'
+    +'<div style="max-height:320px;overflow:auto">'+lista+'</div>'
+    +'</div>';
+  var mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML='<button class="btn btn-g">Annulla</button>';
+  modal.querySelector('.modal').appendChild(mf);
+  mf.children[0].onclick=function(){modal.remove();};
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+// Dalla libreria: scegli il paziente di destinazione, poi applica
+function _pickPaziente(cb){
+  var attivi=(db.pazienti||[]).filter(function(p){return p.stato!=='archiviato';}).slice().sort(function(a,b){return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''));});
+  if(!attivi.length){notif('⚠ Nessun paziente disponibile');return;}
+  var modal=document.createElement('div');
+  modal.className='overlay open';
+  var opts=attivi.map(function(p){return '<option value="'+p.id+'">'+(((p.nome||'')+' '+(p.cognome||'')).trim()).replace(/</g,'&lt;')+'</option>';}).join('');
+  modal.innerHTML='<div class="modal" style="width:420px">'
+    +'<h3 style="margin:0 0 .6rem">➕ Applica template a…</h3>'
+    +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem">Scegli il paziente di destinazione: i target nutrizionali verranno ricalcolati su di lui.</div>'
+    +'<select id="tpl-pick-paz" style="width:100%;padding:.6rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.9rem;box-sizing:border-box">'+opts+'</select>'
+    +'</div>';
+  var mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML='<button class="btn btn-g">Annulla</button><button class="btn btn-p">Applica</button>';
+  modal.querySelector('.modal').appendChild(mf);
+  mf.children[0].onclick=function(){modal.remove();};
+  mf.children[1].onclick=function(){var pid=modal.querySelector('#tpl-pick-paz').value;modal.remove();if(pid)cb(pid);};
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+function applicaTemplatePick(templateId){
+  _pickPaziente(function(pazId){ applicaTemplate(templateId, pazId); });
+}
+
+function rinominaTemplate(id){
+  var t=(db.templatePiani||[]).find(function(x){return x.id===id;});
+  if(!t)return;
+  _promptTemplateNome(t.nome, t.descrizione, async function(nome,desc){
+    t.nome=nome; t.descrizione=desc||'';
+    saveLocal(); renderLibreriaTemplate();
+    var ok=await pushTemplateSupabase(t);
+    notif(ok?'✓ Template aggiornato':'⚠ Aggiornato solo in locale', ok?2000:3500);
+  });
+}
+
+async function eliminaTemplate(id){
+  if(!confirm('Eliminare questo template? I piani già applicati ai pazienti non verranno toccati.'))return;
+  var idx=(db.templatePiani||[]).findIndex(function(x){return x.id===id;});
+  if(idx<0)return;
+  db.templatePiani.splice(idx,1);
+  saveLocal(); renderLibreriaTemplate();
+  var ok=await delTemplateSupabase(id);
+  notif(ok?'🗑 Template eliminato':'⚠ Eliminato solo in locale', ok?2000:3500);
+}
+
+function renderLibreriaTemplate(){
+  var el=document.getElementById('template-libreria-list');
+  if(!el)return;
+  var tpls=(db.templatePiani||[]).slice().sort(function(a,b){return (b.creato||'').localeCompare(a.creato||'');});
+  if(!tpls.length){
+    el.innerHTML='<div style="color:var(--text3);padding:1rem;text-align:center;font-size:.8rem">Nessun template salvato. Genera un piano e usa "📚 Salva come template" per crearne uno.</div>';
+    return;
+  }
+  el.innerHTML=tpls.map(function(t){
+    var d=new Date(t.creato);
+    var ds=isNaN(d)?'':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
+    var kcal=t.kcalRif?('· ~'+t.kcalRif+' kcal'):'';
+    var nomeEsc=(t.nome||'Senza nome').replace(/</g,'&lt;');
+    var descEsc=(t.descrizione||'').replace(/</g,'&lt;');
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;padding:.7rem .9rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.5rem;background:var(--card)">'
+      +'<div style="min-width:0;flex:1">'
+      +'<div style="font-weight:600;font-size:.85rem">📋 '+nomeEsc+'</div>'
+      +'<div style="font-size:.72rem;color:var(--text3)">'+ds+' '+kcal+'</div>'
+      +(descEsc?'<div style="font-size:.74rem;color:var(--text2);margin-top:.2rem">'+descEsc+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:.4rem;flex-wrap:wrap">'
+      +'<button class="btn btn-p btn-sm" onclick="applicaTemplatePick(\''+t.id+'\')">➕ Applica</button>'
+      +'<button class="btn btn-g btn-sm" onclick="rinominaTemplate(\''+t.id+'\')">✏</button>'
+      +'<button class="btn btn-d btn-sm" onclick="eliminaTemplate(\''+t.id+'\')">🗑</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
 }
 
 function renderStoricoPiani() {
@@ -8160,6 +8474,7 @@ function renderStoricoPiani() {
         return '';
       })()
       +'<button class="btn btn-g btn-sm" onclick="riapriPiano(\''+pl.pazienteId+'\','+idxOriginale+')">📂 Riapri</button>'
+      +'<button class="btn btn-g btn-sm" onclick="salvaComeTemplateDaPiano('+idxOriginale+')">📚 Template</button>'
       +'<button class="btn btn-d btn-sm" onclick="eliminaPiano('+idxOriginale+')">🗑</button>'
       +'</div>'
       +'</div></div>';
