@@ -13902,10 +13902,10 @@ function renderConcettiPage() {
   // Azioni in testata: pulsante "Seleziona" oppure barra "Elimina/Annulla"
   const headerActions = _concettiSelMode
     ? `<div style="display:flex;gap:.4rem;flex-wrap:wrap">
-         <button class="btn btn-d btn-sm" onclick="eliminaConcettiSelezionati()" ${_concettiSel.size?'':'disabled'}>&#128465; Elimina (${_concettiSel.size})</button>
-         <button class="btn btn-g btn-sm" onclick="annullaSelConcetti()">Annulla</button>
+         <button class="btn btn-d" onclick="eliminaConcettiSelezionati()" ${_concettiSel.size?'':'disabled'}>&#128465; Elimina (${_concettiSel.size})</button>
+         <button class="btn btn-g" onclick="annullaSelConcetti()">Annulla</button>
        </div>`
-    : (tutti.length ? `<button class="btn btn-g btn-sm" onclick="entraSelConcetti()">&#9745; Seleziona</button>` : '');
+    : (tutti.length ? `<button class="btn btn-g" onclick="entraSelConcetti()">&#9745; Seleziona</button>` : '');
   page.innerHTML = `<div class="page-hd" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
       <div><h2>Concetti Educativi</h2><p>${tutti.length} concetti disponibili${_concettiSelMode?` — ${_concettiSel.size} selezionat${_concettiSel.size===1?'o':'i'}`:''}</p></div>
       ${headerActions}
