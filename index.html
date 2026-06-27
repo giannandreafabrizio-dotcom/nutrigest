@@ -1887,7 +1887,10 @@ const CREA_ALIMENTI = {
   'Burro mandorle': {kcal:614, p:21.0, c:19.0, g:55.0},
   'Semi di chia': {kcal:486, p:16.5, c:42.1, g:30.7},
   'Semi di zucca': {kcal:559, p:30.2, c:10.7, g:49.0},
+  'Semi di lino': {kcal:534, p:18.3, c:1.6, g:42.2},
   'Tahina': {kcal:595, p:17.0, c:21.2, g:53.8},
+  'Olive verdi': {kcal:145, p:1.0, c:3.8, g:15.0},
+  'Olive nere': {kcal:280, p:2.2, c:6.0, g:25.0},
   'Prugne secche': {kcal:220, p:2.2, c:55.0, g:0.5},
   // VERDURA
   'Verdura mista': {kcal:25, p:2.0, c:4.0, g:0.3},
@@ -2533,6 +2536,11 @@ const CONCETTI_EDUCATIVI_SEED = [
   }
   ,
   {
+    id:'grassi-buoni', titolo:'I grassi buoni e come usarli', categoria:'Alimenti', tier:'plus', autore:'fabrizio',
+    immagini:[],
+    testo:`I GRASSI BUONI E COME USARLI\n\nNel piano trovi spesso una cella "grasso" con l'Olio EVO come riferimento principale. In realta' puoi variare: ogni alimento qui sotto e' calcolato per darti circa le stesse calorie di 10g di Olio EVO (1 cucchiaio), cosi' puoi alternare senza sgarrare sui conti.\n\nLE ALTERNATIVE E LE LORO PORZIONI EQUIVALENTI:\n- Olio EVO: 10g (1 cucchiaio) — il riferimento\n- Avocado: 40g (circa 1/4 di frutto medio)\n- Frutta secca mista (noci, mandorle, nocciole): 20g (una manciata piccola, 4-5 pezzi)\n- Semi di chia: 20g (2 cucchiai)\n- Semi di lino: 15g (1 cucchiaio e mezzo, meglio macinati al momento per assorbire meglio gli omega-3)\n- Olive verdi: 60g (8-10 olive)\n- Olive nere: 30g (6-8 olive, piu' caloriche perche' piu' ricche di grasso)\n- Burro di arachidi o mandorle (100% frutta, senza zuccheri aggiunti): 15g (1 cucchiaio scarso)\n\nPERCHE' VARIARE FA BENE:\nOgni fonte porta qualcosa in piu' dell'Olio EVO da solo:\n- Avocado e olive: grassi monoinsaturi + potassio e fibra\n- Frutta secca e semi: omega-3, magnesio, vitamina E, e un effetto saziante maggiore grazie alla masticazione\n- Semi di lino e chia: tra le fonti vegetali piu' ricche di omega-3 ad azione antinfiammatoria\n\nCOME SCEGLIERE:\n- Se hai poco tempo o sei fuori casa: olive o frutta secca, non serve nulla in piu'\n- Se vuoi un pasto piu' saziante: avocado o burro di frutta secca\n- Se punti su omega-3: semi di lino macinati o di chia, anche nello yogurt o nelle insalate\n\nATTENZIONE ALLE PORZIONI:\nSono tutti alimenti ad alta densita' calorica: le grammature indicate sono volutamente piccole. Non vanno sommate tra loro nello stesso pasto, ma usate in alternativa l'una all'altra, mantenendo lo stesso "spazio" calorico della cella grasso del piano.`
+  },
+  {
     id:'crucifere', titolo:'Crucifere — come prepararle per massimizzare i benefici', categoria:'Alimenti', tier:'plus', autore:'fabrizio',
     immagini:[],
     testo:`CRUCIFERE — L'ORTAGGIO PIU' POTENTE CHE PUOI METTERE NEL PIATTO\n\nLe crucifere (broccoli, cavolfiore, cavolo, rucola, cime di rapa, cavoletti di Bruxelles) contengono sulforafano, uno dei composti naturali piu' studiati in oncologia preventiva.\n\nCosa fa il sulforafano:\n- Attiva i geni della detossificazione epatica (fase II del fegato)\n- Riduce lo stress ossidativo e l'infiammazione cronica\n- Contrasta la proliferazione cellulare anomala\n- Supporta il microbiota intestinale\n\nCome preparare le crucifere per non perdere i benefici:\n\n1. TAGLIA E ASPETTA 10 MINUTI\nIl sulforafano si forma solo quando l'enzima mirosinasi entra in contatto con il glucorafanino. Questo avviene quando la cellula vegetale si rompe — cioe' quando tagli. Se cucini subito, l'enzima si inattiva prima di agire. Aspetta 10 minuti dopo il taglio: il sulforafano si forma e poi resiste anche alla cottura.\n\n2. COTTURA BREVE E A VAPORE\nL'acqua bollente disperde i composti idrosolubili. Preferisci la cottura a vapore, in padella con poco olio, o al forno. Evita la bollitura prolungata.\n\n3. AGGIUNGI UN PIZZICO DI SENAPE O RAFANO\nContengono mirosinasi attiva che potenzia la conversione del glucorafanino in sulforafano anche nelle verdure cotte.\n\nObiettivo: 3-5 porzioni di crucifere a settimana, variate e preparate con metodo.`
@@ -2746,8 +2754,11 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
   'Burro mandorle': 'grasso',
   'Semi di chia': 'grasso',
   'Semi di zucca': 'grasso',
+  'Semi di lino': 'grasso',
   'Tahina': 'grasso',
   'Frutta secca mista': 'grasso',
+  'Olive verdi': 'grasso',
+  'Olive nere': 'grasso',
   // Latticini
   'Yogurt': 'proteine',
   'Yogurt parzialmente scremato': 'proteine',
@@ -2919,7 +2930,7 @@ function getCategoriaFunzionale(nomeAlimento) {
   if (/(verdur|insalata|spinaci|broccol|zucchin|melanz|peperoni|pomodor|cetriol|carota|finocchi|cavolo|rucola|lattuga|radicchio)/.test(n)) return 'verdura';
   if (/(frutta|mela|pera|banana|arancia|kiwi|frutti di bosco|mirtill|fragol|pesca|albicocc|prugna|uva|ananas|melone|angur)/.test(n)) return 'frutta';
   if (/(olio evo|olio extraverg|pesto)/.test(n)) return 'olio';
-  if (/(noci|mandorl|nocciol|pistacch|anacardi|semi|avocado|cioccolato fondente)/.test(n)) return 'grasso';
+  if (/(noci|mandorl|nocciol|pistacch|anacardi|semi|avocado|cioccolato fondente|oliv)/.test(n)) return 'grasso';
   if (/(pancake proteic|barretta proteic|mass gainer|maltodestrin)/.test(n)) return 'fit';
   if (/(birra|vino|gin tonic)/.test(n)) return 'condimento';
   // 4) Default neutro
@@ -8783,12 +8794,13 @@ OGNI ALIMENTO ha questi campi:
 REGOLE STRUTTURA CELLE:
 - Il primo alimento di ogni cella è il principale, gli altri sono alternative
 - MASSIMO 6 alimenti per cella (1 principale + max 5 alternative) per limitare output
-- Verdura, frutta, olio: una sola voce per cella, NESSUNA alternativa
+- Verdura, frutta: una sola voce per cella, NESSUNA alternativa
+- Cella olio/grasso (cat "oi"): principale Olio EVO, poi alternative isocaloriche tra queste (usa SOLO questi grammi, già equivalenti a 10g Olio EVO): Avocado 40g, Frutta secca mista 20g, Semi di chia 20g, Semi di lino 15g, Olive verdi 60g, Olive nere 30g, Burro arachidi 15g, Burro mandorle 15g. Non tutte vanno sempre incluse: scegline 2-4 in base alle preferenze del paziente.
 - Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
 - Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)
 
 ESEMPIO FORMATO (un giorno):
-[{"g":"Lunedì","macros":{"kcal":1850,"proteine":130,"carboidrati":200,"grassi":60},"pasti":{"colazione":{"ric":[],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Yogurt greco 0%","g":125,"cat":"pr","cl":"v"},{"n":"Skyr","g":125,"cat":"pr","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Noci","g":20,"cat":"gx","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Fiocchi d'avena","g":40,"cat":"ca","cl":"v"},{"n":"Muesli","g":40,"cat":"ca","cl":"v"}]}]},"pranzo":{"ric":["Pasta al pesto con pollo e verdure","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Pasta integrale","g":80,"cat":"ca","cl":"v"},{"n":"Riso","g":70,"cat":"ca","cl":"v"},{"n":"Farro","g":80,"cat":"ca","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Petto di pollo","g":150,"cat":"pr","cl":"v"},{"n":"Salmone","g":130,"cat":"pr","cl":"v"},{"n":"Tonno","g":120,"cat":"pr","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Verdura","g":200,"cat":"ve","cl":"v"}]},{"id":"c4","co":"dx","or":2,"al":[{"n":"Olio EVO","g":20,"cat":"oi","cl":"v"}]},{"id":"c5","co":"sx","or":3,"al":[{"n":"Frutta","g":150,"cat":"fr","cl":"v"}]}]}}}]
+[{"g":"Lunedì","macros":{"kcal":1850,"proteine":130,"carboidrati":200,"grassi":60},"pasti":{"colazione":{"ric":[],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Yogurt greco 0%","g":125,"cat":"pr","cl":"v"},{"n":"Skyr","g":125,"cat":"pr","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Noci","g":20,"cat":"gx","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Fiocchi d'avena","g":40,"cat":"ca","cl":"v"},{"n":"Muesli","g":40,"cat":"ca","cl":"v"}]}]},"pranzo":{"ric":["Pasta al pesto con pollo e verdure","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Pasta integrale","g":80,"cat":"ca","cl":"v"},{"n":"Riso","g":70,"cat":"ca","cl":"v"},{"n":"Farro","g":80,"cat":"ca","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Petto di pollo","g":150,"cat":"pr","cl":"v"},{"n":"Salmone","g":130,"cat":"pr","cl":"v"},{"n":"Tonno","g":120,"cat":"pr","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Verdura","g":200,"cat":"ve","cl":"v"}]},{"id":"c4","co":"dx","or":2,"al":[{"n":"Olio EVO","g":20,"cat":"oi","cl":"v"},{"n":"Avocado","g":80,"cat":"oi","cl":"v"},{"n":"Frutta secca mista","g":40,"cat":"oi","cl":"v"}]},{"id":"c5","co":"sx","or":3,"al":[{"n":"Frutta","g":150,"cat":"fr","cl":"v"}]}]}}}]
 
 Genera TUTTI i ${nGiorni} giorni. Includi spuntino_mattina/pomeriggio e pre_nanna solo se appropriati. Macros: calcola valori REALI sommando tutti gli alimenti.`;
 }
