@@ -7823,18 +7823,25 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     dH+='<div style="padding:.8rem 1rem;">';
     [{label:'COLAZIONE',key:'colazione'},{label:'SPUNTINO MATTINA',key:'spuntino_mattina'},{label:'PRANZO',key:'pranzo'},{label:'SPUNTINO POMERIGGIO',key:'spuntino_pomeriggio'},{label:'CENA',key:'cena'},{label:'PRE-NANNA',key:'pre_nanna'}].forEach(function(s){
       var pasto=g[s.key]||(g.pasti&&g.pasti[s.key]);
-      if(!pasto)return;
+      var isSpuntino=(s.key==='spuntino_mattina'||s.key==='spuntino_pomeriggio');
+      if(!pasto&&!isSpuntino)return;
       dH+='<div style="margin-bottom:.6rem;font-size:.85rem;">';
-      dH+='<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')">'+s.label+'</span>';
-      if(typeof pasto==='string'){dH+=' — '+pasto;}
-      else if(pasto.celle){dH+=_renderCelleHtml(pasto,s.key,nomeGiorno);}
-      else{
-        var nota=pasto.nota_descrittiva||pasto.nota||'';
-        if(nota)dH+='<br><em style="color:var(--text2);font-size:.8rem;">'+nota+'</em>';
-        var p1=pasto.principale1,p2=pasto.principale2;
-        if(p1)dH+='<br><strong>'+p1.nome+'</strong> '+(p1.grammi||'')+'g';
-        if(p2)dH+=' · <strong>'+p2.nome+'</strong> '+(p2.grammi||'')+'g';
-        if(pasto.alternative&&pasto.alternative.length){dH+='<br>';pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt){dH+='<span style="color:var(--text3);font-size:.74rem;font-style:italic;">→ '+(alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ')+'</span><br>';});}
+      if(!pasto&&isSpuntino){
+        // P10: slot spuntino non presente per questo giorno (paziente non lo aveva richiesto in fase di compilazione) —
+        // pulsante per aggiungerlo manualmente al volo, riusa apriPannelloRicette/applicaRicettaPasto già esistenti.
+        dH+='<button onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')" style="background:none;border:1px dashed var(--border);color:var(--text2);border-radius:6px;padding:.3rem .6rem;font-size:.8rem;cursor:pointer;">+ Aggiungi '+s.label.toLowerCase()+'</button>';
+      } else {
+        dH+='<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')">'+s.label+'</span>';
+        if(typeof pasto==='string'){dH+=' — '+pasto;}
+        else if(pasto.celle){dH+=_renderCelleHtml(pasto,s.key,nomeGiorno);}
+        else{
+          var nota=pasto.nota_descrittiva||pasto.nota||'';
+          if(nota)dH+='<br><em style="color:var(--text2);font-size:.8rem;">'+nota+'</em>';
+          var p1=pasto.principale1,p2=pasto.principale2;
+          if(p1)dH+='<br><strong>'+p1.nome+'</strong> '+(p1.grammi||'')+'g';
+          if(p2)dH+=' · <strong>'+p2.nome+'</strong> '+(p2.grammi||'')+'g';
+          if(pasto.alternative&&pasto.alternative.length){dH+='<br>';pasto.alternative.slice().sort(function(a,b){return a.posizione-b.posizione;}).forEach(function(alt){dH+='<span style="color:var(--text3);font-size:.74rem;font-style:italic;">→ '+(alt.alimenti||[]).map(function(a){return a.nome+' '+a.grammi+'g';}).join(', ')+'</span><br>';});}
+        }
       }
       dH+='</div>';
     });
@@ -14781,7 +14788,10 @@ function applicaRicettaPasto(ricettaId) {
   var nuovoPiano = deepClone(window._pianoCorrente);
   var giornoObj = nuovoPiano.find(function(g){ return g.giorno === giorno; });
   if (!giornoObj) { chiudiPannelloRicette(); return; }
-  var pastoAttuale = giornoObj[slotKey] || {};
+  // Fix: il piano può essere in formato "nuovo" (g.pasti[slotKey]) o "vecchio" (g[slotKey] diretto).
+  // Scrivo sempre nello stesso punto da cui leggo, per non creare doppioni.
+  var isFormatoNuovo = !!giornoObj.pasti;
+  var pastoAttuale = (isFormatoNuovo ? giornoObj.pasti[slotKey] : giornoObj[slotKey]) || {};
   var nuovoPasto = deepClone(pastoAttuale);
   var ingredienti = (r.ing||'').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
   if (ingredienti.length >= 1) {
@@ -14795,7 +14805,8 @@ function applicaRicettaPasto(ricettaId) {
     else nuovoPasto.principale2 = {nome: ingredienti[1], grammi: nuovoPasto.principale2 ? nuovoPasto.principale2.grammi : 100};
   }
   nuovoPasto.nota_descrittiva = r.nome || '';
-  giornoObj[slotKey] = nuovoPasto;
+  if (isFormatoNuovo) giornoObj.pasti[slotKey] = nuovoPasto;
+  else giornoObj[slotKey] = nuovoPasto;
   window._storicoPiani.push(deepClone(window._pianoCorrente));
   window._pianoCorrente = nuovoPiano;
   renderPianoBox(nuovoPiano);
