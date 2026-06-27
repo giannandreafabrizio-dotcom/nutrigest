@@ -7586,6 +7586,7 @@ function pianoPazSelezionato(id){
     window._storicoPiani = [];
     window._pianoTargets = null;
     window._pianoTargetsOFF = null;
+    window._pianoEditingId = null; // P27: cambio paziente → mai aggiornare il piano di un altro paziente
     var _pBox = document.getElementById('piano-piano-box');
     if (_pBox) _pBox.innerHTML = '';
     // Pulisci anche i badge sotto al piano (riepilogo settimana, 75/20/5, macros reali, dati box, load msg)
@@ -8058,6 +8059,9 @@ function riapriPiano(pazId, idx) {
     }
     // ── Montaggio piano + calcolo target: logica condivisa con applicaTemplate ──
     if (!_montaPianoCorrente(pianoAI, pazId)) return;
+    // P27: stai modificando un piano esistente → "Salva" lo aggiornerà (stesso id), niente doppioni
+    window._pianoEditingId = piano.id;
+    if (typeof _aggiornaLabelSalvaPiano === 'function') _aggiornaLabelSalvaPiano();
     var _dRiapri = new Date(piano.timestamp || piano.createdAt || Date.now());
     notif('✓ Piano del '+(!isNaN(_dRiapri)?_dRiapri.toLocaleDateString('it-IT'):'data n/d')+' riaperto');
   } catch(e) {
@@ -8317,6 +8321,9 @@ function applicaTemplate(templateId, pazId){
   // Conflict check sui dati grezzi del template, prima del montaggio
   var conflitti=_trovaConflittiTemplate(pianoAI, p);
   if(!_montaPianoCorrente(pianoAI, pazId)){ notif('⚠ Errore nell\'applicazione del template'); return; }
+  // P27: un template applicato genera SEMPRE un piano nuovo per il paziente (non aggiorna nulla)
+  window._pianoEditingId = null;
+  if (typeof _aggiornaLabelSalvaPiano === 'function') _aggiornaLabelSalvaPiano();
   notif('✓ Template "'+(tpl.nome||'')+'" applicato a '+((p.nome||'')+' '+(p.cognome||'')).trim(), 3000);
   if(conflitti.length){ setTimeout(function(){_mostraAvvisoConflitti(conflitti, p);}, 400); }
 }
@@ -14803,6 +14810,9 @@ function inizializzaP2(piano) {
   window._pendingPatch = null;
   document.getElementById('p2-box').style.display = 'block';
   document.getElementById('p2-save').style.display = 'block';
+  // P27: di default ogni montaggio è "piano nuovo"; riapriPiano sovrascrive se si riapre un salvato
+  window._pianoEditingId = null;
+  if (typeof _aggiornaLabelSalvaPiano === 'function') _aggiornaLabelSalvaPiano();
 }
 
 function deepClone(obj) {
@@ -14839,25 +14849,59 @@ function applicaPatch(piano, patch) {
   return nuovo;
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// P27 — Salva/Aggiorna piano: stato di editing per evitare doppioni
+// _pianoEditingId = id del piano salvato attualmente in modifica (null = piano nuovo)
+// ══════════════════════════════════════════════════════════════════════════
+function _aggiornaLabelSalvaPiano(){
+  var btn = document.getElementById('p2-save');
+  if(!btn) return;
+  var eid = window._pianoEditingId;
+  var piano = eid ? (db.piani||[]).find(function(x){return x.id===eid;}) : null;
+  if(piano){
+    var paz = (db.pazienti||[]).find(function(x){return x.id===piano.pazienteId;});
+    var nome = paz ? ((paz.nome||'')+' '+(paz.cognome||'')).trim() : 'paziente';
+    btn.textContent = '💾 Aggiorna piano di '+nome;
+  } else {
+    btn.textContent = '💾 Salva piano definitivo';
+  }
+}
+
 document.getElementById('p2-save').onclick = async function() {
   var pazId = document.getElementById('piano-select-paz').value;
   if (!db.piani) db.piani = [];
-  const nuovoPiano = {
-    id: 'piano_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    pazienteId: pazId,
-    timestamp: new Date().toISOString(),
-    pianoJSON: JSON.stringify(window._pianoCorrente)
-  };
-  db.piani.push(nuovoPiano);
+  // P27: se stiamo modificando un piano esistente → aggiorna (stesso id → upsert), altrimenti crea nuovo
+  var editingId = window._pianoEditingId;
+  var esistente = editingId ? db.piani.find(function(x){return x.id===editingId;}) : null;
+  var pianoObj;
+  if (esistente) {
+    // Aggiorna in loco: stesso id, pushPianoSupabase fa upsert (merge-duplicates)
+    esistente.pazienteId = pazId;
+    esistente.timestamp = new Date().toISOString();
+    esistente.pianoJSON = JSON.stringify(window._pianoCorrente);
+    pianoObj = esistente;
+  } else {
+    // Nuovo piano (anche se editingId era settato ma il piano non esiste più → degrada a nuovo)
+    pianoObj = {
+      id: 'piano_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      pazienteId: pazId,
+      timestamp: new Date().toISOString(),
+      pianoJSON: JSON.stringify(window._pianoCorrente)
+    };
+    db.piani.push(pianoObj);
+    window._pianoEditingId = pianoObj.id; // da ora un nuovo "Salva" aggiorna questo, non duplica
+  }
   saveLocal();
-  notif('💾 Salvataggio piano in corso...');
-  const ok = await pushPianoSupabase(nuovoPiano);
+  _aggiornaLabelSalvaPiano();
+  notif(esistente ? '💾 Aggiornamento piano in corso...' : '💾 Salvataggio piano in corso...');
+  const ok = await pushPianoSupabase(pianoObj);
   if(ok){
-    notif('✅ Piano salvato su Supabase!', 2500);
-    console.log('[PIANI] piano definitivo salvato — id:', nuovoPiano.id);
+    notif(esistente ? '✅ Piano aggiornato su Supabase!' : '✅ Piano salvato su Supabase!', 2500);
+    console.log('[PIANI] piano '+(esistente?'aggiornato':'creato')+' — id:', pianoObj.id);
+    if (typeof renderStoricoPiani === 'function' && document.getElementById('storico-piani-list')) renderStoricoPiani();
   } else {
     notif('⚠️ Piano salvato solo in locale — sync fallito!', 4000);
-    console.error('[PIANI] push Supabase fallito per piano:', nuovoPiano.id);
+    console.error('[PIANI] push Supabase fallito per piano:', pianoObj.id);
   }
 };
 
