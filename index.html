@@ -1589,7 +1589,8 @@ const ALIMENTI = {
     {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:60,gl:true},
     {n:'Wasa (contiene glutine)',g:30,gl:true},{n:'Spaghetti Shirataki Konjac',g:150,gl:false},
     {n:'Spätzle',g:80,gl:true},{n:'Biscotti integrali',g:30,gl:true},
-    {n:'Muesli',g:30,gl:true},{n:'Fette biscottate integrali',g:30,gl:true}
+    {n:'Muesli',g:30,gl:true},{n:'Fette biscottate integrali',g:30,gl:true},
+    {n:'Fiocchi di farro',g:40,gl:true},{n:'Biscotti secchi',g:30,gl:true},{n:'Biscotti frollini',g:30,gl:true},{n:'Puccia salentina',g:100,gl:true}
   ]},
   'Cereali senza Glutine': {items:[
     {n:'Riso',g:80,gl:false},{n:'Riso basmati',g:80,gl:false},{n:'Riso integrale',g:80,gl:false},{n:'Quinoa',g:80,gl:false},{n:'Mais dolce in scatola',g:120,gl:false},{n:'Polenta',g:160,gl:false},{n:'Patate',g:280,gl:false},
@@ -1700,7 +1701,17 @@ const ALIMENTI = {
     {n:'Marmellata rid. zucchero',g:20},{n:'Miele',g:10},{n:'Eritritolo',g:5},{n:'Dolcificante',g:2}
   ]},
   'Olio & Condimenti': {items:[
-    {n:'Olio EVO',g:10},{n:'Salsa di soia',g:10},{n:'Limone',g:20}
+    {n:'Olio EVO',g:10},{n:'Salsa di soia',g:10},{n:'Limone',g:20},
+    {n:'Pesto basilico',g:20},{n:'Pesto rucola',g:20}
+  ]},
+  'Integratori sportivi': {items:[
+    {n:'Proteine Whey',g:30},{n:'Proteine Caseine',g:30},{n:'Proteine Vegetali',g:30},
+    {n:'Mass gainer',g:100},{n:'Maltodestrine',g:30}
+  ]},
+  // P15: alcolici — nessun colore di default nel master (il semaforo si imposta per paziente),
+  // ma indicazione clinica generale all'attivazione: Vino → arancione, Birra/Gin tonic → rosso.
+  'Alcolici': {items:[
+    {n:'Birra',g:330},{n:'Vino',g:150},{n:'Gin tonic',g:200}
   ]}
 };;
 
@@ -1730,6 +1741,10 @@ const CREA_ALIMENTI = {
   'Biscotti integrali': {kcal:425, p:7.8, c:70.8, g:14.3},
   'Muesli': {kcal:364, p:9.7, c:72.2, g:6.0},
   'Fette biscottate integrali': {kcal:379, p:14.2, c:62.0, g:10.0},
+  'Fiocchi di farro': {kcal:340, p:12.0, c:65.0, g:3.0},
+  'Biscotti secchi': {kcal:430, p:7.0, c:75.0, g:12.0},
+  'Biscotti frollini': {kcal:460, p:6.0, c:65.0, g:20.0},
+  'Puccia salentina': {kcal:260, p:8.0, c:50.0, g:3.0},
   'Riso': {kcal:332, p:6.7, c:80.4, g:0.4},
   'Riso basmati': {kcal:332, p:6.7, c:80.4, g:0.4},
   'Riso integrale': {kcal:337, p:7.5, c:77.4, g:1.9},
@@ -1897,6 +1912,18 @@ const CREA_ALIMENTI = {
   'Olio EVO': {kcal:899, p:0.0, c:0.0, g:99.9},
   'Salsa di soia': {kcal:66, p:8.7, c:8.3, g:0.0},
   'Limone': {kcal:11, p:0.6, c:2.3, g:0.0},
+  'Pesto basilico': {kcal:430, p:4.0, c:5.0, g:42.0},
+  'Pesto rucola': {kcal:420, p:5.0, c:4.0, g:40.0},
+  // INTEGRATORI SPORTIVI (P15)
+  'Proteine Whey': {kcal:380, p:75.0, c:8.0, g:5.0},
+  'Proteine Caseine': {kcal:370, p:70.0, c:10.0, g:5.0},
+  'Proteine Vegetali': {kcal:360, p:70.0, c:12.0, g:4.0},
+  'Mass gainer': {kcal:380, p:15.0, c:65.0, g:6.0},
+  'Maltodestrine': {kcal:380, p:0.0, c:95.0, g:0.0},
+  // ALCOLICI (P15) — valori per 100ml
+  'Birra': {kcal:42, p:0.5, c:3.5, g:0.0},
+  'Vino': {kcal:83, p:0.1, c:2.5, g:0.0},
+  'Gin tonic': {kcal:95, p:0.0, c:8.0, g:0.0},
 };
 
 // Mappa di disambiguazione: nomi generici → nome canonico CREA_ALIMENTI
@@ -2885,14 +2912,16 @@ function getCategoriaFunzionale(nomeAlimento) {
   }
   // 3) Fallback euristico via parole chiave nel nome
   const n = nomeAlimento.toLowerCase();
-  if (/(pasta|riso|pane|farro|quinoa|orzo|cuscus|patate|biscott|fett.|fiocchi|muesli|cereali)/.test(n)) return 'carbo';
-  if (/(pollo|tacchino|manzo|vitell|maiale|pesce|salmone|tonno|merluzzo|orata|spigola|gamber|seppia|polpo|uova|uovo|yogurt|skyr|ricotta|formaggio|fiocchi di latte|bresaola|prosciutto|salsiccia)/.test(n)) return 'proteine';
+  if (/(pasta|riso|pane|farro|quinoa|orzo|cuscus|patate|biscott|fett.|fiocchi|muesli|cereali|puccia)/.test(n)) return 'carbo';
+  if (/(pollo|tacchino|manzo|vitell|maiale|pesce|salmone|tonno|merluzzo|orata|spigola|gamber|seppia|polpo|uova|uovo|yogurt|skyr|ricotta|formaggio|fiocchi di latte|bresaola|prosciutto|salsiccia|proteine whey|proteine caseine|proteine vegetali)/.test(n)) return 'proteine';
+  if (/(^pesto |^pesto$|^pesto)/.test(n)) return 'olio';
   if (/(lentic|cec|fagioli|piselli|fave|legum|edamame)/.test(n)) return 'legumi';
   if (/(verdur|insalata|spinaci|broccol|zucchin|melanz|peperoni|pomodor|cetriol|carota|finocchi|cavolo|rucola|lattuga|radicchio)/.test(n)) return 'verdura';
   if (/(frutta|mela|pera|banana|arancia|kiwi|frutti di bosco|mirtill|fragol|pesca|albicocc|prugna|uva|ananas|melone|angur)/.test(n)) return 'frutta';
-  if (/(olio evo|olio extraverg)/.test(n)) return 'olio';
+  if (/(olio evo|olio extraverg|pesto)/.test(n)) return 'olio';
   if (/(noci|mandorl|nocciol|pistacch|anacardi|semi|avocado|cioccolato fondente)/.test(n)) return 'grasso';
-  if (/(pancake proteic|barretta proteic)/.test(n)) return 'fit';
+  if (/(pancake proteic|barretta proteic|mass gainer|maltodestrin)/.test(n)) return 'fit';
+  if (/(birra|vino|gin tonic)/.test(n)) return 'condimento';
   // 4) Default neutro
   return 'condimento';
 }
