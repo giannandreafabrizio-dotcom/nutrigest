@@ -9699,30 +9699,32 @@ function espandiPiano(piano) {
 // FRUTTA NEI PASTI — toggle per pasto + stile per paziente (generico/stagionale)
 // ═══════════════════════════════════════
 // Pool emoji frutta di stagione italiana, per mese (1-12). Codepoint Twemoji condivisi con
-// EMOJI_MAP (stessi codici usati altrove nel PDF) — usa TUTTE le 11 frutta con emoji disponibili,
-// distribuite per stagione. Frutti italiani senza emoji Unicode (albicocche, fichi, prugne, cachi,
-// melograno, nespole...) non sono rappresentabili e restano fuori dalla rotazione.
+// EMOJI_MAP (stessi codici usati altrove nel PDF) — usa le 13 frutta con emoji disponibili:
+// le 11 italiane di stagione + banana e ananas (disponibili tutto l'anno, aggiunte su richiesta
+// di Fabrizio per più varietà nella rotazione). Frutti italiani senza emoji Unicode (albicocche,
+// fichi, prugne, cachi, melograno, nespole...) non sono rappresentabili e restano fuori dalla rotazione.
 // Facilmente modificabile: ogni mese è un array di codepoint, basta aggiungerne/togliere.
 const FRUTTA_STAGIONE_MESE = {
-  1:  ['1f34a','1f95d','1f350','1f34e','1f34b'], // arancia/mandarino, kiwi, pera, mela, limone
-  2:  ['1f34a','1f95d','1f350','1f34e','1f34b'],
-  3:  ['1f34a','1f95d','1f34e','1f34b','1f353'], // + fragola
-  4:  ['1f353','1f34e','1f95d','1f34b'],
-  5:  ['1f353','1f352','1f34e','1f34b'],         // + ciliegia
-  6:  ['1f351','1f352','1f348','1f349','1f353'], // pesca, ciliegia, melone, anguria, fragola
-  7:  ['1f351','1f348','1f349','1f347'],         // pesca, melone, anguria, uva
-  8:  ['1f351','1f348','1f349','1f347'],
-  9:  ['1f347','1f350','1f34e','1f348'],         // uva, pera, mela, melone
-  10: ['1f347','1f350','1f34e','1f95d','1f34a'],
-  11: ['1f34a','1f95d','1f350','1f34e','1f34b'],
-  12: ['1f34a','1f95d','1f350','1f34e','1f34b']
+  1:  ['1f34a','1f95d','1f350','1f34e','1f34b','1f34c','1f34d'], // arancia/mandarino, kiwi, pera, mela, limone, banana, ananas
+  2:  ['1f34a','1f95d','1f350','1f34e','1f34b','1f34c','1f34d'],
+  3:  ['1f34a','1f95d','1f34e','1f34b','1f353','1f34c','1f34d'], // + fragola
+  4:  ['1f353','1f34e','1f95d','1f34b','1f34c','1f34d'],
+  5:  ['1f353','1f352','1f34e','1f34b','1f34c','1f34d'],         // + ciliegia
+  6:  ['1f351','1f352','1f348','1f349','1f353','1f34c','1f34d'], // pesca, ciliegia, melone, anguria, fragola
+  7:  ['1f351','1f348','1f349','1f347','1f34c','1f34d'],         // pesca, melone, anguria, uva
+  8:  ['1f351','1f348','1f349','1f347','1f34c','1f34d'],
+  9:  ['1f347','1f350','1f34e','1f348','1f34c','1f34d'],         // uva, pera, mela, melone
+  10: ['1f347','1f350','1f34e','1f95d','1f34a','1f34c','1f34d'],
+  11: ['1f34a','1f95d','1f350','1f34e','1f34b','1f34c','1f34d'],
+  12: ['1f34a','1f95d','1f350','1f34e','1f34b','1f34c','1f34d']
 };
 // Unione di tutti i codepoint usati sopra — per il preload nel PDF (vedi generaPDF).
 const FRUTTA_STAGIONE_TUTTI_CP = Array.from(new Set(Object.values(FRUTTA_STAGIONE_MESE).flat()));
 // Stessi codepoint → emoji nativa, per il rendering nell'editor (browser, niente Twemoji necessario).
 const _FRUTTA_CP_TO_EMOJI = {
   '1f34a':'🍊','1f95d':'🥝','1f350':'🍐','1f34e':'🍎','1f34b':'🍋',
-  '1f353':'🍓','1f352':'🍒','1f351':'🍑','1f348':'🍈','1f349':'🍉','1f347':'🍇'
+  '1f353':'🍓','1f352':'🍒','1f351':'🍑','1f348':'🍈','1f349':'🍉','1f347':'🍇',
+  '1f34c':'🍌','1f34d':'🍍'
 };
 
 // Stile frutta del paziente: 'generico' (default, testo "+ frutta") | 'stagionale' (emoji a rotazione)
@@ -9737,11 +9739,17 @@ function _fruttaGetPasto(g, slotKey) {
   return (g.pasti && g.pasti[slotKey]) ? g.pasti[slotKey] : (g[slotKey] || null);
 }
 
-// Indice deterministico globale: conta, in ordine giorno→slot, quanti pasti con frutta attiva
-// precedono (giornoTarget, slotTarget) nello stesso piano. Usato sia dall'editor che dal PDF sullo
-// stesso array piano, nello stesso ordine → garantisce che due pasti-frutta consecutivi non
-// peschino mai lo stesso frutto (a parità di pool con più di un elemento), senza stato salvato.
-function _fruttaIndiceGlobale(piano, giornoTarget, slotTarget) {
+// Indice di BASE per un pasto: conta, in ordine giorno→slot, quante "righe ricetta" di rotazione
+// hanno consumato i pasti-frutta PRECEDENTI (ogni pasto consuma tante posizioni quante sono le
+// sue ricette non vuote — un pasto con 3 alternative avanza la rotazione di 3 passi, non di 1).
+// Usato sia dall'editor che dal PDF sullo stesso array piano, nello stesso ordine → deterministico,
+// e garantisce che righe adiacenti (sia tra alternative dello stesso pasto, sia tra pasti diversi)
+// non peschino mai lo stesso frutto (a parità di pool con più di un elemento).
+function _fruttaContaRigheRicetta(pasto) {
+  var righe = (pasto.ricette || []).filter(function(r){ return r && (r+'').trim() !== ''; });
+  return righe.length || 1; // pasto senza ricette testuali (es. solo celle) conta come 1 posizione
+}
+function _fruttaIndiceBasePasto(piano, giornoTarget, slotTarget) {
   var counter = 0;
   for (var i = 0; i < (piano || []).length; i++) {
     var g = piano[i];
@@ -9751,20 +9759,23 @@ function _fruttaIndiceGlobale(piano, giornoTarget, slotTarget) {
       var pasto = _fruttaGetPasto(g, slotKey);
       if (!pasto || typeof pasto === 'string' || pasto.frutta !== true) continue;
       if (nomeGiorno === giornoTarget && slotKey === slotTarget) return counter;
-      counter++;
+      counter += _fruttaContaRigheRicetta(pasto);
     }
   }
   return 0;
 }
 
-// Marker da mostrare per un pasto, null se la frutta non è attiva su quel pasto.
+// Marker da mostrare per una singola riga ricetta di un pasto, null se la frutta non è attiva.
+// ricettaIdx (0-based, default 0) seleziona la riga dentro il pasto — righe diverse dello stesso
+// pasto ruotano tra loro, oltre alla rotazione tra pasti diversi.
 // Ritorna {tipo:'generico', testo:'+ frutta'} oppure {tipo:'stagionale', cp:'1f351'}.
-function getFruttaMarker(pasto, piano, giorno, slotKey, paziente) {
+function getFruttaMarker(pasto, piano, giorno, slotKey, paziente, ricettaIdx) {
   if (!pasto || typeof pasto === 'string' || pasto.frutta !== true) return null;
   if (getFruttaStile(paziente) === 'stagionale') {
     var mese = new Date().getMonth() + 1;
     var pool = FRUTTA_STAGIONE_MESE[mese] || FRUTTA_STAGIONE_MESE[1];
-    var idx = piano ? _fruttaIndiceGlobale(piano, giorno, slotKey) : 0;
+    var base = piano ? _fruttaIndiceBasePasto(piano, giorno, slotKey) : 0;
+    var idx = base + (ricettaIdx || 0);
     return { tipo: 'stagionale', cp: pool[idx % pool.length] };
   }
   return { tipo: 'generico', testo: '+ frutta' };
@@ -9840,13 +9851,15 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
   var ricetteArr = (pasto.ricette || []).filter(function(r){ return r != null; });
   // Filtra le ricette davvero presenti (non-vuote)
   var ricetteVisibili = ricetteArr.filter(function(r){ return (r||'').trim() !== ''; });
-  // FRUTTA: marker calcolato una volta per pasto, vale per tutte le ricette/alternative
-  var _fruttaMk = getFruttaMarker(pasto, window._pianoCorrente, giorno, slotKey, window._pdfPaziente);
-  var _fruttaSx = fruttaMarkerHtml(_fruttaMk);
   if (ricetteVisibili.length || maxRic > 0) {
     html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.7;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
+    // FRUTTA: marker calcolato per ogni riga ricetta — ruota tra le alternative dello stesso pasto
+    var _fruttaRigaCounter = 0;
     ricetteArr.forEach(function(r, i) {
       if (!r || !(r||'').trim()) return;
+      var _fruttaMk = getFruttaMarker(pasto, window._pianoCorrente, giorno, slotKey, window._pdfPaziente, _fruttaRigaCounter);
+      var _fruttaSx = fruttaMarkerHtml(_fruttaMk);
+      _fruttaRigaCounter++;
       html += '<div style="display:flex;align-items:center;gap:6px;border-radius:4px;padding:1px 4px">';
       html += '<span class="ric-edit" onclick="apriEditRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" style="flex:1;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'transparent\'" title="Click per modificare"><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> &rarr; ' + r + _fruttaSx + '</span>';
       html += '<button class="alt-ctrl alt-x" onclick="rimuoviRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" title="Rimuovi ricetta" style="font-size:.7rem">🗑</button>';
@@ -12124,13 +12137,14 @@ async function generaPDF(paziente, giorni) {
     }
 
     if (hasRicette) {
-      // FRUTTA: marker unico per il pasto, applicato a ogni riga ricetta (stessa stringa misurata
-      // e disegnata — generico aggiunge testo alla riga, stagionale riserva spazio per l'emoji disegnata)
-      var _fruttaMk = giornoNome ? getFruttaMarker(pasto, giorni, giornoNome, slotKey, paziente) : null;
-      var _fruttaTxtSx = (_fruttaMk && _fruttaMk.tipo === 'generico') ? (' ' + _fruttaMk.testo) : '';
-      var _fruttaImgGap = (_fruttaMk && _fruttaMk.tipo === 'stagionale') ? (EMOJI_SIZE * c + EMOJI_GAP * c) : 0;
+      // FRUTTA: marker calcolato per ogni riga ricetta — ruota tra le alternative dello stesso pasto
+      var _fruttaRigaCounter = 0;
       pasto.ricette.forEach(function(r) {
         if (!r) return;
+        var _fruttaMk = giornoNome ? getFruttaMarker(pasto, giorni, giornoNome, slotKey, paziente, _fruttaRigaCounter) : null;
+        var _fruttaTxtSx = (_fruttaMk && _fruttaMk.tipo === 'generico') ? (' ' + _fruttaMk.testo) : '';
+        var _fruttaImgGap = (_fruttaMk && _fruttaMk.tipo === 'stagionale') ? (EMOJI_SIZE * c + EMOJI_GAP * c) : 0;
+        _fruttaRigaCounter++;
         var prefixW = measure('1. ', 9.5 * c, 'bold');
         var lines = doc.splitTextToSize(safe(r + _fruttaTxtSx), W - M * 2 - prefixW - _fruttaImgGap);
         h += lines.length * 4.6 * c;
@@ -12272,13 +12286,15 @@ async function generaPDF(paziente, giorni) {
 
     if (hasRicette) {
       var prefixW = measure('1. ', 11 * c, 'bold');
-      // FRUTTA: stesso marker calcolato in measurePasto, applicato a ogni riga ricetta
-      var _fruttaMk = giornoNome ? getFruttaMarker(pasto, giorni, giornoNome, slotKey, paziente) : null;
-      var _fruttaTxtSx = (_fruttaMk && _fruttaMk.tipo === 'generico') ? (' ' + _fruttaMk.testo) : '';
-      var _fruttaImgGap = (_fruttaMk && _fruttaMk.tipo === 'stagionale') ? (EMOJI_SIZE * c + EMOJI_GAP * c) : 0;
-      var _fruttaCp = (_fruttaMk && _fruttaMk.tipo === 'stagionale') ? _fruttaMk.cp : null;
+      // FRUTTA: marker calcolato per ogni riga ricetta — ruota tra le alternative dello stesso pasto
+      var _fruttaRigaCounter = 0;
       pasto.ricette.forEach(function(r, i) {
         if (!r) return;
+        var _fruttaMk = giornoNome ? getFruttaMarker(pasto, giorni, giornoNome, slotKey, paziente, _fruttaRigaCounter) : null;
+        var _fruttaTxtSx = (_fruttaMk && _fruttaMk.tipo === 'generico') ? (' ' + _fruttaMk.testo) : '';
+        var _fruttaImgGap = (_fruttaMk && _fruttaMk.tipo === 'stagionale') ? (EMOJI_SIZE * c + EMOJI_GAP * c) : 0;
+        var _fruttaCp = (_fruttaMk && _fruttaMk.tipo === 'stagionale') ? _fruttaMk.cp : null;
+        _fruttaRigaCounter++;
         var prefix = (i + 1) + '. ';
         var lines = doc.splitTextToSize(safe(r + _fruttaTxtSx), W - M * 2 - prefixW - _fruttaImgGap);
         setFont('bold', 11 * c, NERO);
