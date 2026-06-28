@@ -3091,6 +3091,18 @@ async function delRicetteSupabase(id){
   }
 }
 
+async function delPazienteSupabase(id){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+id, {method:'DELETE', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[PAZIENTI] delete ERRORE — status:', resp.status); return false; }
+    console.log('[PAZIENTI] delete OK — id:', id);
+    return true;
+  } catch(e) {
+    console.error('[PAZIENTI] delete ECCEZIONE:', e);
+    return false;
+  }
+}
+
 async function pushToSheets(){
   console.log('[Supabase] push iniziato — pazienti:', db.pazienti.length);
   try{
@@ -14716,14 +14728,19 @@ function ripristinaPaz(id){
   save();renderPaz();
   notif('✓ Paziente ripristinato');
 }
-function eliminaPaz(id){
+async function eliminaPaz(id){
   const p = db.pazienti.find(x=>x.id===id);
   if(!p) return;
   if(!confirm(`Eliminare definitivamente il profilo di ${p.nome} ${p.cognome}?\nQuesta azione non può essere annullata.`)) return;
+  // Cattura gli eventi collegati PRIMA di rimuoverli dallo stato locale
+  const eventiCollegati = (db.eventi||[]).filter(e=>e.pazId===id);
   db.pazienti = db.pazienti.filter(x=>x.id!==id);
   // Rimuovi anche eventi collegati
   db.eventi = db.eventi.filter(e=>e.pazId!==id);
-  save();
+  // Elimina le righe remote su Supabase: senza questo il profilo (e i suoi eventi) riappare al prossimo sync
+  await delPazienteSupabase(id);
+  for(const e of eventiCollegati){ if(e&&e.id) await delEventoSupabase(e.id); }
+  await save();
   goTo('pazienti', document.querySelector('.nav-item'));
   renderPaz();
   notif('Profilo eliminato');
