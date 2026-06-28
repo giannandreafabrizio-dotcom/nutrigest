@@ -10396,10 +10396,10 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Ricetta ' + (idx+1) + ' — ' + giorno + ' / ' + (slotKey.replace(/_/g,' ')) + '</strong><button onclick="document.getElementById(\'popup-ric\').remove();document.getElementById(\'popup-ric-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
   pop.appendChild(header);
 
-  // Tabs: Scrivi manualmente | Dal ricettario
+  // Tabs: Scrivi manualmente | Dal ricettario | Ricette parziali (contorni)
   var tabs = document.createElement('div');
   tabs.style.cssText = 'display:flex;gap:6px;margin-bottom:.7rem;border-bottom:1px solid #e2e8f0';
-  tabs.innerHTML = '    <button id="ric-tab-write" class="ric-tab ric-tab-active">✏ Scrivi</button>    <button id="ric-tab-pick" class="ric-tab">📚 Ricettario</button>  ';
+  tabs.innerHTML = '    <button id="ric-tab-write" class="ric-tab ric-tab-active">✏ Scrivi</button>    <button id="ric-tab-pick" class="ric-tab">📚 Ricettario</button>    <button id="ric-tab-parz" class="ric-tab">🥗 Ricette parziali</button>  ';
   pop.appendChild(tabs);
 
   // Tab 1: Scrivi
@@ -10417,16 +10417,25 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   panePick.innerHTML = '    <input id="ric-pick-search" type="text" placeholder="🔍 Cerca ricetta..." style="width:100%;padding:.5rem .7rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;box-sizing:border-box">    <div id="ric-pick-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;max-height:50vh"></div>  ';
   pop.appendChild(panePick);
 
-  function renderRicettario(filtro) {
-    var listEl = panePick.querySelector('#ric-pick-list');
+  // Tab 3: Ricette parziali (contorni)
+  var panePartial = document.createElement('div');
+  panePartial.id = 'ric-pane-parz';
+  panePartial.style.cssText = 'flex:1;display:none;flex-direction:column;gap:.5rem;overflow:hidden';
+  panePartial.innerHTML = '    <input id="ric-parz-search" type="text" placeholder="🔍 Cerca contorno..." style="width:100%;padding:.5rem .7rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;box-sizing:border-box">    <div id="ric-parz-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;max-height:50vh"></div>  ';
+  pop.appendChild(panePartial);
+
+  function renderListaRicette(listEl, filtro, tipoFiltro) {
     var ricette = (db.ricette||[]).filter(function(r){
       if ((r.cat||'').toLowerCase() !== catRic) return false;
+      var _tipoR = r.tipo || 'completo';
+      if (_tipoR !== tipoFiltro) return false;
       if (!filtro) return true;
       var f = filtro.toLowerCase();
       return (r.nome||'').toLowerCase().includes(f) || (r.ing||'').toLowerCase().includes(f);
     });
     if (!ricette.length) {
-      listEl.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.8rem">Nessuna ricetta nel ricettario per ' + catRic + '.<br>Aggiungile dalla sezione Ricette.</div>';
+      var _msgTipo = tipoFiltro === 'contorno' ? 'ricette parziali (contorni)' : 'ricette';
+      listEl.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.8rem">Nessuna ' + _msgTipo + ' nel ricettario per ' + catRic + '.<br>Aggiungile dalla sezione Ricette.</div>';
       return;
     }
     listEl.innerHTML = '';
@@ -10435,16 +10444,18 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
       btn.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:.6rem .8rem;border:1px solid #e2e8f0;background:#fafbfc;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;width:100%';
       btn.onmouseover = function(){ btn.style.background='#f0f9f4'; btn.style.borderColor='var(--teal)'; };
       btn.onmouseout = function(){ btn.style.background='#fafbfc'; btn.style.borderColor='#e2e8f0'; };
-      var _tipoRic = r.tipo || 'completo';
-      var _badge = _tipoRic === 'contorno'
-        ? '<span style="font-size:.62rem;font-weight:600;color:#0f6e56;background:#e1f5ee;border-radius:10px;padding:1px 7px">+ si aggiunge</span>'
-        : '<span style="font-size:.62rem;font-weight:600;color:#185fa5;background:#e6f1fb;border-radius:10px;padding:1px 7px">↻ sostituisce</span>';
-      btn.innerHTML = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><strong style="font-size:.85rem;color:#1e293b">' + r.nome + '</strong>' + _badge + '</div>' + (r.ing ? '<span style="font-size:.72rem;color:#64748b;line-height:1.4">' + r.ing.substring(0, 100) + (r.ing.length > 100 ? '...' : '') + '</span>' : '');
+      btn.innerHTML = '<strong style="font-size:.85rem;color:#1e293b">' + r.nome + '</strong>' + (r.ing ? '<span style="font-size:.72rem;color:#64748b;line-height:1.4">' + r.ing.substring(0, 100) + (r.ing.length > 100 ? '...' : '') + '</span>' : '');
       btn.onclick = function() {
-        salvaRicetta(r.nome, _tipoRic);
+        salvaRicetta(r.nome, tipoFiltro);
       };
       listEl.appendChild(btn);
     });
+  }
+  function renderRicettario(filtro) {
+    renderListaRicette(panePick.querySelector('#ric-pick-list'), filtro, 'completo');
+  }
+  function renderParziali(filtro) {
+    renderListaRicette(panePartial.querySelector('#ric-parz-list'), filtro, 'contorno');
   }
 
   function salvaRicetta(testo, tipo) {
@@ -10471,16 +10482,30 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   pop.querySelector('#ric-tab-write').onclick = function() {
     pop.querySelector('#ric-tab-write').classList.add('ric-tab-active');
     pop.querySelector('#ric-tab-pick').classList.remove('ric-tab-active');
+    pop.querySelector('#ric-tab-parz').classList.remove('ric-tab-active');
     paneWrite.style.display = 'flex';
     panePick.style.display = 'none';
+    panePartial.style.display = 'none';
   };
   pop.querySelector('#ric-tab-pick').onclick = function() {
     pop.querySelector('#ric-tab-pick').classList.add('ric-tab-active');
     pop.querySelector('#ric-tab-write').classList.remove('ric-tab-active');
+    pop.querySelector('#ric-tab-parz').classList.remove('ric-tab-active');
     paneWrite.style.display = 'none';
     panePick.style.display = 'flex';
+    panePartial.style.display = 'none';
     renderRicettario('');
     setTimeout(function(){ panePick.querySelector('#ric-pick-search').focus(); }, 50);
+  };
+  pop.querySelector('#ric-tab-parz').onclick = function() {
+    pop.querySelector('#ric-tab-parz').classList.add('ric-tab-active');
+    pop.querySelector('#ric-tab-write').classList.remove('ric-tab-active');
+    pop.querySelector('#ric-tab-pick').classList.remove('ric-tab-active');
+    paneWrite.style.display = 'none';
+    panePick.style.display = 'none';
+    panePartial.style.display = 'flex';
+    renderParziali('');
+    setTimeout(function(){ panePartial.querySelector('#ric-parz-search').focus(); }, 50);
   };
 
   // Save da scrittura libera
@@ -10492,6 +10517,10 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   // Search ricettario
   panePick.querySelector('#ric-pick-search').addEventListener('input', function(e){
     renderRicettario(e.target.value);
+  });
+  // Search ricette parziali
+  panePartial.querySelector('#ric-parz-search').addEventListener('input', function(e){
+    renderParziali(e.target.value);
   });
 
   // Sfondo
