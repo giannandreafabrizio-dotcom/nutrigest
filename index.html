@@ -103,13 +103,14 @@ main{flex:1;overflow-y:auto;}
 .f1f3-wrapper>.card{flex:1;min-width:0;margin-bottom:0;}
 @media(max-width:700px){.f1f3-wrapper{flex-direction:column;}.f1f3-wrapper>.card{margin-bottom:.6rem;}}
 /* GRID */
-.paz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:.9rem;margin-bottom:1rem;}
-.paz-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;cursor:pointer;transition:all .18s;box-shadow:var(--shadow);}
+.paz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.7rem;margin-bottom:1rem;}
+.paz-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:.75rem .85rem;cursor:pointer;transition:all .18s;box-shadow:var(--shadow);min-width:0;overflow:hidden;}
 .paz-card:hover{border-color:var(--teal);box-shadow:var(--shadow2);transform:translateY(-1px);}
-.paz-card-top{display:flex;align-items:center;gap:.7rem;margin-bottom:.65rem;}
-.avatar{width:40px;height:40px;border-radius:50%;background:var(--teal-bg);border:2px solid var(--teal-light);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--teal);flex-shrink:0;}
-.paz-nome{font-weight:600;font-size:.86rem;}
-.paz-meta{font-size:.71rem;color:var(--text2);margin-top:1px;}
+.paz-card-top{display:flex;align-items:center;gap:.55rem;margin-bottom:.5rem;min-width:0;}
+.paz-card-top>div{min-width:0;overflow:hidden;}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--teal-bg);border:2px solid var(--teal-light);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:.85rem;color:var(--teal);flex-shrink:0;}
+.paz-nome{font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.paz-meta{font-size:.71rem;color:var(--text2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .paz-tags{display:flex;gap:.25rem;flex-wrap:wrap;}
 .tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:.65rem;font-weight:500;}
 .tag-teal{background:var(--teal-bg);color:var(--teal);}
@@ -630,7 +631,7 @@ main{flex:1;overflow-y:auto;}
   </div>
   <div class="sbar">
     <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="debounceRicerca()">
-    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select><select id="sort-paz" onchange="renderPaz()"><option value="cognome">A→Z</option><option value="recenti">Più recenti</option></select>
+    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select><select id="sort-paz" onchange="renderPaz()"><option value="cognome">Cognome A→Z</option><option value="nome">Nome A→Z</option><option value="recenti">Più recenti</option></select>
   </div>
   <div class="paz-grid" id="paz-grid"></div>
 </div>
@@ -3684,6 +3685,7 @@ function renderPaz(){
   const sortMode=document.getElementById('sort-paz')?.value||'cognome';
   let list=[...db.pazienti].sort((a,b)=>{
     if(sortMode==='recenti')return (b.id||'').localeCompare(a.id||'');
+    if(sortMode==='nome')return (a.nome||'').localeCompare(b.nome||'');
     return (a.cognome||'').localeCompare(b.cognome||'');
   });
   if(f==='archiviati')list=list.filter(p=>p.stato==='archiviato');
