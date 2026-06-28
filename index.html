@@ -1527,6 +1527,12 @@ main{flex:1;overflow-y:auto;}
         <option value="post-workout">Post-workout</option>
       </select>
     </div>
+    <div class="fg"><label>Tipo</label>
+      <select id="r-tipo">
+        <option value="completo">Pasto completo (sostituisce)</option>
+        <option value="contorno">Contorno (si aggiunge)</option>
+      </select>
+    </div>
     <div class="fg"><label>Porzioni</label><input type="number" id="r-porzioni" value="1" min="1"></div>
   </div>
   <div class="fr">
@@ -10429,20 +10435,32 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
       btn.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:.6rem .8rem;border:1px solid #e2e8f0;background:#fafbfc;border-radius:6px;cursor:pointer;text-align:left;transition:all .15s;width:100%';
       btn.onmouseover = function(){ btn.style.background='#f0f9f4'; btn.style.borderColor='var(--teal)'; };
       btn.onmouseout = function(){ btn.style.background='#fafbfc'; btn.style.borderColor='#e2e8f0'; };
-      btn.innerHTML = '<strong style="font-size:.85rem;color:#1e293b">' + r.nome + '</strong>' + (r.ing ? '<span style="font-size:.72rem;color:#64748b;line-height:1.4">' + r.ing.substring(0, 100) + (r.ing.length > 100 ? '...' : '') + '</span>' : '');
+      var _tipoRic = r.tipo || 'completo';
+      var _badge = _tipoRic === 'contorno'
+        ? '<span style="font-size:.62rem;font-weight:600;color:#0f6e56;background:#e1f5ee;border-radius:10px;padding:1px 7px">+ si aggiunge</span>'
+        : '<span style="font-size:.62rem;font-weight:600;color:#185fa5;background:#e6f1fb;border-radius:10px;padding:1px 7px">↻ sostituisce</span>';
+      btn.innerHTML = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><strong style="font-size:.85rem;color:#1e293b">' + r.nome + '</strong>' + _badge + '</div>' + (r.ing ? '<span style="font-size:.72rem;color:#64748b;line-height:1.4">' + r.ing.substring(0, 100) + (r.ing.length > 100 ? '...' : '') + '</span>' : '');
       btn.onclick = function() {
-        salvaRicetta(r.nome);
+        salvaRicetta(r.nome, _tipoRic);
       };
       listEl.appendChild(btn);
     });
   }
 
-  function salvaRicetta(testo) {
+  function salvaRicetta(testo, tipo) {
     var ctx = _trovaPasto(giorno, slotKey);
     if (!ctx || !ctx.pasto) return;
     if (!ctx.pasto.ricette) ctx.pasto.ricette = [];
     while (ctx.pasto.ricette.length <= idx) ctx.pasto.ricette.push('');
-    ctx.pasto.ricette[idx] = (testo||'').trim();
+    var nuovo = (testo||'').trim();
+    if (tipo === 'contorno') {
+      // Contorno: si fonde nella riga su cui hai cliccato, non la sostituisce.
+      var esistente = (ctx.pasto.ricette[idx]||'').trim();
+      ctx.pasto.ricette[idx] = esistente ? (esistente + ' + ' + nuovo) : nuovo;
+    } else {
+      // Pasto completo (o ricetta senza tipo): sostituisce la riga.
+      ctx.pasto.ricette[idx] = nuovo;
+    }
     document.getElementById('popup-ric').remove();
     document.getElementById('popup-ric-bg').remove();
     _aggiornaPianoBox();
@@ -13503,12 +13521,12 @@ function renderRic(){
     </div>`).join('');
 }
 
-function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
-function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';document.getElementById('r-cat').value=r.cat||'pranzo';document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const _tp=document.getElementById('r-tipo');if(_tp)_tp.value='completo';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';document.getElementById('r-cat').value=r.cat||'pranzo';document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');const _tpE=document.getElementById('r-tipo');if(_tpE)_tpE.value=r.tipo||'completo';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
 async function salvaRic(){
   const nome=document.getElementById('r-nome').value.trim();if(!nome){alert('Inserisci nome');return;}
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
-  const r={nome,cat:document.getElementById('r-cat').value,kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:document.getElementById('r-tags').value.split(',').map(t=>t.trim()).filter(Boolean)};
+  const r={nome,cat:document.getElementById('r-cat').value,tipo:(document.getElementById('r-tipo')?document.getElementById('r-tipo').value:'completo'),kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:document.getElementById('r-tags').value.split(',').map(t=>t.trim()).filter(Boolean)};
   if(editRicId){const idx=db.ricette.findIndex(x=>x.id===editRicId);if(idx>=0){r.id=editRicId;db.ricette[idx]=r;}}else{r.id=uid();db.ricette.push(r);}
   console.log('[RICETTE] salvaRic — salvo ricetta:', r.nome, '— id:', r.id);
   saveLocal();
