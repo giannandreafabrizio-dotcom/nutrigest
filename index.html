@@ -2248,39 +2248,75 @@ function renderBadgeMacrosReali_DOM(piano) {
 
 
 const ANALISI = {
-  'Base — Consigliate a tutti':[
-    'Emocromo','Neutrofili','Linfociti','Glicemia a digiuno','Insulina a digiuno',
-    'Colesterolo totale','HDL','LDL','Trigliceridi',
-    'Creatinina + eGFR','Sodio','Potassio',
-    'AST (transaminasi)','ALT (transaminasi)','Azotemia','Acido urico',
-    'Ferritina','Sideremia','TSH','FT3','FT4',
-    'Vitamina B12','Folati','Vitamina D (25-OH)','Omocisteina'
+  'Emocromo — Serie rossa':[
+    'Globuli rossi (RBC)','Emoglobina','Ematocrito','MCV','MCH','MCHC','RDW'
   ],
-  'Insulino-Resistenza — Se necessario':[
-    'OGTT 75g (glicemia + insulina 0-30-60-90-120 min)','Indice HOMA-IR',
-    'Emoglobina glicata (HbA1c)','C-peptide','Matsuda Index','QUICKI'
+  'Emocromo — Serie bianca':[
+    'Globuli bianchi (WBC)','Neutrofili','Linfociti','Eosinofili','Monociti','Basofili'
   ],
-  'Profilo cardiovascolare alterato':[
-    'ApoB (Apolipoproteina B)','ApoA1 (Apolipoproteina A1)','Lipoproteina(a) [Lp(a)]',
-    'hsCRP (PCR alta sensibilità)','Omocisteina'
+  'Emocromo — Piastrine':[
+    'Piastrine (PLT)','PCT','MPV','PDW'
   ],
-  'Funzionalità epatica alterata':[
-    'γ-GT','Bilirubina totale','Bilirubina diretta','Bilirubina indiretta','Fosfatasi alcalina (ALP)'
+  'Glicemia e metabolismo glucidico':[
+    'Glicemia a digiuno','Insulina a digiuno','HbA1c (DCCT)','HbA1c (IFCC)','Fruttosamina'
   ],
-  'Funzionalità tiroidea alterata':[
-    'Anti-TPO','Anti-TG'
+  'Assetto lipidico':[
+    'Colesterolo totale','HDL','LDL','Trigliceridi'
   ],
-  'Metabolismo del ferro alterato':[
-    'Transferrina','Saturazione transferrina','PCR'
+  'Funzionalità renale e azotati':[
+    'Creatinina + eGFR','Azotemia','Acido urico','Cistatina C'
+  ],
+  'Elettroliti e minerali':[
+    'Sodio','Potassio','Cloro','Calcio','Fosforo'
+  ],
+  'Funzionalità epatica e pancreatica':[
+    'AST (transaminasi)','ALT (transaminasi)','γ-GT','Bilirubina totale','Bilirubina diretta','Bilirubina indiretta',
+    'Fosfatasi alcalina (ALP)','Amilasi','Lipasi','Colinesterasi'
+  ],
+  'Coagulazione':[
+    'PT (Tempo di protrombina)','INR','PTT','Fibrinogeno'
+  ],
+  'Assetto marziale (ferro)':[
+    'Ferritina','Sideremia','Transferrina','Saturazione transferrina'
+  ],
+  'Funzionalità tiroidea':[
+    'TSH','FT3','FT4','Reverse T3 (rT3)','Anti-TPO','Anti-TG','Iodio urinario'
+  ],
+  'Metabolismo osseo e paratiroide':[
+    'Paratormone intatto (PTH)','Vitamina D (25-OH)'
+  ],
+  'Vitamine e omocisteina':[
+    'Vitamina B1 (tiamina)','Vitamina B6 (piridossina)','Vitamina B12','Folati','Vitamina C',
+    'Vitamina A (retinolo)','Vitamina E','Vitamina K','Omocisteina'
+  ],
+  'Stato nutrizionale proteico':[
+    'Proteine totali','Albumina sierica','Protidogramma (elettroforesi proteica)','Prealbumina (transtiretina)'
+  ],
+  'Infiammazione':[
+    'VES','PCR','hsCRP (PCR alta sensibilità)'
+  ],
+  'Profilo cardiovascolare avanzato':[
+    'ApoB (Apolipoproteina B)','ApoA1 (Apolipoproteina A1)','Lipoproteina(a) [Lp(a)]'
   ],
   'Endocrino — Su sospetto clinico':[
-    'Testosterone totale','Estradiolo'
+    'Testosterone totale','Estradiolo','SHBG','Cortisolo','DHEA-S','IGF-1'
+  ],
+  'Muscolo e sport':[
+    'CK (creatinchinasi)','LDH'
+  ],
+  'Screening celiachia':[
+    'Anti-transglutaminasi IgA (tTG)','Anti-endomisio (EMA)','IgA totali'
+  ],
+  'Insulino-Resistenza — Se necessario':[
+    'OGTT 75g (glicemia + insulina 0-30-60-90-120 min)','Indice HOMA-IR','C-peptide','Matsuda Index','QUICKI'
   ],
   'Renale — Microalbuminuria':[
     'Albumina urinaria','Creatinina urinaria'
   ],
-  'Vitamine — Su sospetto clinico':[
-    'Vitamina B6 (piridossina)','Vitamina A (retinolo)','Vitamina E','Vitamina K'
+  'Esame completo delle urine':[
+    'Aspetto (urine)','Colore (urine)','Densità urine (peso specifico)','pH (urine)','Albumina (stick urine)',
+    'Glucosio (urine)','Chetoni (urine)','Bilirubina (urine)','Urobilinogeno (urine)','Emoglobina (urine)',
+    'Esterasi leucocitaria (urine)','Nitriti (urine)','Esame morfologico sedimento'
   ],
   'Micronutrienti — Su indicazione':[
     'Zinco sierico','Rame sierico','Selenio sierico','Magnesio sierico','8-OHdG urinario'
@@ -2422,7 +2458,28 @@ const CALCOLI_CLINICI = [
    soglie:[{max:0.7,sem:'verde'},{max:0.9,sem:'giallo'},{sem:'rosso'}],
    cosa:'Rapporto ApoB/ApoA1 — bilancio tra particelle aterogene (ApoB) e antiaterogene (ApoA1).',
    range:'<0.7 ottimo · 0.7–0.9 borderline · >0.9 rischio cardiovascolare alto.',
-   alert:'Considerato dal INTERHEART study come il singolo miglior predittore di infarto miocardico, superiore al solo LDL.'}
+   alert:'Considerato dal INTERHEART study come il singolo miglior predittore di infarto miocardico, superiore al solo LDL.'},
+  {id:'ca_corr', nome:'Calcio corretto (per albumina)', deps:['Calcio','Albumina sierica'],
+   formula:(v)=>v['Calcio']+0.8*(4-v['Albumina sierica']),
+   unit:'mg/dL',
+   soglie:[{min:8.5,max:10.5,sem:'verde'},{min:8.0,max:11.0,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Calcio sierico corretto per i livelli di albumina — circa il 40% del calcio circola legato all\'albumina, quindi in caso di ipoalbuminemia il calcio totale misurato sottostima il calcio realmente attivo.',
+   range:'8.5–10.5 mg/dL normale (range generale, verificare i valori del laboratorio) · <8.5 ipocalcemia · >10.5 ipercalcemia.',
+   alert:'Formula di Payne: Ca corretto = Ca misurato + 0.8 × (4 − Albumina g/dL). Più affidabile del calcio totale nei pazienti con albumina bassa (malnutrizione, epatopatia, nefropatia cronica). Inserire Calcio e Albumina sierica in mg/dL e g/dL.'},
+  {id:'ag_ratio', nome:'A/G (Albumina/Globuline)', deps:['Proteine totali','Albumina sierica'],
+   formula:(v)=>v['Albumina sierica']/(v['Proteine totali']-v['Albumina sierica']),
+   unit:'',
+   soglie:[{min:1.1,max:2.2,sem:'verde'},{min:0.8,max:2.5,sem:'giallo'},{sem:'rosso'}],
+   cosa:'Rapporto Albumina/Globuline — bilancio tra proteine nutrizionali (albumina) e proteine immunitarie/infiammatorie (globuline, calcolate come Proteine totali − Albumina).',
+   range:'1.1–2.2 normale (range generale) · ratio basso = infiammazione cronica, epatopatia, malnutrizione proteica, gammopatie · ratio alto = raro, talvolta disidratazione.',
+   alert:'Un A/G persistentemente basso con proteine totali normali o alte suggerisce un aumento delle globuline (infiammazione cronica, processi immunitari) più che una vera carenza di albumina.'},
+  {id:'fai', nome:'FAI — Indice androgeno libero (T/SHBG)', deps:['Testosterone totale','SHBG'],
+   formula:(v)=>(v['Testosterone totale']/v['SHBG'])*100,
+   unit:'%',
+   soglie:[{sem:'info'}],
+   cosa:'Free Androgen Index — stima la quota di testosterone biologicamente attivo (non legato a SHBG).',
+   range:'I cutoff variano molto per metodica di laboratorio e per sesso: più utile come andamento nel singolo paziente nel tempo che come valore assoluto isolato.',
+   alert:'Inserire Testosterone totale e SHBG nella stessa unità (tipicamente nmol/L) per un rapporto coerente. Nella donna un FAI elevato è un marker di iperandrogenismo (es. PCOS); nell\'uomo un FAI basso suggerisce ridotta biodisponibilità androgenica anche con testosterone totale normale.'}
 ];
 
 // Parser numero robusto: estrae il primo numero da una stringa libera (es. "108 mg/dL", "1,5", "1.5 mEq").
@@ -6493,6 +6550,12 @@ function renderPdAlimenti(p){
 function renderPdAnalisi(p){
   const as=p.analisiSangue||{};
   let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti"></div>';
+  html+='<div class="upload-area" onclick="document.getElementById(\'as-pdf-input\').click()" style="padding:.5rem .9rem;margin-bottom:.6rem">'
+      +'<p style="margin:0">📄 Clicca per importare un referto (PDF o foto) — i valori riconosciuti vengono inseriti automaticamente</p>'
+      +'<span id="as-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>'
+      +'</div>'
+      +'<input type="file" id="as-pdf-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="loadAnalisiSanguePDF(event)">'
+      +'<div id="as-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">⏳ Estrazione valori dal referto in corso…</div>';
   // P17 Fase B: pannello "Calcoli automatici" in cima — mostra solo gli indici calcolabili,
   // gli altri con avviso "manca X". Indici sesso-specifici hidden se non applicabili.
   html+=_renderCalcoliPannello(p);
@@ -6526,6 +6589,89 @@ function renderPdAnalisi(p){
 
 function toggleAnalisiSection(secEl){
   if(secEl) secEl.classList.toggle('collapsed');
+}
+
+// ═══════════════════════════════════════
+// ANALISI DEL SANGUE — import automatico da referto PDF/foto
+// Funzione indipendente da loadInbodyPDF: l'InBody è un referto della bilancia
+// (massa grassa/magra/idrica ecc.), questa invece legge referti di laboratorio
+// (sangue e/o urine) inviati dal paziente via mail o fotografati su carta.
+// ═══════════════════════════════════════
+async function loadAnalisiSanguePDF(e){
+  const file=e.target.files[0]; if(!file) return;
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p){ notif('Nessun paziente selezionato'); e.target.value=''; return; }
+  const nameEl=document.getElementById('as-pdf-name'); if(nameEl) nameEl.textContent=file.name;
+  const loadingEl=document.getElementById('as-pdf-loading'); if(loadingEl) loadingEl.style.display='block';
+  const isImage=file.type.startsWith('image/');
+  try{
+    const apiKey=localStorage.getItem('anthropicApiKey')||'';
+    if(!apiKey) throw new Error('Chiave API non configurata.');
+
+    // Lettura file → base64 (Promise, cosi' il blocco try/catch copre anche eventuali errori di lettura)
+    const base64=await new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload=ev=>res(ev.target.result.split(',')[1]);
+      reader.onerror=()=>rej(new Error('Lettura file non riuscita'));
+      reader.readAsDataURL(file);
+    });
+    const mediaType=isImage?file.type:'application/pdf';
+    const contentBlock=isImage
+      ? {type:'image', source:{type:'base64', media_type:mediaType, data:base64}}
+      : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
+
+    // Elenco voci sempre sincronizzato con ANALISI: se in futuro si aggiungono altre
+    // voci, il prompt le includerà automaticamente senza bisogno di aggiornare questa funzione.
+    const elencoVoci=Object.values(ANALISI).flat();
+    const promptTesto='Sei un assistente clinico. Estrai dal referto di laboratorio allegato (analisi del sangue e/o delle urine) SOLO i valori dei seguenti esami, se realmente presenti nel documento. Rispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown.\n\n'
+      +'Usa ESATTAMENTE queste chiavi (anche se nel referto sono scritte in modo leggermente diverso, es. abbreviazioni):\n'
+      +elencoVoci.map(v=>'- "'+v+'"').join('\n')
+      +'\n\nRegole:\n'
+      +'- Se un esame non è presente nel referto, NON includere quella chiave nel JSON (ometti, non mettere null).\n'
+      +'- Per i valori numerici riporta solo il numero (es. "13.6"), senza unità di misura, usando il punto come separatore decimale.\n'
+      +'- Per i valori testuali delle urine (es. Aspetto, Colore, Esame morfologico sedimento) riporta il testo come scritto nel referto (es. "Limpido", "Giallo chiaro", "Assente").\n'
+      +'- Riporta solo il risultato del paziente, non gli intervalli di riferimento del laboratorio.\n\n'
+      +'Formato risposta: {"Nome esame 1": "valore", "Nome esame 2": "valore"}';
+
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:2000,
+        messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]
+      })
+    });
+    if(!resp.ok) throw new Error('Errore API '+resp.status);
+    const data=await resp.json();
+    const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+    const clean=testo.replace(/```json|```/g,'').trim();
+    const estratti=JSON.parse(clean);
+
+    if(!p.analisiSangue) p.analisiSangue={};
+    const elencoSet=new Set(elencoVoci);
+    let nImportati=0;
+    Object.entries(estratti).forEach(([nome,val])=>{
+      if(val==null || String(val).trim()==='') return;
+      if(!elencoSet.has(nome)) return; // ignora chiavi non riconosciute, per sicurezza
+      const key=ANALISI_KEY(nome);
+      p.analisiSangue[key+'_val']=String(val).trim();
+      nImportati++;
+    });
+
+    if(nImportati===0){
+      notif('⚠ Nessun valore riconosciuto nel referto.');
+    } else {
+      save();
+      renderPdAnalisi(p); // ridisegna l'intera card con i nuovi valori e i calcoli aggiornati
+      notif('✓ '+nImportati+' valori importati dal referto!');
+    }
+  } catch(err){
+    notif('⚠ Errore estrazione referto: '+err.message);
+  } finally {
+    const loadingEl2=document.getElementById('as-pdf-loading'); if(loadingEl2) loadingEl2.style.display='none';
+    e.target.value=''; // reset input: permette di ricaricare lo stesso file se necessario
+  }
 }
 
 // P17 Fase C: stato "includi nel ragionamento FX" per-indice. Default ON: il calcolo
