@@ -9056,7 +9056,32 @@ function costruisciPrompt(pazienteId) {
   var alimentiRossi    = Object.entries(al).filter(function(e){return e[1]==='rosso';}).map(function(e){return e[0].split('__')[1];});
   var alimentiEsclusi  = Object.entries(al).filter(function(e){return e[1]==='grigioScuro'||e[1]==='no';}).map(function(e){return e[0].split('__')[1];});
 
-  var ricetteDB = (db.ricette||[]).map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
+  // ── P1: filtro ispirazione (conservativo) ──
+  // Manda all'AI solo i titoli pertinenti: esclude le ricette il cui pasto è
+  // CHIARAMENTE uno che il paziente non fa. Le ricette senza pasto determinabile
+  // (cat/tags assenti o ambigui) vengono SEMPRE tenute → la qualità non può peggiorare.
+  // Tetto di sicurezza per limitare i token quando il ricettario cresce (P37).
+  var _mealActive = {
+    colazione: p.colazione!=='no',
+    spuntino:  (p.spuntM==='si' || p.spuntP==='si'),
+    pranzo:    p.pranzo!=='no',
+    cena:      p.cena!=='no',
+    pre_nanna: p.prenanna==='si'
+  };
+  function _ricSlot(r){
+    var c=(r.cat||'').toLowerCase().trim();
+    if(_mealActive.hasOwnProperty(c)) return c;
+    var tg=(r.tags||[]).map(function(t){return String(t).toLowerCase().trim();});
+    var slots=['colazione','spuntino','pranzo','cena','pre_nanna'];
+    for(var i=0;i<slots.length;i++){ if(tg.indexOf(slots[i])>=0) return slots[i]; }
+    return null; // pasto non determinabile → si tiene
+  }
+  var ricetteDB = (db.ricette||[]).filter(function(r){
+    var slot=_ricSlot(r);
+    if(slot===null) return true;          // metadata ambigua → tieni
+    return _mealActive[slot]===true;      // tieni solo se quel pasto è attivo
+  }).map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
+  if(ricetteDB.length>80) ricetteDB=ricetteDB.slice(0,80); // tetto token
 
   var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
   var nGiorni = isCeto ? 7 : 6;
