@@ -937,7 +937,7 @@ main{flex:1;overflow-y:auto;}
     <div style="text-align:center;padding-top:.4rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;">
       <button id="piano-btn-genera" class="btn" disabled
         style="background:#b2dfbe;border:none;color:#fff;padding:.75rem 2.2rem;font-size:.9rem;border-radius:8px;cursor:not-allowed;transition:all .2s;"
-        onclick="generaPiano()">
+        onclick="apriSceltaModalitaPiano()">
         ✦ Genera Piano
       </button>
       <button id="piano-btn-rigenera" class="btn" disabled
@@ -12186,6 +12186,371 @@ async function generaPiano(forceRegen){
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P33 — MODALITÀ COMPOSIZIONE MANUALE DEL PIANO (commit 1: ossatura)
+// Bivio AI/manuale, scelta numero giorni, albero alimenti colorato dal semaforo,
+// drag & drop alimento → cella nuova (zona vuota) o alternativa (su cella esistente).
+// La scomposizione ricette arriva nel commit 2; il pulsante "Pesca ricetta"
+// esistente continua a funzionare come oggi.
+// Riusa window._pianoCorrente (stesso formato del piano AI) e _aggiornaPianoBox().
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Colore del nome alimento in base allo stato semaforo del paziente.
+// Allineato alla convenzione già usata altrove (riga ~13736).
+function _ngColoreSemaforoNome(stato){
+  if(stato==='si'||stato==='verde') return '#16a34a';
+  if(stato==='arancione') return '#ea580c';
+  if(stato==='rosso') return '#dc2626';
+  return 'var(--text2,#475569)'; // neutro: nessuna preferenza impostata
+}
+
+// Apre il bivio iniziale: "Genera con AI" oppure "Componi a mano".
+function apriSceltaModalitaPiano(){
+  const sel=document.getElementById('piano-select-paz');
+  const id=sel?sel.value:'';
+  if(!id){notif('⚠ Seleziona prima un paziente');return;}
+  const p=db.pazienti.find(x=>x.id===id);
+  if(!p){notif('⚠ Paziente non trovato');return;}
+
+  // Rimuovi eventuale popup precedente
+  const vecchio=document.getElementById('ng-modalita-bg'); if(vecchio) vecchio.remove();
+
+  const bg=document.createElement('div');
+  bg.id='ng-modalita-bg';
+  bg.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  bg.innerHTML=
+    '<div style="background:#fff;border-radius:14px;max-width:540px;width:100%;padding:1.4rem 1.4rem 1.2rem;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+    +'<div style="font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:.3rem">Come vuoi creare il piano?</div>'
+    +'<div style="font-size:.82rem;color:#64748b;margin-bottom:1.1rem">Paziente: <strong>'+((p.nome||'')+' '+(p.cognome||'')).trim()+'</strong></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">'
+      +'<button onclick="_ngChiudiModalita();generaPiano()" style="text-align:left;border:1px solid #e2e8f0;background:#fafbfc;border-radius:12px;padding:1rem;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor=\'#7c3aed\';this.style.background=\'#f5f3ff\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.background=\'#fafbfc\'">'
+        +'<div style="font-size:1.4rem;margin-bottom:.4rem">✨</div>'
+        +'<div style="font-weight:700;color:#1e293b;font-size:.9rem;margin-bottom:.2rem">Genera con AI</div>'
+        +'<div style="font-size:.74rem;color:#64748b;line-height:1.4">L\'AI costruisce pranzi e cene con principali e alternative. Veloce, poi ritocchi.</div>'
+      +'</button>'
+      +'<button onclick="_ngAvviaModalitaManuale()" style="text-align:left;border:2px solid #0ea5e9;background:#f0f9ff;border-radius:12px;padding:1rem;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#e0f2fe\'" onmouseout="this.style.background=\'#f0f9ff\'">'
+        +'<div style="font-size:1.4rem;margin-bottom:.4rem">🛠️</div>'
+        +'<div style="font-weight:700;color:#1e293b;font-size:.9rem;margin-bottom:.2rem">Componi a mano</div>'
+        +'<div style="font-size:.74rem;color:#64748b;line-height:1.4">Parti da pasti vuoti. Trascini alimenti dall\'albero e peschi ricette dal ricettario.</div>'
+      +'</button>'
+    +'</div>'
+    +'<div style="text-align:right;margin-top:1rem"><button onclick="_ngChiudiModalita()" style="background:none;border:none;color:#64748b;font-size:.82rem;cursor:pointer;padding:.4rem .6rem">Annulla</button></div>'
+    +'</div>';
+  bg.addEventListener('click',function(e){ if(e.target===bg) _ngChiudiModalita(); });
+  document.body.appendChild(bg);
+}
+
+function _ngChiudiModalita(){ const bg=document.getElementById('ng-modalita-bg'); if(bg) bg.remove(); }
+
+// Step "Componi a mano": chiede il numero di giorni (campo vuoto, nessun default).
+function _ngAvviaModalitaManuale(){
+  const card=document.querySelector('#ng-modalita-bg > div');
+  if(!card) return;
+  card.innerHTML=
+    '<div style="font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:.3rem">Quanti giorni?</div>'
+    +'<div style="font-size:.82rem;color:#64748b;margin-bottom:1.1rem">Inserisci il numero di giorni del piano (es. 7, oppure 10-12 per un piano lungo).</div>'
+    +'<input type="number" id="ng-num-giorni" min="1" max="31" placeholder="numero giorni" style="width:100%;padding:.7rem .9rem;border:1px solid #cbd5e1;border-radius:8px;font-size:1rem;margin-bottom:1rem" oninput="this.style.borderColor=\'#cbd5e1\'">'
+    +'<div style="display:flex;gap:.6rem;justify-content:space-between">'
+      +'<button onclick="apriSceltaModalitaPiano()" style="background:#fff;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:.6rem 1rem;font-size:.82rem;cursor:pointer">← Indietro</button>'
+      +'<button onclick="_ngCreaPianoManuale()" style="background:#0ea5e9;border:none;color:#fff;border-radius:8px;padding:.6rem 1.4rem;font-size:.85rem;font-weight:600;cursor:pointer">Crea piano vuoto</button>'
+    +'</div>';
+  setTimeout(function(){ const inp=document.getElementById('ng-num-giorni'); if(inp) inp.focus(); },50);
+}
+
+// Crea N giorni con i 6 slot vuoti (formato celle) e avvia l'editor manuale.
+function _ngCreaPianoManuale(){
+  const inp=document.getElementById('ng-num-giorni');
+  const n=inp?parseInt(inp.value,10):NaN;
+  if(!n || n<1 || n>31){
+    if(inp){ inp.style.borderColor='#dc2626'; inp.focus(); }
+    notif('⚠ Inserisci un numero di giorni valido (1-31)');
+    return;
+  }
+  const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  const piano=[];
+  for(let i=1;i<=n;i++){
+    const pasti={};
+    slots.forEach(function(s){ pasti[s]={celle:[]}; });
+    piano.push({ giorno:'Giorno '+i, pasti:pasti });
+  }
+  window._pianoCorrente=piano;
+  window._pianoGiornoCorrente=0;
+  window._ngModalitaManuale=true; // flag: stiamo componendo a mano
+  // Collega il piano al PDF (come fa la generazione AI)
+  const sel=document.getElementById('piano-select-paz');
+  const id=sel?sel.value:'';
+  const p=db.pazienti.find(x=>x.id===id);
+  if(p){ window._pdfPaziente=p; window._pdfPiano=piano; }
+  _ngChiudiModalita();
+  _ngRenderEditorManuale();
+}
+
+// Render dell'editor manuale: albero alimenti a sinistra + piano (celle) a destra.
+function _ngRenderEditorManuale(){
+  const box=document.getElementById('piano-piano-box');
+  if(!box) return;
+  // Layout split: albero (sinistra) + contenitore piano (destra)
+  box.innerHTML=
+    '<div style="display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:.8rem;margin-top:1rem;align-items:start">'
+      +'<div id="ng-albero" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;position:sticky;top:.5rem;max-height:78vh;display:flex;flex-direction:column"></div>'
+      +'<div id="ng-piano-destra"></div>'
+    +'</div>';
+  _ngRenderAlbero();
+  _ngRenderPianoDestra();
+}
+
+// Albero alimenti: tutte le categorie ALIMENTI, nomi colorati dal semaforo del paziente.
+function _ngRenderAlbero(){
+  const cont=document.getElementById('ng-albero');
+  if(!cont) return;
+  const sel=document.getElementById('piano-select-paz');
+  const id=sel?sel.value:'';
+  const p=db.pazienti.find(x=>x.id===id);
+  const al=(p&&p.alimenti)||{};
+
+  let h='<div style="padding:.55rem .7rem;border-bottom:1px solid #eef0f3;display:flex;align-items:center;gap:.4rem;flex:0 0 auto">'
+    +'<span style="color:#94a3b8;font-size:.9rem">🔍</span>'
+    +'<input type="text" id="ng-albero-cerca" placeholder="cerca alimento…" oninput="_ngFiltraAlbero(this.value)" style="border:none;outline:none;font-size:.8rem;flex:1;background:transparent;color:#1e293b">'
+    +'</div>';
+  h+='<div id="ng-albero-lista" style="overflow-y:auto;flex:1;padding:.3rem 0;font-size:.8rem">';
+  Object.keys(ALIMENTI).forEach(function(cat,ci){
+    const data=ALIMENTI[cat];
+    if(!data||!data.items||!data.items.length) return;
+    const catId='ngcat_'+ci;
+    h+='<div class="ng-cat-row" data-cat="'+cat.replace(/"/g,'&quot;')+'" style="display:flex;align-items:center;gap:5px;padding:6px 10px;cursor:pointer;color:#475569;font-weight:600;user-select:none" onclick="_ngToggleCat(\''+catId+'\',this)">'
+      +'<span class="ng-caret" style="font-size:.6rem;display:inline-block;transition:transform .15s;transform:rotate(-90deg)">▼</span>'
+      +'<span style="flex:1">'+cat+'</span>'
+      +'<span style="font-size:.68rem;color:#94a3b8;font-weight:500">'+data.items.length+'</span>'
+      +'</div>';
+    h+='<div class="ng-cat-items" id="'+catId+'" style="display:none">';
+    data.items.forEach(function(item){
+      const key=cat+'__'+item.n;
+      const stato=al[key]||'';
+      const colore=_ngColoreSemaforoNome(stato);
+      h+='<div class="ng-alimento" draggable="true"'
+        +' data-nome="'+item.n.replace(/"/g,'&quot;')+'"'
+        +' data-grammi="'+(item.g||100)+'"'
+        +' data-cat="'+cat.replace(/"/g,'&quot;')+'"'
+        +' ondragstart="_ngDragStart(event)"'
+        +' style="padding:4px 10px 4px 28px;cursor:grab;color:'+colore+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis"'
+        +' title="Trascina nel pasto a destra">'+item.n+'</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  cont.innerHTML=h;
+}
+
+function _ngToggleCat(catId,row){
+  const el=document.getElementById(catId);
+  if(!el) return;
+  const aperto=el.style.display!=='none';
+  el.style.display=aperto?'none':'block';
+  const caret=row.querySelector('.ng-caret');
+  if(caret) caret.style.transform=aperto?'rotate(-90deg)':'rotate(0deg)';
+}
+
+function _ngFiltraAlbero(testo){
+  const q=(testo||'').toLowerCase().trim();
+  document.querySelectorAll('#ng-albero-lista .ng-cat-items').forEach(function(grp){
+    let nVis=0;
+    grp.querySelectorAll('.ng-alimento').forEach(function(a){
+      const match=!q || (a.getAttribute('data-nome')||'').toLowerCase().includes(q);
+      a.style.display=match?'block':'none';
+      if(match) nVis++;
+    });
+    // Quando si cerca, espandi le categorie con risultati e collassa le altre
+    const row=grp.previousElementSibling;
+    if(q){
+      grp.style.display=nVis>0?'block':'none';
+      if(row){ const c=row.querySelector('.ng-caret'); if(c) c.style.transform=nVis>0?'rotate(0deg)':'rotate(-90deg)'; row.style.display=nVis>0?'flex':'none'; }
+    } else {
+      grp.style.display='none';
+      if(row){ row.style.display='flex'; const c=row.querySelector('.ng-caret'); if(c) c.style.transform='rotate(-90deg)'; }
+    }
+  });
+}
+
+// Render del piano a destra. Riusa renderPianoBox scrivendo in un box temporaneo,
+// poi sposta il contenuto in #ng-piano-destra, così le celle hanno lo stile NutriGest
+// e tutti i controlli esistenti (grammatura, menu ⋯, ecc.) restano funzionanti.
+function _ngRenderPianoDestra(){
+  const destra=document.getElementById('ng-piano-destra');
+  if(!destra) return;
+  // Usa lo stesso renderer del piano normale, ma in un container dedicato.
+  // renderPianoBox scrive in #piano-piano-box; qui replichiamo la sua logica
+  // chiamando _aggiornaPianoBox che già sa gestire il formato celle.
+  // Per semplicità e coerenza visiva, costruiamo il box giorno-per-giorno qui.
+  let h='';
+  // Barra navigazione giorni
+  const piano=window._pianoCorrente||[];
+  const idx=window._pianoGiornoCorrente||0;
+  const g=piano[idx];
+  if(!g){ destra.innerHTML='<div style="color:#94a3b8;padding:2rem;text-align:center">Nessun giorno</div>'; return; }
+
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;padding:.4rem .2rem">';
+  h+='<button onclick="window._pianoGiornoCorrente=Math.max(0,(window._pianoGiornoCorrente||0)-1);_ngRenderPianoDestra()" '+(idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;'+(idx===0?'opacity:.35':'')+'">←</button>';
+  h+='<div style="text-align:center"><div style="font-weight:700;color:#1e293b">'+(g.giorno||('Giorno '+(idx+1)))+'</div><div style="font-size:.7rem;color:#94a3b8">'+(idx+1)+' di '+piano.length+'</div></div>';
+  h+='<button onclick="window._pianoGiornoCorrente=Math.min('+(piano.length-1)+',(window._pianoGiornoCorrente||0)+1);_ngRenderPianoDestra()" '+(idx===piano.length-1?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;'+(idx===piano.length-1?'opacity:.35':'')+'">→</button>';
+  h+='</div>';
+
+  const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  const labels={colazione:'COLAZIONE',spuntino_mattina:'SPUNTINO MATTINA',pranzo:'PRANZO',spuntino_pomeriggio:'SPUNTINO POMERIGGIO',cena:'CENA',pre_nanna:'PRE-NANNA'};
+  const giornoEsc=(g.giorno||'').replace(/'/g,"\\'");
+  slots.forEach(function(k){
+    const pasto=(g.pasti&&g.pasti[k])?g.pasti[k]:null;
+    if(!pasto) return;
+    h+='<div class="ng-pasto-drop" data-giorno="'+(g.giorno||'').replace(/"/g,'&quot;')+'" data-slot="'+k+'"'
+      +' ondragover="_ngDragOver(event)" ondragleave="_ngDragLeave(event)" ondrop="_ngDrop(event)"'
+      +' style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .9rem;margin-bottom:.7rem;transition:border-color .15s,background .15s">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">';
+    h+='<span style="font-weight:700;color:var(--green,#16a34a);font-size:.82rem">'+labels[k]+'</span>';
+    h+='<button disabled title="La scomposizione ricette arriva nel prossimo aggiornamento" style="background:#f1f5f9;border:1px solid #e2e8f0;color:#94a3b8;border-radius:6px;padding:3px 10px;font-size:.72rem;font-weight:600;cursor:not-allowed">📖 Pesca ricetta</button>';
+    h+='</div>';
+    h+=_ngRenderCelleManuale(pasto,k,g.giorno);
+    h+='</div>';
+  });
+  // Azioni in fondo: salva piano + scarica PDF (riusano le funzioni esistenti)
+  h+='<div style="display:flex;gap:.6rem;margin-top:1rem">';
+  h+='<button onclick="_ngSalvaPianoManuale()" style="flex:1;background:var(--teal2,#0d9488);border:none;color:#fff;border-radius:8px;padding:.6rem;font-size:.85rem;font-weight:600;cursor:pointer">💾 Salva piano</button>';
+  h+='<button onclick="if(window._pdfPaziente&&window._pdfPiano)generaPDF(window._pdfPaziente,window._pdfPiano)" style="flex:1;background:#fff;border:1px solid var(--border,#cbd5e1);color:#1e293b;border-radius:8px;padding:.6rem;font-size:.85rem;font-weight:500;cursor:pointer">⬇️ Scarica PDF</button>';
+  h+='</div>';
+  destra.innerHTML=h;
+}
+
+// Salva il piano manuale con lo stesso meccanismo del piano AI (cache Supabase).
+function _ngSalvaPianoManuale(){
+  if(!window._pianoCorrente){ notif('⚠ Nessun piano da salvare'); return; }
+  const sel=document.getElementById('piano-select-paz');
+  const id=sel?sel.value:'';
+  if(!id){ notif('⚠ Paziente non selezionato'); return; }
+  const pianoEspanso=(typeof espandiPiano==='function')?espandiPiano(window._pianoCorrente):window._pianoCorrente;
+  window._pdfPiano=pianoEspanso;
+  if(typeof _salvaPianoCache==='function') _salvaPianoCache(id,pianoEspanso);
+  notif('✓ Piano salvato!');
+}
+
+// Render celle in stile NutriGest con colore-sul-nome (semaforo del paziente).
+function _ngRenderCelleManuale(pasto,slotKey,giorno){
+  const sel=document.getElementById('piano-select-paz');
+  const id=sel?sel.value:'';
+  const p=db.pazienti.find(x=>x.id===id);
+  const al=(p&&p.alimenti)||{};
+  const celle=(pasto.celle||[]).slice().sort(function(a,b){
+    if((a.ordine||1)!==(b.ordine||1)) return (a.ordine||1)-(b.ordine||1);
+    return (a.colonna||'sx')==='sx'?-1:1;
+  });
+  if(!celle.length){
+    return '<div style="font-size:.74rem;color:#cbd5e1;font-style:italic;padding:.4rem;text-align:center;border:1px dashed #e2e8f0;border-radius:8px">trascina qui un alimento per iniziare</div>';
+  }
+  const giornoEsc=(giorno||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  let h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .5rem">';
+  celle.forEach(function(c){
+    h+='<div data-ng-cell="'+c.id+'" style="background:#fafbfc;border:1px solid #eef0f3;border-radius:7px;padding:.4rem .55rem">';
+    (c.alimenti||[]).forEach(function(a,i){
+      const stato=al[(a.categoria||'')+'__'+a.n]||'';
+      const colore=_ngColoreSemaforoNome(stato);
+      const isPrinc=i===0;
+      h+='<div style="display:flex;align-items:center;gap:4px;'+(isPrinc?'':'padding-left:.6rem;margin-top:2px')+'">';
+      h+='<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:'+(isPrinc?'.82rem':'.71rem')+';font-weight:'+(isPrinc?'600':'400')+';color:'+colore+';'+(isPrinc?'':'font-style:italic')+'" title="'+a.n+'">'+(isPrinc?'':'↳ ')+a.n+'</span>';
+      h+='<span style="color:var(--teal,#0d9488);font-size:.72rem;font-weight:600;white-space:nowrap">'+a.g+'g</span>';
+      h+='<button onclick="_ngRimuoviAlimento(\''+giornoEsc+'\',\''+slotKey+'\',\''+c.id+'\','+i+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;cursor:pointer;line-height:1">×</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+// ── Drag & drop ──
+window._ngDragData=null;
+function _ngDragStart(ev){
+  const el=ev.target;
+  window._ngDragData={
+    n: el.getAttribute('data-nome'),
+    g: parseInt(el.getAttribute('data-grammi'),10)||100,
+    categoria: el.getAttribute('data-cat')
+  };
+  if(ev.dataTransfer){ ev.dataTransfer.effectAllowed='copy'; ev.dataTransfer.setData('text/plain', el.getAttribute('data-nome')||''); }
+}
+function _ngDragOver(ev){
+  ev.preventDefault();
+  if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
+  const pasto=ev.currentTarget;
+  pasto.style.borderColor='#0ea5e9';
+  pasto.style.background='#f0f9ff';
+}
+function _ngDragLeave(ev){
+  const pasto=ev.currentTarget;
+  pasto.style.borderColor='#e2e8f0';
+  pasto.style.background='#fff';
+}
+function _ngDrop(ev){
+  ev.preventDefault();
+  const pasto=ev.currentTarget;
+  pasto.style.borderColor='#e2e8f0';
+  pasto.style.background='#fff';
+  const dato=window._ngDragData;
+  if(!dato){ return; }
+  const giorno=pasto.getAttribute('data-giorno');
+  const slot=pasto.getAttribute('data-slot');
+  // Drop su una cella esistente → alternativa; drop su zona vuota → nuova cella
+  const cellaEl=ev.target.closest('[data-ng-cell]');
+  const cellaId=cellaEl?cellaEl.getAttribute('data-ng-cell'):null;
+  _ngAggiungiAlimento(giorno,slot,dato,cellaId);
+  window._ngDragData=null;
+}
+
+// Aggiunge un alimento: se cellaId è dato → alternativa nella cella; altrimenti nuova cella.
+function _ngAggiungiAlimento(giorno,slot,dato,cellaId){
+  const ctx=_trovaPasto(giorno,slot);
+  if(!ctx||!ctx.pasto){ return; }
+  if(!ctx.pasto.celle) ctx.pasto.celle=[];
+  const celle=ctx.pasto.celle;
+  if(cellaId){
+    const cella=celle.find(function(c){return c.id===cellaId;});
+    if(cella){
+      if(!cella.alimenti) cella.alimenti=[];
+      if(cella.alimenti.length>=5){ notif('⚠ Massimo 5 alimenti per cella'); return; }
+      cella.alimenti.push({n:dato.n,g:dato.g,categoria:dato.categoria});
+    }
+  } else {
+    // Nuova cella: bilancia colonne sx/dx come fa apriAggiungiCella
+    const ordsSx=celle.filter(function(c){return c.colonna==='sx';}).map(function(c){return c.ordine||1;});
+    const ordsDx=celle.filter(function(c){return c.colonna==='dx';}).map(function(c){return c.ordine||1;});
+    const maxSx=ordsSx.length?Math.max.apply(null,ordsSx):0;
+    const maxDx=ordsDx.length?Math.max.apply(null,ordsDx):0;
+    const colonna=(maxSx<=maxDx)?'sx':'dx';
+    const ordine=(colonna==='sx'?maxSx:maxDx)+1;
+    celle.push({ id:'c'+Date.now()+Math.floor(Math.random()*1000), colonna:colonna, ordine:ordine, alimenti:[{n:dato.n,g:dato.g,categoria:dato.categoria}] });
+  }
+  _ngDopoModifica();
+}
+
+function _ngRimuoviAlimento(giorno,slot,cellaId,idx){
+  const ctx=_trovaPasto(giorno,slot);
+  if(!ctx||!ctx.pasto||!ctx.pasto.celle) return;
+  const cella=ctx.pasto.celle.find(function(c){return c.id===cellaId;});
+  if(!cella||!cella.alimenti) return;
+  cella.alimenti.splice(idx,1);
+  // Se la cella resta senza alimenti, eliminala
+  if(!cella.alimenti.length){
+    ctx.pasto.celle=ctx.pasto.celle.filter(function(c){return c.id!==cellaId;});
+  }
+  _ngDopoModifica();
+}
+
+// Dopo ogni modifica: ridisegna il piano a destra e aggiorna badge/macros.
+function _ngDopoModifica(){
+  if(window._pdfPiano) window._pdfPiano=window._pianoCorrente;
+  _ngRenderPianoDestra();
+  if(typeof renderBadge75_20_5==='function') renderBadge75_20_5(window._pianoCorrente);
+  if(typeof renderBadgeMacrosReali_DOM==='function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+  if(typeof renderRiepilogoSettimana==='function') renderRiepilogoSettimana(window._pianoCorrente);
+}
+
 
 
 // ── PRIORITA' 2C: MODALITA' SENZA BILANCIA ───────────────────────────────────
