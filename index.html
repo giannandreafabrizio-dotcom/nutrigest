@@ -3694,6 +3694,12 @@ function ngChiudiModale(ov, salta){
     ov.remove(); // modali dinamici: si rimuovono
   }
 }
+/* Variante per popup "a coppia" (elemento + sfondo separati, es. popup aggiungi alimento) */
+function ngChiudiPopupCoppia(popId, bgId){
+  if(!confirm('Vuoi chiudere questa finestra?\nLe eventuali modifiche non salvate andranno perse.')) return;
+  var p=document.getElementById(popId); if(p) p.remove();
+  var b=document.getElementById(bgId); if(b) b.remove();
+}
 function ngAggiungiX(modalEl){
   if(!modalEl || modalEl.querySelector(':scope > .ng-modal-x')) return;
   var x=document.createElement('button');
@@ -10317,7 +10323,7 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
   pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:420px;max-height:70vh;display:flex;flex-direction:column';
 
   var header = document.createElement('div');
-  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Aggiungi alternativa</strong><button onclick="document.getElementById(\'popup-add-alt\').remove();document.getElementById(\'popup-add-alt-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Aggiungi alternativa</strong><button onclick="ngChiudiPopupCoppia(\'popup-add-alt\',\'popup-add-alt-bg\')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
   pop.appendChild(header);
 
   var search = document.createElement('input');
@@ -10386,7 +10392,7 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
   var bg = document.createElement('div');
   bg.id = 'popup-add-alt-bg';
   bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
-  bg.onclick = function(){ pop.remove(); bg.remove(); };
+  /* chiusura allo sfondo disabilitata (NG) */
 
   document.body.appendChild(bg);
   document.body.appendChild(pop);
@@ -10443,7 +10449,7 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:520px;max-height:80vh;display:flex;flex-direction:column';
 
   var header = document.createElement('div');
-  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Ricetta ' + (idx+1) + ' — ' + giorno + ' / ' + (slotKey.replace(/_/g,' ')) + '</strong><button onclick="document.getElementById(\'popup-ric\').remove();document.getElementById(\'popup-ric-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem"><strong style="font-size:.95rem;color:var(--teal2)">Ricetta ' + (idx+1) + ' — ' + giorno + ' / ' + (slotKey.replace(/_/g,' ')) + '</strong><button onclick="ngChiudiPopupCoppia(\'popup-ric\',\'popup-ric-bg\')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
   pop.appendChild(header);
 
   // Tabs: Scrivi manualmente | Dal ricettario | Ricette parziali (contorni)
@@ -10577,7 +10583,7 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   var bg = document.createElement('div');
   bg.id = 'popup-ric-bg';
   bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
-  bg.onclick = function(){ pop.remove(); bg.remove(); };
+  /* chiusura allo sfondo disabilitata (NG) */
 
   document.body.appendChild(bg);
   document.body.appendChild(pop);
@@ -10689,7 +10695,7 @@ function _apriPopupRicettaComposta(chiave, onScelto) {
   var bg = document.createElement('div');
   bg.id = 'popup-ricetta-composta-bg';
   bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99998';
-  bg.onclick = function() { bg.remove(); pop.remove(); };
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(bg);
 
   // Popup
@@ -10712,7 +10718,7 @@ function _apriPopupRicettaComposta(chiave, onScelto) {
 
   document.body.appendChild(pop);
 
-  document.getElementById('btn-close-rcp').onclick = function() { pop.remove(); bg.remove(); };
+  document.getElementById('btn-close-rcp').onclick = function() { ngChiudiPopupCoppia(pop.id, bg.id); };
 
   var selAvena = v.default;
 
@@ -10782,7 +10788,7 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
   pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:440px;max-height:80vh;display:flex;flex-direction:column';
 
   var header = document.createElement('div');
-  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem"><strong style="font-size:.95rem;color:var(--teal2)">Scegli categoria</strong><button onclick="document.getElementById(\'popup-add-cat\').remove();document.getElementById(\'popup-add-cat-bg\').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem"><strong style="font-size:.95rem;color:var(--teal2)">Scegli categoria</strong><button onclick="ngChiudiPopupCoppia(\'popup-add-cat\',\'popup-add-cat-bg\')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
   pop.appendChild(header);
 
   var scrollWrap = document.createElement('div');
@@ -10817,7 +10823,7 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
   var bg = document.createElement('div');
   bg.id = 'popup-add-cat-bg';
   bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
-  bg.onclick = function(){ pop.remove(); bg.remove(); };
+  /* chiusura allo sfondo disabilitata (NG) */
 
   document.body.appendChild(bg);
   document.body.appendChild(pop);
