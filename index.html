@@ -13849,6 +13849,7 @@ async function aiSuggerisciRicetta() {
   loading.style.display = 'block';
   try {
     const prompt = `Sei un nutrizionista italiano esperto. Per la ricetta "${nome}" fornisci in formato JSON:
+- nome: il titolo della ricetta corretto, completato e ben formattato (correggi errori, espandi titoli troppo brevi o generici in un nome descrittivo e naturale, es. "pollo riso" → "Petto di pollo grigliato con riso basmati e verdure"; se il titolo fornito è già completo e corretto, restituiscilo invariato)
 - categoria: una tra "colazione","pranzo","cena","spuntino","post-workout"
 - ingredienti: lista ingredienti con grammature standard per 1 porzione (formato italiano, es. "Pasta integrale 80g, Tonno al naturale 120g, Zucchine 150g, Olio EVO 10g")
 - kcal: calorie per porzione (numero intero)
@@ -13874,6 +13875,7 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
     const clean = testo.replace(/```json|```/g,'').trim();
     const ric = JSON.parse(clean);
     // Compila i campi
+    if(ric.nome) document.getElementById('r-nome').value = ric.nome;
     if(ric.categoria) document.getElementById('r-cat').value = ric.categoria;
     if(ric.kcal) document.getElementById('r-kcal').value = ric.kcal;
     if(ric.proteine) document.getElementById('r-prot').value = ric.proteine;
