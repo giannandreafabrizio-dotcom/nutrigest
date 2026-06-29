@@ -13680,18 +13680,21 @@ function togAl(el,key,nome){
 
   let n;
   if(coloriCeleste.includes(s)){
-    // A5: ciclo celeste → arancione → rosso → torna celeste (origine)
+    // ciclo celeste → si (verde) → arancione → rosso → torna celeste (origine)
     n=s; // mantiene il colore automatico originale come "torna a"
     const fase=window._alFaseCeleste=window._alFaseCeleste||{};
     const f=fase[key]||0;
-    if(f===0){n='arancione';fase[key]=1;}
-    else if(f===1){n='rosso';fase[key]=2;}
+    if(f===0){n='si';fase[key]=1;}
+    else if(f===1){n='arancione';fase[key]=2;}
+    else if(f===2){n='rosso';fase[key]=3;}
     else{n=s;delete fase[key];} // torna al colore automatico originale
   } else if(coloriGrigio.includes(s)){
-    // A5: ciclo grigio → rosso → torna grigio (origine)
+    // ciclo grigio → si (verde) → arancione → rosso → torna grigio (origine)
     const faseG=window._alFaseGrigio=window._alFaseGrigio||{};
     const f=faseG[key]||0;
-    if(f===0){n='rosso';faseG[key]=1;}
+    if(f===0){n='si';faseG[key]=1;}
+    else if(f===1){n='arancione';faseG[key]=2;}
+    else if(f===2){n='rosso';faseG[key]=3;}
     else{n=s;delete faseG[key];} // torna al colore automatico originale
   } else {
     // Ciclo neutro: '' → si → arancione → rosso → ''
