@@ -7711,6 +7711,7 @@ function pianoPazSelezionato(id){
     window._pianoTargets = null;
     window._pianoTargetsOFF = null;
     window._pianoEditingId = null; // P27: cambio paziente → mai aggiornare il piano di un altro paziente
+    if (typeof _aggiornaLabelSalvaPiano === 'function') _aggiornaLabelSalvaPiano(); // P31: fix label bottone verde rimasta col nome paziente precedente
     var _pBox = document.getElementById('piano-piano-box');
     if (_pBox) _pBox.innerHTML = '';
     // Pulisci anche i badge sotto al piano (riepilogo settimana, 75/20/5, macros reali, dati box, load msg)
