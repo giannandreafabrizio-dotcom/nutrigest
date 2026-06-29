@@ -160,6 +160,7 @@ main{flex:1;overflow-y:auto;}
 @media (max-width:760px){.fr-3,.fr-5{grid-template-columns:1fr 1fr;}}
 .fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;}
 .mf{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.2rem;padding-top:.9rem;border-top:1px solid var(--border);}
+.mf .btn{padding:.62rem 1rem;font-size:.85rem;justify-content:center;}
 .sec-title{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--text);margin-bottom:.65rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);margin-top:.5rem;}
 /* ALIMENTI */
 .al-section{margin-bottom:1rem;}
@@ -1300,8 +1301,8 @@ main{flex:1;overflow-y:auto;}
   </div>
 
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-paz')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaPaz()">Salva paziente</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-paz'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaPaz()">Conferma</button>
   </div>
 </div>
 </div>
@@ -1367,8 +1368,8 @@ main{flex:1;overflow-y:auto;}
   </div>
   <div class="fg"><label>Note cliniche</label><textarea id="ib-note"></textarea></div>
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-inbody')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaInbody()">Salva</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-inbody'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaInbody()">Conferma</button>
   </div>
 </div>
 </div>
@@ -1402,8 +1403,8 @@ main{flex:1;overflow-y:auto;}
     <select id="ev-promemoria"><option value="no">No</option><option value="si">Sì — invia messaggio</option></select>
   </div>
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-evento')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaEvento()">Salva evento</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-evento'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaEvento()">Conferma</button>
   </div>
 </div>
 </div>
@@ -1413,7 +1414,8 @@ main{flex:1;overflow-y:auto;}
 <div class="modal modal-sm">
   <div id="ev-detail-content"></div>
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-ev-detail')">Chiudi</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ev-detail'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ev-detail'),true)">Conferma</button>
   </div>
 </div>
 </div>
@@ -1480,7 +1482,8 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-ai-wa')">Chiudi</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ai-wa'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ai-wa'),true)">Conferma</button>
   </div>
 </div>
 </div>
@@ -1501,9 +1504,9 @@ main{flex:1;overflow-y:auto;}
       <div class="fg" style="margin:0"><label>Grassi (g)</label><input type="number" id="ac-gras" placeholder="es. 0.2" step="0.1" min="0"></div>
     </div>
   </div>
-  <div style="display:flex;gap:.5rem;justify-content:flex-end">
-    <button class="btn btn-g" onclick="closeM('mo-alim-custom')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaAlimentoCustom()">Salva</button>
+  <div class="mf">
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-alim-custom'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaAlimentoCustom()">Conferma</button>
   </div>
 </div>
 </div>
@@ -1551,8 +1554,8 @@ main{flex:1;overflow-y:auto;}
   <div class="fg"><label>Preparazione / Note</label><textarea id="r-desc" placeholder="Note di preparazione..."></textarea></div>
   <div class="fg"><label>Tag (separati da virgola)</label><input id="r-tags" placeholder="proteica, vegetariana, senza glutine, chetogenica..."></div>
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-ric')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaRic()">Salva ricetta</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ric'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaRic()">Conferma</button>
   </div>
 </div>
 </div>
@@ -1583,8 +1586,8 @@ main{flex:1;overflow-y:auto;}
 </div>
   <div class="fg"><label>Note</label><input id="en-note"></div>
   <div class="mf">
-    <button class="btn btn-g" onclick="closeM('mo-entrata')">Annulla</button>
-    <button class="btn btn-p" onclick="salvaEntrata()">Salva</button>
+    <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-entrata'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaEntrata()">Conferma</button>
   </div>
 </div>
 </div>
@@ -8319,9 +8322,9 @@ function _promptTemplateNome(defaultNome, defaultDesc, cb){
     +'<textarea id="tpl-desc-input" placeholder="Descrizione / note (facoltativo)" style="width:100%;padding:.6rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.82rem;min-height:60px;resize:vertical;box-sizing:border-box">'+(defaultDesc||'').replace(/</g,'&lt;')+'</textarea>'
     +'</div>';
   var mf=document.createElement('div');mf.className='mf';
-  mf.innerHTML='<button class="btn btn-g">Annulla</button><button class="btn btn-p">Salva template</button>';
+  mf.innerHTML='<button class="btn btn-r" style="flex:1">Annulla</button><button class="btn btn-v" style="flex:1">Conferma</button>';
   modal.querySelector('.modal').appendChild(mf);
-  mf.children[0].onclick=function(){modal.remove();};
+  mf.children[0].onclick=function(){ngChiudiModale(modal);};
   mf.children[1].onclick=function(){
     var nome=(modal.querySelector('#tpl-nome-input').value||'').trim();
     if(!nome){notif('⚠ Inserisci un nome');return;}
@@ -8435,9 +8438,10 @@ function _mostraAvvisoConflitti(conflitti, p){
     +'<div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Il confronto è sul nome dell\'alimento: controlla comunque a vista i pasti.</div>'
     +'</div>';
   var mf=document.createElement('div');mf.className='mf';
-  mf.innerHTML='<button class="btn btn-p">Ho capito</button>';
+  mf.innerHTML='<button class="btn btn-r" style="flex:1">Annulla</button><button class="btn btn-v" style="flex:1">Conferma</button>';
   modal.querySelector('.modal').appendChild(mf);
-  mf.children[0].onclick=function(){modal.remove();};
+  mf.children[0].onclick=function(){ngChiudiModale(modal);};
+  mf.children[1].onclick=function(){ngChiudiModale(modal,true);};
   /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
@@ -8480,9 +8484,10 @@ function apriPickerTemplate(){
     +'<div style="max-height:320px;overflow:auto">'+lista+'</div>'
     +'</div>';
   var mf=document.createElement('div');mf.className='mf';
-  mf.innerHTML='<button class="btn btn-g">Annulla</button>';
+  mf.innerHTML='<button class="btn btn-r" style="flex:1">Annulla</button><button class="btn btn-v" style="flex:1">Conferma</button>';
   modal.querySelector('.modal').appendChild(mf);
-  mf.children[0].onclick=function(){modal.remove();};
+  mf.children[0].onclick=function(){ngChiudiModale(modal);};
+  mf.children[1].onclick=function(){ngChiudiModale(modal,true);};
   /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
@@ -8500,9 +8505,9 @@ function _pickPaziente(cb){
     +'<select id="tpl-pick-paz" style="width:100%;padding:.6rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.9rem;box-sizing:border-box">'+opts+'</select>'
     +'</div>';
   var mf=document.createElement('div');mf.className='mf';
-  mf.innerHTML='<button class="btn btn-g">Annulla</button><button class="btn btn-p">Applica</button>';
+  mf.innerHTML='<button class="btn btn-r" style="flex:1">Annulla</button><button class="btn btn-v" style="flex:1">Conferma</button>';
   modal.querySelector('.modal').appendChild(mf);
-  mf.children[0].onclick=function(){modal.remove();};
+  mf.children[0].onclick=function(){ngChiudiModale(modal);};
   mf.children[1].onclick=function(){var pid=modal.querySelector('#tpl-pick-paz').value;modal.remove();if(pid)cb(pid);};
   /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
@@ -14230,8 +14235,8 @@ function eliminaConcettiSelezionati(){
     <ul style="font-size:.8rem;color:var(--text2);margin:0;padding-left:1.1rem;max-height:170px;overflow:auto">${nomi.map(n=>`<li style="margin-bottom:.15rem">${n}</li>`).join('')}</ul>
   </div>`;
   const mf=document.createElement('div');mf.className='mf';
-  mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
-    <button class="btn btn-d" onclick="confermaEliminaConcetti(this)">Elimina definitivamente</button>`;
+  mf.innerHTML=`<button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(this.closest('.overlay'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="confermaEliminaConcetti(this)">Conferma</button>`;
   modal.querySelector('.modal').appendChild(mf);
   /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
@@ -14283,8 +14288,8 @@ function editConcetto(id) {
   modal.innerHTML=`<div class="modal" style="width:600px"><h3>✏ ${c.titolo}</h3></div>`;
   modal.querySelector('.modal').appendChild(ta);
   const mf=document.createElement('div');mf.className='mf';
-  mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
-    <button class="btn btn-p" onclick="salvaConcetto('${id}',this)">Salva</button>`;
+  mf.innerHTML=`<button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(this.closest('.overlay'))">Annulla</button>
+    <button class="btn btn-v" style="flex:1" onclick="salvaConcetto('${id}',this)">Conferma</button>`;
   modal.querySelector('.modal').appendChild(mf);
   /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
