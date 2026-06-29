@@ -12406,7 +12406,7 @@ function _ngRenderPianoDestra(){
       +' style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .9rem;margin-bottom:.7rem;transition:border-color .15s,background .15s">';
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">';
     h+='<span style="font-weight:700;color:var(--green,#16a34a);font-size:.82rem">'+labels[k]+'</span>';
-    h+='<button disabled title="La scomposizione ricette arriva nel prossimo aggiornamento" style="background:#f1f5f9;border:1px solid #e2e8f0;color:#94a3b8;border-radius:6px;padding:3px 10px;font-size:.72rem;font-weight:600;cursor:not-allowed">📖 Pesca ricetta</button>';
+    h+='<button onclick="_ngPescaRicetta(\''+giornoEsc+'\',\''+k+'\')" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#7c3aed;border-radius:6px;padding:3px 10px;font-size:.72rem;font-weight:600;cursor:pointer">📖 Pesca ricetta</button>';
     h+='</div>';
     h+=_ngRenderCelleManuale(pasto,k,g.giorno);
     h+='</div>';
@@ -12430,6 +12430,156 @@ function _ngSalvaPianoManuale(){
   if(typeof _salvaPianoCache==='function') _salvaPianoCache(id,pianoEspanso);
   notif('✓ Piano salvato!');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P33 — MODALITÀ MANUALE (commit 2: scomposizione ricette)
+// Il pulsante "Pesca ricetta" apre il ricettario; la ricetta scelta viene
+// scomposta nei suoi PRINCIPALI (solo principali, v1) come celle nel pasto.
+// Tutti gli ingredienti con grammatura entrano; quelli senza peso (q.b., spezie)
+// vengono saltati. Ogni cella prende il colore del semaforo del paziente sul nome.
+// Aggancio automatico alternative → P33b (rimandato).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Parser di una singola voce ingrediente → {n, g} oppure null (q.b./spezie senza peso).
+function _ngParseIngrediente(raw){
+  if(!raw) return null;
+  var s=String(raw).trim();
+  if(!s) return null;
+  // "X o Y" → prendi solo la prima opzione
+  s=s.replace(/\s+o\s+.*$/i,'').trim();
+  // q.b./q.s./quanto basta senza grammatura esplicita → salta
+  if(/q\.?\s?b\.?|q\.?\s?s\.?|quanto basta/i.test(s)){
+    if(!/\d+\s*g\b/i.test(s) && !/\(\s*\d+\s*g/i.test(s)) return null;
+  }
+  // Grammi tra parentesi: "Uovo intero 1 (60g)", "Wasa 3 fette (30g)"
+  var mPar=s.match(/\(\s*(\d+)\s*g\s*\)/i);
+  if(mPar){
+    var nome=s.replace(/\s*\([^)]*\)\s*$/,'').trim();
+    nome=nome.replace(/\s+\d+(\s+\w+)?\s*$/,'').trim(); // togli conteggio "1", "2 fette"
+    return {n:nome, g:parseInt(mPar[1],10)};
+  }
+  // Grammi diretti a fine: "Pane di segale integrale 60g"
+  var mDir=s.match(/^(.+?)\s+(\d+)\s*g\b/i);
+  if(mDir) return {n:mDir[1].trim(), g:parseInt(mDir[2],10)};
+  // Nessuna grammatura → salta
+  return null;
+}
+
+function _ngScomponiIngredienti(ingStr){
+  if(!ingStr) return [];
+  return String(ingStr).split(',')
+    .map(function(s){return _ngParseIngrediente(s);})
+    .filter(function(x){return x!==null;});
+}
+
+// Trova la categoria ALIMENTI di un nome (per costruire la chiave semaforo categoria__nome).
+// 1) match esatto sui nomi del catalogo; 2) match canonico (NOMI_CANONICI); 3) match parziale.
+function _ngTrovaCategoriaAlimento(nome){
+  if(!nome) return '';
+  var nomeLow=nome.toLowerCase().trim();
+  // 1) match esatto
+  for(var cat in ALIMENTI){
+    var items=(ALIMENTI[cat]&&ALIMENTI[cat].items)||[];
+    for(var i=0;i<items.length;i++){
+      if((items[i].n||'').toLowerCase()===nomeLow) return cat;
+    }
+  }
+  // 2) nome canonico (es. "olio" → "Olio EVO") poi ricerca esatta del canonico
+  if(typeof NOMI_CANONICI!=='undefined' && NOMI_CANONICI[nomeLow]){
+    var canon=NOMI_CANONICI[nomeLow].toLowerCase();
+    for(var cat2 in ALIMENTI){
+      var items2=(ALIMENTI[cat2]&&ALIMENTI[cat2].items)||[];
+      for(var j=0;j<items2.length;j++){
+        if((items2[j].n||'').toLowerCase()===canon) return cat2;
+      }
+    }
+  }
+  // 3) match parziale (il nome del catalogo è contenuto nel nome ingrediente o viceversa)
+  for(var cat3 in ALIMENTI){
+    var items3=(ALIMENTI[cat3]&&ALIMENTI[cat3].items)||[];
+    for(var k=0;k<items3.length;k++){
+      var catNome=(items3[k].n||'').toLowerCase();
+      if(catNome && (nomeLow.indexOf(catNome)>=0 || catNome.indexOf(nomeLow)>=0)) return cat3;
+    }
+  }
+  return ''; // categoria non trovata → semaforo neutro
+}
+
+// Pesca ricetta in modalità manuale: apre il ricettario filtrato per categoria slot,
+// e alla scelta scompone gli ingredienti in celle nel pasto.
+function _ngPescaRicetta(giorno, slotKey){
+  // Mappa slot → categoria ricetta del ricettario
+  var catRic = (slotKey==='colazione') ? 'colazione'
+             : (slotKey==='spuntino_mattina'||slotKey==='spuntino_pomeriggio'||slotKey==='pre_nanna') ? 'spuntino'
+             : slotKey; // pranzo / cena
+  var ricette=(db.ricette||[]).filter(function(r){
+    var tipo=r.tipo||'completo';
+    return (r.cat||'').toLowerCase()===catRic && tipo==='completo';
+  });
+
+  // Popup elenco ricette
+  var vecchio=document.getElementById('ng-ric-bg'); if(vecchio) vecchio.remove();
+  var bg=document.createElement('div');
+  bg.id='ng-ric-bg';
+  bg.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9100;display:flex;align-items:center;justify-content:center;padding:1rem';
+  var lista='';
+  if(!ricette.length){
+    lista='<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem">Nessuna ricetta per "'+catRic+'" nel ricettario.<br>Aggiungile dalla sezione Ricette.</div>';
+  } else {
+    ricette.forEach(function(r){
+      var nomeEsc=(r.nome||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      lista+='<button onclick="_ngScomponiRicettaNelPasto(\''+giorno.replace(/'/g,"\\'")+'\',\''+slotKey+'\',\''+nomeEsc+'\')" '
+        +'style="display:block;width:100%;text-align:left;border:1px solid #e2e8f0;background:#fafbfc;border-radius:8px;padding:.6rem .8rem;margin-bottom:.5rem;cursor:pointer" '
+        +'onmouseover="this.style.background=\'#f0f9ff\';this.style.borderColor=\'#0ea5e9\'" onmouseout="this.style.background=\'#fafbfc\';this.style.borderColor=\'#e2e8f0\'">'
+        +'<div style="font-weight:600;font-size:.85rem;color:#1e293b">'+(r.nome||'')+'</div>'
+        +(r.ing?'<div style="font-size:.72rem;color:#64748b;margin-top:2px;line-height:1.4">'+r.ing.substring(0,90)+(r.ing.length>90?'…':'')+'</div>':'')
+        +'</button>';
+    });
+  }
+  bg.innerHTML='<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+    +'<div style="padding:1rem 1.2rem;border-bottom:1px solid #eef0f3;display:flex;align-items:center;justify-content:space-between">'
+      +'<span style="font-weight:700;color:#1e293b">Scegli una ricetta — '+catRic+'</span>'
+      +'<button onclick="document.getElementById(\'ng-ric-bg\').remove()" style="background:none;border:none;font-size:1.2rem;color:#94a3b8;cursor:pointer">×</button>'
+    +'</div>'
+    +'<div style="padding:.8rem 1.2rem;overflow-y:auto">'+lista+'</div>'
+    +'</div>';
+  bg.addEventListener('click',function(e){ if(e.target===bg) bg.remove(); });
+  document.body.appendChild(bg);
+}
+
+// Scompone la ricetta scelta nelle celle del pasto (solo principali).
+function _ngScomponiRicettaNelPasto(giorno, slotKey, nomeRicetta){
+  var bg=document.getElementById('ng-ric-bg'); if(bg) bg.remove();
+  var r=(db.ricette||[]).find(function(x){return (x.nome||'')===nomeRicetta;});
+  if(!r){ notif('⚠ Ricetta non trovata'); return; }
+  var ingredienti=_ngScomponiIngredienti(r.ing||'');
+  if(!ingredienti.length){ notif('⚠ Nessun ingrediente con grammatura nella ricetta'); return; }
+
+  var ctx=_trovaPasto(giorno,slotKey);
+  if(!ctx||!ctx.pasto){ return; }
+  if(!ctx.pasto.celle) ctx.pasto.celle=[];
+  var celle=ctx.pasto.celle;
+
+  // Ogni ingrediente → nuova cella (bilanciando colonne sx/dx)
+  ingredienti.forEach(function(ing,i){
+    var ordsSx=celle.filter(function(c){return c.colonna==='sx';}).map(function(c){return c.ordine||1;});
+    var ordsDx=celle.filter(function(c){return c.colonna==='dx';}).map(function(c){return c.ordine||1;});
+    var maxSx=ordsSx.length?Math.max.apply(null,ordsSx):0;
+    var maxDx=ordsDx.length?Math.max.apply(null,ordsDx):0;
+    var colonna=(maxSx<=maxDx)?'sx':'dx';
+    var ordine=(colonna==='sx'?maxSx:maxDx)+1;
+    var categoria=_ngTrovaCategoriaAlimento(ing.n);
+    celle.push({
+      id:'c'+Date.now()+'_'+i,
+      colonna:colonna,
+      ordine:ordine,
+      alimenti:[{n:ing.n, g:ing.g, categoria:categoria}]
+    });
+  });
+  _ngDopoModifica();
+  notif('✓ '+ingredienti.length+' ingredienti da "'+(r.nome||'')+'" inseriti');
+}
+
 
 // Render celle in stile NutriGest con colore-sul-nome (semaforo del paziente).
 function _ngRenderCelleManuale(pasto,slotKey,giorno){
