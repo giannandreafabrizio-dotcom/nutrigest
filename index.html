@@ -7953,7 +7953,7 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
       if(!pasto&&isSpuntino){
         // P10: slot spuntino non presente per questo giorno (paziente non lo aveva richiesto in fase di compilazione) —
         // pulsante per aggiungerlo manualmente al volo, riusa apriPannelloRicette/applicaRicettaPasto già esistenti.
-        dH+='<button onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')" style="background:none;border:1px dashed var(--border);color:var(--text2);border-radius:6px;padding:.3rem .6rem;font-size:.8rem;cursor:pointer;">+ Aggiungi '+s.label.toLowerCase()+'</button>';
+        dH+='<button onclick="ngAggiungiSpuntinoVuoto(\''+nomeGiorno+'\',\''+s.key+'\')" style="background:none;border:1px dashed var(--border);color:var(--text2);border-radius:6px;padding:.3rem .6rem;font-size:.8rem;cursor:pointer;">+ Aggiungi '+s.label.toLowerCase()+'</button>';
       } else {
         dH+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">';
         dH+='<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')">'+s.label+'</span>';
@@ -10593,6 +10593,25 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
   document.body.appendChild(bg);
   document.body.appendChild(pop);
   setTimeout(function(){ paneWrite.querySelector('#ric-text-input').focus(); }, 50);
+}
+
+// P30: aggiunta spuntino mattina/pomeriggio non presente nel piano — crea il pasto vuoto
+// e riusa subito il flusso "Scegli categoria" (apriAggiungiCella) invece del vecchio
+// popup "Ricette compatibili", per dare più libertà di scelta alimenti.
+function ngAggiungiSpuntinoVuoto(giorno, slotKey) {
+  if (!window._pianoCorrente) return;
+  var g = window._pianoCorrente.find(function(x){ return (x.giorno||x.g) === giorno; });
+  if (!g) return;
+  var isFormatoNuovo = !!g.pasti;
+  var pastoEsistente = isFormatoNuovo ? g.pasti[slotKey] : g[slotKey];
+  if (!pastoEsistente) {
+    var nuovoPastoVuoto = { celle: [] };
+    if (isFormatoNuovo) g.pasti[slotKey] = nuovoPastoVuoto;
+    else g[slotKey] = nuovoPastoVuoto;
+  } else if (!pastoEsistente.celle) {
+    pastoEsistente.celle = [];
+  }
+  apriAggiungiCella(giorno, slotKey);
 }
 
 function apriAggiungiCella(giorno, slotKey) {
