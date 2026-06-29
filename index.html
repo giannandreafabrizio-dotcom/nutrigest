@@ -128,7 +128,11 @@ main{flex:1;overflow-y:auto;}
 /* MODAL */
 .overlay{display:none;position:fixed;inset:0;background:rgba(26,24,20,.6);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
 .overlay.open{display:flex;}
-.modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.6rem;width:720px;max-width:97vw;max-height:93vh;overflow-y:auto;box-shadow:var(--shadow2);}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.6rem;width:720px;max-width:97vw;max-height:93vh;overflow-y:auto;box-shadow:var(--shadow2);position:relative;}
+.ng-modal-x{position:absolute;top:.7rem;right:.8rem;width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--s1);color:var(--text2);font-size:.9rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:6;padding:0;transition:all .15s;}
+.ng-modal-x:hover{background:var(--red-bg);border-color:#f5c6c2;color:var(--red);}
+.btn-v{background:var(--green);color:#fff;}.btn-v:hover{filter:brightness(.94);}
+.btn-r{background:var(--red);color:#fff;}.btn-r:hover{filter:brightness(.94);}
 .modal-sm{width:480px;}
 .modal-lg{width:880px;}
 .modal h3{font-family:'DM Serif Display',serif;font-size:1.05rem;margin-bottom:1.2rem;}
@@ -3674,7 +3678,53 @@ function goTo(name,btn){
   if(name==='impostazioni'){initAntCard();}
 }
 function closeM(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
+/* chiusura allo sfondo disabilitata (NG) */
+
+/* ═══════════════════════════════════════════════════════════════
+   NG — Chiusura modali uniforme: X in alto a destra con conferma.
+   Si applica a OGNI .modal (statici e creati dinamicamente).
+   La chiusura al click sullo sfondo è disabilitata ovunque.
+   ═══════════════════════════════════════════════════════════════ */
+function ngChiudiModale(ov, salta){
+  if(!ov) return;
+  if(!salta && !confirm('Vuoi chiudere questa finestra?\nLe eventuali modifiche non salvate andranno perse.')) return;
+  if(ov.id && ov.id.indexOf('mo-')===0 && ov.classList && ov.classList.contains('overlay')){
+    ov.classList.remove('open'); // modali statici: restano nel DOM e si riaprono
+  } else {
+    ov.remove(); // modali dinamici: si rimuovono
+  }
+}
+function ngAggiungiX(modalEl){
+  if(!modalEl || modalEl.querySelector(':scope > .ng-modal-x')) return;
+  var x=document.createElement('button');
+  x.type='button';
+  x.className='ng-modal-x';
+  x.innerHTML='&#10005;';
+  x.title='Chiudi';
+  x.setAttribute('aria-label','Chiudi');
+  x.onclick=function(){ ngChiudiModale(modalEl.closest('.overlay')); };
+  modalEl.appendChild(x);
+}
+function ngUpgradeModali(){
+  document.querySelectorAll('.overlay .modal').forEach(ngAggiungiX);
+}
+try{
+  var ngModalObserver=new MutationObserver(function(muts){
+    for(var i=0;i<muts.length;i++){
+      var added=muts[i].addedNodes;
+      for(var j=0;j<added.length;j++){
+        var n=added[j];
+        if(!n || n.nodeType!==1) continue;
+        if(n.classList && n.classList.contains('overlay')){ ngUpgradeModali(); }
+        else if(n.querySelector && n.querySelector('.modal')){ ngUpgradeModali(); }
+      }
+    }
+  });
+  if(document.body){ ngModalObserver.observe(document.body,{childList:true,subtree:true}); }
+  else { document.addEventListener('DOMContentLoaded',function(){ ngModalObserver.observe(document.body,{childList:true,subtree:true}); }); }
+}catch(e){ console.warn('[NG] observer modali non attivo',e); }
+document.addEventListener('DOMContentLoaded', ngUpgradeModali);
+if(document.readyState!=='loading'){ ngUpgradeModali(); }
 function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));document.getElementById('tp-'+name).classList.add('active');btn.classList.add('active');}
 function aggiornaEta(){const v=document.getElementById("p-nascita")?.value;const el=document.getElementById("p-eta-calc");if(!el)return;if(!v){el.textContent="";return;}const eta=Math.floor((new Date()-new Date(v))/31557600000);el.textContent=eta>=0&&eta<120?eta+" anni":"";}
 function toggleOrarioNote(){const fg=document.getElementById('p-orario-all-note-fg');const sel=document.getElementById('p-orario-all');if(fg)fg.style.display=(sel&&sel.value==='Variabile')?'block':'none';}
@@ -4754,7 +4804,7 @@ function mostraRoutinePopup(){
     });
   }
   let modal=document.getElementById('routine-popup-modal');
-  if(!modal){modal=document.createElement('div');modal.id='routine-popup-modal';modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';modal.onclick=function(e){if(e.target===modal)modal.style.display='none';};document.body.appendChild(modal);}
+  if(!modal){modal=document.createElement('div');modal.id='routine-popup-modal';modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';modal.onclick=null;document.body.appendChild(modal);}
   modal.innerHTML=`<div style="background:var(--s1);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);width:min(400px,92vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column"><div style="padding:.8rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><h3 style="font-family:'DM Serif Display',serif;font-size:.95rem;margin:0">🌿 Routine di ${p?p.nome:'—'}</h3><button onclick="document.getElementById('routine-popup-modal').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text3)">✕</button></div><div style="padding:1rem 1.1rem;overflow-y:auto">${body}</div></div>`;
   modal.style.display='flex';
 }
@@ -8273,7 +8323,7 @@ function _promptTemplateNome(defaultNome, defaultDesc, cb){
     modal.remove();
     cb(nome,desc);
   };
-  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
   setTimeout(function(){var i=modal.querySelector('#tpl-nome-input');if(i){i.focus();i.select();}},50);
 }
@@ -8382,7 +8432,7 @@ function _mostraAvvisoConflitti(conflitti, p){
   mf.innerHTML='<button class="btn btn-p">Ho capito</button>';
   modal.querySelector('.modal').appendChild(mf);
   mf.children[0].onclick=function(){modal.remove();};
-  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
 
@@ -8427,7 +8477,7 @@ function apriPickerTemplate(){
   mf.innerHTML='<button class="btn btn-g">Annulla</button>';
   modal.querySelector('.modal').appendChild(mf);
   mf.children[0].onclick=function(){modal.remove();};
-  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
 
@@ -8448,7 +8498,7 @@ function _pickPaziente(cb){
   modal.querySelector('.modal').appendChild(mf);
   mf.children[0].onclick=function(){modal.remove();};
   mf.children[1].onclick=function(){var pid=modal.querySelector('#tpl-pick-paz').value;modal.remove();if(pid)cb(pid);};
-  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
 function applicaTemplatePick(templateId){
@@ -9286,7 +9336,7 @@ function _renderGrigliaModello(mod, opts){
   const overlay = document.createElement('div');
   overlay.id = 'modello-popup-overlay';
   overlay.style.cssText = 'background:rgba(0,0,0,0.55);position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+  overlay.onclick = null;
 
   const popup = document.createElement('div');
   popup.style.cssText = 'background:var(--s1);border-radius:12px;padding:1.5rem;max-width:780px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
@@ -13854,7 +13904,7 @@ function apriConcettiModal() {
   mf.innerHTML = `<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
     <button class="btn btn-p" onclick="salvaConcettiAllegati(this)">Salva selezione</button>`;
   modal.querySelector('.modal').appendChild(mf);
-  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
 
@@ -14177,7 +14227,7 @@ function eliminaConcettiSelezionati(){
   mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
     <button class="btn btn-d" onclick="confermaEliminaConcetti(this)">Elimina definitivamente</button>`;
   modal.querySelector('.modal').appendChild(mf);
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
 
@@ -14230,7 +14280,7 @@ function editConcetto(id) {
   mf.innerHTML=`<button class="btn btn-g" onclick="this.closest('.overlay').remove()">Annulla</button>
     <button class="btn btn-p" onclick="salvaConcetto('${id}',this)">Salva</button>`;
   modal.querySelector('.modal').appendChild(mf);
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  /* chiusura allo sfondo disabilitata (NG) */
   document.body.appendChild(modal);
 }
 
