@@ -668,6 +668,7 @@ main{flex:1;overflow-y:auto;}
     <button class="pd-tab" onclick="pdTab('note',this)">Note cliniche</button>
     <button class="pd-tab" onclick="pdTab('routine',this)">🌿 Routine</button>
     <button class="pd-tab" onclick="pdTab('ragionamento',this)">💭 Ragionamento</button>
+    <button class="pd-tab" onclick="pdTab('riepilogo',this)">📞 Riepilogo chiamata</button>
   </div>
   <div class="pd-panel active" id="pd-anamnesi"></div>
   <div class="pd-panel" id="pd-alimenti"></div>
@@ -676,6 +677,7 @@ main{flex:1;overflow-y:auto;}
   <div class="pd-panel" id="pd-macros"></div>
   <div class="pd-panel" id="pd-note"></div>
   <div class="pd-panel" id="pd-ragionamento"></div>
+  <div class="pd-panel" id="pd-riepilogo"></div>
   <div class="pd-panel" id="pd-routine"></div>
 </div>
 
@@ -3737,7 +3739,7 @@ if(document.readyState!=='loading'){ ngUpgradeModali(); }
 function mTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));document.getElementById('tp-'+name).classList.add('active');btn.classList.add('active');}
 function aggiornaEta(){const v=document.getElementById("p-nascita")?.value;const el=document.getElementById("p-eta-calc");if(!el)return;if(!v){el.textContent="";return;}const eta=Math.floor((new Date()-new Date(v))/31557600000);el.textContent=eta>=0&&eta<120?eta+" anni":"";}
 function toggleOrarioNote(){const fg=document.getElementById('p-orario-all-note-fg');const sel=document.getElementById('p-orario-all');if(fg)fg.style.display=(sel&&sel.value==='Variabile')?'block':'none';}
-function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');}
+function pdTab(name,btn){document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.pd-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pd-'+name).classList.add('active');btn.classList.add('active');if(name==='riepilogo'&&window._riepPaz){try{renderPdRiepilogo(window._riepPaz,true);}catch(e){}}}
 function notif(msg,dur=2500){const el=document.createElement('div');el.className='notif';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>{el.classList.add('hide');setTimeout(()=>el.remove(),250);},dur);}
 
 // ════════════════════════════════════════════════════════════════
@@ -4463,6 +4465,7 @@ function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
   renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);
   renderPdNote(p);
+  renderPdRiepilogo(p);
   document.querySelectorAll('.pd-tab')[0].click();
   goTo('pd',null);
   document.querySelectorAll('.nav-item')[0].classList.add('active');
@@ -5833,6 +5836,353 @@ function _renderFlussoPanel(id,emoji,titolo,testo,loading){
     +contenuto
     +'</div>'
     +'</div>';
+}
+
+// ============================================================
+// P22 — RIEPILOGO CHIAMATA (vista consulto telefonico)
+// Vista in sola lettura che aggrega i dati del paziente + le sezioni
+// "Cosa proporre" e "Percorso 5-7 mesi" prodotte dall'FX.
+// ============================================================
+
+var RIEP_DOMANDE_DEFAULT = [
+  'Come ti senti rispetto al piano attuale?',
+  'Hai avuto difficoltà a seguire le porzioni?',
+  'Come va la fame durante la giornata?',
+  'Hai notato cambiamenti nei livelli di energia?',
+  'Come sta andando il sonno?',
+  'Hai mangiato fuori casa questa settimana?',
+  'Sei riuscito ad allenarti come previsto?',
+  'Ci sono alimenti che fatichi a digerire?',
+  'Come va l\u2019idratazione?',
+  'Hai avuto episodi di fame nervosa o serale?',
+  'Stai assumendo gli integratori con regolarità?',
+  'C\u2019è qualcosa che vorresti cambiare nel piano?'
+];
+
+var _riepFxBusy = {};
+var _riepFxFailed = {};
+
+function _riepEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _riepNum(v){
+  if(v==null||v==='') return null;
+  var n=parseFloat(String(v).replace(',','.'));
+  return isNaN(n)?null:n;
+}
+
+function _riepDelta(curr,prev,dec){
+  if(curr==null||prev==null) return '';
+  var d=curr-prev;
+  var s=(d>0?'+':'')+d.toFixed(dec==null?1:dec).replace('.',',');
+  return s;
+}
+
+// Firma dei dati clinici: se cambia, l'FX è considerato non aggiornato.
+function _riepDataSig(p){
+  try{
+    var ib=(p.inbody&&p.inbody.length)?p.inbody[p.inbody.length-1]:{};
+    var mt=(typeof _getActiveMacrosTarget==='function')?_getActiveMacrosTarget(p):(p.macrosTarget||null);
+    var parts=[
+      p.inbody?p.inbody.length:0,
+      ib.peso,ib.m,ib.g,ib.pg,ib.visc,ib.bmi,ib.data,
+      mt?((mt.kcal||'')+'/'+(mt.protG||'')+'/'+(mt.carbG||'')+'/'+(mt.grassiG||'')):'',
+      p.regime||'',
+      p.aggiustamentiMacros?p.aggiustamentiMacros.length:0,
+      p.farmaci||'',p.patologie||'',p.allergie||'',
+      p.analisiSangue?JSON.stringify(p.analisiSangue):''
+    ];
+    return parts.join('|');
+  }catch(e){ return 'sig-err'; }
+}
+
+// Estrae le sezioni 3 e 4 dal testo FX.
+function _riepParseFX(fx){
+  var out={proporre:'',percorso:''};
+  if(!fx) return out;
+  var i3=fx.indexOf('SEZIONE 3');
+  var i4=fx.indexOf('SEZIONE 4');
+  function clean(t){
+    return (t||'').split('\n').filter(function(r){ return r.indexOf('═══')<0; }).join('\n').trim();
+  }
+  if(i3>=0){ out.proporre=clean(fx.substring(i3, i4>i3?i4:fx.length)); }
+  if(i4>=0){ out.percorso=clean(fx.substring(i4)); }
+  return out;
+}
+
+// Rigenera l'FX (riusa avviaFX) e lo persiste nel profilo.
+async function _riepAggiornaFX(p){
+  if(!p||_riepFxBusy[p.id]) return;
+  var apiKey=localStorage.getItem('anthropicApiKey')||'';
+  if(!apiKey){ notif('⚠ Configura la chiave API in Impostazioni'); return; }
+  _riepFxBusy[p.id]=true;
+  _riepFxFailed[p.id]=false;
+  renderPdRiepilogo(p);
+  notif('⏳ Aggiornamento analisi in corso...');
+  try{
+    var testo=await avviaFX(p,apiKey);
+    if(!p.ragionamentoClinico) p.ragionamentoClinico={data:today(),testo:'',macrosDecisi:null,flussi:{}};
+    if(!p.ragionamentoClinico.flussi) p.ragionamentoClinico.flussi={};
+    p.ragionamentoClinico.flussi.fx=testo;
+    p.ragionamentoClinico.fxSig=_riepDataSig(p);
+    p.ragionamentoClinico.fxData=today();
+    if(typeof save==='function') save();
+    notif('✓ Analisi aggiornata');
+  }catch(e){
+    _riepFxFailed[p.id]=true;
+    notif('⚠ Errore aggiornamento analisi');
+  }finally{
+    _riepFxBusy[p.id]=false;
+    renderPdRiepilogo(p);
+  }
+}
+
+// ---- Domande aperte ----
+function _riepToggleDomandaDefault(pid, idx){
+  var p=db.pazienti.find(function(x){return x.id===pid;});
+  if(!p) return;
+  if(!p.domandeChiamata) p.domandeChiamata=[];
+  var testo=RIEP_DOMANDE_DEFAULT[idx];
+  if(testo==null) return;
+  var pos=p.domandeChiamata.indexOf(testo);
+  if(pos>=0) p.domandeChiamata.splice(pos,1);
+  else p.domandeChiamata.push(testo);
+  if(typeof save==='function') save();
+  renderPdRiepilogo(p);
+}
+function _riepAddDomanda(pid){
+  var p=db.pazienti.find(function(x){return x.id===pid;});
+  if(!p) return;
+  var inp=document.getElementById('riep-domanda-input');
+  if(!inp) return;
+  var testo=(inp.value||'').trim();
+  if(!testo) return;
+  if(!p.domandeChiamata) p.domandeChiamata=[];
+  if(p.domandeChiamata.indexOf(testo)<0) p.domandeChiamata.push(testo);
+  inp.value='';
+  if(typeof save==='function') save();
+  renderPdRiepilogo(p);
+}
+function _riepRemoveDomanda(pid, idx){
+  var p=db.pazienti.find(function(x){return x.id===pid;});
+  if(!p||!p.domandeChiamata) return;
+  p.domandeChiamata.splice(idx,1);
+  if(typeof save==='function') save();
+  renderPdRiepilogo(p);
+}
+
+function renderPdRiepilogo(p, allowAuto){
+  var el=document.getElementById('pd-riepilogo');
+  if(!el) return;
+  if(!p){ el.innerHTML=''; return; }
+  try{ window._riepPaz=p; }catch(e){}
+
+  // ---- dati base ----
+  var nome=((p.nome||'')+' '+(p.cognome||'')).trim()||'Paziente';
+  var sub=[]; if(p.eta) sub.push(p.eta+' anni'); if(p.sesso) sub.push(p.sesso); if(p.regime) sub.push(p.regime);
+
+  // ---- FX: cosa proporre + percorso ----
+  var fx=(p.ragionamentoClinico&&p.ragionamentoClinico.flussi&&p.ragionamentoClinico.flussi.fx)||'';
+  var sez=_riepParseFX(fx);
+  var sigOra=_riepDataSig(p);
+  var fxSig=p.ragionamentoClinico&&p.ragionamentoClinico.fxSig;
+  var maiAnalizzato=!fx;
+  var stale=!maiAnalizzato && fxSig!==sigOra;
+  var busy=!!_riepFxBusy[p.id];
+  var failed=!!_riepFxFailed[p.id];
+
+  var proporreHtml;
+  if(busy){
+    proporreHtml='<div style="color:var(--text3);font-size:.8rem;padding:.4rem 0">⏳ Aggiornamento analisi in corso...</div>';
+  }else if(maiAnalizzato){
+    proporreHtml='<div style="color:var(--text3);font-size:.8rem;line-height:1.6">Analisi non ancora generata per questo paziente.<br>'
+      +'<button class="btn btn-p btn-sm" style="margin-top:.5rem" onclick="_riepAggiornaFX(db.pazienti.find(function(x){return x.id===\''+p.id+'\';}))">🧠 Genera analisi</button></div>';
+  }else{
+    proporreHtml=''
+      +'<div style="font-size:.7rem;color:var(--teal);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.3rem">Ora — prossima fase</div>'
+      +'<div style="font-size:.82rem;line-height:1.6;white-space:pre-wrap;color:var(--text2);margin-bottom:.7rem">'+(_riepEsc(sez.proporre)||'—')+'</div>'
+      +'<div style="font-size:.7rem;color:var(--teal);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.3rem">Percorso 5-7 mesi</div>'
+      +'<div style="font-size:.82rem;line-height:1.6;white-space:pre-wrap;color:var(--text2)">'+(_riepEsc(sez.percorso)||'—')+'</div>';
+  }
+
+  var staleBanner='';
+  if(failed){
+    staleBanner='<div style="background:var(--orange-bg);border:1px solid var(--orange);border-radius:8px;padding:.45rem .7rem;font-size:.74rem;color:var(--orange);margin-bottom:.6rem">⚠ Aggiornamento non riuscito. '
+      +'<button class="btn btn-sm" style="margin-left:.3rem;font-size:.7rem" onclick="_riepAggiornaFX(db.pazienti.find(function(x){return x.id===\''+p.id+'\';}))">Riprova</button></div>';
+  }else if(stale&&!busy){
+    staleBanner='<div style="background:var(--orange-bg);border:1px solid var(--orange);border-radius:8px;padding:.45rem .7rem;font-size:.74rem;color:var(--orange);margin-bottom:.6rem">⚠ I dati sono cambiati dopo l\u2019ultima analisi — aggiornamento automatico in corso...</div>';
+  }
+
+  // ---- trend peso ----
+  var ibAll=(p.inbody||[]).filter(function(x){return x&&x.peso!=null&&x.peso!=='';});
+  var trendHtml;
+  if(ibAll.length){
+    var shown=ibAll.slice(-4);
+    var pesos=shown.map(function(x){return _riepNum(x.peso);}).filter(function(v){return v!=null;});
+    var first=_riepNum(ibAll[0].peso), last=_riepNum(ibAll[ibAll.length-1].peso);
+    var firstIb=ibAll[0], lastIb=ibAll[ibAll.length-1];
+    var svg='';
+    if(pesos.length>=2){
+      var mn=Math.min.apply(null,pesos), mx=Math.max.apply(null,pesos), rg=(mx-mn)||1;
+      var n=pesos.length, pts=pesos.map(function(v,i){
+        var x=10+(180*(n>1?i/(n-1):0));
+        var y=6+28*((mx-v)/rg);
+        return x.toFixed(1)+','+y.toFixed(1);
+      }).join(' ');
+      svg='<svg viewBox="0 0 200 40" style="width:100%;height:38px;display:block"><polyline points="'+pts+'" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        +pesos.map(function(v,i){var x=10+(180*(n>1?i/(n-1):0));var y=6+28*((mx-v)/rg);return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="2.5" fill="var(--teal)"/>';}).join('')
+        +'</svg><div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-top:2px">'+pesos.map(function(v){return '<span>'+v.toFixed(1).replace('.',',')+'</span>';}).join('')+'</div>';
+    }
+    var dPeso=_riepDelta(last,first,1), dPg=_riepDelta(_riepNum(lastIb.pg),_riepNum(firstIb.pg),1), dM=_riepDelta(_riepNum(lastIb.m),_riepNum(firstIb.m),1);
+    function dCol(s){ return s.indexOf('-')===0?'var(--teal)':(s?'var(--orange)':'var(--text3)'); }
+    trendHtml='<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.3rem"><span style="font-size:.78rem;color:var(--text2)">Trend peso</span>'
+      +'<span style="font-size:.78rem;font-weight:500">'+(last!=null?last.toFixed(1).replace('.',','):'—')+' kg'+(dPeso?' <span style="color:'+dCol(dPeso)+'">'+dPeso+'</span>':'')+'</span></div>'
+      +svg
+      +'<div style="display:flex;gap:.8rem;margin-top:.4rem;font-size:.72rem;color:var(--text2);flex-wrap:wrap">'
+      +(dPg?'<span>grasso <b style="font-weight:500;color:'+dCol(dPg)+'">'+dPg+'%</b></span>':'')
+      +(dM?'<span>magra <b style="font-weight:500;color:'+(dM.indexOf('-')===0?'var(--orange)':'var(--teal)')+'">'+dM+' kg</b></span>':'')
+      +(lastIb.visc!=null&&lastIb.visc!==''?'<span>visc. <b style="font-weight:500">'+_riepEsc(lastIb.visc)+'</b></span>':'')
+      +(lastIb.bmi!=null&&lastIb.bmi!==''?'<span>BMI <b style="font-weight:500">'+_riepEsc(lastIb.bmi)+'</b></span>':'')
+      +'</div>';
+  }else{
+    trendHtml='<span style="font-size:.78rem;color:var(--text2)">Trend peso</span><div style="font-size:.75rem;color:var(--text3);margin-top:.3rem">Nessun InBody caricato</div>';
+  }
+
+  // ---- sangue / indici fuori range ----
+  var fuori=[];
+  if(typeof CALCOLI_CLINICI!=='undefined'&&typeof calcolaIndice==='function'){
+    CALCOLI_CLINICI.forEach(function(def){
+      try{
+        var r=calcolaIndice(p,def);
+        if(r&&r.ok&&(r.sem==='giallo'||r.sem==='rosso')){
+          var v=r.val.toFixed(r.val>=100?0:2).replace('.',',');
+          fuori.push({nome:def.nome,val:v,unit:def.unit||'',sem:r.sem});
+        }
+      }catch(e){}
+    });
+  }
+  var sangueHtml='<span style="font-size:.78rem;color:var(--text2)">Indici clinici da attenzionare</span>';
+  if(fuori.length){
+    sangueHtml+='<div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem">'+fuori.map(function(f){
+      var col=f.sem==='rosso'?'background:var(--red-bg,#fdecec);color:var(--red)':'background:var(--orange-bg);color:var(--orange)';
+      return '<span style="font-size:.7rem;'+col+';padding:.15rem .5rem;border-radius:6px">'+_riepEsc(f.nome)+' '+f.val+(f.unit?' '+_riepEsc(f.unit):'')+'</span>';
+    }).join('')+'</div>';
+  }else{
+    sangueHtml+='<div style="font-size:.74rem;color:var(--text3);margin-top:.35rem">✅ Indici clinici nei range (o sangue non inserito)</div>';
+  }
+
+  // ---- macro piano ----
+  var mt=(typeof _getActiveMacrosTarget==='function')?_getActiveMacrosTarget(p):(p.macrosTarget||null);
+  var tdee=null; try{ if(typeof calcolaTDEE==='function'){ var ct=calcolaTDEE(p); tdee=ct&&ct.tdee; } }catch(e){}
+  var macroHtml='<span style="font-size:.78rem;color:var(--text2)">Macro piano corrente'+(tdee?' · TDEE '+tdee:'')+'</span>';
+  if(mt&&mt.kcal!=null){
+    macroHtml+='<div style="display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap;margin-top:.3rem">'
+      +'<span style="font-size:1.15rem;font-weight:500">'+mt.kcal+' <span style="font-size:.72rem;color:var(--text2)">kcal</span></span>'
+      +(mt.protG!=null?'<span style="font-size:.78rem;color:var(--text2)">P <b style="color:var(--text);font-weight:500">'+mt.protG+'</b></span>':'')
+      +(mt.carbG!=null?'<span style="font-size:.78rem;color:var(--text2)">C <b style="color:var(--text);font-weight:500">'+mt.carbG+'</b></span>':'')
+      +(mt.grassiG!=null?'<span style="font-size:.78rem;color:var(--text2)">G <b style="color:var(--text);font-weight:500">'+mt.grassiG+'</b></span>':'')
+      +'</div>';
+  }else{
+    macroHtml+='<div style="font-size:.74rem;color:var(--text3);margin-top:.3rem">Nessun target macro impostato</div>';
+  }
+
+  // ---- emotivo / note ----
+  var note=(p.noteClinica||[]).slice(-3).reverse();
+  var noteHtml='<span style="font-size:.78rem;color:var(--text2)">Note cliniche recenti</span>';
+  if(note.length){
+    noteHtml+='<div style="margin-top:.35rem;display:flex;flex-direction:column;gap:.35rem">'+note.map(function(n){
+      return '<div style="font-size:.76rem;line-height:1.45"><span style="color:var(--text3)">'+_riepEsc(n.data)+' — </span><span style="color:var(--text2)">'+_riepEsc(n.testo)+'</span></div>';
+    }).join('')+'</div>';
+  }else{
+    noteHtml+='<div style="font-size:.74rem;color:var(--text3);margin-top:.3rem">Nessuna nota</div>';
+  }
+
+  // ---- domande aperte ----
+  var sel=p.domandeChiamata||[];
+  var chips=RIEP_DOMANDE_DEFAULT.map(function(d,i){
+    var on=sel.indexOf(d)>=0;
+    return '<button onclick="_riepToggleDomandaDefault(\''+p.id+'\','+i+')" style="font-size:.7rem;padding:.2rem .55rem;border-radius:12px;cursor:pointer;border:1px solid '+(on?'var(--teal)':'var(--border)')+';background:'+(on?'var(--teal)':'transparent')+';color:'+(on?'#fff':'var(--text2)')+'">'+(on?'✓ ':'')+_riepEsc(d)+'</button>';
+  }).join('');
+  var selList=sel.length?('<div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.25rem">'+sel.map(function(d,i){
+    return '<div style="display:flex;align-items:center;gap:.4rem;font-size:.78rem"><span style="color:var(--teal)">•</span><span style="flex:1;color:var(--text)">'+_riepEsc(d)+'</span><span onclick="_riepRemoveDomanda(\''+p.id+'\','+i+')" style="cursor:pointer;color:var(--text3);font-size:.9rem" title="Rimuovi">×</span></div>';
+  }).join('')+'</div>'):'<div style="font-size:.73rem;color:var(--text3);margin-top:.4rem">Nessuna domanda selezionata</div>';
+  var domandeHtml='<span style="font-size:.78rem;color:var(--text2)">Domande da fare in chiamata</span>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem">'+chips+'</div>'
+    +selList
+    +'<div style="display:flex;gap:.4rem;margin-top:.5rem">'
+    +'<input id="riep-domanda-input" placeholder="Aggiungi una domanda tua..." style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:.76rem;padding:.35rem .6rem;outline:none" onkeydown="if(event.key===\'Enter\')_riepAddDomanda(\''+p.id+'\')">'
+    +'<button class="btn btn-sm" onclick="_riepAddDomanda(\''+p.id+'\')" style="font-size:.72rem">+ Aggiungi</button></div>';
+
+  // ---- routine (alimenti funzionali) ----
+  var rt=(p.routineGiornaliera||[]);
+  var routineHtml='<span style="font-size:.78rem;color:var(--text2)">Routine (alimenti funzionali)</span>';
+  if(rt.length){
+    routineHtml+='<div style="margin-top:.35rem;display:flex;flex-direction:column;gap:.2rem">'+rt.slice(0,8).map(function(v){
+      return '<div style="font-size:.75rem;color:var(--text2);line-height:1.4">'+_riepEsc(v.nome||'')+(v.dose?' · '+_riepEsc(v.dose):'')+(v.quandoRif?' <span style="color:var(--text3)">('+_riepEsc(v.quandoRif)+')</span>':'')+'</div>';
+    }).join('')+'</div>';
+  }else{
+    routineHtml+='<div style="font-size:.74rem;color:var(--text3);margin-top:.3rem">Nessuna voce</div>';
+  }
+
+  // ---- storia: aggiustamenti ----
+  var ag=(p.aggiustamentiMacros||[]).slice().reverse().slice(0,5);
+  var agHtml='<span style="font-size:.78rem;color:var(--text2)"><i></i>Aggiustamenti macros</span>';
+  if(ag.length){
+    agHtml+='<div style="margin-top:.35rem;display:flex;flex-direction:column;gap:.3rem">'+ag.map(function(a){
+      var dl=(a.delta!=null?((a.delta>0?'+':'')+a.delta+' kcal'):'');
+      return '<div style="display:flex;gap:.5rem;font-size:.75rem;line-height:1.4"><span style="color:var(--text3);min-width:62px">'+_riepEsc(a.data||'')+'</span><span style="color:var(--text2)">'+(dl?'<b style="font-weight:500;color:var(--orange)">'+_riepEsc(dl)+'</b>':'')+(a.nota?' · '+_riepEsc(a.nota):'')+(a.peso?' · '+_riepEsc(a.peso)+' kg':'')+'</span></div>';
+    }).join('')+'</div>';
+  }else{
+    agHtml+='<div style="font-size:.74rem;color:var(--text3);margin-top:.3rem">Nessun aggiustamento registrato</div>';
+  }
+
+  // ---- storia: integratori e farmaci ----
+  var intArr=Array.isArray(p.integratori)?p.integratori.filter(Boolean):(p.integratori?[p.integratori]:[]);
+  var intFarmHtml='<span style="font-size:.78rem;color:var(--text2)">Integratori e farmaci</span><div style="margin-top:.35rem;font-size:.76rem;color:var(--text2);line-height:1.5">';
+  intFarmHtml+= intArr.length?('Integratori: '+_riepEsc(intArr.join(', '))):'Integratori: —';
+  intFarmHtml+= '<br>'+(p.farmaci?('<span style="color:var(--text)">Farmaci: '+_riepEsc(p.farmaci)+'</span>'):'Farmaci: —');
+  intFarmHtml+='</div>';
+
+  // ---- storia: quadro clinico ----
+  var clinChips=[];
+  if(p.patologie) clinChips.push(p.patologie);
+  if(p.allergie) clinChips.push(p.allergie);
+  if(p.condSpeciali) clinChips.push(p.condSpeciali);
+  var clinHtml='<span style="font-size:.78rem;color:var(--text2)">Quadro clinico</span><div style="margin-top:.35rem;font-size:.76rem;color:var(--text2);line-height:1.5">'
+    +(clinChips.length?_riepEsc(clinChips.join(' · ')):'—')+'</div>';
+
+  // ============ COMPOSIZIONE HTML ============
+  function card(inner){ return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.6rem .8rem">'+inner+'</div>'; }
+
+  var html=''
+    +'<div style="margin-bottom:.8rem"><div style="font-size:1rem;font-weight:500">'+_riepEsc(nome)+'</div>'
+    +(sub.length?'<div style="font-size:.76rem;color:var(--text2)">'+_riepEsc(sub.join(' · '))+'</div>':'')+'</div>'
+    // cosa proporre (accent)
+    +staleBanner
+    +'<div style="background:var(--teal-bg,#e6f6f0);border:1px solid var(--teal);border-radius:12px;padding:.7rem .9rem;margin-bottom:.8rem">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">'
+    +'<span style="font-size:.82rem;font-weight:500;color:var(--teal)">💡 Cosa proporre'+(p.ragionamentoClinico&&p.ragionamentoClinico.fxData?' <span style="font-weight:400;font-size:.7rem">· '+_riepEsc(p.ragionamentoClinico.fxData)+'</span>':'')+'</span>'
+    +(maiAnalizzato||busy?'':'<button class="btn btn-sm" style="font-size:.7rem" onclick="_riepAggiornaFX(db.pazienti.find(function(x){return x.id===\''+p.id+'\';}))">🔄 Aggiorna</button>')
+    +'</div>'+proporreHtml+'</div>'
+    // griglia due colonne
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem">'
+    +'<div style="display:flex;flex-direction:column;gap:.7rem">'+card(trendHtml)+card(sangueHtml)+card(macroHtml)+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:.7rem">'+card(noteHtml)+card(domandeHtml)+card(routineHtml)+'</div>'
+    +'</div>'
+    // storia
+    +'<div style="margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--border)"><div style="font-size:.8rem;font-weight:500;color:var(--text2);margin-bottom:.5rem">📜 Storia del paziente</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.7rem">'
+    +card(agHtml)+card(intFarmHtml)+card(clinHtml)
+    +'</div></div>';
+
+  el.innerHTML=html;
+
+  // ---- auto-rigenerazione FX quando i dati sono cambiati ----
+  var apiKey=localStorage.getItem('anthropicApiKey')||'';
+  if(allowAuto && apiKey && !busy && !_riepFxFailed[p.id] && stale){
+    setTimeout(function(){ _riepAggiornaFX(p); }, 60);
+  }
 }
 
 function renderPdRagionamento(p){
