@@ -2264,7 +2264,7 @@ const ANALISI = {
     'Colesterolo totale','HDL','LDL','Trigliceridi'
   ],
   'Funzionalità renale e azotati':[
-    'Creatinina + eGFR','Azotemia','Acido urico','Cistatina C'
+    'Creatinina','Creatinina umol/L','e-GFR (MDRD)','Azotemia','Acido urico','Cistatina C'
   ],
   'Elettroliti e minerali':[
     'Sodio','Potassio','Cloro','Calcio','Fosforo'
@@ -2371,13 +2371,13 @@ const CALCOLI_CLINICI = [
    cosa:'Indice trigliceridi-glucosio — proxy di insulino-resistenza alternativo a HOMA, non richiede insulina.',
    range:'<8.6 normale · 8.6–9.0 borderline · >9.0 IR (cutoff può variare per etnia/popolazione).',
    alert:'Utile quando l\'insulinemia non è disponibile; correla con steatosi epatica.'},
-  {id:'bun_creat', nome:'BUN/Creatinina', deps:['Azotemia','Creatinina + eGFR'],
-   formula:(v)=>v['Azotemia']/v['Creatinina + eGFR'],
+  {id:'bun_creat', nome:'BUN/Creatinina', deps:['Azotemia','Creatinina'],
+   formula:(v)=>v['Azotemia']/v['Creatinina'],
    unit:'',
    soglie:[{min:10,max:20,sem:'verde'},{min:20,max:25,sem:'giallo'},{sem:'rosso'}],
    cosa:'Rapporto azotemia/creatinina — distingue cause pre-renali (disidratazione, dieta iperproteica) da renali.',
    range:'10–20 normale · >20 disidratazione/iperproteica · <10 danno epatico o malnutrizione.',
-   alert:'Inserire creatinina sierica in mg/dL (non eGFR). Se in lista hai inserito eGFR il valore è inutilizzabile qui.'},
+   alert:'Inserire creatinina sierica in mg/dL.'},
   {id:'h2o', nome:'Fabbisogno idrico', deps:['_peso'],
    formula:(v)=>v['_peso']*33,
    unit:'ml/die',
