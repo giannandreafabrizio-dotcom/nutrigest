@@ -6941,11 +6941,21 @@ const _GRUPPI_CLINICI=[
 ];
 
 function applicaGruppoClinico(id){
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p){notif('Nessun paziente selezionato');return;}
+  // Fonte di verità: p.checkSemaforo (non il DOM, che potrebbe non avere
+  // la scheda Clinica renderizzata in questo momento — era il bug originale:
+  // si spuntava solo il checkbox a video, ma salvaPaziente() lo sovrascriveva
+  // alla successiva apertura/salvataggio della scheda Clinica).
+  p.checkSemaforo = p.checkSemaforo || {};
+  p.checkSemaforo[id] = true;
+  save();
+  // Se la checkbox è visibile in pagina (es. utente già sulla scheda Clinica), allineala.
   const cb=document.getElementById(id);
   if(cb){cb.checked=true;}
   const btn=document.getElementById('btn-applica-'+id);
   if(btn){btn.textContent='✓ Applicato';btn.disabled=true;btn.style.opacity='.5';}
-  notif('✓ Gruppo attivato → controlla semaforo');
+  notif('✓ Gruppo attivato e salvato → controlla semaforo');
 }
 
 async function suggerisciGruppiClinici(){
