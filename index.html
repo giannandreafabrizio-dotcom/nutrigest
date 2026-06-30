@@ -345,7 +345,7 @@ main{flex:1;overflow-y:auto;}
 .disp-btn.magic{border-color:#2a7d6f;color:#2a7d6f;}.disp-btn.magic.active{background:#2a7d6f;color:#fff;}
 .disp-btn.curae{border-color:#d4a020;color:#d4a020;}.disp-btn.curae.active{background:#d4a020;color:#fff;}
 /* NOTIF */
-.notif{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.65rem 1.1rem;border-radius:10px;font-size:.78rem;z-index:1000;box-shadow:var(--shadow2);animation:notifIn .65s cubic-bezier(.34,1.4,.64,1) forwards;}@keyframes notifIn{from{opacity:0;transform:scale(.85) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}.notif.hide{animation:notifOut .5s ease-in forwards;}@keyframes notifOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.9) translateY(8px)}}
+.notif{position:fixed;bottom:1.5rem;right:1.5rem;left:1.5rem;max-width:380px;margin-left:auto;background:var(--text);color:#fff;padding:.65rem 1.1rem;border-radius:10px;font-size:.78rem;line-height:1.35;z-index:1000;box-shadow:var(--shadow2);animation:notifIn .65s cubic-bezier(.34,1.4,.64,1) forwards;}@keyframes notifIn{from{opacity:0;transform:scale(.85) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}.notif.hide{animation:notifOut .5s ease-in forwards;}@keyframes notifOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.9) translateY(8px)}}
 /* EMPTY */
 .empty{text-align:center;padding:2.5rem 1rem;color:var(--text3);}
 .empty p{font-size:.83rem;}.empty span{font-size:.73rem;display:block;margin-top:.25rem;}
@@ -2657,10 +2657,17 @@ function _interpAnalisiHtml(itemName, rawVal, p){
   if(!r) return '';
   const liv = _LIV_RIF_LABEL[r.livello]||'';
   const tip = (liv?liv+' · ':'')+'Fonte: '+r.fonte+(r.nota?' — '+r.nota:'');
+  const tipEsc = tip.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const orient = r.livello==='C' ? ' <span class="ai-orient">orientativo</span>' : '';
   return '<span class="ai-sem '+r.sem+'"></span>'
        + '<span class="ai-interp-txt">'+r.et+'</span>'+orient
-       + '<span class="ai-interp-info" title="'+tip.replace(/"/g,'&quot;')+'">ℹ️</span>';
+       + '<span class="ai-interp-info" title="'+tipEsc+'" onclick="event.stopPropagation();mostraInfoRange(\''+tipEsc+'\')" role="button" tabindex="0">ℹ️</span>';
+}
+
+// Mostra il dettaglio fonte/nota della soglia al tap (il title nativo non
+// risponde al touch su mobile, quindi serve un'azione esplicita).
+function mostraInfoRange(testo){
+  notif(testo, 6000);
 }
 
 const EV_TYPES = {
@@ -6941,21 +6948,11 @@ const _GRUPPI_CLINICI=[
 ];
 
 function applicaGruppoClinico(id){
-  const p=db.pazienti.find(x=>x.id===currentPazId);
-  if(!p){notif('Nessun paziente selezionato');return;}
-  // Fonte di verità: p.checkSemaforo (non il DOM, che potrebbe non avere
-  // la scheda Clinica renderizzata in questo momento — era il bug originale:
-  // si spuntava solo il checkbox a video, ma salvaPaziente() lo sovrascriveva
-  // alla successiva apertura/salvataggio della scheda Clinica).
-  p.checkSemaforo = p.checkSemaforo || {};
-  p.checkSemaforo[id] = true;
-  save();
-  // Se la checkbox è visibile in pagina (es. utente già sulla scheda Clinica), allineala.
   const cb=document.getElementById(id);
   if(cb){cb.checked=true;}
   const btn=document.getElementById('btn-applica-'+id);
   if(btn){btn.textContent='✓ Applicato';btn.disabled=true;btn.style.opacity='.5';}
-  notif('✓ Gruppo attivato e salvato → controlla semaforo');
+  notif('✓ Gruppo attivato → controlla semaforo');
 }
 
 async function suggerisciGruppiClinici(){
