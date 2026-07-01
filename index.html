@@ -3564,10 +3564,8 @@ async function sincronizzaTutto(){
     const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data',{method:'GET',headers:supaHeaders()});
     if(!r.ok)throw new Error('status '+r.status);
     const rows=await r.json();
-    if(!rows||!rows.length)throw new Error('nessun paziente');
-    const pr=rows.filter(row=>row.id!==META_KEY);
-    const mr=rows.find(row=>row.id===META_KEY);
-    if(!pr.length)throw new Error('nessun paziente valido');
+    const pr=(rows||[]).filter(row=>row.id!==META_KEY);
+    const mr=(rows||[]).find(row=>row.id===META_KEY);
     db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
     if(mr&&mr.data){
       db.disponibilita=mr.data.disponibilita||{};
