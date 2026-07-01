@@ -442,23 +442,91 @@ main{flex:1;overflow-y:auto;}
 <div id="ng-login-screen">
   <div class="login-box">
     <div class="login-logo">NutriGest</div>
-    <div class="login-sub">Studio Giannandrea · Accesso riservato</div>
-    <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="la-tua@email.com" autocomplete="email">
+    <div class="login-sub" id="auth-sub">Studio Giannandrea · Accesso riservato</div>
+
+    <!-- ══ MODALITÀ: LOGIN ══ -->
+    <div id="auth-mode-login">
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="la-tua@email.com" autocomplete="email">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')eseguiLogin()">
+      </div>
+      <div class="login-err" id="login-err"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:.6rem 0 .2rem;">
+        <input type="checkbox" id="login-remember" style="width:16px;height:16px;cursor:pointer;accent-color:var(--green);">
+        <label for="login-remember" style="font-size:.85rem;color:var(--text2);cursor:pointer;user-select:none;">Resta connesso</label>
+      </div>
+      <button class="login-btn" id="login-btn" onclick="eseguiLogin()">Accedi</button>
+      <div class="login-spinner" id="login-spinner" style="display:none">⏳ Accesso in corso...</div>
+      <div style="margin-top:1rem;text-align:center;display:flex;flex-direction:column;gap:.55rem;font-size:.85rem;color:var(--text2);">
+        <span><a onclick="mostraRecupero()" style="color:var(--green);cursor:pointer;text-decoration:underline;font-weight:600;">Password dimenticata?</a></span>
+        <span>Non hai un account? <a onclick="mostraRegistrazione()" style="color:var(--green);cursor:pointer;text-decoration:underline;font-weight:600;">Registrati</a></span>
+      </div>
     </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter')eseguiLogin()">
+
+    <!-- ══ MODALITÀ: REGISTRAZIONE ══ -->
+    <div id="auth-mode-signup" style="display:none;">
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="signup-email" placeholder="la-tua@email.com" autocomplete="email">
+      </div>
+      <div class="login-field">
+        <label>Password <span style="font-weight:400;color:var(--text3);font-size:.8rem;">(min 6 caratteri)</span></label>
+        <input type="password" id="signup-pwd" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div class="login-field">
+        <label>Conferma password</label>
+        <input type="password" id="signup-pwd2" placeholder="••••••••" autocomplete="new-password"
+          onkeydown="if(event.key==='Enter')eseguiRegistrazione()">
+      </div>
+      <div class="login-err" id="signup-err"></div>
+      <div id="signup-msg" style="color:var(--teal);font-size:.85rem;margin:.4rem 0;line-height:1.4;"></div>
+      <button class="login-btn" id="signup-btn" onclick="eseguiRegistrazione()">Registrati</button>
+      <div class="login-spinner" id="signup-spinner" style="display:none">⏳ Registrazione in corso...</div>
+      <div style="margin-top:1rem;text-align:center;font-size:.85rem;">
+        <a onclick="mostraLogin()" style="color:var(--green);cursor:pointer;text-decoration:underline;font-weight:600;">← Torna al login</a>
+      </div>
     </div>
-    <div class="login-err" id="login-err"></div>
-    <div style="display:flex;align-items:center;gap:8px;margin:.6rem 0 .2rem;">
-      <input type="checkbox" id="login-remember" style="width:16px;height:16px;cursor:pointer;accent-color:var(--green);">
-      <label for="login-remember" style="font-size:.85rem;color:var(--text2);cursor:pointer;user-select:none;">Resta connesso</label>
+
+    <!-- ══ MODALITÀ: RECUPERO PASSWORD ══ -->
+    <div id="auth-mode-recover" style="display:none;">
+      <div style="font-size:.85rem;color:var(--text2);margin-bottom:.8rem;line-height:1.4;">Inserisci la tua email: ti invieremo un link per reimpostare la password.</div>
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="recover-email" placeholder="la-tua@email.com" autocomplete="email"
+          onkeydown="if(event.key==='Enter')eseguiRecuperoPassword()">
+      </div>
+      <div class="login-err" id="recover-err"></div>
+      <div id="recover-msg" style="color:var(--teal);font-size:.85rem;margin:.4rem 0;line-height:1.4;"></div>
+      <button class="login-btn" id="recover-btn" onclick="eseguiRecuperoPassword()">Invia link di recupero</button>
+      <div class="login-spinner" id="recover-spinner" style="display:none">⏳ Invio in corso...</div>
+      <div style="margin-top:1rem;text-align:center;font-size:.85rem;">
+        <a onclick="mostraLogin()" style="color:var(--green);cursor:pointer;text-decoration:underline;font-weight:600;">← Torna al login</a>
+      </div>
     </div>
-    <button class="login-btn" id="login-btn" onclick="eseguiLogin()">Accedi</button>
-    <div class="login-spinner" id="login-spinner" style="display:none">⏳ Accesso in corso...</div>
+
+    <!-- ══ MODALITÀ: NUOVA PASSWORD (dopo click sul link di recupero) ══ -->
+    <div id="auth-mode-newpass" style="display:none;">
+      <div style="font-size:.85rem;color:var(--text2);margin-bottom:.8rem;line-height:1.4;">Imposta la tua nuova password.</div>
+      <div class="login-field">
+        <label>Nuova password <span style="font-weight:400;color:var(--text3);font-size:.8rem;">(min 6 caratteri)</span></label>
+        <input type="password" id="newpass-pwd" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div class="login-field">
+        <label>Conferma nuova password</label>
+        <input type="password" id="newpass-pwd2" placeholder="••••••••" autocomplete="new-password"
+          onkeydown="if(event.key==='Enter')eseguiNuovaPassword()">
+      </div>
+      <div class="login-err" id="newpass-err"></div>
+      <div id="newpass-msg" style="color:var(--teal);font-size:.85rem;margin:.4rem 0;line-height:1.4;"></div>
+      <button class="login-btn" id="newpass-btn" onclick="eseguiNuovaPassword()">Salva nuova password</button>
+      <div class="login-spinner" id="newpass-spinner" style="display:none">⏳ Salvataggio...</div>
+    </div>
+
   </div>
 </div>
 
@@ -3979,7 +4047,21 @@ function renderPaz(){
   const attivi=db.pazienti.filter(p=>p.stato!=='archiviato').length;
   document.getElementById('paz-count').textContent=attivi+' pazienti';
   const grid=document.getElementById('paz-grid');
-  if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessun paziente</p><span>Clicca "+ Nuovo paziente" per iniziare</span></div>';return;}
+  if(!list.length){
+    // P30 — Onboarding: utente nuovo senza alcun paziente → benvenuto guidato.
+    // Se invece ci sono pazienti ma il filtro/ricerca non trova nulla → messaggio semplice.
+    if(db.pazienti.length===0){
+      grid.innerHTML='<div class="empty" style="grid-column:1/-1;padding:2.5rem 1.2rem;max-width:520px;margin:0 auto;">'
+        +'<div style="font-size:2.4rem;margin-bottom:.6rem">👋</div>'
+        +'<p style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:.4rem">Benvenuto in NutriGest!</p>'
+        +'<span style="font-size:.9rem;color:var(--text2);line-height:1.5;display:block;margin-bottom:1.2rem">Il tuo studio è pronto. Da qui gestisci i pazienti, analizzi gli esami del sangue, generi piani alimentari con l\'AI ed esporti i PDF. Per cominciare, crea il tuo primo paziente.</span>'
+        +'<button class="btn btn-p" style="font-size:.95rem;padding:.6rem 1.4rem" onclick="openNuovoPaz()">+ Crea il primo paziente</button>'
+        +'</div>';
+      return;
+    }
+    grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessun paziente trovato</p><span>Prova a modificare la ricerca o il filtro</span></div>';
+    return;
+  }
   grid.innerHTML=list.map(p=>{
     const ini=p.inizioAlim;const oggi=today();
     let statoTag='';
@@ -16127,6 +16209,8 @@ function setDove(val){
 
 const NG_SESSION_KEY = 'ng_auth_session';
 const NG_REMEMBER_KEY = 'ng_remember_creds';
+// P30 — URL pubblico dell'app: dove Supabase riporta l'utente dopo conferma email / recupero password
+const APP_URL = 'https://giannandreafabrizio-dotcom.github.io/nutrigest/';
 
 // Salva/leggi credenziali per auto-login (usato da checkbox "Resta connesso")
 function salvaCredenzialiPersistenti(email, refresh_token) {
@@ -16218,7 +16302,12 @@ async function eseguiLogin() {
     });
     const data = await r.json();
     if (!r.ok || !data.access_token) {
-      err.textContent = data.error_description || data.msg || 'Email o password errati';
+      const _raw = (data.error_description || data.msg || data.error || '').toString();
+      if (/not confirmed|email.*confirm|confirm.*email/i.test(_raw)) {
+        err.textContent = 'Devi confermare la tua email prima di accedere. Controlla la posta (anche lo spam) per il link di conferma.';
+      } else {
+        err.textContent = _raw || 'Email o password errati';
+      }
       btn.disabled = false; spinner.style.display = 'none';
       return;
     }
@@ -16326,6 +16415,155 @@ function fermaRinnovoTokenPeriodico(){
   if(_tokenRefreshTimer){ clearInterval(_tokenRefreshTimer); _tokenRefreshTimer=null; }
 }
 
+// ══════════════════════════════════════════════════════════════════
+// P30 — Registrazione, recupero e reimpostazione password (self-service)
+// ══════════════════════════════════════════════════════════════════
+
+// Pulisce errori/messaggi/spinner/pulsanti di tutte le modalità auth
+function _authReset(){
+  ['login-err','signup-err','signup-msg','recover-err','recover-msg','newpass-err','newpass-msg'].forEach(function(id){var e=document.getElementById(id);if(e){e.textContent='';e.innerHTML='';}});
+  ['login-spinner','signup-spinner','recover-spinner','newpass-spinner'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
+  ['login-btn','signup-btn','recover-btn','newpass-btn'].forEach(function(id){var e=document.getElementById(id);if(e)e.disabled=false;});
+}
+function _authMostra(mode){
+  ['login','signup','recover','newpass'].forEach(function(m){var e=document.getElementById('auth-mode-'+m);if(e)e.style.display=(m===mode?'block':'none');});
+}
+function mostraLogin(){ _authReset(); _authMostra('login'); }
+function mostraRegistrazione(){ _authReset(); _authMostra('signup'); }
+function mostraRecupero(){ _authReset(); _authMostra('recover'); }
+function mostraNuovaPassword(){ _authReset(); _authMostra('newpass'); }
+
+// Registrazione nuovo nutrizionista (con conferma email)
+async function eseguiRegistrazione(){
+  const email=document.getElementById('signup-email').value.trim();
+  const pwd=document.getElementById('signup-pwd').value;
+  const pwd2=document.getElementById('signup-pwd2').value;
+  const err=document.getElementById('signup-err');
+  const msg=document.getElementById('signup-msg');
+  const btn=document.getElementById('signup-btn');
+  const spinner=document.getElementById('signup-spinner');
+  err.textContent=''; msg.innerHTML='';
+  if(!email||!pwd){ err.textContent='Inserisci email e password'; return; }
+  if(pwd.length<6){ err.textContent='La password deve avere almeno 6 caratteri'; return; }
+  if(pwd!==pwd2){ err.textContent='Le due password non coincidono'; return; }
+  btn.disabled=true; spinner.style.display='block';
+  try{
+    const r=await fetch(SUPA_URL+'/auth/v1/signup?redirect_to='+encodeURIComponent(APP_URL),{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+      body:JSON.stringify({email:email,password:pwd})
+    });
+    const data=await r.json();
+    spinner.style.display='none';
+    if(!r.ok){
+      err.textContent=(data.msg||data.error_description||data.error||'Errore durante la registrazione');
+      btn.disabled=false; return;
+    }
+    // Se la conferma email è disattivata Supabase restituisce già una sessione → login immediato
+    if(data.access_token){
+      salvaSessione(data); avviaRinnovoTokenPeriodico(); mostraApp(); return;
+    }
+    // Con conferma email attiva: nessuna sessione, l'utente deve confermare
+    btn.disabled=false;
+    msg.innerHTML="✓ Registrazione completata! Ti abbiamo inviato un'email di conferma a <strong>"+email+"</strong>. Apri la posta (controlla anche lo spam), clicca il link per attivare l'account, poi torna qui e accedi.";
+  }catch(e){
+    err.textContent='Errore di connessione. Riprova.'; btn.disabled=false; spinner.style.display='none';
+  }
+}
+
+// Richiesta link di recupero password
+async function eseguiRecuperoPassword(){
+  const email=document.getElementById('recover-email').value.trim();
+  const err=document.getElementById('recover-err');
+  const msg=document.getElementById('recover-msg');
+  const btn=document.getElementById('recover-btn');
+  const spinner=document.getElementById('recover-spinner');
+  err.textContent=''; msg.innerHTML='';
+  if(!email){ err.textContent='Inserisci la tua email'; return; }
+  btn.disabled=true; spinner.style.display='block';
+  try{
+    const r=await fetch(SUPA_URL+'/auth/v1/recover?redirect_to='+encodeURIComponent(APP_URL),{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+      body:JSON.stringify({email:email})
+    });
+    spinner.style.display='none'; btn.disabled=false;
+    // Per privacy Supabase risponde 200 anche se l'email non esiste → messaggio generico
+    if(r.ok){
+      msg.innerHTML="✓ Se esiste un account con <strong>"+email+"</strong>, riceverai un'email con il link per reimpostare la password. Controlla la posta (anche lo spam).";
+    }else{
+      const data=await r.json().catch(function(){return {};});
+      err.textContent=(data.msg||data.error_description||'Errore. Riprova più tardi.');
+    }
+  }catch(e){
+    err.textContent='Errore di connessione. Riprova.'; btn.disabled=false; spinner.style.display='none';
+  }
+}
+
+// Imposta la nuova password usando il token di recupero (arrivato dal link email)
+async function eseguiNuovaPassword(){
+  const pwd=document.getElementById('newpass-pwd').value;
+  const pwd2=document.getElementById('newpass-pwd2').value;
+  const err=document.getElementById('newpass-err');
+  const msg=document.getElementById('newpass-msg');
+  const btn=document.getElementById('newpass-btn');
+  const spinner=document.getElementById('newpass-spinner');
+  err.textContent=''; msg.innerHTML='';
+  if(!pwd){ err.textContent='Inserisci la nuova password'; return; }
+  if(pwd.length<6){ err.textContent='La password deve avere almeno 6 caratteri'; return; }
+  if(pwd!==pwd2){ err.textContent='Le due password non coincidono'; return; }
+  if(!window._recoveryToken){ err.textContent='Link di recupero non valido o scaduto. Richiedine uno nuovo dal login.'; return; }
+  btn.disabled=true; spinner.style.display='block';
+  try{
+    const r=await fetch(SUPA_URL+'/auth/v1/user',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+window._recoveryToken},
+      body:JSON.stringify({password:pwd})
+    });
+    const data=await r.json();
+    spinner.style.display='none';
+    if(!r.ok){
+      err.textContent=(data.msg||data.error_description||'Errore. Il link potrebbe essere scaduto — richiedine uno nuovo.');
+      btn.disabled=false; return;
+    }
+    window._recoveryToken=null;
+    msg.textContent='✓ Password aggiornata! Ora puoi accedere con la nuova password.';
+    setTimeout(mostraLogin, 2500);
+  }catch(e){
+    err.textContent='Errore di connessione. Riprova.'; btn.disabled=false; spinner.style.display='none';
+  }
+}
+
+// Legge i parametri passati da Supabase nell'hash dell'URL (#access_token=...&type=...)
+function _parseHashParams(){
+  const h=(window.location.hash||'').replace(/^#/,'');
+  const p={};
+  if(!h) return p;
+  h.split('&').forEach(function(kv){ const i=kv.indexOf('='); if(i>0){ p[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1)); } });
+  return p;
+}
+function _pulisciHash(){ try{ history.replaceState(null,'',window.location.pathname+window.location.search); }catch(e){ try{window.location.hash='';}catch(_){} } }
+
+// Gestisce il ritorno dai link email (conferma registrazione / recupero password)
+// Ritorna: 'recovery' (mostra schermata nuova password) | 'login' (sessione salvata, prosegui) | null
+function gestisciRitornoAuth(){
+  try{
+    const p=_parseHashParams();
+    if(p.type==='recovery' && p.access_token){
+      window._recoveryToken=p.access_token; // usato da eseguiNuovaPassword
+      _pulisciHash();
+      return 'recovery';
+    }
+    if(p.access_token && p.refresh_token){
+      // Conferma email / magic link → salva la sessione e prosegui (auto-login)
+      salvaSessione({access_token:p.access_token, refresh_token:p.refresh_token, expires_at:p.expires_at?parseInt(p.expires_at,10):(Math.floor(Date.now()/1000)+3600)});
+      _pulisciHash();
+      return 'login';
+    }
+  }catch(e){ console.error('[AUTH] gestione ritorno fallita:', e); }
+  return null;
+}
+
 // ════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════
@@ -16382,9 +16620,18 @@ renderAgendaDx();
 initAntCard();
 
 // Verifica sessione — avvia app o mostra login
-verificaSessioneEAvvia().then(function(_sessAvviata){
-  if(_sessAvviata){avviaRinnovoTokenPeriodico();setTimeout(async()=>{await syncNow();try{await migraConcetti();renderConcettiPage();}catch(e){console.error('[CONCETTI] migrazione init error:',e);}},800);}
-});
+// P30 — prima gestisci un eventuale ritorno dai link email (conferma / recupero password)
+const _ritornoAuth = gestisciRitornoAuth();
+if(_ritornoAuth==='recovery'){
+  // L'utente ha cliccato il link di recupero: mostra la schermata "nuova password"
+  document.getElementById('ng-login-screen').style.display='flex';
+  document.getElementById('ng-app-shell').style.display='none';
+  mostraNuovaPassword();
+}else{
+  verificaSessioneEAvvia().then(function(_sessAvviata){
+    if(_sessAvviata){avviaRinnovoTokenPeriodico();setTimeout(async()=>{await syncNow();try{await migraConcetti();renderConcettiPage();}catch(e){console.error('[CONCETTI] migrazione init error:',e);}},800);}
+  });
+}
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
 
