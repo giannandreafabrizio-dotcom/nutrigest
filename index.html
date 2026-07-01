@@ -9817,7 +9817,7 @@ function caricaAlimentiCustom(){
     var esiste=ALIMENTI[a.cat].items.find(function(i){return i.n===a.n;});
     if(!esiste) ALIMENTI[a.cat].items.push({n:a.n, g:a.g, _custom:true});
     // Aggiunge a CREA_ALIMENTI per i macros
-    if(a.kcal!=null) CREA_ALIMENTI[a.n]={kcal:a.kcal, p:a.p||0, c:a.c||0, g100:a.g100||0};
+    if(a.kcal!=null) CREA_ALIMENTI[a.n]={kcal:a.kcal, p:a.p||0, c:a.c||0, g:a.g100||0};
   });
 }
 
@@ -14552,7 +14552,7 @@ function salvaAlimentoCustom(){
   if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
   ALIMENTI[cat].items.push({n:nome,g:g,_custom:true});
   // Aggiorna CREA_ALIMENTI
-  if(kcal!=null)CREA_ALIMENTI[nome]={kcal:kcal,p:p,c:c,g100:g100};
+  if(kcal!=null)CREA_ALIMENTI[nome]={kcal:kcal,p:p,c:c,g:g100};
   saveLocal();
   pushAlimentiCustomSupabase();
   closeM('mo-alim-custom');
