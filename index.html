@@ -3251,7 +3251,13 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const META_KEY = 'meta_collections';
 
 function supaHeaders(){
-  return {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'};
+  // P29 — sicurezza: usa l'access_token personale dell'utente loggato per il Bearer,
+  // così RLS row-owner riconosce il proprietario. Fallback alla anon key se non loggato
+  // o token scaduto (getSessioneSalvata restituisce null se scaduto) — a RLS spento l'app
+  // continua a funzionare, a RLS acceso restituisce semplicemente nessun dato (nessuna fuga).
+  const h={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'};
+  try{ const sess=getSessioneSalvata(); if(sess&&sess.access_token) h['Authorization']='Bearer '+sess.access_token; }catch(e){}
+  return h;
 }
 
 // ── RICETTE SU SUPABASE — tabella dedicata (fix bug sparizione ricette) ────────
@@ -3437,6 +3443,7 @@ async function pullFromSheets(){
 }
 
 async function syncNow(){
+  await assicuraTokenValido(); // P29 — token fresco prima delle chiamate DB
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
   const bar=document.getElementById('sync-bar');
   if(bar){bar.style.width='0%';bar.style.background='#facc15';}
@@ -16223,6 +16230,7 @@ async function eseguiLogin() {
     } else {
       cancellaCredenzialiPersistenti();
     }
+    avviaRinnovoTokenPeriodico(); // P29 — mantieni il token fresco durante la sessione
     mostraApp();
   } catch(e) {
     err.textContent = 'Errore di connessione. Riprova.';
@@ -16242,6 +16250,7 @@ async function eseguiLogout() {
   }
   cancellaSessione();
   cancellaCredenzialiPersistenti();
+  fermaRinnovoTokenPeriodico(); // P29 — stop rinnovo token
   document.getElementById('ng-login-screen').style.display = 'flex';
   document.getElementById('ng-app-shell').style.display = 'none';
   document.getElementById('login-email').value = '';
@@ -16278,6 +16287,43 @@ async function verificaSessioneEAvvia() {
     }
   }
   return false;
+}
+
+// ── P29 — Rinnovo proattivo dell'access_token ────────────────────────────────
+// L'access_token Supabase dura ~1h. Con la sicurezza attiva, un token scaduto fa
+// fallire le chiamate DB con 401. Questa funzione lo rinnova col refresh_token
+// PRIMA della scadenza (buffer 2 min), così supaHeaders() legge sempre un token valido.
+async function assicuraTokenValido(){
+  try{
+    let sess=null;
+    try{ const s=localStorage.getItem(NG_SESSION_KEY); sess=s?JSON.parse(s):null; }catch(e){}
+    const BUFFER=120; // secondi: rinnova se manca meno di 2 min alla scadenza
+    const ancoraValido = sess && sess.access_token && sess.expires_at && (Date.now()/1000 < sess.expires_at - BUFFER);
+    if(ancoraValido) return true;
+    // Serve rinnovo: recupera un refresh_token dalla sessione o dalle credenziali persistenti
+    let refresh = (sess && sess.refresh_token) ? sess.refresh_token : null;
+    if(!refresh){ const creds=getCredenzialiPersistenti(); if(creds&&creds.refresh_token) refresh=creds.refresh_token; }
+    if(!refresh) return false; // nessun refresh_token disponibile (utente non "resta connesso" e sessione persa)
+    const nuova = await rinnovaSessioneConRefreshToken(refresh);
+    if(nuova && nuova.access_token){
+      salvaSessione(nuova);
+      // ruota il refresh_token persistente, se presente
+      const creds=getCredenzialiPersistenti();
+      if(creds && creds.email && nuova.refresh_token) salvaCredenzialiPersistenti(creds.email, nuova.refresh_token);
+      return true;
+    }
+    return false;
+  }catch(e){ console.error('[AUTH] rinnovo token fallito:', e); return false; }
+}
+
+// Timer di rinnovo periodico (idempotente): tiene il token fresco mentre l'app è aperta.
+let _tokenRefreshTimer=null;
+function avviaRinnovoTokenPeriodico(){
+  if(_tokenRefreshTimer) return;
+  _tokenRefreshTimer=setInterval(function(){ assicuraTokenValido(); }, 30*60*1000); // ogni 30 min
+}
+function fermaRinnovoTokenPeriodico(){
+  if(_tokenRefreshTimer){ clearInterval(_tokenRefreshTimer); _tokenRefreshTimer=null; }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -16337,7 +16383,7 @@ initAntCard();
 
 // Verifica sessione — avvia app o mostra login
 verificaSessioneEAvvia().then(function(_sessAvviata){
-  if(_sessAvviata){setTimeout(async()=>{await syncNow();try{await migraConcetti();renderConcettiPage();}catch(e){console.error('[CONCETTI] migrazione init error:',e);}},800);}
+  if(_sessAvviata){avviaRinnovoTokenPeriodico();setTimeout(async()=>{await syncNow();try{await migraConcetti();renderConcettiPage();}catch(e){console.error('[CONCETTI] migrazione init error:',e);}},800);}
 });
 
 // ── Modulo P2 — Correzione interattiva piano ─────────────────────────────────
