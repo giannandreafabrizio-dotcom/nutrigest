@@ -120,6 +120,8 @@ main{flex:1;overflow-y:auto;}
 .tag-green{background:var(--green-bg);color:var(--green);}
 .tag-gray{background:var(--s2);color:var(--text2);}
 .tag-purple{background:var(--purple-bg);color:var(--purple);}
+.cat-chip{display:inline-flex;align-items:center;padding:.32rem .7rem;border:1px solid var(--border);border-radius:20px;font-size:.74rem;color:var(--text2);cursor:pointer;user-select:none;background:var(--bg);transition:all .15s;}
+.cat-chip.active{font-weight:600;border-color:transparent;}
 /* SEARCH */
 .sbar{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;}
 .sbar input,.sbar select{background:var(--s1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.79rem;padding:.38rem .75rem;outline:none;transition:border-color .15s;box-shadow:var(--shadow);}
@@ -1628,14 +1630,17 @@ main{flex:1;overflow-y:auto;}
   <div id="ai-ric-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.7rem 1rem;font-size:.78rem;color:var(--teal2);margin-bottom:.7rem">
     &#9203; L'AI sta analizzando la ricetta e calcolando i valori nutrizionali...
   </div>
-  <div class="fr">
-    <div class="fg"><label>Categoria</label>
-      <select id="r-cat">
-        <option value="colazione">Colazione</option><option value="pranzo">Pranzo</option>
-        <option value="cena">Cena</option><option value="spuntino">Spuntino</option>
-        <option value="post-workout">Post-workout</option>
-      </select>
+  <div class="fg">
+    <label>Categoria * (seleziona una o più)</label>
+    <div id="r-cat-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+      <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-cat-cb" value="colazione" style="margin-right:5px;accent-color:var(--orange)">Colazione</label>
+      <label class="cat-chip" data-tagclass="tag-teal"><input type="checkbox" class="r-cat-cb" value="pranzo" style="margin-right:5px;accent-color:var(--teal)">Pranzo</label>
+      <label class="cat-chip" data-tagclass="tag-blue"><input type="checkbox" class="r-cat-cb" value="cena" style="margin-right:5px;accent-color:var(--blue)">Cena</label>
+      <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-cat-cb" value="spuntino" style="margin-right:5px;accent-color:var(--green)">Spuntino</label>
+      <label class="cat-chip" data-tagclass="tag-red"><input type="checkbox" class="r-cat-cb" value="post-workout" style="margin-right:5px;accent-color:var(--red)">Post-workout</label>
     </div>
+  </div>
+  <div class="fr">
     <div class="fg"><label>Tipo</label>
       <select id="r-tipo">
         <option value="completo">Pasto completo (sostituisce)</option>
@@ -3237,6 +3242,17 @@ function getCategoriaFunzionale(nomeAlimento) {
 }
 
 const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spuntino:'tag-green','post-workout':'tag-red'};
+
+// P57 — ricette multi-categoria: r.cat può essere array (nuovo) o stringa (retrocompat, ricette pre-esistenti)
+function catArr(r){ if(Array.isArray(r.cat)) return r.cat; return r.cat ? [r.cat] : []; }
+// Spunta/deseleziona i checkbox categoria nel modal ricetta e aggiorna lo stile dei chip
+function setCatChips(values){
+  var g = document.getElementById('r-cat-group'); if(!g) return;
+  g.querySelectorAll('.r-cat-cb').forEach(function(cb){
+    cb.checked = (values||[]).indexOf(cb.value) > -1;
+    cb.dispatchEvent(new Event('change'));
+  });
+}
 
 // ════════════════════════════════════════════════════════════════
 // STORAGE & SYNC
@@ -9465,18 +9481,18 @@ function costruisciPrompt(pazienteId) {
     cena:      p.cena!=='no',
     pre_nanna: p.prenanna==='si'
   };
-  function _ricSlot(r){
-    var c=(r.cat||'').toLowerCase().trim();
-    if(_mealActive.hasOwnProperty(c)) return c;
+  function _ricSlots(r){
+    var cats=catArr(r).map(function(c){return (c||'').toLowerCase().trim();}).filter(function(c){return _mealActive.hasOwnProperty(c);});
+    if(cats.length) return cats;
     var tg=(r.tags||[]).map(function(t){return String(t).toLowerCase().trim();});
     var slots=['colazione','spuntino','pranzo','cena','pre_nanna'];
-    for(var i=0;i<slots.length;i++){ if(tg.indexOf(slots[i])>=0) return slots[i]; }
-    return null; // pasto non determinabile → si tiene
+    var found=slots.filter(function(s){return tg.indexOf(s)>=0;});
+    return found.length ? found : null; // pasto non determinabile → si tiene
   }
   var ricetteDB = (db.ricette||[]).filter(function(r){
-    var slot=_ricSlot(r);
-    if(slot===null) return true;          // metadata ambigua → tieni
-    return _mealActive[slot]===true;      // tieni solo se quel pasto è attivo
+    var slots=_ricSlots(r);
+    if(slots===null) return true;          // metadata ambigua → tieni
+    return slots.some(function(s){return _mealActive[s]===true;}); // tieni se almeno un pasto è attivo
   }).map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
   if(ricetteDB.length>80) ricetteDB=ricetteDB.slice(0,80); // tetto token
 
@@ -11260,7 +11276,8 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
 
   function renderListaRicette(listEl, filtro, tipoFiltro) {
     var ricette = (db.ricette||[]).filter(function(r){
-      if ((r.cat||'').toLowerCase() !== catRic) return false;
+      var _rc = catArr(r).map(function(c){return (c||'').toLowerCase();});
+      if (_rc.indexOf(catRic) === -1) return false;
       var _tipoR = r.tipo || 'completo';
       if (_tipoR !== tipoFiltro) return false;
       if (!filtro) return true;
@@ -12744,7 +12761,8 @@ function _ngPescaRicetta(giorno, slotKey){
              : slotKey; // pranzo / cena
   var ricette=(db.ricette||[]).filter(function(r){
     var tipo=r.tipo||'completo';
-    return (r.cat||'').toLowerCase()===catRic && tipo==='completo';
+    var _rc=catArr(r).map(function(c){return (c||'').toLowerCase();});
+    return _rc.indexOf(catRic)>-1 && tipo==='completo';
   });
 
   // Popup elenco ricette
@@ -14899,7 +14917,7 @@ function renderRic(){
   const tag=document.getElementById('f-ric-tag').value;
   let list=[...db.ricette];
   if(q)list=list.filter(r=>r.nome.toLowerCase().includes(q)||(r.ing||'').toLowerCase().includes(q));
-  if(cat)list=list.filter(r=>r.cat===cat);
+  if(cat)list=list.filter(r=>catArr(r).includes(cat));
   if(tag)list=list.filter(r=>(r.tags||[]).includes(tag));
   document.getElementById('ric-count').textContent=db.ricette.length+' ricette';
   const catL={colazione:'Colazione',pranzo:'Pranzo',cena:'Cena',spuntino:'Spuntino','post-workout':'Post-workout'};
@@ -14907,7 +14925,7 @@ function renderRic(){
   if(!list.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessuna ricetta</p><span>Clicca "+ Aggiungi ricetta" per iniziare</span></div>';return;}
   grid.innerHTML=list.map(r=>`
     <div class="ric-card">
-      <span class="tag ${CAT_COLORS[r.cat]||'tag-gray'}" style="margin-bottom:.4rem">${catL[r.cat]||r.cat}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:.2rem;margin-bottom:.4rem">${catArr(r).map(c=>`<span class="tag ${CAT_COLORS[c]||'tag-gray'}">${catL[c]||c}</span>`).join('')}</div>
       <div style="font-weight:600;font-size:.86rem;margin-bottom:.25rem">${r.nome}</div>
       ${r.kcal?`<div style="font-size:.71rem;color:var(--text2);margin-bottom:.25rem">~${r.kcal} kcal · P:${r.prot||'?'}g · C:${r.carb||'?'}g · G:${r.grassi||'?'}g</div>`:''}
       ${r.ing?`<div style="font-size:.74rem;color:var(--text2)">${r.ing}</div>`:''}
@@ -14920,12 +14938,14 @@ function renderRic(){
     </div>`).join('');
 }
 
-function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const _tp=document.getElementById('r-tipo');if(_tp)_tp.value='completo';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
-function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';document.getElementById('r-cat').value=r.cat||'pranzo';document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');const _tpE=document.getElementById('r-tipo');if(_tpE)_tpE.value=r.tipo||'completo';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const _tp=document.getElementById('r-tipo');if(_tp)_tp.value='completo';setCatChips([]);document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';setCatChips(catArr(r).length?catArr(r):['pranzo']);document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');const _tpE=document.getElementById('r-tipo');if(_tpE)_tpE.value=r.tipo||'completo';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
 async function salvaRic(){
   const nome=document.getElementById('r-nome').value.trim();if(!nome){alert('Inserisci nome');return;}
+  const _catSel=Array.from(document.querySelectorAll('#r-cat-group .r-cat-cb:checked')).map(cb=>cb.value);
+  if(!_catSel.length){alert('Seleziona almeno una categoria');return;}
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
-  const r={nome,cat:document.getElementById('r-cat').value,tipo:(document.getElementById('r-tipo')?document.getElementById('r-tipo').value:'completo'),kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:document.getElementById('r-tags').value.split(',').map(t=>t.trim()).filter(Boolean)};
+  const r={nome,cat:_catSel,tipo:(document.getElementById('r-tipo')?document.getElementById('r-tipo').value:'completo'),kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:document.getElementById('r-tags').value.split(',').map(t=>t.trim()).filter(Boolean)};
   if(editRicId){const idx=db.ricette.findIndex(x=>x.id===editRicId);if(idx>=0){r.id=editRicId;db.ricette[idx]=r;}}else{r.id=uid();db.ricette.push(r);}
   console.log('[RICETTE] salvaRic — salvo ricetta:', r.nome, '— id:', r.id);
   saveLocal();
@@ -15165,7 +15185,7 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
     const ric = JSON.parse(clean);
     // Compila i campi
     if(ric.nome) document.getElementById('r-nome').value = ric.nome;
-    if(ric.categoria) document.getElementById('r-cat').value = ric.categoria;
+    if(ric.categoria) setCatChips([ric.categoria]);
     if(ric.kcal) document.getElementById('r-kcal').value = ric.kcal;
     if(ric.proteine) document.getElementById('r-prot').value = ric.proteine;
     if(ric.carboidrati) document.getElementById('r-carb').value = ric.carboidrati;
@@ -16719,7 +16739,7 @@ function apriPannelloRicette(giorno, slotKey) {
   window._p2RicSlot = slotKey;
   window._p2RicGiorno = giorno;
   if (slotEl) slotEl.textContent = giorno + ' — ' + (slotLabels[slotKey] || slotKey);
-  var ricette = (db.ricette||[]).filter(function(r){ return (r.cat||'').toLowerCase() === cat; });
+  var ricette = (db.ricette||[]).filter(function(r){ var _rc=catArr(r).map(function(c){return (c||'').toLowerCase();}); return _rc.indexOf(cat)>-1; });
   if (!ricette.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:2rem 1rem;font-size:.8rem;color:var(--text2)">Nessuna ricetta per questo slot.<br>Aggiungile dalla sezione Ricette.</div>';
   } else {
@@ -16951,6 +16971,22 @@ document.getElementById('p2-save').onclick = async function() {
   else{attaccaTutti();}
   window.b3Attach=attaccaTutti;
   window.b3ValidaInput=validaInput;
+})();
+// P57 — wiring visivo chip categoria ricetta (colora il chip quando il checkbox viene spuntato)
+(function(){
+  function wireCatChips(){
+    var g=document.getElementById('r-cat-group');if(!g)return;
+    g.querySelectorAll('.cat-chip').forEach(function(chip){
+      var cb=chip.querySelector('.r-cat-cb');var tc=chip.getAttribute('data-tagclass');
+      if(!cb||cb._catWired)return;cb._catWired=true;
+      cb.addEventListener('change',function(){
+        chip.classList.toggle('active',cb.checked);
+        if(tc)chip.classList.toggle(tc,cb.checked);
+      });
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',wireCatChips);}
+  else{wireCatChips();}
 })();
 </script>
 <div id="p2-ric-panel" style="position:fixed;top:0;right:0;bottom:0;width:300px;background:var(--s1);border-left:1px solid var(--border);z-index:1000;display:flex;flex-direction:column;box-shadow:-4px 0 20px rgba(0,0,0,0.12);transform:translateX(100%);transition:transform .25s ease;">
