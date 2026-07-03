@@ -3900,7 +3900,10 @@ function _pianoCacheKey(pazienteId) {
   const esclusi= (p.alimentiEsclusi||[]).slice().sort().join(',');
   const regime = p.regime||'';
   const giorniVeg = p.giorniVegetariani||0;
-  const raw = [pazienteId, regime, kcal, prot, carb, gras, verdi, rossi, esclusi, giorniVeg].join('|');
+  // P34 — la ciclizzazione cambia i target ON/OFF: deve invalidare la cache
+  const _cic = p.ciclizzazione||{};
+  const cicKey = (_cic.attiva?('on'+(_cic.kcalON||'')+'off'+(_cic.kcalOFF||'')+'g'+((p.giorniAllenamento||[]).slice().sort().join(''))):'nocic');
+  const raw = [pazienteId, regime, kcal, prot, carb, gras, verdi, rossi, esclusi, giorniVeg, cicKey].join('|');
   // Hash semplice (djb2) per chiave compatta
   let hash = 5381;
   for (let i = 0; i < raw.length; i++) {
@@ -7727,7 +7730,8 @@ function renderPdMacros(p){
     <label>Note orario allenamento</label>
     <input id="p-orario-all-note" placeholder="Specifica...">
   </div>
-  <div class="fg"><label>Giorni di allenamento</label>
+  <div class="fg"><label>Giorni di carico (ON)</label>
+    <div style="font-size:.68rem;color:var(--text3);margin-bottom:.3rem">Per chi si allena, coincidono con i giorni di allenamento. Con la ciclizzazione attiva sono i giorni "carico".</div>
     <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-lun" value="Lun" style="accent-color:var(--teal)"> Lun</label>
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-mar" value="Mar" style="accent-color:var(--teal)"> Mar</label>
@@ -7736,6 +7740,20 @@ function renderPdMacros(p){
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-ven" value="Ven" style="accent-color:var(--teal)"> Ven</label>
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-sab" value="Sab" style="accent-color:var(--teal)"> Sab</label>
       <label style="display:flex;align-items:center;gap:.3rem;font-size:.77rem;cursor:pointer;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.25rem .55rem"><input type="checkbox" id="gall-dom" value="Dom" style="accent-color:var(--teal)"> Dom</label>
+    </div>
+  </div>
+  <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;background:var(--bg)">
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;margin:0">
+      <input type="checkbox" id="cic-attiva" style="accent-color:var(--teal);width:16px;height:16px" onchange="_toggleCiclizzazione()">
+      <span style="font-weight:600">Ciclizzazione carboidrati (carico / scarico)</span>
+    </label>
+    <div style="font-size:.68rem;color:var(--text3);margin-top:.3rem">Proteine e grassi restano fissi (dai target sotto); i carboidrati cambiano tra ON e OFF. Usabile anche senza allenamento.</div>
+    <div id="cic-campi" style="display:none;margin-top:.6rem">
+      <div class="fr">
+        <div class="fg" style="margin:0"><label>Kcal giorni ON (carico)</label><input type="number" id="cic-kcal-on" placeholder="es. 1800" min="0" oninput="_aggiornaAnteprimaCiclizzazione()"></div>
+        <div class="fg" style="margin:0"><label>Kcal giorni OFF (scarico)</label><input type="number" id="cic-kcal-off" placeholder="es. 1500" min="0" oninput="_aggiornaAnteprimaCiclizzazione()"></div>
+      </div>
+      <div id="cic-anteprima" style="font-size:.7rem;color:var(--teal2);margin-top:.4rem"></div>
     </div>
   </div>
   <div class="fr">
@@ -7918,6 +7936,14 @@ function renderPdMacros(p){
       if(el) el.checked=p.giorniAllenamento.includes(d);
     });
   }
+  // P34 — populate ciclizzazione carboidrati
+  (function(){
+    var cic=p.ciclizzazione||{};
+    var _ca=document.getElementById('cic-attiva'); if(_ca)_ca.checked=!!cic.attiva;
+    var _on=document.getElementById('cic-kcal-on'); if(_on&&cic.kcalON!=null)_on.value=cic.kcalON;
+    var _off=document.getElementById('cic-kcal-off'); if(_off&&cic.kcalOFF!=null)_off.value=cic.kcalOFF;
+    if(typeof _toggleCiclizzazione==='function')_toggleCiclizzazione();
+  })();
   const _rifVal=p.rifCalcolo||'auto';
   const _rifEl=document.getElementById('mac-ref-'+_rifVal);
   if(_rifEl) _rifEl.checked=true;
@@ -8132,6 +8158,41 @@ function eliminaSlotTDEE(ts){
   save();renderStoricoTDEE(p);notif('Eliminato');
 }
 
+// P34 — mostra/nasconde i campi ciclizzazione e aggiorna l'anteprima carboidrati derivati
+function _toggleCiclizzazione(){
+  var ca=document.getElementById('cic-attiva');
+  var campi=document.getElementById('cic-campi');
+  if(campi) campi.style.display=(ca&&ca.checked)?'block':'none';
+  _aggiornaAnteprimaCiclizzazione();
+}
+function _aggiornaAnteprimaCiclizzazione(){
+  var box=document.getElementById('cic-anteprima');
+  if(!box) return;
+  var p=_macrosPaziente;
+  var onV=parseFloat((document.getElementById('cic-kcal-on')||{}).value);
+  var offV=parseFloat((document.getElementById('cic-kcal-off')||{}).value);
+  if(!p||!(onV>0)||!(offV>0)){ box.textContent=''; return; }
+  // P/G fissi dai target attivi, altrimenti dal riferimento peso/FFM
+  var base=(typeof _getActiveMacrosTarget==='function')?_getActiveMacrosTarget(p):null;
+  var protG=null, grassiG=null;
+  if(base&&base.protG!=null&&base.grassiG!=null){ protG=base.protG; grassiG=base.grassiG; }
+  else {
+    var _ct=calcolaTDEE(p);
+    var _lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+    var _ffm=_lastIb&&_lastIb.m?parseFloat(_lastIb.m):null;
+    var _bmi=_lastIb&&_lastIb.bmi?parseFloat(_lastIb.bmi):null;
+    var _rif=p.rifCalcolo||'auto';
+    var _useFFM=_rif==='ffm'?(_ffm!==null):_rif==='peso'?false:(_ffm!==null&&_bmi!==null&&_bmi>=25);
+    var _ref=_useFFM?_ffm:_ct.peso;
+    if(_ref){ protG=Math.round(1.8*_ref); grassiG=Math.round(0.9*_ref); }
+  }
+  if(protG==null||grassiG==null){ box.innerHTML='⚠ Salva prima proteine e grassi (target) per vedere i carboidrati derivati.'; return; }
+  var kcalPG=protG*4+grassiG*9;
+  var carbON=Math.max(0,Math.round((onV-kcalPG)/4));
+  var carbOFF=Math.max(0,Math.round((offV-kcalPG)/4));
+  box.innerHTML='→ P '+protG+'g e G '+grassiG+'g fissi · Carbo ON <b>'+carbON+'g</b> · Carbo OFF <b>'+carbOFF+'g</b> (differenza '+(carbON-carbOFF)+'g di carboidrati)';
+}
+
 function salvaCalcoloMacros(){
   const p=db.pazienti.find(x=>x.id===currentPazId);
   if(!p){notif('⚠ Nessun paziente aperto');return;}
@@ -8149,6 +8210,17 @@ function salvaCalcoloMacros(){
   p.regime=gs('mac-regime');
   p.rifCalcolo=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
   p.giorniAllenamento=['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1));
+  // P34 — ciclizzazione carboidrati
+  {
+    const _ca=document.getElementById('cic-attiva');
+    const _on=document.getElementById('cic-kcal-on');
+    const _off=document.getElementById('cic-kcal-off');
+    p.ciclizzazione={
+      attiva: !!(_ca&&_ca.checked),
+      kcalON: (_on&&_on.value!=='')?parseFloat(_on.value):null,
+      kcalOFF:(_off&&_off.value!=='')?parseFloat(_off.value):null
+    };
+  }
   // ── BUG3 FIX: salva target macros completi sul paziente ──
   const _protGkg=parseFloat(document.getElementById('mac-prot').value)||1.8;
   const _grassiGkg=parseFloat(document.getElementById('mac-grassi').value)||0.9;
@@ -8541,7 +8613,7 @@ function pianoPazSelezionato(id){
     const carbG=_activeDisp?_activeDisp.carbG:Math.max(0,Math.round((kcalTarget-Math.round(1.8*ref)*4-Math.round(0.9*ref)*9)/4));
     const kcalDisp=_activeDisp?_activeDisp.kcal:kcalTarget;
     const kcalProt=protG*4;const kcalGrassi=grassiG*9;
-    const ciclizzatoBadge=(p.giorniAllenamento&&p.giorniAllenamento.length>0)?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">Piano ciclizzato attivo — giorni ON/OFF ('+( p.giorniAllenamento||[]).join(", ")+')</div>':'';
+    const ciclizzatoBadge=(p.ciclizzazione&&p.ciclizzazione.attiva&&p.ciclizzazione.kcalON>0&&p.ciclizzazione.kcalOFF>0)?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">⚡ Ciclizzazione attiva — ON '+p.ciclizzazione.kcalON+' / OFF '+p.ciclizzazione.kcalOFF+' kcal · carico: '+(( p.giorniAllenamento||[]).join(", ")||'nessun giorno')+'</div>':'';
 
     macrosEl.innerHTML=`
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
@@ -8992,44 +9064,9 @@ function _montaPianoCorrente(pianoAI, pazId){
   var _sp = document.getElementById('piano-select-paz');
   if (_sp) { _sp.value = pazId; if (typeof pianoPazSelezionato === 'function') pianoPazSelezionato(pazId); }
   window._pdfPaziente = p; window._pdfPiano = pianoAI; window._pianoGiornoCorrente = 0;
-  // ── BUGFIX: imposta _pianoTargets DOPO pianoPazSelezionato (che lo azzerava su cambio paziente) ──
-  if (p) {
-    var _activeMT = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
-    var _ct = calcolaTDEE(p);
-    var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
-      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
-      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    if (_activeMT && _activeMT.kcal) {
-      // Priorità ai target decisi dal medico (rag.clinico o macrosTarget)
-      window._pianoTargets = {
-        kcal: _activeMT.kcal,
-        p: _activeMT.protG,
-        c: _activeMT.carbG,
-        g: _activeMT.grassiG,
-        source: _activeMT.source === 'fx' ? 'ragionamento' : 'calcolo'
-      };
-    } else {
-      // Fallback legacy: ricalcola da TDEE
-      var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
-      var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
-      var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
-      var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
-      window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
-    }
-    window._pianoGiorniON = p.giorniAllenamento||[];
-    var _passi = p.passiGiornalieri!=null?+p.passiGiornalieri:null;
-    var _neat = _passi===null?0:_passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
-    var _lafOFF = +((1.20+_neat).toFixed(3));
-    var _lastIb = p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
-    if (_lastIb&&_lastIb.mb&&_ct.peso) {
-      var _tdeeOFF = Math.round(_lastIb.mb*_lafOFF);
-      var _kcalOFF = _tdeeOFF+(_regOff[p.regime]||0);
-      var _protOFF = Math.round(1.8*_ct.peso);
-      var _grasOFF = Math.round(0.9*_ct.peso);
-      var _carbOFF = Math.max(0,Math.round((_kcalOFF-_protOFF*4-_grasOFF*9)/4));
-      window._pianoTargetsOFF = {kcal:_kcalOFF,p:_protOFF,c:_carbOFF,g:_grasOFF,source:'calcolo-off',laf:_lafOFF};
-    }
-  }
+  // ── P34: target del piano (ON/OFF se ciclizzato) via fonte unica ──
+  // (deve girare DOPO pianoPazSelezionato, che azzera _pianoTargets su cambio paziente)
+  if (p) _setupPianoTargets(p);
   // piano-piano-box e' statico nell'HTML
   var _pianoEl = document.getElementById('piano-piano-box');
   if (!_pianoEl) return false;
@@ -9417,6 +9454,74 @@ function _getActiveMacrosTarget(p){
   return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'fx',timestamp:tF.timestamp,raw:tF};
 }
 
+// ── P34 — CICLIZZAZIONE CARBOIDRATI (carico/scarico) ──────────────────────────
+// Modello: il medico imposta due kcal a mano (ON=carico, OFF=scarico). Proteine e
+// grassi restano FISSI (dai target attivi rag./TDEE); i carboidrati assorbono tutta
+// la differenza kcal. Ritorna {attiva, incompleta?, on?, off?}.
+function calcolaTargetsCiclizzazione(p){
+  var cic = p && p.ciclizzazione;
+  if(!cic || !cic.attiva) return {attiva:false};
+  var kcalON  = cic.kcalON!=null  ? +cic.kcalON  : NaN;
+  var kcalOFF = cic.kcalOFF!=null ? +cic.kcalOFF : NaN;
+  if(!(kcalON>0) || !(kcalOFF>0)) return {attiva:true, incompleta:true};
+  // Proteine e grassi FISSI: presi dai target decisi dal medico (rag./TDEE) se presenti,
+  // altrimenti calcolati sul riferimento peso/FFM come nel resto del generatore.
+  var base = (typeof _getActiveMacrosTarget==='function') ? _getActiveMacrosTarget(p) : null;
+  var protG=null, grassiG=null;
+  if(base && base.protG!=null && base.grassiG!=null){
+    protG = base.protG; grassiG = base.grassiG;
+  } else {
+    var _ct = calcolaTDEE(p);
+    var _lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+    var _ffm = _lastIb && _lastIb.m ? parseFloat(_lastIb.m) : null;
+    var _bmi = _lastIb && _lastIb.bmi ? parseFloat(_lastIb.bmi) : null;
+    var _rif = p.rifCalcolo || 'auto';
+    var _useFFM = _rif==='ffm' ? (_ffm!==null) : _rif==='peso' ? false : (_ffm!==null && _bmi!==null && _bmi>=25);
+    var _ref = _useFFM ? _ffm : _ct.peso;
+    if(_ref){ protG = Math.round(1.8*_ref); grassiG = Math.round(0.9*_ref); }
+  }
+  if(protG==null || grassiG==null) return {attiva:true, incompleta:true};
+  var kcalPG = protG*4 + grassiG*9;
+  var carbON  = Math.max(0, Math.round((kcalON  - kcalPG)/4));
+  var carbOFF = Math.max(0, Math.round((kcalOFF - kcalPG)/4));
+  return {
+    attiva:true,
+    on:  {kcal:kcalON,  p:protG, c:carbON,  g:grassiG},
+    off: {kcal:kcalOFF, p:protG, c:carbOFF, g:grassiG}
+  };
+}
+
+// ── P34 — fonte UNICA dei target del piano per la card "Verifica Macros" ──────
+// Imposta window._pianoTargets (ON di default), _pianoTargetsOFF (giorni scarico) e
+// _pianoGiorniON. Sostituisce la vecchia logica LAF duplicata in due punti.
+function _setupPianoTargets(p){
+  window._pianoTargets = null;
+  window._pianoTargetsOFF = null;
+  window._pianoGiorniON = (p && p.giorniAllenamento) || [];
+  if(!p) return;
+  var _active = (typeof _getActiveMacrosTarget==='function') ? _getActiveMacrosTarget(p) : null;
+  var _cic = calcolaTargetsCiclizzazione(p);
+  if(_cic.attiva && _cic.on){
+    // Ciclizzato: ON di default, OFF per i giorni non di carico. Source 'calcolo'
+    // sull'ON così la card mostra il badge (ON); l'OFF usa 'calcolo-off' → (OFF).
+    window._pianoTargets    = {kcal:_cic.on.kcal,  p:_cic.on.p,  c:_cic.on.c,  g:_cic.on.g,  source:'calcolo'};
+    window._pianoTargetsOFF = {kcal:_cic.off.kcal, p:_cic.off.p, c:_cic.off.c, g:_cic.off.g, source:'calcolo-off'};
+    return;
+  }
+  // Non ciclizzato: singolo target (rag./TDEE se presente, altrimenti fallback da peso).
+  if(_active && _active.kcal){
+    window._pianoTargets = {kcal:_active.kcal, p:_active.protG, c:_active.carbG, g:_active.grassiG, source:_active.source==='fx'?'ragionamento':'calcolo'};
+  } else {
+    var _ct = calcolaTDEE(p);
+    var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+    var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
+    var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
+    var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
+    var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
+    window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
+  }
+}
+
 function costruisciPrompt(pazienteId) {
   var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
   if (!p) return '';
@@ -9457,11 +9562,29 @@ function costruisciPrompt(pazienteId) {
   }
 
   var olioG = kcalTarget !== null ? (kcalTarget < 1600 ? 10 : 20) : 15;
-  var carbGr = kcalTarget !== null ? (
-    kcalTarget < 1200 ? 60 : kcalTarget < 1400 ? 70 :
-    kcalTarget < 1600 ? 80 : kcalTarget < 1800 ? 90 :
-    kcalTarget < 2000 ? 100 : kcalTarget < 2200 ? 110 :
-    kcalTarget < 2500 ? 120 : 150) : 80;
+  var _carbGrPerKcal = function(k){
+    if(k==null) return 80;
+    return k<1200?60:k<1400?70:k<1600?80:k<1800?90:k<2000?100:k<2200?110:k<2500?120:150;
+  };
+  var carbGr = _carbGrPerKcal(kcalTarget);
+
+  // ── P34 — ciclizzazione carboidrati: due target (ON/OFF), carbo per pasto distinti ──
+  var _cicP = calcolaTargetsCiclizzazione(p);
+  var _ciclizzato = _cicP.attiva && !!_cicP.on;
+  var carbGrON  = _ciclizzato ? _carbGrPerKcal(_cicP.on.kcal)  : carbGr;
+  var carbGrOFF = _ciclizzato ? _carbGrPerKcal(_cicP.off.kcal) : carbGr;
+  var _giorniCarico = (p.giorniAllenamento||[]);
+  var blocoCiclizzazione = '';
+  if(_ciclizzato){
+    var _nomiFull = {Lun:'Lunedì',Mar:'Martedì',Mer:'Mercoledì',Gio:'Giovedì',Ven:'Venerdì',Sab:'Sabato',Dom:'Domenica'};
+    var _giorniON = _giorniCarico.map(function(g){return _nomiFull[g]||g;});
+    blocoCiclizzazione = '\n\n⚡ CICLIZZAZIONE CARBOIDRATI (carico/scarico) — REGOLA CRITICA\n'
+      + 'Piano ciclizzato: proteine e grassi restano IDENTICI ogni giorno; cambiano SOLO i carboidrati.\n'
+      + '• Giorni ON (carico): '+(_giorniON.length?_giorniON.join(', '):'nessuno selezionato')+' → '+_cicP.on.kcal+' kcal/die · Carboidrati '+_cicP.on.c+'g/die · ~'+carbGrON+'g di carbo per pasto principale\n'
+      + '• Giorni OFF (scarico): tutti gli altri → '+_cicP.off.kcal+' kcal/die · Carboidrati '+_cicP.off.c+'g/die · ~'+carbGrOFF+'g di carbo per pasto principale\n'
+      + '• Proteine '+_cicP.on.p+'g/die e Grassi '+_cicP.on.g+'g/die: INVARIATI su tutti i giorni.\n'
+      + 'I giorni ON hanno più carboidrati (energia per l\'allenamento), gli OFF sono in scarico. Rispetta i DUE target distinti giorno per giorno: il campo "macros" di ogni giorno deve riflettere il target ON o OFF corrispondente.';
+  }
 
   var al = p.alimenti || {};
   var alimentiVerdi    = Object.entries(al).filter(function(e){return e[1]==='si';}).map(function(e){return e[0].split('__')[1];});
@@ -9554,15 +9677,15 @@ Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
 
 PAZIENTE
 Nome: ${p.nome||''} ${p.cognome||''}
-Regime: ${p.regime||'Normocalorico'} | Kcal: ${kcalTarget !== null ? kcalTarget : 'N/D'} | P: ${protG !== null ? protG : 'N/D'}g | C: ${carbG !== null ? carbG : 'N/D'}g | G: ${grassiG !== null ? grassiG : 'N/D'}g
+Regime: ${p.regime||'Normocalorico'} | Kcal: ${_ciclizzato ? 'ciclizzato ON '+_cicP.on.kcal+' / OFF '+_cicP.off.kcal+' (vedi blocco CICLIZZAZIONE)' : (kcalTarget !== null ? kcalTarget : 'N/D')} | P: ${protG !== null ? protG : 'N/D'}g | C: ${_ciclizzato ? 'ON '+_cicP.on.c+'g / OFF '+_cicP.off.c+'g' : (carbG !== null ? carbG+'g' : 'N/D')} | G: ${grassiG !== null ? grassiG : 'N/D'}g
 Allergie: ${p.allergie||'nessuna'}
 ${(function(){var nc=p.noteClinica&&p.noteClinica.length?p.noteClinica.slice(-4):[];return nc.length?'Note cliniche (ultime '+nc.length+'): '+nc.map(function(n){return '['+n.data+'] '+n.testo;}).join(' | '):'';})()}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · FFM ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
-${(p.giorniAllenamento||[]).length?`Giorni allenamento (ON): ${p.giorniAllenamento.join(', ')}`:''}
-${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}
+${_ciclizzato ? `Giorni di carico (ON): ${(p.giorniAllenamento||[]).join(', ')||'nessuno'}` : ((p.giorniAllenamento||[]).length?`Giorni allenamento: ${p.giorniAllenamento.join(', ')}`:'')}
+${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}${blocoCiclizzazione}
 
 GRAMMATURE FISSE
-Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${carbGr}g | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g
+Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${_ciclizzato ? `giorni ON ${carbGrON}g · giorni OFF ${carbGrOFF}g` : `${carbGr}g`} | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g
 
 ALIMENTI AUTORIZZATI — usa SOLO questi, mai inventarne altri
 Verdi (${alimentiVerdi.length}): ${alimentiVerdi.join(', ')||'nessuno specificato'}
@@ -9587,10 +9710,10 @@ STRUTTURA PIANO
 ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
   var abbr={'Lunedì':'Lun','Martedì':'Mar','Mercoledì':'Mer','Giovedì':'Gio','Venerdì':'Ven','Sabato':'Sab','Domenica':'Dom'};
   var isON=(p.giorniAllenamento||[]).includes(abbr[n]);
-  return (p.giorniAllenamento||[]).length ? n+(isON?' ON':' OFF') : n;
+  return _ciclizzato ? n+(isON?' ON':' OFF') : n;
 }).join(', ')}
 Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa, nessuna ricetta
-${!(p.giorniAllenamento&&p.giorniAllenamento.length>0) ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di allenamento ('+( p.giorniAllenamento||[]).join(', ')+') e OFF agli altri giorni.'}
+${!_ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di carico ('+( p.giorniAllenamento||[]).join(', ')+') e OFF agli altri giorni. I giorni ON e OFF hanno target di carboidrati DIVERSI (vedi blocco CICLIZZAZIONE sopra).'}
 
 REGOLE PERSONALIZZATE MEDICO
 ${(function(){
@@ -11778,7 +11901,19 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
     notif('⚠ Nessun target macros salvato — vai in TDEE → Salva dati o completa un Ragionamento');
     throw new Error('Target macros non disponibili per il paziente');
   }
-  var ciclizzato = (paz && paz.giorniAllenamento && paz.giorniAllenamento.length > 0) ? true : false;
+  // P34 — barriera ciclizzazione: se attiva servono kcal ON/OFF e almeno un giorno di carico
+  if(paz && paz.ciclizzazione && paz.ciclizzazione.attiva){
+    var _cON=+paz.ciclizzazione.kcalON, _cOFF=+paz.ciclizzazione.kcalOFF;
+    if(!(_cON>0) || !(_cOFF>0)){
+      notif('⚠ Ciclizzazione attiva ma kcal ON/OFF non impostate — vai in TDEE e inserisci i due valori');
+      throw new Error('Ciclizzazione senza kcal ON/OFF');
+    }
+    if(!(paz.giorniAllenamento||[]).length){
+      notif('⚠ Ciclizzazione attiva ma nessun giorno di carico (ON) selezionato — selezionali in TDEE');
+      throw new Error('Ciclizzazione senza giorni di carico');
+    }
+  }
+  var ciclizzato = (paz && paz.ciclizzazione && paz.ciclizzazione.attiva) ? true : false;
   const _pLog = (db.pazienti||[]).find(function(x){return x.id===pazienteId;});
   console.log('[Piano] ragionamentoClinico paziente:', _pLog ? JSON.stringify(_pLog.ragionamentoClinico) : 'paziente non trovato');
   console.log('[Piano] _ragContextForPiano:', JSON.stringify(window._ragContextForPiano));
@@ -12187,28 +12322,18 @@ async function generaPiano(forceRegen){
   const p=db.pazienti.find(x=>x.id===id);
   if(!p){notif('⚠ Paziente non trovato');return;}
 
-  // Calcolo TDEE e macros
-  const {tdee,mb,peso}=calcolaTDEE(p);
+  // P34 — riquadro riepilogo: target REALI (rag./TDEE), niente ricalcolo fallback divergente dal generatore.
+  const {tdee}=calcolaTDEE(p);
+  const _amtRV=(typeof _getActiveMacrosTarget==='function')?_getActiveMacrosTarget(p):null;
+  const _cicRV=calcolaTargetsCiclizzazione(p);
   let kcalTarget=null,protG=null,carbG=null,grassiG=null;
-  if(mb&&peso){
-    const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
-      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
-      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    const offset=regimeOffset[p.regime]||0;
-    kcalTarget=tdee+offset;
-    protG=Math.round(1.8*peso);
-    grassiG=Math.round(0.9*peso);
-    carbG=Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4));
-  }
+  if(_amtRV){ kcalTarget=_amtRV.kcal; protG=_amtRV.protG; carbG=_amtRV.carbG; grassiG=_amtRV.grassiG; }
 
   // Tre liste alimenti
   const al=p.alimenti||{};
   const alimentiVerdi=Object.entries(al).filter(([k,v])=>v==='si').map(([k])=>k.split('__')[1]);
   const alimentiArancioni=Object.entries(al).filter(([k,v])=>v==='arancione').map(([k])=>k.split('__')[1]);
   const alimentiRossi=Object.entries(al).filter(([k,v])=>v==='rosso').map(([k])=>k.split('__')[1]);
-  const alimentiEsclusi=Object.entries(al).filter(([k,v])=>v==='grigioScuro'||v==='no').map(([k])=>k.split('__')[1]);
-  const preferiti=alimentiVerdi;
-  const scartati=alimentiRossi;
 
   const dati={
     nome: p.nome||'',
@@ -12245,6 +12370,7 @@ async function generaPiano(forceRegen){
   var _sum='<strong style="font-size:.88rem;">✓ '+dati.nome+' '+dati.cognome+'</strong>'
     +' · '+dati.regime+' · '+dati.kcalTarget+' kcal'
     +' · P '+dati.proteineTarget+'g C '+dati.carboidratiTarget+'g G '+dati.grassiTarget+'g';
+  if(_cicRV&&_cicRV.attiva&&_cicRV.on)_sum+=' · <span style="color:#0F6E56;font-weight:600;">⚡ ciclizzato ON '+_cicRV.on.kcal+' / OFF '+_cicRV.off.kcal+' kcal (C '+_cicRV.on.c+'/'+_cicRV.off.c+'g)</span>';
   if(dati.allergie&&dati.allergie!=='—')_sum+=' · <span style="color:#c0392b;">⚠ '+dati.allergie+'</span>';
   box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;cursor:pointer;" onclick="var d=document.getElementById(\'pd-det\');d.style.display=d.style.display===\'block\'?\'none\':\'block\';">'
     +'<div style="line-height:1.6;">'+_sum+'</div>'
@@ -12261,19 +12387,6 @@ async function generaPiano(forceRegen){
   // Badges e piano-piano-box sono statici nell'HTML
   let pianoEl = document.getElementById('piano-piano-box');
   if(!pianoEl) return;
-
-  // ── Costruzione struttura piano ──────────────────────────────────────────
-  const haSp = (p.spuntM==='si'||p.spuntP==='si');
-  const haPrenanna = p.prenanna==='si';
-  const isCetoOrenale = p.regime&&(p.regime.toLowerCase().includes('chetogen')||p.regime.toLowerCase().includes('cetogen')||p.regime.toLowerCase().includes('renale'));
-  const nGiorni = isCetoOrenale?7:6;
-  const nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
-
-  // Olio: basato su grassiTarget
-  const olioG = grassiG!==null ? (grassiG<50?10:grassiG<=80?15:20) : 15;
-
-  // Grammatura carboidrati: basata su kcalTarget
-  const carbGr = kcalTarget!==null ? (kcalTarget<1200?60:kcalTarget<1400?70:kcalTarget<1600?80:kcalTarget<1800?90:kcalTarget<2000?100:kcalTarget<2200?110:kcalTarget<2500?120:150) : 80;
 
 
   // ── Generazione piano via chiamata Anthropic diretta (getAnthropicKey) ────
@@ -12299,84 +12412,10 @@ async function generaPiano(forceRegen){
     {key:'cena',              label:'cena',               attivo: p.cena !== 'no'},
     {key:'pre_nanna',         label:'pre_nanna',          attivo: p.prenanna === 'si'}
   ];
-  const _pastiAttivi = _pastiCfg.filter(function(x){return x.attivo;});
   const _pastiSkipped = _pastiCfg.filter(function(x){return !x.attivo;});
-  const _listaPastiAttivi = _pastiAttivi.map(function(x){return x.label;}).join(', ');
-  const _listaPastiSkipped = _pastiSkipped.length ? _pastiSkipped.map(function(x){return x.label;}).join(', ') : 'nessuno';
-
-  const prompt = "Sei un nutrizionista esperto. Genera un piano alimentare settimanale personalizzato.\n\n"
-    +"DATI PAZIENTE:\n"
-    +"- Regime: "+(p.regime||'Normocalorico')+"\n"
-    +"- Kcal target: "+(kcalTarget!==null?kcalTarget:'N/D')+" kcal/giorno\n"
-    +"- Proteine target: "+(protG!==null?protG:'N/D')+"g\n"
-    +"- Carboidrati target: "+(carbG!==null?carbG:'N/D')+"g\n"
-    +"- Grassi target: "+(grassiG!==null?grassiG:'N/D')+"g\n"
-    +"- Allergie/intolleranze: "+(p.allergie||'nessuna')+"\n"
-    +"- Alimenti preferiti: "+(preferiti.length?preferiti.join(', '):'nessuno specificato')+"\n"
-    +"- Alimenti scartati: "+(scartati.length?scartati.join(', '):'nessuno specificato')+"\n"
-    +"- PASTI DA GENERARE: "+_listaPastiAttivi+"\n"
-    +"- PASTI DA NON GENERARE (paziente non li fa): "+_listaPastiSkipped+"\n"
-
-    +"REGOLE:\n"
-    +"- Piano da "+nGiorni+" giorni ("+nomiGiorni.slice(0,nGiorni).join(', ')+")\n"
-    +"- ⛔ REGOLA ASSOLUTA N.1: genera ESCLUSIVAMENTE i pasti: "+_listaPastiAttivi+". I pasti "+_listaPastiSkipped+" NON ESISTONO per questo paziente — non inserirli MAI nel JSON, nemmeno come chiave vuota. Il JSON non deve contenere le chiavi: "+_listaPastiSkipped+".\n"
-    +"- Le kcal/macros vanno distribuiti SOLO sui pasti attivi ("+_listaPastiAttivi+").\n"
-    +"- Rispetta le kcal e i macronutrienti target\n"
-    +"- Usa alimenti italiani comuni e reperibili al supermercato\n"
-    +"- Rispetta allergie e alimenti scartati\n"
-    +"- Privilegia gli alimenti preferiti quando possibile\n"
-    +"- Grammature realistiche e pratiche\n"
-    +"- Giorni 1-3-5 al pranzo: aggiungi legumi (barattolo 120g) con proteina leggera\n"
-    +"- Giorni 2-4-6 al pranzo: proteina principale senza legumi\n"
-    +"- Grammi olio per pasto: "+olioG+"g, grammi carboidrati pranzo: "+carbGr+"g, grammi carboidrati cena: "+carbGr+"g\n\n"
-    +"Restituisci SOLO un JSON valido, nessun testo prima o dopo. Includi ESCLUSIVAMENTE le chiavi: giorno + "+_listaPastiAttivi+". NON includere mai: "+_listaPastiSkipped+". Schema dinamico con SOLO i pasti attivi:\n"
-    +(function(){
-      var schemaPasti = {};
-      if(_pastiCfg.find(function(x){return x.key==='colazione'&&x.attivo;})) schemaPasti['colazione']={'descrizione':'testo breve','carboidrati':{'nome':'','grammi':0},'proteine':{'nome':'','grammi':0},'grassi':{'nome':'','grammi':0},'frutta':'(opzionale)'};
-      if(_pastiCfg.find(function(x){return x.key==='spuntino_mattina'&&x.attivo;})) schemaPasti['spuntino_mattina']='descrizione spuntino mattina';
-      if(_pastiCfg.find(function(x){return x.key==='pranzo'&&x.attivo;})) schemaPasti['pranzo']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'carboidrati':{'nome':'','grammi':carbGr},'proteina':{'nome':'','grammi':0},'legumi_g':0};
-      if(_pastiCfg.find(function(x){return x.key==='spuntino_pomeriggio'&&x.attivo;})) schemaPasti['spuntino_pomeriggio']='descrizione spuntino pomeriggio';
-      if(_pastiCfg.find(function(x){return x.key==='cena'&&x.attivo;})) schemaPasti['cena']={'nota_descrittiva':'testo','verdura':'tipo 200g','olio_g':olioG,'carboidrati':{'nome':'','grammi':carbGr},'proteina':{'nome':'','grammi':0}};
-      if(_pastiCfg.find(function(x){return x.key==='pre_nanna'&&x.attivo;})) schemaPasti['pre_nanna']='descrizione pre-nanna';
-      return '[{\"giorno\":\"Lunedì\",'+Object.keys(schemaPasti).map(function(k){return JSON.stringify(k)+':'+JSON.stringify(schemaPasti[k]);}).join(',')+'},...]';
-    }());
-
-  var _md = (p.ragionamentoClinico && p.ragionamentoClinico.macrosDecisi) || null;
-  if (!_md && window._ragContextForPiano && window._ragContextForPiano.pazId === p.id) {
-    var _rt = window._ragContextForPiano.riassunto || '';
-    // P26: stessa ancora di salvaRagionamento. Se manca "TARGET FINALE: X kcal" (o un macro),
-    // _md resta null → il generatore ricade sul target calcolato da TDEE (nessun numero inventato).
-    var _mk=_rt.match(/TARGET FINALE:\s*(\d+)\s*kcal/i), _mp=_rt.match(/[Pp]roteine[^\d]*(\d+)/), _mc=_rt.match(/[Cc]arboidrati[^\d]*(\d+)/), _mg=_rt.match(/[Gg]rassi[^\d]*(\d+)/);
-    if (_mk&&_mp&&_mc&&_mg) _md={kcal:+_mk[1],P:+_mp[1],C:+_mc[1],G:+_mg[1]};
-  }
-  // Calcolo targets separati per giorni ON e OFF (piani ciclizzati)
-  var _hasCiclizzazione = (p.giorniAllenamento||[]).length > 0;
-  var _targetsOFF = null;
-  if (_hasCiclizzazione && !_md) {
-    var _passi = p.passiGiornalieri != null ? +p.passiGiornalieri : null;
-    var _neat = 0;
-    if (_passi !== null) _neat = _passi<3000?0.10:_passi<6000?0.20:_passi<9000?0.30:_passi<12000?0.40:0.50;
-    var _lafOFF = +((1.20 + _neat).toFixed(3));
-    var _lastIbT = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
-    var _mbT = _lastIbT ? _lastIbT.mb : null;
-    var _pesoT = _lastIbT ? _lastIbT.peso : (p.peso || null);
-    if (_mbT && _pesoT) {
-      var _regOff2 = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
-        'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
-        'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-      var _tdeeOFF = Math.round(_mbT * _lafOFF);
-      var _kcalOFF = _tdeeOFF + (_regOff2[p.regime] || 0);
-      var _protOFF = Math.round(1.8 * _pesoT);
-      var _grassiOFF = Math.round(0.9 * _pesoT);
-      var _carbOFF = Math.max(0, Math.round((_kcalOFF - _protOFF*4 - _grassiOFF*9) / 4));
-      _targetsOFF = {kcal:_kcalOFF, p:_protOFF, c:_carbOFF, g:_grassiOFF, source:'calcolo-off', laf:_lafOFF};
-    }
-  }
-  window._pianoTargets = _md
-    ? {kcal:_md.kcal, p:_md.P, c:_md.C, g:_md.G, source:'ragionamento'}
-    : {kcal:kcalTarget, p:protG, c:carbG, g:grassiG, source:'calcolo'};
-  window._pianoTargetsOFF = _targetsOFF;
-  window._pianoGiorniON = (p.giorniAllenamento||[]);
+  // P34 — target del piano (ON/OFF se ciclizzato) via fonte unica condivisa con _montaPianoCorrente.
+  // Il prompt vero è costruito da costruisciPrompt() dentro chiamaGeneraPiano (qui niente prompt).
+  _setupPianoTargets(p);
 
   try {
     const risultato = await chiamaGeneraPiano(p.id, !!forceRegen);
