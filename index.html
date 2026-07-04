@@ -4733,7 +4733,6 @@ function salvaPaz(){
     dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
-    regime:gs('mac-regime')||gs('p-regime'),
     pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prenanna:gs('p-prenanna'),
     weekend:gs('p-weekend'),crisi:g('p-crisi'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
@@ -4749,7 +4748,7 @@ function salvaPaz(){
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
-    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};db.pazienti[idx]=pd;}
+    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';db.pazienti[idx]=pd;}
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
@@ -5953,8 +5952,7 @@ function costruisciContestoPaziente(p){
   const _ct=calcolaTDEE(p);
   const mb=_ct.mb, peso=_ct.peso, laf=_ct.laf, tdee=_ct.tdee;
 
-  const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-  const offset=offMap[p.regime]||0;
+  const offset=_regimeOffset(p, tdee);
 
   // ── MODIFICA: leggi prima i macros salvati dal medico, fallback al calcolo grezzo ──
   const _activeMt = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
@@ -6090,8 +6088,7 @@ function costruisciContestoPaziente(p){
 
 async function avviaFX(p,apiKey){
   const _ct=calcolaTDEE(p);
-  const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-  const kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
+  const kcalBase=_ct.tdee?_ct.tdee+_regimeOffset(p,_ct.tdee):null;
   // P16: FX = unione F1 (scheda macros + composizione + parere) + F3 (flag clinici) in UNA sola chiamata.
   // Il contesto paziente viaggia una volta sola (prima era duplicato tra F1 e F3).
   const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nNel contesto trovi i dati del paziente. Se è presente la riga "⚑ MACROS DECISI DAL MEDICO", quei valori sono i macros scelti da Fabrizio — NON ricalcolarli, NON proporre alternative. Il tuo compito è commentarli criticamente come farebbe un secondo specialista.\n\nPRODUCI ESATTAMENTE queste QUATTRO sezioni, in questo ordine — niente di più, niente di meno.\n\n═══ SEZIONE 1 — SCHEDA MACROS ═══\n\n📊 MACROS SCELTI DAL MEDICO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal rispetto TDEE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET MEDICO: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — 1 commento clinico]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 PARERE CLINICO SUI MACROS SCELTI\n[3-5 righe. Rispondi a: i macros scelti dal medico sono coerenti col profilo InBody e con il regime? Cosa funziona bene? C\'è qualcosa da tenere d\'occhio o che cambieresti e perché? Se ci sono analisi del sangue anomale, commentale. Se il profilo è semplice e tutto torna, dillo chiaramente senza inventare problemi. La decisione finale resta a Fabrizio.]\n\nSe nel contesto NON ci sono macros salvati dal medico, produci la scheda con i macros calcolati automaticamente e segnalalo con: ⚠️ Nessun target salvato — valori stimati automaticamente.\n\n═══ SEZIONE 2 — FLAG CLINICI ═══\n\n🏥 FLAG CLINICI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Per ogni condizione/farmaco rilevante:]\n⚠️ [NOME CONDIZIONE]\n   → [vincolo diretto sul piano: cosa fare o evitare — 1 riga]\n   → [seconda indicazione se serve — 1 riga]\n\n[Per ogni interazione farmaco-nutriente:]\n💊 [FARMACO]\n   → [interazione nutrizionale rilevante — 1 riga]\n\n🔴 AVVISI PRIORITARI\n   1. [cosa piu importante da tenere a mente]\n   2. [seconda priorita se esiste]\n\nSe non ci sono condizioni rilevanti per la Sezione 2 scrivi SOLO: ✅ Profilo standard — nessun vincolo clinico specifico.\n\n═══ SEZIONE 3 — COSA PROPORRE (ORA) ═══\n\n💡 COSA PROPORRE — PROSSIMA FASE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[3-4 azioni operative per il prossimo periodo, una per riga con freccia →. Indicazioni pratiche utili durante la telefonata col paziente: cosa confermare, cosa modificare, cosa monitorare. Basati su macros, trend InBody, flag clinici e sangue. Azioni specifiche per QUESTO paziente, niente di generico.]\n→ [azione 1]\n→ [azione 2]\n→ [azione 3]\n\n═══ SEZIONE 4 — PERCORSO 5-7 MESI ═══\n\n🗺️ PERCORSO 5-7 MESI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMesi 1-2: [obiettivo e focus della prima fase — 1 riga]\nMesi 3-4: [obiettivo della fase intermedia — 1 riga]\nMesi 5-7: [obiettivo finale: mantenimento, educazione, autonomia — 1 riga]\n[Proiezione realistica basata su regime, trend attuale e obiettivo del paziente. Se l\'obiettivo è già vicino, adatta le fasi di conseguenza.]\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli. Nella Sezione 2: niente testo narrativo, solo flag e frecce, massimo 15 righe. Nelle Sezioni 3 e 4: concretezza operativa, frasi brevi, una riga per voce, niente fronzoli.';
@@ -6104,7 +6101,7 @@ async function avviaFX(p,apiKey){
     const _useFFM=_rif==='ffm'?(_ffm!==null):(_rif==='ideale'||_rif==='peso')?false:(_ffm!==null&&_bmi!==null&&_bmi>=25);
     const _ref=_useFFM?_ffm:(_ib?_ib.peso:(p.peso||null));
     const _rifLabel=_useFFM?'FFM ('+_ffm+'kg)':'peso corporeo ('+_ref+'kg)';
-    const _kcalBase=_ct.tdee?_ct.tdee+(offMap[p.regime]||0):null;
+    const _kcalBase=_ct.tdee?_ct.tdee+_regimeOffset(p,_ct.tdee):null;
     let extra='\n\nRIFERIMENTO CALCOLO: '+_rifLabel+(_useFFM?' — BMI '+(_bmi?_bmi.toFixed(1):'')+(p.rifCalcolo==='ffm'?' (forzato)':' >= 25, uso FFM'):'');
     if(_ref&&_kcalBase){
       const _pMin=Math.round(1.6*_ref),_pMax=Math.round(2.0*_ref);
@@ -7814,19 +7811,35 @@ function renderPdMacros(p){
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}"></div>
-    <div class="fg"><label>Tipo regime</label>
-      <select id="mac-regime">
-        <option value="">— Seleziona —</option>
-        <option value="Ipocalorico lento" ${p&&p.regime==='Ipocalorico lento'?'selected':''}>Ipocalorico lento (−200/−300 kcal)</option>
-        <option value="Ipocalorico moderato" ${p&&p.regime==='Ipocalorico moderato'?'selected':''}>Ipocalorico moderato (−500 kcal)</option>
-        <option value="Ipocalorico aggressivo" ${p&&p.regime==='Ipocalorico aggressivo'?'selected':''}>Ipocalorico aggressivo (−700 kcal)</option>
-        <option value="Normocalorico" ${p&&p.regime==='Normocalorico'?'selected':''}>Normocalorico (mantenimento)</option>
-        <option value="Ipercalorico leggero" ${p&&p.regime==='Ipercalorico leggero'?'selected':''}>Ipercalorico leggero (+150/+200 kcal)</option>
-        <option value="Ipercalorico chiaro" ${p&&p.regime==='Ipercalorico chiaro'?'selected':''}>Ipercalorico chiaro (+300/+500 kcal)</option>
-        <option value="Chetogenico WLKD" ${p&&p.regime==='Chetogenico WLKD'?'selected':''}>Chetogenico WLKD (aggressiva)</option>
-        <option value="Chetogenico moderato" ${p&&p.regime==='Chetogenico moderato'?'selected':''}>Chetogenico moderato</option>
+    <div class="fg"><label>Strategia dieta</label>
+      <select id="mac-strategia" onchange="_aggiornaRegimeSlider()">
+        <option value="standard">Standard (bilanciata)</option>
+        <option value="keto-moderata">Chetogenica moderata</option>
+        <option value="keto-aggressiva">Chetogenica aggressiva (WLKD)</option>
       </select>
     </div>
+  </div>
+  <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;background:var(--bg);margin-bottom:.8rem">
+    <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.3rem">
+      <label style="margin:0">Regime energetico</label>
+      <span id="mac-regime-label" style="font-weight:600;color:var(--teal2);font-size:.85rem">Normocalorico</span>
+      <span id="mac-regime-target" style="margin-left:auto;font-weight:600;font-size:.95rem">— kcal</span>
+    </div>
+    <input type="range" id="mac-off-slider" min="-40" max="20" value="0" step="1" style="width:100%;margin:.3rem 0" oninput="_aggiornaRegimeSlider('slider')">
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span>−40% (deficit)</span><span>mantenimento</span><span>+20% (surplus)</span></div>
+    <div class="fr">
+      <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione kcal</label><input type="number" id="mac-off-kcal" step="10" placeholder="0" oninput="_aggiornaRegimeSlider('kcal')"></div>
+      <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione %</label><input type="number" id="mac-off-pct" step="1" placeholder="0" oninput="_aggiornaRegimeSlider('pct')"></div>
+    </div>
+    <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem">
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-10)">−10%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-25)">−25%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(0)">Mantenimento</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(10)">+10%</button>
+    </div>
+    <div id="mac-regime-warn" style="font-size:.72rem;margin-top:.5rem"></div>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label id="mac-prot-lbl">Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
@@ -7946,7 +7959,8 @@ function renderPdMacros(p){
   _gs('p-attivita-spec', p.attivitaSpecifica);
   _gs('p-orario-all', p.orarioAllenamento);
   _gn('mac-peso-target', p.pesoTarget);
-  _gs('mac-regime', p.regime);
+  // P-REGIME SLIDER — init da paziente (ancora slider al TDEE/MB correnti)
+  (function(){ var _ctR=calcolaTDEE(p); _initRegimeSliderDaPaziente(p, _ctR.tdee, _ctR.mb); })();
   _gs('p-cronotipo', p.cronotipo);
   _gs('p-orario-pasto', p.orarioPastoPrincipale);
   if(p.giorniAllenamento&&p.giorniAllenamento.length){
@@ -8015,9 +8029,8 @@ function aggiornaLabelMacros(){
 }
 
 function calcolaMacros(){
-  const regimeVal=document.getElementById('mac-regime')?.value||'';
-  const offMap={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-  const obj=offMap[regimeVal]||0;
+  const _offKcalEl=document.getElementById('mac-off-kcal');
+  const obj=_offKcalEl&&_offKcalEl.value!==''?(parseFloat(_offKcalEl.value)||0):0;
   const prot=parseFloat(document.getElementById('mac-prot').value)||1.8;
   const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
   const {laf,mb,peso}=calcolaTDEE(_macrosPaziente);
@@ -8108,6 +8121,60 @@ function applicaSchema(laf,prot,grassi){
   notif('✓ Valori applicati — clicca Calcola');
 }
 
+// P-REGIME SLIDER — sincronizza slider/kcal/% (ancorati al TDEE), anteprima target, avviso soglia MB
+function _aggiornaRegimeSlider(origine){
+  var tdee = window._tdeeRegime || null;
+  var mb = window._mbRegime || null;
+  var slider=document.getElementById('mac-off-slider');
+  var kcalEl=document.getElementById('mac-off-kcal');
+  var pctEl=document.getElementById('mac-off-pct');
+  var lblEl=document.getElementById('mac-regime-label');
+  var tgtEl=document.getElementById('mac-regime-target');
+  var warnEl=document.getElementById('mac-regime-warn');
+  if(!slider||!kcalEl||!pctEl) return;
+  var absMode=false, pct=null;
+  if(origine==='kcal'){
+    var k=kcalEl.value!==''?(parseFloat(kcalEl.value)||0):0;
+    if(tdee){ pct=k/tdee*100; } else { absMode=true; } // senza TDEE la kcal è assoluta
+  } else if(origine==='pct'){ pct=parseFloat(pctEl.value)||0; }
+  else { pct=parseFloat(slider.value)||0; }
+  if(pct!=null) pct=Math.max(-40,Math.min(20,Math.round(pct)));
+  var strat=(document.getElementById('mac-strategia')||{}).value||'standard';
+  if(!absMode){
+    slider.value=pct; pctEl.value=pct;
+    if(tdee) kcalEl.value=Math.round(tdee*pct/100);
+  } else { pctEl.value=''; }
+  if(lblEl) lblEl.textContent=_componiRegimeText(absMode?null:pct, strat)||'—';
+  var offKcal=kcalEl.value!==''?(parseFloat(kcalEl.value)||0):0;
+  if(tgtEl) tgtEl.textContent=tdee?(tdee+offKcal)+' kcal':((offKcal>=0?'+':'')+offKcal+' kcal · TDEE n/d');
+  if(warnEl){
+    if(tdee&&mb&&(tdee+offKcal)<mb){
+      warnEl.innerHTML='<span style="color:#c0392b">⚠ Target '+(tdee+offKcal)+' kcal sotto il metabolismo basale ('+mb+' kcal) — sconsigliato</span>';
+    } else if(!absMode&&pct<=-25){
+      warnEl.innerHTML='<span style="color:#B8860B">Deficit aggressivo: adatto solo a fasi brevi e monitorate</span>';
+    } else warnEl.textContent='';
+  }
+}
+function _presetRegime(pct){
+  var pctEl=document.getElementById('mac-off-pct');
+  if(pctEl){ pctEl.value=pct; _aggiornaRegimeSlider('pct'); }
+}
+function _initRegimeSliderDaPaziente(p, tdee, mb){
+  window._tdeeRegime=tdee||null; window._mbRegime=mb||null;
+  var stratEl=document.getElementById('mac-strategia');
+  if(stratEl) stratEl.value = p.strategia || (p.regime&&/cheto|chetogen/i.test(p.regime) ? (/(wlkd|aggress)/i.test(p.regime)?'keto-aggressiva':'keto-moderata') : 'standard');
+  var pctEl=document.getElementById('mac-off-pct');
+  var pct=null;
+  if(p.regimeOffsetPct!=null&&!isNaN(p.regimeOffsetPct)){ pct=p.regimeOffsetPct; }
+  else if(p.regime){
+    var legacyOff=_REGIME_OFFSET_LEGACY[p.regime];
+    if(legacyOff!=null&&tdee){ pct=Math.round(legacyOff/tdee*100); }
+  }
+  if(pct==null) pct=0;
+  if(pctEl) pctEl.value=pct;
+  _aggiornaRegimeSlider('pct');
+}
+
 function ricalcolaLAF(){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   const gn=id=>{const el=document.getElementById(id);return el&&el.value!==''?parseFloat(el.value):null;};
@@ -8121,6 +8188,9 @@ function ricalcolaLAF(){
   p.tipoAllenamento=gs('p-tipo-all');
   p.attivitaSpecifica=gs('p-attivita-spec');
   const ct=calcolaTDEE(p);
+  // P-REGIME SLIDER — ri-ancora il target al nuovo TDEE mantenendo la % impostata
+  window._tdeeRegime=ct.tdee||null; window._mbRegime=ct.mb||null;
+  _aggiornaRegimeSlider('pct');
   const lafEl=document.getElementById('laf-display');
   if(lafEl){
     if(ct.metodo==='MET additivo (Compendium 2024) · MB InBody'){
@@ -8246,7 +8316,17 @@ function salvaCalcoloMacros(){
   p.cronotipo=gs('p-cronotipo');
   p.orarioPastoPrincipale=gs('p-orario-pasto');
   p.pesoTarget=gn('mac-peso-target');
-  p.regime=gs('mac-regime');
+  // P-REGIME SLIDER — salva %/kcal/strategia + compone etichetta testuale compatibile
+  {
+    const _pctEl=document.getElementById('mac-off-pct');
+    const _kcalEl=document.getElementById('mac-off-kcal');
+    const _strat=gs('mac-strategia')||'standard';
+    const _pct=_pctEl&&_pctEl.value!==''?parseFloat(_pctEl.value):null;
+    p.regimeOffsetPct=_pct;
+    p.regimeOffsetKcal=_kcalEl&&_kcalEl.value!==''?parseFloat(_kcalEl.value):null;
+    p.strategia=_strat;
+    p.regime=_componiRegimeText(_pct, _strat);
+  }
   p.rifCalcolo=(document.querySelector('input[name="mac-ref"]:checked')||{value:'auto'}).value;
   p.giorniAllenamento=['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1));
   // P34 — ciclizzazione carboidrati
@@ -8272,8 +8352,7 @@ function salvaCalcoloMacros(){
   const _refSvVal=p.rifCalcolo==='ffm'?_ffmSv:p.rifCalcolo==='ideale'?_pesoIdealeSv:null;
   const _refSv=_useFFMSv?_ffmSv:_ctSv.peso;
   if(_ctSv.tdee&&_refSv){
-    const _offMapSv={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    const _offsetSv=_offMapSv[p.regime]||0;
+    const _offsetSv=_regimeOffset(p,_ctSv.tdee);
     const _kcalSv=_ctSv.tdee+_offsetSv;
     const _protSv=Math.round(_protGkg*_refSv);
     const _grasSv=Math.round(_grassiGkg*_refSv);
@@ -8346,6 +8425,36 @@ function _larnLafStileVita(passi, sedute){
   var byStep = s<4000?1.45 : s<8000?1.60 : s<12000?1.75 : 2.10;
   var byWk   = w<=0?1.45 : w<=2?1.60 : w<=4?1.75 : 2.10;
   return Math.max(byStep, byWk);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P-REGIME SLIDER — regime energetico a slider (kcal ⇄ %) + strategia (Standard/Keto)
+// Fonte di verità: p.regimeOffsetPct (% del TDEE, si auto-adatta). p.regime resta
+// come etichetta testuale composta, per compatibilità con generatore/prompt/isCeto.
+// ═══════════════════════════════════════════════════════════════════════════
+const _REGIME_OFFSET_LEGACY = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
+
+// Offset kcal del regime. Priorità: % del TDEE (nuovo) → kcal snapshot → tabella legacy testuale.
+function _regimeOffset(p, tdee){
+  if(p && p.regimeOffsetPct!=null && !isNaN(p.regimeOffsetPct)){
+    if(tdee==null){ var ct=calcolaTDEE(p); tdee = ct && ct.tdee; }
+    return tdee ? Math.round(tdee * p.regimeOffsetPct/100) : 0;
+  }
+  if(p && p.regimeOffsetKcal!=null && !isNaN(p.regimeOffsetKcal)) return +p.regimeOffsetKcal;
+  return (p && _REGIME_OFFSET_LEGACY[p.regime]) || 0;
+}
+
+// Compone l'etichetta testuale del regime (compatibile col vecchio sistema testuale).
+function _componiRegimeText(pct, strategia){
+  if(strategia==='keto-aggressiva') return 'Chetogenico WLKD';
+  if(strategia==='keto-moderata') return 'Chetogenico moderato';
+  if(pct==null) return '';
+  if(pct<=-25) return 'Ipocalorico aggressivo';
+  if(pct<=-12) return 'Ipocalorico moderato';
+  if(pct<0)    return 'Ipocalorico lento';
+  if(pct===0)  return 'Normocalorico';
+  if(pct<=10)  return 'Ipercalorico leggero';
+  return 'Ipercalorico chiaro';
 }
 
 function calcolaTDEE(p){
@@ -8694,11 +8803,7 @@ function pianoPazSelezionato(id){
     // Calcolo TDEE personalizzato
     const {tdee,laf}=calcolaTDEE(p);
 
-    // Mappa regime → offset kcal
-    const regimeOffset={'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,
-      'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,
-      'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    const offset=regimeOffset[p.regime]||0;
+    const offset=_regimeOffset(p, tdee);
     const kcalTarget=tdee+offset;
 
     // Macros con logica FFM/peso coerente con calcolaMacros
@@ -9616,8 +9721,7 @@ function _setupPianoTargets(p){
     window._pianoTargets = {kcal:_active.kcal, p:_active.protG, c:_active.carbG, g:_active.grassiG, source:_active.source==='fx'?'ragionamento':'calcolo'};
   } else {
     var _ct = calcolaTDEE(p);
-    var _regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    var _kcal = _ct.tdee ? _ct.tdee+(_regOff[p.regime]||0) : null;
+    var _kcal = _ct.tdee ? _ct.tdee+_regimeOffset(p,_ct.tdee) : null;
     var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
     var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
     var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
@@ -9644,8 +9748,7 @@ function costruisciPrompt(pazienteId) {
     console.log('[Prompt] Target attivi da:', _active.source, '| ts:', new Date(_active.timestamp).toLocaleString('it-IT'));
   } else if (mb && peso) {
     // Fallback legacy (paziente senza target salvati)
-    var regOff = {'Ipocalorico lento':-250,'Ipocalorico moderato':-500,'Ipocalorico aggressivo':-700,'Normocalorico':0,'Ipercalorico leggero':175,'Ipercalorico chiaro':400,'Chetogenico WLKD':-500,'Chetogenico moderato':-300};
-    kcalTarget = _ct.tdee + (regOff[p.regime] || 0);
+    kcalTarget = _ct.tdee + _regimeOffset(p,_ct.tdee);
     var _ffmP=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
     var _bmiP=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
     var _rifP=p.rifCalcolo||'auto';
