@@ -13147,19 +13147,21 @@ function _ngRenderPianoDestra(){
   const g=piano[idx];
   if(!g){ destra.innerHTML='<div style="color:#94a3b8;padding:2rem;text-align:center">Nessun giorno</div>'; return; }
 
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;padding:.4rem .2rem;gap:8px">';
-  h+='<button onclick="window._pianoGiornoCorrente=Math.max(0,(window._pianoGiornoCorrente||0)-1);_ngRenderPianoDestra()" '+(idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;flex:0 0 auto;'+(idx===0?'opacity:.35':'')+'">←</button>';
-  h+='<div style="text-align:center">';
-  h+='<div style="font-weight:700;color:#1e293b">'+(g.giorno||('Giorno '+(idx+1)))+'</div>';
-  h+='<div style="font-size:.7rem;color:#94a3b8">'+(idx+1)+' di '+piano.length+'</div>';
-  h+='<div style="margin-top:.25rem;display:flex;align-items:center;justify-content:center;gap:4px">';
-  h+='<label style="font-size:.68rem;color:#94a3b8;font-weight:600" for="ng-sel-giorni">Giorni:</label>';
+  h+='<div style="display:flex;align-items:center;gap:2px;border-bottom:1px solid #e2e8f0;margin-bottom:.8rem;overflow-x:auto;scrollbar-width:none">';
+  for(let ti=0; ti<piano.length; ti++){
+    const attivo=ti===idx;
+    const nomeGiorno=(piano[ti]&&piano[ti].giorno)||('Giorno '+(ti+1));
+    h+='<button onclick="window._pianoGiornoCorrente='+ti+';_ngRenderPianoDestra()" style="flex:0 0 auto;padding:.5rem .9rem;font-size:.78rem;font-weight:600;cursor:pointer;background:transparent;border:none;border-bottom:2px solid '+(attivo?'#0ea5e9':'transparent')+';color:'+(attivo?'#0ea5e9':'#64748b')+';white-space:nowrap;margin-bottom:-1px">'+nomeGiorno+'</button>';
+  }
+  if(piano.length<14){
+    h+='<button onclick="_ngCambiaNumeroGiorni('+(piano.length+1)+')" title="Aggiungi giorno" style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:1rem;margin-bottom:6px">+</button>';
+  }
+  h+='</div>';
+  h+='<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:.6rem">';
+  h+='<span style="font-size:.68rem;color:#94a3b8;font-weight:600">Giorni totali:</span>';
   h+='<select id="ng-sel-giorni" onchange="_ngCambiaNumeroGiorni(parseInt(this.value,10))" style="font-size:.72rem;border:1px solid #e2e8f0;border-radius:6px;padding:1px 4px;cursor:pointer;color:#1e293b;background:#fff">';
   for(let ngv=1; ngv<=14; ngv++){ h+='<option value="'+ngv+'"'+(piano.length===ngv?' selected':'')+'>'+ngv+'</option>'; }
   h+='</select>';
-  h+='</div>';
-  h+='</div>';
-  h+='<button onclick="window._pianoGiornoCorrente=Math.min('+(piano.length-1)+',(window._pianoGiornoCorrente||0)+1);_ngRenderPianoDestra()" '+(idx===piano.length-1?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;flex:0 0 auto;'+(idx===piano.length-1?'opacity:.35':'')+'">→</button>';
   h+='</div>';
 
   const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
