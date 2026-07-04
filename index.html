@@ -3996,7 +3996,6 @@ function closeM(id){document.getElementById(id).classList.remove('open');}
    ═══════════════════════════════════════════════════════════════ */
 function ngChiudiModale(ov, salta){
   if(!ov) return;
-  if(!salta && !confirm('Vuoi chiudere questa finestra?\nLe eventuali modifiche non salvate andranno perse.')) return;
   if(ov.id && ov.id.indexOf('mo-')===0 && ov.classList && ov.classList.contains('overlay')){
     ov.classList.remove('open'); // modali statici: restano nel DOM e si riaprono
   } else {
@@ -4005,7 +4004,6 @@ function ngChiudiModale(ov, salta){
 }
 /* Variante per popup "a coppia" (elemento + sfondo separati, es. popup aggiungi alimento) */
 function ngChiudiPopupCoppia(popId, bgId){
-  if(!confirm('Vuoi chiudere questa finestra?\nLe eventuali modifiche non salvate andranno perse.')) return;
   var p=document.getElementById(popId); if(p) p.remove();
   var b=document.getElementById(bgId); if(b) b.remove();
 }
