@@ -1149,16 +1149,8 @@ main{flex:1;overflow-y:auto;}
   <!-- DATI -->
   <div class="tab-panel active" id="tp-dati">
     <div class="fr"><div class="fg"><label>Nome *</label><input id="p-nome"></div><div class="fg"><label>Cognome *</label><input id="p-cognome"></div></div>
-    <div class="fr3"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita" onchange="aggiornaEta()"><span id="p-eta-calc" style="font-size:.72rem;color:var(--teal);margin-top:2px;display:block"></span></div><div class="fg"><label>Sesso</label><select id="p-sesso"><option value="">— Seleziona —</option><option value="M">Maschio</option><option value="F">Femmina</option></select></div><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
-    <div class="fr3">
-      <div class="fg"><label>BIA — Condizione</label>
-        <select id="p-bia">
-          <option value="Digiuno">Digiuno</option>
-          <option value="Post-spuntino">Post-spuntino</option>
-          <option value="Post-pranzo">Post-pranzo</option>
-        </select>
-      </div>
-    </div>
+    <div class="fr"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita" onchange="aggiornaEta()"><span id="p-eta-calc" style="font-size:.72rem;color:var(--teal);margin-top:2px;display:block"></span></div><div class="fg"><label>Sesso</label><select id="p-sesso"><option value="">— Seleziona —</option><option value="M">Maschio</option><option value="F">Femmina</option></select></div></div>
+    <div class="fr"><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
     <div class="fg"><label>Contesto emotivo e motivazionale</label>
       <textarea id="p-contesto-emotivo" rows="3" placeholder="Es. storia di fallimenti precedenti, alta motivazione, paziente ansioso, poco tempo, vita caotica..."></textarea>
     </div>
@@ -1424,6 +1416,16 @@ main{flex:1;overflow-y:auto;}
         <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
       </div>
       <input type="file" id="ib-pdf-input" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="loadInbodyPDF(event)">
+    </div>
+  </div>
+  <div class="fr-3">
+    <div class="fg"><label>Condizione BIA</label>
+      <select id="ib-bia">
+        <option value="">— Seleziona —</option>
+        <option value="Digiuno">Digiuno</option>
+        <option value="Post-spuntino">Post-spuntino</option>
+        <option value="Post-pranzo">Post-pranzo</option>
+      </select>
     </div>
   </div>
   <div id="ib-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">
@@ -4142,7 +4144,7 @@ function editPaz(){
   document.getElementById('mo-paz-t').textContent='Modifica Paziente';
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
   s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);s('p-sesso',p.sesso);
-  s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
+  s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-obiettivo',p.obiettivo);
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
   s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
@@ -4721,7 +4723,7 @@ function salvaPaz(){
   const ini=g('p-inizio');
   const pd={
     nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),sesso:gs('p-sesso'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
-    bia:g('p-bia'),obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
+    obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
     contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
     controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
@@ -4748,7 +4750,7 @@ function salvaPaz(){
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
-    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';db.pazienti[idx]=pd;}
+    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';if(_old.bia&&!pd.bia)pd.bia=_old.bia;db.pazienti[idx]=pd;}
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
@@ -7599,7 +7601,7 @@ function renderPdInbody(p){
   // ── Cards singole misurazioni ─────────────────────────────────────────────
   html+=sortedDesc.map((ib,i)=>`
     <div class="card" style="margin-bottom:.7rem">
-      <div class="card-hd"><h3>📊 ${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</h3>
+      <div class="card-hd"><h3>📊 ${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}${ib.condizioneBia?`<span class="tag" style="background:#EEF2FF;color:#4338CA;margin-left:4px">🩺 ${ib.condizioneBia}</span>`:''}</h3>
         <button class="btn btn-d btn-sm" onclick="delInbody('${ib.id}')">✕</button></div>
       <div class="card-bd">
         <div class="ib-grid">
@@ -14572,7 +14574,7 @@ async function generaPDF(paziente, giorni) {
 
 function openInbody(){
   document.getElementById('ib-data').value=today();
-  ['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-girovita','ib-pa-sbp','ib-pa-dbp','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['ib-bia','ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-girovita','ib-pa-sbp','ib-pa-dbp','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
   const pdfInputEl=document.getElementById('ib-pdf-input');if(pdfInputEl)pdfInputEl.value='';
   document.getElementById('mo-inbody').classList.add('open');
@@ -14583,6 +14585,7 @@ function salvaInbody(){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
   const ib={id:uid(),data:document.getElementById('ib-data').value||today(),
+    condizioneBia:(document.getElementById('ib-bia')||{}).value||'',
     peso:gn('ib-peso'),pg:gn('ib-pg'),g:gn('ib-g'),m:gn('ib-m'),
     musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
     visc:gn('ib-visc'),bmi:gn('ib-bmi'),altezza:gn('ib-altezza'),pesoIdeale:gn('ib-peso-ideale'),
