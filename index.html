@@ -11265,6 +11265,84 @@ function _appendToggleFruttaStile(containerEl) {
   containerEl.appendChild(wrap);
 }
 
+// Griglia celle riutilizzabile (menu ⋯ completo: alternativa/sposta/elimina, swap, drag&drop
+// per copiare un alimento in un altro pasto). Usata sia dal generatore AI (dentro
+// _renderCelleHtml) sia dal compositore manuale (_ngRenderPianoDestra) — stessa estetica ovunque.
+function _renderCelleGriglia(pasto, slotKey, giorno) {
+  var celle = (pasto && pasto.celle) ? pasto.celle.slice() : [];
+  if (!celle.length) {
+    return '<div style="font-size:.74rem;color:#cbd5e1;font-style:italic;padding:.4rem;text-align:center;border:1px dashed #e2e8f0;border-radius:8px">trascina qui un alimento per iniziare</div>';
+  }
+  celle.sort(function(a,b){
+    if ((a.ordine||1) !== (b.ordine||1)) return (a.ordine||1) - (b.ordine||1);
+    return (a.colonna||'sx') === 'sx' ? -1 : 1;
+  });
+  var righe = {};
+  celle.forEach(function(c) {
+    var ord = c.ordine || 1;
+    if (!righe[ord]) righe[ord] = {sx: null, dx: null};
+    righe[ord][c.colonna || 'sx'] = c;
+  });
+  var ordKeys = Object.keys(righe).sort(function(a,b){return Number(a)-Number(b);});
+  var maxOrd = ordKeys.length ? Number(ordKeys[ordKeys.length-1]) : 0;
+  var giornoEscR = (giorno||'').replace(/"/g,'&quot;');
+
+  var html = '';
+  ordKeys.forEach(function(ord) {
+    var riga = righe[ord];
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .6rem;margin-bottom:.35rem;align-items:start">';
+    ['sx','dx'].forEach(function(col) {
+      var cella = riga[col];
+      html += '<div'+(cella?(' data-ng-cell="'+cella.id+'"'):'')+' style="background:#fafbfc;border:1px solid #eef0f3;border-radius:7px;padding:.38rem .5rem;min-height:30px">';
+      if (cella && cella.alimenti && cella.alimenti.length) {
+        var princ = cella.alimenti[0];
+        var giornoEsc = (giorno||'').replace(/"/g,'&quot;');
+        var menuId = 'cmenu_' + (giorno||'').replace(/[^a-zA-Z0-9]/g,'_') + '_' + slotKey + '_' + cella.id;
+        var ordNum = Number(ord);
+        var nEscP=(princ.n||'').replace(/"/g,'&quot;');
+        var catEscP=(princ.categoria||'').replace(/"/g,'&quot;');
+        // Riga principale: nome + grammatura + pulsante ⋯ (draggabile per copiare in un altro pasto)
+        html += '<div draggable="true" ondragstart="_ngDragStartCella(event)" data-nome="'+nEscP+'" data-grammi="'+(princ.g||0)+'" data-cat="'+catEscP+'" data-src-cell="'+cella.id+'" title="Trascina per copiare in un altro pasto" style="display:flex;align-items:center;gap:4px;cursor:grab;">';
+        html += '<span style="font-size:.82rem;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+princ.n+'">'+princ.n+'</span>';
+        html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.76rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px;white-space:nowrap;" title="Modifica grammatura">'+princ.g+'g</span>';
+        html += '<div class="cella-menu-wrap">';
+        html += '<button class="cella-menu-btn" onclick="toggleCellaMenu(\''+menuId+'\')" title="Opzioni">&#8943;</button>';
+        html += '<div class="cella-dropdown" id="'+menuId+'">';
+        if (cella.alimenti.length < 5) {
+          html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaAggiungiAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\')">+ Aggiungi alternativa</div>';
+          html += '<div class="cella-dd-sep"></div>';
+        }
+        if (ordNum > 1) html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'up\')">↑ Sposta su</div>';
+        if (ordNum < maxOrd) html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'down\')">↓ Sposta giù</div>';
+        if (col === 'dx') html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'left\')">← Sposta a sinistra</div>';
+        else html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'right\')">→ Sposta a destra</div>';
+        html += '<div class="cella-dd-sep"></div>';
+        html += '<div class="cella-dd-item danger" onclick="closeAllCellaMenus();cellaCancella(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\')">🗑 Elimina</div>';
+        html += '</div></div>';
+        html += '</div>';
+        // Alternative — compatte, una per riga (anch'esse draggabili per copiare)
+        cella.alimenti.slice(1).forEach(function(alt, altIdx) {
+          var idx1 = altIdx + 1;
+          var nEscA=(alt.n||'').replace(/"/g,'&quot;');
+          var catEscA=(alt.categoria||'').replace(/"/g,'&quot;');
+          html += '<div draggable="true" ondragstart="_ngDragStartCella(event)" data-nome="'+nEscA+'" data-grammi="'+(alt.g||0)+'" data-cat="'+catEscA+'" data-src-cell="'+cella.id+'" title="Trascina per copiare in un altro pasto" style="display:flex;align-items:center;gap:3px;font-size:.71rem;color:var(--text3);padding-left:.5rem;margin-top:2px;cursor:grab;">';
+          html += '<span style="font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+alt.n+'">↳ '+alt.n+'</span>';
+          html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+idx1+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px;white-space:nowrap;font-size:.7rem;" title="Modifica">'+alt.g+'g</span>';
+          html += '<button class="alt-ctrl" onclick="cellaSwap(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Promuovi a principale" style="width:16px;height:16px;font-size:.6rem;">⇄</button>';
+          html += '<button class="alt-ctrl alt-x" onclick="cellaRimuoviAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;">×</button>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="font-size:.7rem;color:#cbd5e1;font-style:italic">— vuoto —</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  html += '<div style="margin-top:.5rem;text-align:center"><button class="alt-add" style="padding:4px 12px;font-size:.72rem" onclick="apriAggiungiCella(\''+giornoEscR+'\',\''+slotKey+'\')">+ Aggiungi alimento</button></div>';
+  return html;
+}
+
 // Helper: dato un pasto nuovo formato (celle), restituisce testo descrittivo per renderPianoBox
 function _renderCelleHtml(pasto, slotKey, giorno) {
   if (!pasto || !pasto.celle) return '';
@@ -11298,74 +11376,7 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
     }
     html += '</div>';
   }
-  // Raggruppa celle per ordine e colonna
-  var celle = (pasto.celle||[]).slice().sort(function(a,b){
-    if (a.ordine !== b.ordine) return a.ordine - b.ordine;
-    return a.colonna === 'sx' ? -1 : 1;
-  });
-  var righe = {};
-  celle.forEach(function(c) {
-    var ord = c.ordine || 1;
-    if (!righe[ord]) righe[ord] = {sx: null, dx: null};
-    righe[ord][c.colonna || 'sx'] = c;
-  });
-  // Calcola se ci sono celle in una colonna ma non nell'altra (per saper mostrare frecce ←/→)
-  var ordKeys = Object.keys(righe).sort(function(a,b){return Number(a)-Number(b);});
-  var maxOrd = ordKeys.length ? Number(ordKeys[ordKeys.length-1]) : 0;
-
-  ordKeys.forEach(function(ord) {
-    var riga = righe[ord];
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .6rem;margin-bottom:.35rem;align-items:start">';
-    ['sx','dx'].forEach(function(col) {
-      var cella = riga[col];
-      html += '<div style="background:#fafbfc;border:1px solid #eef0f3;border-radius:7px;padding:.38rem .5rem;min-height:30px">';
-      if (cella && cella.alimenti && cella.alimenti.length) {
-        var princ = cella.alimenti[0];
-        var giornoEsc = giorno.replace(/"/g,'&quot;');
-        // Fix: ID univoco per ogni menu — include giorno + slotKey + cella.id
-        var menuId = 'cmenu_' + giorno.replace(/[^a-zA-Z0-9]/g,'_') + '_' + slotKey + '_' + cella.id;
-        var ordNum = Number(ord);
-        // Riga principale: nome + grammatura + pulsante ⋯
-        html += '<div style="display:flex;align-items:center;gap:4px;">';
-        html += '<span style="font-size:.82rem;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+princ.n+'">'+princ.n+'</span>';
-        html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="0" onclick="apriEditGrammatura(this)" style="color:var(--teal);font-size:.76rem;font-weight:600;cursor:pointer;border-bottom:1px dashed var(--teal);padding:0 2px;white-space:nowrap;" title="Modifica grammatura">'+princ.g+'g</span>';
-        // Pulsante ⋯
-        html += '<div class="cella-menu-wrap">';
-        html += '<button class="cella-menu-btn" onclick="toggleCellaMenu(\''+menuId+'\')" title="Opzioni">&#8943;</button>';
-        html += '<div class="cella-dropdown" id="'+menuId+'">';
-        // Aggiungi alternativa
-        if (cella.alimenti.length < 5) {
-          html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaAggiungiAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\')">+ Aggiungi alternativa</div>';
-          html += '<div class="cella-dd-sep"></div>';
-        }
-        // Spostamenti
-        if (ordNum > 1) html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'up\')">↑ Sposta su</div>';
-        if (ordNum < maxOrd) html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'down\')">↓ Sposta giù</div>';
-        if (col === 'dx') html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'left\')">← Sposta a sinistra</div>';
-        else html += '<div class="cella-dd-item" onclick="closeAllCellaMenus();cellaSposta(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\',\'right\')">→ Sposta a destra</div>';
-        html += '<div class="cella-dd-sep"></div>';
-        html += '<div class="cella-dd-item danger" onclick="closeAllCellaMenus();cellaCancella(\''+giorno+'\',\''+slotKey+'\',\''+cella.id+'\')">🗑 Elimina</div>';
-        html += '</div></div>';
-        html += '</div>';
-        // Alternative — compatte, una per riga
-        cella.alimenti.slice(1).forEach(function(alt, altIdx) {
-          var idx1 = altIdx + 1;
-          html += '<div style="display:flex;align-items:center;gap:3px;font-size:.71rem;color:var(--text3);padding-left:.5rem;margin-top:2px;">';
-          html += '<span style="font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+alt.n+'">↳ '+alt.n+'</span>';
-          html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+idx1+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px;white-space:nowrap;font-size:.7rem;" title="Modifica">'+alt.g+'g</span>';
-          html += '<button class="alt-ctrl" onclick="cellaSwap(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Promuovi a principale" style="width:16px;height:16px;font-size:.6rem;">⇄</button>';
-          html += '<button class="alt-ctrl alt-x" onclick="cellaRimuoviAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;">×</button>';
-          html += '</div>';
-        });
-      } else {
-        html += '<div style="font-size:.7rem;color:#cbd5e1;font-style:italic">— vuoto —</div>';
-      }
-      html += '</div>';
-    });
-    html += '</div>';
-  });
-  // Pulsante per aggiungere una nuova cella al pasto
-  html += '<div style="margin-top:.5rem;text-align:center"><button class="alt-add" style="padding:4px 12px;font-size:.72rem" onclick="apriAggiungiCella(\''+giornoEscR+'\',\''+slotKey+'\')">+ Aggiungi alimento</button></div>';
+  html += _renderCelleGriglia(pasto, slotKey, giorno);
   return html;
 }
 
@@ -12198,6 +12209,15 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
 }
 
 function _aggiornaPianoBox() {
+  // Se siamo nel compositore manuale, aggiorna la sua vista dedicata (celle + drag&drop)
+  // invece di sovrascrivere il box con la vista classica del generatore AI.
+  if (window._ngModalitaManuale && typeof _ngRenderPianoDestra === 'function' && document.getElementById('ng-piano-destra')) {
+    _ngRenderPianoDestra();
+    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+    if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
+    return;
+  }
   // Se siamo nel generatore (pill tabs), usa _renderGiornoGen
   if (typeof window._renderGiornoGen === 'function' && document.getElementById('piano-select-paz')) {
     window._renderGiornoGen();
@@ -13121,11 +13141,14 @@ function _ngRenderPianoDestra(){
     h+='<div class="ng-pasto-drop" data-giorno="'+(g.giorno||'').replace(/"/g,'&quot;')+'" data-slot="'+k+'"'
       +' ondragover="_ngDragOver(event)" ondragleave="_ngDragLeave(event)" ondrop="_ngDrop(event)"'
       +' style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .9rem;margin-bottom:.7rem;transition:border-color .15s,background .15s">';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;gap:8px;flex-wrap:wrap">';
+    h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
     h+='<span style="font-weight:700;color:var(--green,#16a34a);font-size:.82rem">'+labels[k]+'</span>';
+    h+=(typeof _fruttaCheckboxHtml==='function'?_fruttaCheckboxHtml(g.giorno,k,pasto):'');
+    h+='</div>';
     h+='<button onclick="_ngPescaRicetta(\''+giornoEsc+'\',\''+k+'\')" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#7c3aed;border-radius:6px;padding:3px 10px;font-size:.72rem;font-weight:600;cursor:pointer">📖 Pesca ricetta</button>';
     h+='</div>';
-    h+=_ngRenderCelleManuale(pasto,k,g.giorno);
+    h+=_renderCelleGriglia(pasto,k,g.giorno);
     h+='</div>';
   });
   destra.innerHTML=h;
@@ -13350,41 +13373,7 @@ function _ngScomponiRicettaNelPasto(giorno, slotKey, nomeRicetta){
 }
 
 
-// Render celle in stile NutriGest con colore-sul-nome (semaforo del paziente).
-function _ngRenderCelleManuale(pasto,slotKey,giorno){
-  const sel=document.getElementById('piano-select-paz');
-  const id=sel?sel.value:'';
-  const p=db.pazienti.find(x=>x.id===id);
-  const al=(p&&p.alimenti)||{};
-  const celle=(pasto.celle||[]).slice().sort(function(a,b){
-    if((a.ordine||1)!==(b.ordine||1)) return (a.ordine||1)-(b.ordine||1);
-    return (a.colonna||'sx')==='sx'?-1:1;
-  });
-  if(!celle.length){
-    return '<div style="font-size:.74rem;color:#cbd5e1;font-style:italic;padding:.4rem;text-align:center;border:1px dashed #e2e8f0;border-radius:8px">trascina qui un alimento per iniziare</div>';
-  }
-  const giornoEsc=(giorno||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-  let h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .5rem">';
-  celle.forEach(function(c){
-    h+='<div data-ng-cell="'+c.id+'" style="background:#fafbfc;border:1px solid #eef0f3;border-radius:7px;padding:.4rem .55rem">';
-    (c.alimenti||[]).forEach(function(a,i){
-      const stato=al[(a.categoria||'')+'__'+a.n]||'';
-      const colore=_ngColoreSemaforoNome(stato);
-      const isPrinc=i===0;
-      // Copia alimento tra celle: la riga è draggabile, usa lo stesso meccanismo del drag dalla libreria
-      const nEsc=(a.n||'').replace(/"/g,'&quot;');
-      const catEsc=(a.categoria||'').replace(/"/g,'&quot;');
-      h+='<div draggable="true" ondragstart="_ngDragStartCella(event)" data-nome="'+nEsc+'" data-grammi="'+(a.g||0)+'" data-cat="'+catEsc+'" data-src-cell="'+c.id+'" title="Trascina per copiare in un altro pasto" style="display:flex;align-items:center;gap:4px;cursor:grab;'+(isPrinc?'':'padding-left:.6rem;margin-top:2px')+'">';
-      h+='<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:'+(isPrinc?'.82rem':'.71rem')+';font-weight:'+(isPrinc?'600':'400')+';color:'+colore+';'+(isPrinc?'':'font-style:italic')+'" title="'+a.n+'">'+(isPrinc?'':'↳ ')+a.n+'</span>';
-      h+='<span style="color:var(--teal,#0d9488);font-size:.72rem;font-weight:600;white-space:nowrap">'+a.g+'g</span>';
-      h+='<button onclick="_ngRimuoviAlimento(\''+giornoEsc+'\',\''+slotKey+'\',\''+c.id+'\','+i+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;cursor:pointer;line-height:1">×</button>';
-      h+='</div>';
-    });
-    h+='</div>';
-  });
-  h+='</div>';
-  return h;
-}
+// (Rimossa: _ngRenderCelleManuale — sostituita da _renderCelleGriglia, condivisa col generatore AI)
 
 // ── Drag & drop ──
 window._ngDragData=null;
@@ -17372,6 +17361,7 @@ function inizializzaP2(piano) {
   window._pianoCorrente = piano;
   window._storicoPiani = [];
   window._pendingPatch = null;
+  window._ngModalitaManuale = false; // stiamo entrando nel flusso AI, non più in modalità manuale
   document.getElementById('p2-box').style.display = 'block';
   document.getElementById('p2-save').style.display = 'block';
   // P27: di default ogni montaggio è "piano nuovo"; riapriPiano sovrascrive se si riapre un salvato
