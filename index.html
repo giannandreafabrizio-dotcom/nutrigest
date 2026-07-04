@@ -1149,7 +1149,7 @@ main{flex:1;overflow-y:auto;}
   <!-- DATI -->
   <div class="tab-panel active" id="tp-dati">
     <div class="fr"><div class="fg"><label>Nome *</label><input id="p-nome"></div><div class="fg"><label>Cognome *</label><input id="p-cognome"></div></div>
-    <div class="fr"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita" onchange="aggiornaEta()"><span id="p-eta-calc" style="font-size:.72rem;color:var(--teal);margin-top:2px;display:block"></span></div><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
+    <div class="fr3"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita" onchange="aggiornaEta()"><span id="p-eta-calc" style="font-size:.72rem;color:var(--teal);margin-top:2px;display:block"></span></div><div class="fg"><label>Sesso</label><select id="p-sesso"><option value="">— Seleziona —</option><option value="M">Maschio</option><option value="F">Femmina</option></select></div><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
     <div class="fr3">
       <div class="fg"><label>BIA — Condizione</label>
         <select id="p-bia">
@@ -4141,7 +4141,7 @@ function editPaz(){
   editPazId=currentPazId;
   document.getElementById('mo-paz-t').textContent='Modifica Paziente';
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
-  s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);
+  s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);s('p-sesso',p.sesso);
   s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-bia',p.bia);s('p-obiettivo',p.obiettivo);
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
@@ -4720,7 +4720,7 @@ function salvaPaz(){
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
   const ini=g('p-inizio');
   const pd={
-    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
+    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),sesso:gs('p-sesso'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
     bia:g('p-bia'),obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
     contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
     controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
@@ -8154,6 +8154,10 @@ function _renderRifPesoBox(){
       refs.push({label:'Formula Robinson',val:+robinson.toFixed(1),note:'peso ideale teorico ('+sesso+')',color:'#185FA5',bg:'#E6F1FB'});
     }
   }
+  var hint='';
+  if(altezzaCm && !(sesso==='M'||sesso==='F')){
+    hint='<div style="font-size:.63rem;color:#B8860B;margin-top:.35rem">Imposta il <strong>Sesso</strong> nell\'anagrafica del paziente per vedere anche le stime Devine e Robinson.</div>';
+  }
   if(!refs.length){
     box.innerHTML='<div style="font-size:.68rem;color:var(--text3);margin:-.3rem 0 .8rem">Inserisci altezza/sesso (o un referto InBody con Peso Ideale) per vedere qui dei riferimenti sull\'obiettivo peso.</div>';
     return;
@@ -8170,6 +8174,7 @@ function _renderRifPesoBox(){
   box.innerHTML='<div style="margin:-.3rem 0 .8rem">'
     +'<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem">Riferimenti per l\'obiettivo peso — clicca per usare il valore:</div>'
     +'<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+chips+'</div>'
+    +hint
     +'</div>';
 }
 function _usaRifPeso(val){
