@@ -13030,6 +13030,38 @@ function _ngScrollTabGiorni(direzione){
   el.scrollBy({left: direzione*160, behavior:'smooth'});
 }
 
+// Trascinamento con mouse per scorrere la barra tab giorni (alternativa alle freccette su desktop;
+// su iPhone/touch lo scroll a dito funziona già nativamente grazie a overflow-x:auto).
+// Usa Pointer Events + setPointerCapture: i listener restano solo sull'elemento (nessun
+// listener su window che si accumulerebbe a ogni re-render/cambio giorno).
+function _ngAbilitaDragScroll(el){
+  if(!el || el._ngDragScrollInit) return; // evita doppio binding se richiamata sullo stesso nodo
+  el._ngDragScrollInit = true;
+  let spostato=false, startX=0, startScroll=0;
+  el.addEventListener('pointerdown', function(ev){
+    if(ev.pointerType==='touch') return; // touch: scroll nativo, non serve il drag manuale
+    spostato=false;
+    startX=ev.clientX; startScroll=el.scrollLeft;
+    el.setPointerCapture(ev.pointerId);
+    el.style.cursor='grabbing';
+  });
+  el.addEventListener('pointermove', function(ev){
+    if(!el.hasPointerCapture || !el.hasPointerCapture(ev.pointerId)) return;
+    const delta=ev.clientX-startX;
+    if(Math.abs(delta)>4) spostato=true; // soglia minima: sotto, resta un click normale sulla tab
+    el.scrollLeft=startScroll-delta;
+  });
+  el.addEventListener('pointerup', function(ev){
+    el.style.cursor='';
+    if(el.hasPointerCapture && el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId);
+    if(spostato){
+      // Trascinamento vero: blocca il click che seguirebbe (evita di cambiare giorno per errore)
+      const blocca=function(e){ e.stopPropagation(); e.preventDefault(); el.removeEventListener('click',blocca,true); };
+      el.addEventListener('click', blocca, true);
+    }
+  });
+}
+
 function _ngCambiaNumeroGiorni(nuovoN){
   if(!nuovoN || nuovoN<1 || nuovoN>14) return;
   const piano=window._pianoCorrente||[];
@@ -13172,6 +13204,7 @@ function _ngRenderPianoDestra(){
     const tabsEl=document.getElementById('ng-giorni-tabs');
     const attivoBtn=tabsEl&&tabsEl.children[idx];
     if(attivoBtn&&attivoBtn.scrollIntoView) attivoBtn.scrollIntoView({block:'nearest',inline:'center'});
+    _ngAbilitaDragScroll(tabsEl);
   },0);
 
   const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
