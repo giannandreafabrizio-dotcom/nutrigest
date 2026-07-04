@@ -13023,6 +13023,13 @@ function _ngCreaPianoManuale(n){
 
 // Cambia il numero di giorni del piano in ogni momento (controllo vicino alla navigazione).
 // Se si riducono i giorni e quelli rimossi hanno contenuto, chiede conferma prima di cancellare.
+// Scorre la barra tab giorni con le freccette ‹ › (direzione: -1 sinistra, 1 destra).
+function _ngScrollTabGiorni(direzione){
+  const el=document.getElementById('ng-giorni-tabs');
+  if(!el) return;
+  el.scrollBy({left: direzione*160, behavior:'smooth'});
+}
+
 function _ngCambiaNumeroGiorni(nuovoN){
   if(!nuovoN || nuovoN<1 || nuovoN>14) return;
   const piano=window._pianoCorrente||[];
@@ -13147,22 +13154,25 @@ function _ngRenderPianoDestra(){
   const g=piano[idx];
   if(!g){ destra.innerHTML='<div style="color:#94a3b8;padding:2rem;text-align:center">Nessun giorno</div>'; return; }
 
-  h+='<div style="display:flex;align-items:center;gap:2px;border-bottom:1px solid #e2e8f0;margin-bottom:.8rem;overflow-x:auto;scrollbar-width:none">';
+  h+='<div style="display:flex;align-items:center;gap:2px;border-bottom:1px solid #e2e8f0;margin-bottom:.8rem">';
+  h+='<button onclick="_ngScrollTabGiorni(-1)" title="Scorri a sinistra" style="flex:0 0 auto;width:24px;height:26px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:.85rem;margin-bottom:6px">‹</button>';
+  h+='<div id="ng-giorni-tabs" style="display:flex;gap:2px;overflow-x:auto;scroll-behavior:smooth;flex:1;scrollbar-width:none;-ms-overflow-style:none">';
   for(let ti=0; ti<piano.length; ti++){
     const attivo=ti===idx;
     const nomeGiorno=(piano[ti]&&piano[ti].giorno)||('Giorno '+(ti+1));
     h+='<button onclick="window._pianoGiornoCorrente='+ti+';_ngRenderPianoDestra()" style="flex:0 0 auto;padding:.5rem .9rem;font-size:.78rem;font-weight:600;cursor:pointer;background:transparent;border:none;border-bottom:2px solid '+(attivo?'#0ea5e9':'transparent')+';color:'+(attivo?'#0ea5e9':'#64748b')+';white-space:nowrap;margin-bottom:-1px">'+nomeGiorno+'</button>';
   }
+  h+='</div>';
+  h+='<button onclick="_ngScrollTabGiorni(1)" title="Scorri a destra" style="flex:0 0 auto;width:24px;height:26px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:.85rem;margin-bottom:6px">›</button>';
   if(piano.length<14){
     h+='<button onclick="_ngCambiaNumeroGiorni('+(piano.length+1)+')" title="Aggiungi giorno" style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:1rem;margin-bottom:6px">+</button>';
   }
   h+='</div>';
-  h+='<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:.6rem">';
-  h+='<span style="font-size:.68rem;color:#94a3b8;font-weight:600">Giorni totali:</span>';
-  h+='<select id="ng-sel-giorni" onchange="_ngCambiaNumeroGiorni(parseInt(this.value,10))" style="font-size:.72rem;border:1px solid #e2e8f0;border-radius:6px;padding:1px 4px;cursor:pointer;color:#1e293b;background:#fff">';
-  for(let ngv=1; ngv<=14; ngv++){ h+='<option value="'+ngv+'"'+(piano.length===ngv?' selected':'')+'>'+ngv+'</option>'; }
-  h+='</select>';
-  h+='</div>';
+  setTimeout(function(){
+    const tabsEl=document.getElementById('ng-giorni-tabs');
+    const attivoBtn=tabsEl&&tabsEl.children[idx];
+    if(attivoBtn&&attivoBtn.scrollIntoView) attivoBtn.scrollIntoView({block:'nearest',inline:'center'});
+  },0);
 
   const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
   const labels={colazione:'COLAZIONE',spuntino_mattina:'SPUNTINO MATTINA',pranzo:'PRANZO',spuntino_pomeriggio:'SPUNTINO POMERIGGIO',cena:'CENA',pre_nanna:'PRE-NANNA'};
