@@ -3236,10 +3236,13 @@ function getCategoriaFunzionale(nomeAlimento) {
     return _ALIMENTI_OVERRIDE_CATEGORIA[nomeAlimento];
   }
   // 2) Cerca l'alimento nel database ALIMENTI per dedurre dalla categoria semaforo
+  // FIX P-bugfix: ALIMENTI[catSemaforo] è un oggetto {items:[...]}, non un array diretto —
+  // Array.isArray(lista) era sempre falso e questo blocco non scattava mai (dead code).
   if (typeof ALIMENTI === 'object' && ALIMENTI) {
     for (const catSemaforo in ALIMENTI) {
-      const lista = ALIMENTI[catSemaforo];
-      if (Array.isArray(lista)) {
+      const catData = ALIMENTI[catSemaforo];
+      const lista = Array.isArray(catData) ? catData : (catData && Array.isArray(catData.items) ? catData.items : null);
+      if (lista) {
         const trovato = lista.some(function(a){ return a.n === nomeAlimento; });
         if (trovato && _CAT_SEMAFORO_TO_FUNZIONALE[catSemaforo]) {
           return _CAT_SEMAFORO_TO_FUNZIONALE[catSemaforo];
@@ -3250,7 +3253,7 @@ function getCategoriaFunzionale(nomeAlimento) {
   // 3) Fallback euristico via parole chiave nel nome
   const n = nomeAlimento.toLowerCase();
   if (/(pasta|riso|pane|farro|quinoa|orzo|cuscus|patate|biscott|fett.|fiocchi|muesli|cereali|puccia)/.test(n)) return 'carbo';
-  if (/(pollo|tacchino|manzo|vitell|maiale|pesce|salmone|tonno|merluzzo|orata|spigola|gamber|seppia|polpo|uova|uovo|yogurt|skyr|ricotta|formaggio|fiocchi di latte|bresaola|prosciutto|salsiccia|proteine whey|proteine caseine|proteine vegetali)/.test(n)) return 'proteine';
+  if (/(pollo|tacchino|manzo|vitell|maiale|cavallo|agnello|fegato|cuore|carne|pesce|salmone|tonno|merluzzo|orata|sarago|spigola|branzino|sogliola|trota|calamari|gamber|seppia|polpo|cozze|vongole|uova|uovo|yogurt|skyr|ricotta|formaggio|fiocchi di latte|bresaola|prosciutto|speck|carpaccio|salsiccia|proteine whey|proteine caseine|proteine vegetali)/.test(n)) return 'proteine';
   if (/(^pesto |^pesto$|^pesto)/.test(n)) return 'olio';
   if (/(lentic|cec|fagioli|piselli|fave|legum|edamame)/.test(n)) return 'legumi';
   if (/(verdur|insalata|spinaci|broccol|zucchin|melanz|peperoni|pomodor|cetriol|carota|finocchi|cavolo|rucola|lattuga|radicchio)/.test(n)) return 'verdura';
