@@ -13128,12 +13128,63 @@ function _ngRenderPianoDestra(){
     h+=_ngRenderCelleManuale(pasto,k,g.giorno);
     h+='</div>';
   });
-  // Azioni in fondo: salva piano + scarica PDF (riusano le funzioni esistenti)
-  h+='<div style="display:flex;gap:.6rem;margin-top:1rem">';
-  h+='<button onclick="_ngSalvaPianoManuale()" style="flex:1;background:var(--teal2,#0d9488);border:none;color:#fff;border-radius:8px;padding:.6rem;font-size:.85rem;font-weight:600;cursor:pointer">💾 Salva piano</button>';
-  h+='<button onclick="if(window._pdfPaziente&&window._pdfPiano)generaPDF(window._pdfPaziente,window._pdfPiano)" style="flex:1;background:#fff;border:1px solid var(--border,#cbd5e1);color:#1e293b;border-radius:8px;padding:.6rem;font-size:.85rem;font-weight:500;cursor:pointer">⬇️ Scarica PDF</button>';
-  h+='</div>';
   destra.innerHTML=h;
+
+  // ── Footer: stessi toggle e bottoni del generatore AI (riuso funzioni esistenti) ──
+  var footer=document.createElement('div');
+  footer.style.cssText='margin-top:1rem;';
+
+  // Toggle "Misure casalinghe" (stesso pattern del generatore AI)
+  var toggleBilancia=document.createElement('label');
+  toggleBilancia.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:.4rem;cursor:pointer;font-size:.85rem;color:#475569;user-select:none;';
+  var chkBilancia=document.createElement('input');
+  chkBilancia.type='checkbox';
+  chkBilancia.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--teal2);';
+  chkBilancia.checked=window._pdfSenzaBilancia||false;
+  chkBilancia.onchange=function(){ window._pdfSenzaBilancia=this.checked; };
+  toggleBilancia.appendChild(chkBilancia);
+  toggleBilancia.appendChild(document.createTextNode('🏠 Misure casalinghe (es. 1 mestolo ~80g)'));
+  footer.appendChild(toggleBilancia);
+
+  _appendToggleNutrizionali(footer);
+  _appendTogglePromemoria(footer);
+  if(typeof _appendToggleFruttaStile==='function') _appendToggleFruttaStile(footer);
+  _appendBtnConcetti(footer);
+
+  // Riga Scarica PDF + WhatsApp
+  var rigaEsport=document.createElement('div');
+  rigaEsport.style.cssText='display:flex;gap:.6rem;margin-top:1rem;';
+  var btnPdf=document.createElement('button');
+  btnPdf.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:#fff;color:#1e293b;border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+  btnPdf.innerHTML='⬇️ Scarica PDF';
+  btnPdf.onclick=function(){ if(window._pdfPaziente&&window._pdfPiano) generaPDF(window._pdfPaziente,window._pdfPiano); };
+  var btnWa=document.createElement('button');
+  btnWa.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:#fff;color:#1e293b;border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
+  btnWa.innerHTML='💬 WhatsApp';
+  btnWa.onclick=function(){ if(window._pdfPaziente&&window._pdfPiano){ generaPDF(window._pdfPaziente,window._pdfPiano); setTimeout(apriWhatsApp,800); } };
+  rigaEsport.appendChild(btnPdf);
+  rigaEsport.appendChild(btnWa);
+  footer.appendChild(rigaEsport);
+
+  // Salva/Aggiorna piano (etichetta dinamica col nome paziente, come nel generatore AI)
+  var btnSalva=document.createElement('button');
+  btnSalva.style.cssText='width:100%;margin-top:.6rem;display:flex;align-items:center;justify-content:center;gap:8px;padding:.7rem 1.4rem;background:var(--teal2,#0d9488);color:#fff;border:none;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;';
+  var pSel=document.getElementById('piano-select-paz');
+  var pIdSel=pSel?pSel.value:'';
+  var pazSel=(db.pazienti||[]).find(function(x){return x.id===pIdSel;});
+  var nomeSel=pazSel?((pazSel.nome||'')+' '+(pazSel.cognome||'')).trim():'';
+  btnSalva.textContent=nomeSel?('💾 Aggiorna piano di '+nomeSel):'💾 Salva piano';
+  btnSalva.onclick=function(){ _ngSalvaPianoManuale(); };
+  footer.appendChild(btnSalva);
+
+  // Salva come template riutilizzabile (riusa la stessa funzione del generatore AI)
+  var btnTemplate=document.createElement('button');
+  btnTemplate.style.cssText='width:100%;margin-top:.6rem;display:flex;align-items:center;justify-content:center;gap:8px;padding:.7rem 1.4rem;background:#fff;color:var(--teal2,#0d9488);border:1.5px solid var(--teal2,#0d9488);border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;';
+  btnTemplate.textContent='📚 Salva come template riutilizzabile';
+  btnTemplate.onclick=function(){ if(typeof salvaComeTemplate==='function') salvaComeTemplate(); };
+  footer.appendChild(btnTemplate);
+
+  destra.appendChild(footer);
 }
 
 // Salva il piano manuale con lo stesso meccanismo del piano AI (cache Supabase).
