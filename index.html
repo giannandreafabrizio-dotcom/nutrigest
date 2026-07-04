@@ -124,18 +124,6 @@ main{flex:1;overflow-y:auto;}
 .cat-chip.active{font-weight:600;border-color:transparent;}
 /* SEARCH */
 .sbar{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;}
-.paz-view-btn{border:none;background:transparent;padding:.35rem .6rem;border-radius:6px;cursor:pointer;font-size:.95rem;color:var(--text2);line-height:1;}
-.paz-view-btn:hover{background:var(--s1);}
-.paz-view-btn.active{background:var(--s1);color:var(--teal);box-shadow:0 1px 2px rgba(0,0,0,.08);}
-.paz-list-row{display:grid;grid-template-columns:32px 1.6fr .6fr 1.2fr 1.3fr 1fr auto;gap:.6rem;align-items:center;padding:.5rem .7rem;border:1px solid var(--border);border-bottom:none;font-size:.8rem;cursor:pointer;transition:background .15s;background:var(--s1);}
-.paz-list-row:last-child{border-bottom:1px solid var(--border);border-radius:0 0 10px 10px;}
-.paz-list-row:first-child{border-radius:10px 10px 0 0;}
-.paz-list-row:hover{background:var(--teal-bg);}
-.paz-list-hd{display:grid;grid-template-columns:32px 1.6fr .6fr 1.2fr 1.3fr 1fr auto;gap:.6rem;padding:.4rem .7rem;font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;}
-.paz-kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.8rem;align-items:start;}
-.paz-kanban-col-hd{font-size:.75rem;font-weight:600;color:var(--text2);margin-bottom:.5rem;padding-left:.2rem;display:flex;justify-content:space-between;align-items:center;}
-.paz-kanban-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.6rem .7rem;margin-bottom:.55rem;cursor:pointer;transition:all .15s;}
-.paz-kanban-card:hover{border-color:var(--teal);transform:translateY(-1px);box-shadow:var(--shadow);}
 .sbar input,.sbar select{background:var(--s1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.79rem;padding:.38rem .75rem;outline:none;transition:border-color .15s;box-shadow:var(--shadow);}
 .sbar input:focus,.sbar select:focus{border-color:var(--teal);}
 .sbar input{flex:1;min-width:180px;}
@@ -727,17 +715,9 @@ main{flex:1;overflow-y:auto;}
     <div><h2>Pazienti</h2><p id="paz-count">—</p></div>
     <button class="btn btn-p" onclick="openNuovoPaz()">+ Nuovo paziente</button>
   </div>
-  <div class="sbar" style="flex-wrap:wrap;gap:.5rem">
-    <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="debounceRicerca()" style="flex:2;min-width:180px">
-    <select id="f-paz-stato" onchange="renderPaz()"><option value="">Tutti gli stati</option><option value="nessun-piano">Nessun piano</option><option value="in-corso">In corso</option><option value="completato">Completato</option><option value="archiviati">📦 Archiviati</option></select>
-    <select id="f-paz-regime" onchange="renderPaz()"><option value="">Tutti i regimi</option></select>
-    <select id="f-paz-controllo" onchange="renderPaz()"><option value="">Qualsiasi controllo</option><option value="scaduto">Controllo scaduto</option><option value="settimana">Questa settimana</option><option value="senza">Senza data</option></select>
-    <select id="sort-paz" onchange="renderPaz()"><option value="cognome">Cognome A→Z</option><option value="nome">Nome A→Z</option><option value="recenti">Più recenti</option></select>
-    <div class="paz-view-toggle" id="paz-view-toggle" style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:2px">
-      <button type="button" class="paz-view-btn" data-view="card" onclick="setPazView('card')" title="Vista card">▦</button>
-      <button type="button" class="paz-view-btn" data-view="lista" onclick="setPazView('lista')" title="Vista lista">☰</button>
-      <button type="button" class="paz-view-btn" data-view="kanban" onclick="setPazView('kanban')" title="Vista kanban">▤</button>
-    </div>
+  <div class="sbar">
+    <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="debounceRicerca()">
+    <select id="f-paz" onchange="renderPaz()"><option value="">Tutti</option><option value="attivo">Con piano attivo</option><option value="archiviati">📦 Archiviati</option></select><select id="sort-paz" onchange="renderPaz()"><option value="cognome">Cognome A→Z</option><option value="nome">Nome A→Z</option><option value="recenti">Più recenti</option></select>
   </div>
   <div class="paz-grid" id="paz-grid"></div>
 </div>
@@ -3313,6 +3293,7 @@ function getSyncColor(){
   return (Date.now()-parseInt(ts))<86400000?'#4ade80':'#fb923c';
 }
 let _syncOk=false;
+window._syncPendingFail=false; window._syncInFlight=false; // P-SYNC-GUARD: stato iniziale
 let _agendaData=today();
 function aggiornaStatoSync(){
   const urlEl=document.getElementById('ss-url');
@@ -3342,6 +3323,9 @@ function aggiornaStatoSync(){
 }
 function setSyncStatus(ok){
   _syncOk=ok;
+  // P-SYNC-GUARD: traccia se ci sono modifiche non sincronizzate su Supabase.
+  // Un push riuscito azzera il flag; un push fallito lo alza. Usato dal beforeunload.
+  window._syncPendingFail = !ok;
   const d=document.getElementById('sync-dot'),t=document.getElementById('sync-txt');
   if(d)d.className='sync-dot'+(ok?'':' err');
   if(t)t.textContent=ok?'Sincronizzato':'Solo locale';
@@ -3350,6 +3334,16 @@ function setSyncStatus(ok){
   if(el1){el1.textContent=txt;el1.style.color=col;}
   aggiornaStatoSync();
 }
+// P-SYNC-GUARD: avvisa alla chiusura SOLO se l'ultimo push a Supabase è fallito
+// o è ancora in corso (i dati restano in localStorage ma non sono confermati sul cloud).
+// Silenzioso se l'ultimo push è andato a buon fine.
+window.addEventListener('beforeunload', function(e){
+  if(window._syncPendingFail || window._syncInFlight){
+    e.preventDefault();
+    e.returnValue = ''; // richiesto da alcuni browser per mostrare il dialog nativo
+    return '';
+  }
+});
 // ─── Hash deterministico (FNV-1a 32 bit) per verifica integrita ──────────
 // ════ SYNC SUPABASE ════════════════════════════════════════════════════════
 const SUPA_URL = 'https://zrhmspylnlklppvhgplp.supabase.co';
@@ -3442,6 +3436,7 @@ async function delPazienteSupabase(id){
 }
 
 async function pushToSheets(){
+  window._syncInFlight = true; // P-SYNC-GUARD: push in corso
   console.log('[Supabase] push iniziato — pazienti:', db.pazienti.length);
   try{
     for(const p of db.pazienti){
@@ -3469,9 +3464,11 @@ async function pushToSheets(){
     await pushEventiSupabase();
     await pushConcetiSupabase();
     localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    window._syncInFlight = false;
     console.log('[Supabase] push COMPLETATO OK');
     return true;
   }catch(e){
+    window._syncInFlight = false;
     console.error('[Supabase] push ERRORE FATALE:',e);setSyncStatus(false);
     notif('⚠ Sync fallito — dati salvati solo in locale',3500);return false;
   }
@@ -4068,80 +4065,22 @@ function notif(msg,dur=2500){const el=document.createElement('div');el.className
 // PAZIENTI
 // ════════════════════════════════════════════════════════════════
 var _debRicTimer=null;function debounceRicerca(){  clearTimeout(_debRicTimer);  _debRicTimer=setTimeout(renderPaz,200);}
-
-// P-VISTA-PAZ: stato vista persistito (card/lista/kanban)
-function getPazView(){ return localStorage.getItem('nutrigest_pazView')||'card'; }
-function setPazView(v){
-  localStorage.setItem('nutrigest_pazView', v);
-  document.querySelectorAll('.paz-view-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
-  const grid=document.getElementById('paz-grid');
-  grid.className = v==='lista' ? 'paz-list' : (v==='kanban' ? 'paz-kanban' : 'paz-grid');
-  renderPaz();
-}
-
-// Calcola lo stato del piano di un paziente: 'nessun-piano' | 'in-corso' | 'completato'
-function _pazStatoPiano(p){
-  if(!p.inizioAlim) return 'nessun-piano';
-  const diff=Math.round((new Date(today())-new Date(p.inizioAlim))/(864e5));
-  if(diff<0) return 'in-corso'; // "inizia tra Ngg" — conta come piano già impostato/in arrivo
-  if(diff<28) return 'in-corso';
-  return 'completato';
-}
-// Calcola l'urgenza del prossimo controllo: 'scaduto' | 'settimana' | 'futuro' | 'senza'
-function _pazUrgenzaControllo(p){
-  if(!p.controlloData) return 'senza';
-  const diff=Math.round((new Date(p.controlloData)-new Date(today()))/(864e5));
-  if(diff<0) return 'scaduto';
-  if(diff<=7) return 'settimana';
-  return 'futuro';
-}
-function _pazStatoTagHtml(p){
-  const ini=p.inizioAlim;
-  if(!ini) return '<span class="tag tag-orange">Nessun piano</span>';
-  const diff=Math.round((new Date(today())-new Date(ini))/(864e5));
-  if(diff<0) return `<span class="tag tag-blue">Inizia tra ${Math.abs(diff)}gg</span>`;
-  if(diff<28) return `<span class="tag tag-teal">Sett. ${Math.floor(diff/7)+1}</span>`;
-  return '<span class="tag tag-gray">Completato</span>';
-}
-// Popola dinamicamente il filtro Regime con i valori realmente presenti tra i pazienti
-function _pazAggiornaFiltroRegimi(){
-  const sel=document.getElementById('f-paz-regime'); if(!sel) return;
-  const cur=sel.value;
-  const regimi=[...new Set(db.pazienti.map(p=>p.regime).filter(Boolean))].sort();
-  sel.innerHTML='<option value="">Tutti i regimi</option>'+regimi.map(r=>`<option value="${r}">${r}</option>`).join('');
-  if(regimi.includes(cur)) sel.value=cur;
-}
-
 function renderPaz(){
-  _pazAggiornaFiltroRegimi();
   const q=(document.getElementById('s-paz').value||'').toLowerCase();
-  const fStato=document.getElementById('f-paz-stato')?.value||'';
-  const fRegime=document.getElementById('f-paz-regime')?.value||'';
-  const fControllo=document.getElementById('f-paz-controllo')?.value||'';
+  const f=document.getElementById('f-paz').value;
   const sortMode=document.getElementById('sort-paz')?.value||'cognome';
-  const view=getPazView();
-
   let list=[...db.pazienti].sort((a,b)=>{
     if(sortMode==='recenti')return (b.id||'').localeCompare(a.id||'');
     if(sortMode==='nome')return (a.nome||'').localeCompare(b.nome||'');
     return (a.cognome||'').localeCompare(b.cognome||'');
   });
-
-  if(fStato==='archiviati') list=list.filter(p=>p.stato==='archiviato');
+  if(f==='archiviati')list=list.filter(p=>p.stato==='archiviato');
   else list=list.filter(p=>p.stato!=='archiviato');
-  if(q) list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
-  if(fStato==='nessun-piano'||fStato==='in-corso'||fStato==='completato') list=list.filter(p=>_pazStatoPiano(p)===fStato);
-  if(fRegime) list=list.filter(p=>p.regime===fRegime);
-  if(fControllo) list=list.filter(p=>_pazUrgenzaControllo(p)===fControllo);
-
+  if(q)list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
+  if(f==='attivo')list=list.filter(p=>p.inizioAlim);
   const attivi=db.pazienti.filter(p=>p.stato!=='archiviato').length;
   document.getElementById('paz-count').textContent=attivi+' pazienti';
-
-  // Sincronizza i pulsanti vista e la classe del contenitore anche al primo render
-  document.querySelectorAll('.paz-view-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
   const grid=document.getElementById('paz-grid');
-  grid.className = view==='lista' ? 'paz-list' : (view==='kanban' ? 'paz-kanban' : 'paz-grid');
-
   if(!list.length){
     // P30 — Onboarding: utente nuovo senza alcun paziente → benvenuto guidato.
     // Se invece ci sono pazienti ma il filtro/ricerca non trova nulla → messaggio semplice.
@@ -4157,15 +4096,15 @@ function renderPaz(){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1"><p>Nessun paziente trovato</p><span>Prova a modificare la ricerca o il filtro</span></div>';
     return;
   }
-
-  if(view==='lista') _renderPazLista(list, grid);
-  else if(view==='kanban') _renderPazKanban(list, grid);
-  else _renderPazCard(list, grid);
-}
-
-function _renderPazCard(list, grid){
   grid.innerHTML=list.map(p=>{
-    const statoTag=_pazStatoTagHtml(p);
+    const ini=p.inizioAlim;const oggi=today();
+    let statoTag='';
+    if(ini){
+      const diff=Math.round((new Date(oggi)-new Date(ini))/(864e5));
+      if(diff<0)statoTag=`<span class="tag tag-blue">Inizia tra ${Math.abs(diff)}gg</span>`;
+      else if(diff<28)statoTag=`<span class="tag tag-teal">Sett. ${Math.floor(diff/7)+1}</span>`;
+      else statoTag=`<span class="tag tag-gray">Completato</span>`;
+    }else statoTag=`<span class="tag tag-orange">Nessun piano</span>`;
     const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
     const regimeTag=p.regime?`<span class="tag tag-purple">${p.regime}</span>`:'';
     const archiviato=p.stato==='archiviato';
@@ -4186,71 +4125,6 @@ function _renderPazCard(list, grid){
       ${ripristinaBtn}
     </div>`;
   }).join('');
-}
-
-function _renderPazLista(list, grid){
-  const hd='<div class="paz-list-hd"><span></span><span>Nome</span><span>Età</span><span>Stato</span><span>Regime</span><span>Controllo</span><span></span></div>';
-  const rows=list.map(p=>{
-    const statoTag=_pazStatoTagHtml(p);
-    const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'—';
-    const regimeTxt=p.regime?p.regime:'<span style="color:var(--text3)">—</span>';
-    const archiviato=p.stato==='archiviato';
-    let controlloTxt='<span style="color:var(--text3)">—</span>';
-    if(p.controlloData){
-      const urg=_pazUrgenzaControllo(p);
-      const col=urg==='scaduto'?'var(--red)':urg==='settimana'?'var(--orange)':'var(--text2)';
-      controlloTxt=`<span style="color:${col};font-weight:${urg==='scaduto'?600:400}">${fData(p.controlloData)}</span>`;
-    }
-    const ripristinaBtn=archiviato?`<button class="btn btn-g btn-sm" onclick="event.stopPropagation();ripristinaPaz('${p.id}')" style="font-size:.68rem;padding:.15rem .5rem">↩</button>`:'';
-    return`<div class="paz-list-row" style="${archiviato?'opacity:.6':''}" onclick="${archiviato?'':`openPaz('${p.id}')`}">
-      <div class="avatar" style="width:26px;height:26px;font-size:.68rem;${archiviato?'opacity:.5':''}">${(p.nome&&p.nome[0]||'')}${(p.cognome&&p.cognome[0]||'')}</div>
-      <span class="paz-nome" style="font-size:.8rem">${p.nome} ${p.cognome}</span>
-      <span style="color:var(--text2)">${eta}</span>
-      <span>${archiviato?'<span class="tag tag-gray">📦 Archiviato</span>':statoTag}</span>
-      <span style="font-size:.75rem;color:var(--purple)">${regimeTxt}</span>
-      <span style="font-size:.75rem">${controlloTxt}</span>
-      <span>${ripristinaBtn}</span>
-    </div>`;
-  }).join('');
-  grid.innerHTML=hd+rows;
-}
-
-function _renderPazKanban(list, grid){
-  const archiviati=list.filter(p=>p.stato==='archiviato');
-  const attivi=list.filter(p=>p.stato!=='archiviato');
-  const cols=[
-    {key:'nessun-piano', label:'Nessun piano', color:'var(--orange)'},
-    {key:'in-corso', label:'In corso', color:'var(--teal)'},
-    {key:'completato', label:'Completato', color:'var(--text2)'},
-  ];
-  const colHtml=cols.map(c=>{
-    const items=attivi.filter(p=>_pazStatoPiano(p)===c.key);
-    const cards=items.map(p=>{
-      const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000)+'a':'';
-      const regimeTxt=p.regime?` · ${p.regime}`:'';
-      return`<div class="paz-kanban-card" onclick="openPaz('${p.id}')">
-        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.2rem">
-          <div class="avatar" style="width:24px;height:24px;font-size:.62rem">${(p.nome&&p.nome[0]||'')}${(p.cognome&&p.cognome[0]||'')}</div>
-          <span class="paz-nome" style="font-size:.78rem">${p.nome} ${p.cognome}</span>
-        </div>
-        <div style="font-size:.68rem;color:var(--text3);padding-left:1.9rem">${eta}${regimeTxt}</div>
-      </div>`;
-    }).join('');
-    return`<div>
-      <div class="paz-kanban-col-hd"><span style="color:${c.color}">${c.label}</span><span style="color:var(--text3);font-weight:400">${items.length}</span></div>
-      ${cards||'<div style="font-size:.72rem;color:var(--text3);padding:.4rem .2rem">Nessun paziente</div>'}
-    </div>`;
-  }).join('');
-  const archCol = archiviati.length ? `<div>
-      <div class="paz-kanban-col-hd"><span style="color:var(--text3)">📦 Archiviati</span><span style="color:var(--text3);font-weight:400">${archiviati.length}</span></div>
-      ${archiviati.map(p=>`<div class="paz-kanban-card" style="opacity:.65" onclick="event.stopPropagation();ripristinaPaz('${p.id}')" title="Clicca per ripristinare">
-        <div style="display:flex;align-items:center;gap:.5rem">
-          <div class="avatar" style="width:24px;height:24px;font-size:.62rem;opacity:.5">${(p.nome&&p.nome[0]||'')}${(p.cognome&&p.cognome[0]||'')}</div>
-          <span class="paz-nome" style="font-size:.78rem">${p.nome} ${p.cognome}</span>
-        </div>
-      </div>`).join('')}
-    </div>` : '';
-  grid.innerHTML=colHtml+archCol;
 }
 
 function openNuovoPaz(){
