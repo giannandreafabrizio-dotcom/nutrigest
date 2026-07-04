@@ -14571,6 +14571,7 @@ async function generaPDF(paziente, giorni) {
 
 
 function openInbody(){
+  window._ibAutofill=null;
   document.getElementById('ib-data').value=today();
   ['ib-bia','ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-girovita','ib-pa-sbp','ib-pa-dbp','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
@@ -14593,6 +14594,12 @@ function salvaInbody(){
     grassaSegm:{bracSx:gn('ib-gs-bracsx'),bracDx:gn('ib-gs-bracdx'),tronco:gn('ib-gs-tronco'),gambSx:gn('ib-gs-gambsx'),gambDx:gn('ib-gs-gambdx')},
     note:document.getElementById('ib-note').value.trim()};
   if(ib.altezza){p.altezza=ib.altezza;}  // aggiorna sempre altezza paziente da InBody
+  // P-AUTOFILL-ANAGRAFICA: persiste data di nascita/sesso estratti dal referto, solo se mancanti sul paziente
+  if(window._ibAutofill){
+    if(window._ibAutofill.nascita && !p.nascita) p.nascita=window._ibAutofill.nascita;
+    if(window._ibAutofill.sesso && !p.sesso) p.sesso=window._ibAutofill.sesso;
+    window._ibAutofill=null;
+  }
   if(!p.inbody)p.inbody=[];p.inbody.push(ib);
   save();closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
 }
@@ -15598,7 +15605,7 @@ async function loadInbodyPDF(e) {
           max_tokens: 1000,
           messages: [{role:'user', content:[
             contentBlock,
-            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
           ]}]
         })
       });
@@ -15626,6 +15633,29 @@ async function loadInbodyPDF(e) {
         s('ib-gs-gambdx', ib.grassa_segmentale.gamba_dx);
       }
       // altezza ora gestita da salvaInbody() che aggiorna sempre p.altezza
+      // P-AUTOFILL-ANAGRAFICA: se data di nascita e/o sesso mancano in anagrafica, li compila dal referto InBody.
+      // Scrive nel form (feedback visivo) E li mette in coda su window._ibAutofill,
+      // così salvaInbody() può persisterli sull'oggetto paziente anche se il modal anagrafica non viene mai aperto/confermato.
+      window._ibAutofill={};
+      (function(){
+        var msgExtra=[];
+        var elNascita=document.getElementById('p-nascita');
+        var isoNascita=null;
+        if(ib.data_nascita){
+          var dn=String(ib.data_nascita).trim();
+          if(dn.match(/^\d{4}-\d{2}-\d{2}$/)) isoNascita=dn;
+          else if(dn.match(/^\d{2}\/\d{2}\/\d{4}$/)){ var parts=dn.split('/'); isoNascita=parts[2]+'-'+parts[1]+'-'+parts[0]; }
+        }
+        if(elNascita && !elNascita.value && isoNascita){
+          elNascita.value=isoNascita; if(typeof aggiornaEta==='function') aggiornaEta();
+          window._ibAutofill.nascita=isoNascita; msgExtra.push('data di nascita');
+        }
+        var elSesso=document.getElementById('p-sesso');
+        if(elSesso && !elSesso.value && (ib.sesso==='M'||ib.sesso==='F')){
+          elSesso.value=ib.sesso; window._ibAutofill.sesso=ib.sesso; msgExtra.push('sesso');
+        }
+        if(msgExtra.length) notif('✓ Anagrafica aggiornata dal referto: '+msgExtra.join(' e '));
+      })();
       notif('✓ Dati estratti dal PDF InBody!');
     };
     reader.readAsDataURL(file);
