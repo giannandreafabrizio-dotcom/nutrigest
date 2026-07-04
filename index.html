@@ -11343,19 +11343,17 @@ function _renderCelleGriglia(pasto, slotKey, giorno) {
   return html;
 }
 
-// Helper: dato un pasto nuovo formato (celle), restituisce testo descrittivo per renderPianoBox
-function _renderCelleHtml(pasto, slotKey, giorno) {
-  if (!pasto || !pasto.celle) return '';
+// Blocco "ricette testuali" (descrizione + frutta agganciata) riutilizzabile: usato sia dal
+// generatore AI sia dal compositore manuale, così la frutta si aggancia in entrambi i casi.
+function _renderRicetteTestuali(pasto, slotKey, giorno) {
+  if (!pasto) return '';
   var html = '';
-  // Ricette descrittive in cima — cliccabili + cestino + bottone aggiungi
-  var giornoEscR = giorno.replace(/"/g,'&quot;');
+  var giornoEscR = (giorno||'').replace(/"/g,'&quot;');
   var maxRic = (slotKey === 'pranzo' || slotKey === 'cena') ? 4 : 1;
   var ricetteArr = (pasto.ricette || []).filter(function(r){ return r != null; });
-  // Filtra le ricette davvero presenti (non-vuote)
   var ricetteVisibili = ricetteArr.filter(function(r){ return (r||'').trim() !== ''; });
   if (ricetteVisibili.length || maxRic > 0) {
     html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.7;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
-    // FRUTTA: marker calcolato per ogni riga ricetta — ruota tra le alternative dello stesso pasto
     var _fruttaRigaCounter = 0;
     ricetteArr.forEach(function(r, i) {
       if (!r || !(r||'').trim()) return;
@@ -11367,7 +11365,6 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
       html += '<button class="alt-ctrl alt-x" onclick="rimuoviRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" title="Rimuovi ricetta" style="font-size:.7rem">🗑</button>';
       html += '</div>';
     });
-    // Bottone aggiungi (visibile se non si è raggiunto il max)
     if (ricetteVisibili.length < maxRic) {
       var labelBtn = (slotKey === 'pranzo' || slotKey === 'cena')
         ? (ricetteVisibili.length === 0 ? '+ Aggiungi ricetta' : '+ Aggiungi ' + (ricetteVisibili.length+1) + 'ª ricetta')
@@ -11376,6 +11373,13 @@ function _renderCelleHtml(pasto, slotKey, giorno) {
     }
     html += '</div>';
   }
+  return html;
+}
+
+// Helper: dato un pasto nuovo formato (celle), restituisce testo descrittivo per renderPianoBox
+function _renderCelleHtml(pasto, slotKey, giorno) {
+  if (!pasto || !pasto.celle) return '';
+  var html = _renderRicetteTestuali(pasto, slotKey, giorno);
   html += _renderCelleGriglia(pasto, slotKey, giorno);
   return html;
 }
@@ -12966,7 +12970,7 @@ function apriSceltaModalitaPiano(){
         +'<div style="font-weight:700;color:#1e293b;font-size:.9rem;margin-bottom:.2rem">Genera con AI</div>'
         +'<div style="font-size:.74rem;color:#64748b;line-height:1.4">L\'AI costruisce pranzi e cene con principali e alternative. Veloce, poi ritocchi.</div>'
       +'</button>'
-      +'<button onclick="_ngAvviaModalitaManuale()" style="text-align:left;border:2px solid #0ea5e9;background:#f0f9ff;border-radius:12px;padding:1rem;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#e0f2fe\'" onmouseout="this.style.background=\'#f0f9ff\'">'
+      +'<button onclick="_ngChiudiModalita();_ngCreaPianoManuale(6)" style="text-align:left;border:2px solid #0ea5e9;background:#f0f9ff;border-radius:12px;padding:1rem;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#e0f2fe\'" onmouseout="this.style.background=\'#f0f9ff\'">'
         +'<div style="font-size:1.4rem;margin-bottom:.4rem">🛠️</div>'
         +'<div style="font-weight:700;color:#1e293b;font-size:.9rem;margin-bottom:.2rem">Componi a mano</div>'
         +'<div style="font-size:.74rem;color:#64748b;line-height:1.4">Parti da pasti vuoti. Trascini alimenti dall\'albero e peschi ricette dal ricettario.</div>'
@@ -12980,37 +12984,31 @@ function apriSceltaModalitaPiano(){
 
 function _ngChiudiModalita(){ const bg=document.getElementById('ng-modalita-bg'); if(bg) bg.remove(); }
 
-// Step "Componi a mano": chiede il numero di giorni (campo vuoto, nessun default).
-function _ngAvviaModalitaManuale(){
-  const card=document.querySelector('#ng-modalita-bg > div');
-  if(!card) return;
-  card.innerHTML=
-    '<div style="font-size:1.05rem;font-weight:700;color:#1e293b;margin-bottom:.3rem">Quanti giorni?</div>'
-    +'<div style="font-size:.82rem;color:#64748b;margin-bottom:1.1rem">Inserisci il numero di giorni del piano (es. 7, oppure 10-12 per un piano lungo).</div>'
-    +'<input type="number" id="ng-num-giorni" min="1" max="31" placeholder="numero giorni" style="width:100%;padding:.7rem .9rem;border:1px solid #cbd5e1;border-radius:8px;font-size:1rem;margin-bottom:1rem" oninput="this.style.borderColor=\'#cbd5e1\'">'
-    +'<div style="display:flex;gap:.6rem;justify-content:space-between">'
-      +'<button onclick="apriSceltaModalitaPiano()" style="background:#fff;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:.6rem 1rem;font-size:.82rem;cursor:pointer">← Indietro</button>'
-      +'<button onclick="_ngCreaPianoManuale()" style="background:#0ea5e9;border:none;color:#fff;border-radius:8px;padding:.6rem 1.4rem;font-size:.85rem;font-weight:600;cursor:pointer">Crea piano vuoto</button>'
-    +'</div>';
-  setTimeout(function(){ const inp=document.getElementById('ng-num-giorni'); if(inp) inp.focus(); },50);
+// Costruisce un giorno vuoto con i 6 slot pasto standard (formato celle).
+function _ngCostruisciGiornoVuoto(numero){
+  const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  const pasti={};
+  slots.forEach(function(s){ pasti[s]={celle:[]}; });
+  return { giorno:'Giorno '+numero, pasti:pasti };
+}
+
+// Vero se un giorno ha già del contenuto inserito (celle con alimenti o ricette testuali).
+function _ngGiornoHaContenuto(g){
+  if(!g||!g.pasti) return false;
+  return Object.keys(g.pasti).some(function(k){
+    const pasto=g.pasti[k];
+    if(!pasto) return false;
+    const haCelle=(pasto.celle||[]).some(function(c){ return c.alimenti && c.alimenti.length; });
+    const haRicette=(pasto.ricette||[]).some(function(r){ return r && (r||'').trim()!==''; });
+    return haCelle || haRicette;
+  });
 }
 
 // Crea N giorni con i 6 slot vuoti (formato celle) e avvia l'editor manuale.
-function _ngCreaPianoManuale(){
-  const inp=document.getElementById('ng-num-giorni');
-  const n=inp?parseInt(inp.value,10):NaN;
-  if(!n || n<1 || n>31){
-    if(inp){ inp.style.borderColor='#dc2626'; inp.focus(); }
-    notif('⚠ Inserisci un numero di giorni valido (1-31)');
-    return;
-  }
-  const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+function _ngCreaPianoManuale(n){
+  if(!n || n<1 || n>14){ notif('⚠ Numero di giorni non valido (1-14)'); return; }
   const piano=[];
-  for(let i=1;i<=n;i++){
-    const pasti={};
-    slots.forEach(function(s){ pasti[s]={celle:[]}; });
-    piano.push({ giorno:'Giorno '+i, pasti:pasti });
-  }
+  for(let i=1;i<=n;i++){ piano.push(_ngCostruisciGiornoVuoto(i)); }
   window._pianoCorrente=piano;
   window._pianoGiornoCorrente=0;
   window._ngModalitaManuale=true; // flag: stiamo componendo a mano
@@ -13021,6 +13019,29 @@ function _ngCreaPianoManuale(){
   if(p){ window._pdfPaziente=p; window._pdfPiano=piano; }
   _ngChiudiModalita();
   _ngRenderEditorManuale();
+}
+
+// Cambia il numero di giorni del piano in ogni momento (controllo vicino alla navigazione).
+// Se si riducono i giorni e quelli rimossi hanno contenuto, chiede conferma prima di cancellare.
+function _ngCambiaNumeroGiorni(nuovoN){
+  if(!nuovoN || nuovoN<1 || nuovoN>14) return;
+  const piano=window._pianoCorrente||[];
+  const attuale=piano.length;
+  if(nuovoN===attuale) return;
+  if(nuovoN>attuale){
+    for(let i=attuale+1;i<=nuovoN;i++){ piano.push(_ngCostruisciGiornoVuoto(i)); }
+  } else {
+    const rimossi=piano.slice(nuovoN);
+    const perdeContenuto=rimossi.some(_ngGiornoHaContenuto);
+    if(perdeContenuto){
+      const ok=confirm('Riducendo a '+nuovoN+' giorni verranno eliminati '+rimossi.length+' giorno/i con alimenti già inseriti. Continuare?');
+      if(!ok) { _ngRenderPianoDestra(); return; } // ripristina il valore corretto nel <select>
+    }
+    piano.length=nuovoN;
+    if((window._pianoGiornoCorrente||0)>nuovoN-1) window._pianoGiornoCorrente=nuovoN-1;
+  }
+  if(window._pdfPiano) window._pdfPiano=piano;
+  _ngRenderPianoDestra();
 }
 
 // Render dell'editor manuale: albero alimenti a sinistra + piano (celle) a destra.
@@ -13126,10 +13147,19 @@ function _ngRenderPianoDestra(){
   const g=piano[idx];
   if(!g){ destra.innerHTML='<div style="color:#94a3b8;padding:2rem;text-align:center">Nessun giorno</div>'; return; }
 
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;padding:.4rem .2rem">';
-  h+='<button onclick="window._pianoGiornoCorrente=Math.max(0,(window._pianoGiornoCorrente||0)-1);_ngRenderPianoDestra()" '+(idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;'+(idx===0?'opacity:.35':'')+'">←</button>';
-  h+='<div style="text-align:center"><div style="font-weight:700;color:#1e293b">'+(g.giorno||('Giorno '+(idx+1)))+'</div><div style="font-size:.7rem;color:#94a3b8">'+(idx+1)+' di '+piano.length+'</div></div>';
-  h+='<button onclick="window._pianoGiornoCorrente=Math.min('+(piano.length-1)+',(window._pianoGiornoCorrente||0)+1);_ngRenderPianoDestra()" '+(idx===piano.length-1?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;'+(idx===piano.length-1?'opacity:.35':'')+'">→</button>';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;padding:.4rem .2rem;gap:8px">';
+  h+='<button onclick="window._pianoGiornoCorrente=Math.max(0,(window._pianoGiornoCorrente||0)-1);_ngRenderPianoDestra()" '+(idx===0?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;flex:0 0 auto;'+(idx===0?'opacity:.35':'')+'">←</button>';
+  h+='<div style="text-align:center">';
+  h+='<div style="font-weight:700;color:#1e293b">'+(g.giorno||('Giorno '+(idx+1)))+'</div>';
+  h+='<div style="font-size:.7rem;color:#94a3b8">'+(idx+1)+' di '+piano.length+'</div>';
+  h+='<div style="margin-top:.25rem;display:flex;align-items:center;justify-content:center;gap:4px">';
+  h+='<label style="font-size:.68rem;color:#94a3b8;font-weight:600" for="ng-sel-giorni">Giorni:</label>';
+  h+='<select id="ng-sel-giorni" onchange="_ngCambiaNumeroGiorni(parseInt(this.value,10))" style="font-size:.72rem;border:1px solid #e2e8f0;border-radius:6px;padding:1px 4px;cursor:pointer;color:#1e293b;background:#fff">';
+  for(let ngv=1; ngv<=14; ngv++){ h+='<option value="'+ngv+'"'+(piano.length===ngv?' selected':'')+'>'+ngv+'</option>'; }
+  h+='</select>';
+  h+='</div>';
+  h+='</div>';
+  h+='<button onclick="window._pianoGiornoCorrente=Math.min('+(piano.length-1)+',(window._pianoGiornoCorrente||0)+1);_ngRenderPianoDestra()" '+(idx===piano.length-1?'disabled':'')+' style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;flex:0 0 auto;'+(idx===piano.length-1?'opacity:.35':'')+'">→</button>';
   h+='</div>';
 
   const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
@@ -13148,6 +13178,7 @@ function _ngRenderPianoDestra(){
     h+='</div>';
     h+='<button onclick="_ngPescaRicetta(\''+giornoEsc+'\',\''+k+'\')" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#7c3aed;border-radius:6px;padding:3px 10px;font-size:.72rem;font-weight:600;cursor:pointer">📖 Pesca ricetta</button>';
     h+='</div>';
+    h+=_renderRicetteTestuali(pasto,k,g.giorno);
     h+=_renderCelleGriglia(pasto,k,g.giorno);
     h+='</div>';
   });
