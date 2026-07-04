@@ -13320,7 +13320,10 @@ function _ngRenderCelleManuale(pasto,slotKey,giorno){
       const stato=al[(a.categoria||'')+'__'+a.n]||'';
       const colore=_ngColoreSemaforoNome(stato);
       const isPrinc=i===0;
-      h+='<div style="display:flex;align-items:center;gap:4px;'+(isPrinc?'':'padding-left:.6rem;margin-top:2px')+'">';
+      // Copia alimento tra celle: la riga è draggabile, usa lo stesso meccanismo del drag dalla libreria
+      const nEsc=(a.n||'').replace(/"/g,'&quot;');
+      const catEsc=(a.categoria||'').replace(/"/g,'&quot;');
+      h+='<div draggable="true" ondragstart="_ngDragStartCella(event)" data-nome="'+nEsc+'" data-grammi="'+(a.g||0)+'" data-cat="'+catEsc+'" data-src-cell="'+c.id+'" title="Trascina per copiare in un altro pasto" style="display:flex;align-items:center;gap:4px;cursor:grab;'+(isPrinc?'':'padding-left:.6rem;margin-top:2px')+'">';
       h+='<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:'+(isPrinc?'.82rem':'.71rem')+';font-weight:'+(isPrinc?'600':'400')+';color:'+colore+';'+(isPrinc?'':'font-style:italic')+'" title="'+a.n+'">'+(isPrinc?'':'↳ ')+a.n+'</span>';
       h+='<span style="color:var(--teal,#0d9488);font-size:.72rem;font-weight:600;white-space:nowrap">'+a.g+'g</span>';
       h+='<button onclick="_ngRimuoviAlimento(\''+giornoEsc+'\',\''+slotKey+'\',\''+c.id+'\','+i+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;cursor:pointer;line-height:1">×</button>';
@@ -13342,6 +13345,19 @@ function _ngDragStart(ev){
     categoria: el.getAttribute('data-cat')
   };
   if(ev.dataTransfer){ ev.dataTransfer.effectAllowed='copy'; ev.dataTransfer.setData('text/plain', el.getAttribute('data-nome')||''); }
+}
+// Drag start da una cella già piazzata → copia dell'alimento (l'originale resta).
+// Riusa lo stesso window._ngDragData e lo stesso _ngDrop del drag dalla libreria.
+function _ngDragStartCella(ev){
+  const el=ev.currentTarget;
+  window._ngDragData={
+    n: el.getAttribute('data-nome'),
+    g: parseInt(el.getAttribute('data-grammi'),10)||100,
+    categoria: el.getAttribute('data-cat'),
+    _fromCella: el.getAttribute('data-src-cell')
+  };
+  if(ev.dataTransfer){ ev.dataTransfer.effectAllowed='copy'; ev.dataTransfer.setData('text/plain', el.getAttribute('data-nome')||''); }
+  ev.stopPropagation();
 }
 function _ngDragOver(ev){
   ev.preventDefault();
@@ -13367,6 +13383,8 @@ function _ngDrop(ev){
   // Drop su una cella esistente → alternativa; drop su zona vuota → nuova cella
   const cellaEl=ev.target.closest('[data-ng-cell]');
   const cellaId=cellaEl?cellaEl.getAttribute('data-ng-cell'):null;
+  // Se trascino un alimento sulla sua stessa cella d'origine, ignoro (nessun duplicato inutile)
+  if(dato._fromCella && cellaId && cellaId===dato._fromCella){ window._ngDragData=null; return; }
   _ngAggiungiAlimento(giorno,slot,dato,cellaId);
   window._ngDragData=null;
 }
