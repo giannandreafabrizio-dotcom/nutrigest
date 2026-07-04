@@ -7810,7 +7810,7 @@ function renderPdMacros(p){
     </div>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
-    <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}"></div>
+    <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}" oninput="_aggiornaRifPesoTarget()"></div>
     <div class="fg"><label>Strategia dieta</label>
       <select id="mac-strategia" onchange="_aggiornaRegimeSlider()">
         <option value="standard">Standard (bilanciata)</option>
@@ -7819,25 +7819,30 @@ function renderPdMacros(p){
       </select>
     </div>
   </div>
+  <div id="mac-peso-rif-box"></div>
   <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;background:var(--bg);margin-bottom:.8rem">
     <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.3rem">
       <label style="margin:0">Regime energetico</label>
       <span id="mac-regime-label" style="font-weight:600;color:var(--teal2);font-size:.85rem">Normocalorico</span>
       <span id="mac-regime-target" style="margin-left:auto;font-weight:600;font-size:.95rem">— kcal</span>
     </div>
-    <input type="range" id="mac-off-slider" min="-40" max="20" value="0" step="1" style="width:100%;margin:.3rem 0" oninput="_aggiornaRegimeSlider('slider')">
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span>−40% (deficit)</span><span>mantenimento</span><span>+20% (surplus)</span></div>
+    <input type="range" id="mac-off-slider" min="-40" max="25" value="0" step="1" style="width:100%;margin:.3rem 0" oninput="_aggiornaRegimeSlider('slider')">
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span>−40% (deficit)</span><span>mantenimento</span><span>+25% (surplus)</span></div>
     <div class="fr">
       <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione kcal</label><input type="number" id="mac-off-kcal" step="10" placeholder="0" oninput="_aggiornaRegimeSlider('kcal')"></div>
       <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione %</label><input type="number" id="mac-off-pct" step="1" placeholder="0" oninput="_aggiornaRegimeSlider('pct')"></div>
     </div>
     <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem">
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-10)">−10%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-25)">−25%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-10)">−10%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-5)">−5%</button>
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(0)">Mantenimento</button>
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(10)">+10%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(15)">+15%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(20)">+20%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(25)">+25%</button>
     </div>
     <div id="mac-regime-warn" style="font-size:.72rem;margin-top:.5rem"></div>
   </div>
@@ -7961,6 +7966,8 @@ function renderPdMacros(p){
   _gn('mac-peso-target', p.pesoTarget);
   // P-REGIME SLIDER — init da paziente (ancora slider al TDEE/MB correnti)
   (function(){ var _ctR=calcolaTDEE(p); _initRegimeSliderDaPaziente(p, _ctR.tdee, _ctR.mb); })();
+  // P-RIF-PESO: mostra riferimenti obiettivo peso (Peso Ideale InBody, BMI, Devine, Robinson)
+  _renderRifPesoBox();
   _gs('p-cronotipo', p.cronotipo);
   _gs('p-orario-pasto', p.orarioPastoPrincipale);
   if(p.giorniAllenamento&&p.giorniAllenamento.length){
@@ -8121,6 +8128,56 @@ function applicaSchema(laf,prot,grassi){
   notif('✓ Valori applicati — clicca Calcola');
 }
 
+// P-RIF-PESO: box di riferimento per l'obiettivo peso — Peso Ideale InBody, range BMI normale, Devine, Robinson
+function _renderRifPesoBox(){
+  var box=document.getElementById('mac-peso-rif-box');
+  if(!box) return;
+  var p=_macrosPaziente||{};
+  var lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  var altezzaCm=(lastIb&&lastIb.altezza?parseFloat(lastIb.altezza):null)||(p.altezza?parseFloat(p.altezza):null);
+  var sesso=p.sesso||null;
+  var pesoIdealeIb=lastIb&&lastIb.pesoIdeale?parseFloat(lastIb.pesoIdeale):null;
+  var refs=[];
+  if(pesoIdealeIb){
+    refs.push({label:'Peso Ideale InBody',val:pesoIdealeIb,note:'dal referto',color:'#B8860B',bg:'#FFF8E1'});
+  }
+  if(altezzaCm){
+    var hM=altezzaCm/100;
+    var bmiMin=+(18.5*hM*hM).toFixed(1), bmiMax=+(24.9*hM*hM).toFixed(1);
+    refs.push({label:'Range BMI normale (18.5–24.9)',val:null,range:[bmiMin,bmiMax],note:'per altezza '+altezzaCm+' cm',color:'#3B6D11',bg:'#F1F8E9'});
+    if(sesso==='M'||sesso==='F'){
+      var altezzaIn=altezzaCm/2.54;
+      var over5ft=Math.max(0,altezzaIn-60);
+      var devine=sesso==='M'?(50+2.3*over5ft):(45.5+2.3*over5ft);
+      var robinson=sesso==='M'?(52+1.9*over5ft):(49+1.7*over5ft);
+      refs.push({label:'Formula Devine',val:+devine.toFixed(1),note:'peso ideale teorico ('+sesso+')',color:'#185FA5',bg:'#E6F1FB'});
+      refs.push({label:'Formula Robinson',val:+robinson.toFixed(1),note:'peso ideale teorico ('+sesso+')',color:'#185FA5',bg:'#E6F1FB'});
+    }
+  }
+  if(!refs.length){
+    box.innerHTML='<div style="font-size:.68rem;color:var(--text3);margin:-.3rem 0 .8rem">Inserisci altezza/sesso (o un referto InBody con Peso Ideale) per vedere qui dei riferimenti sull\'obiettivo peso.</div>';
+    return;
+  }
+  var chips=refs.map(function(r){
+    var displayVal=r.val!=null?r.val+' kg':r.range[0]+'–'+r.range[1]+' kg';
+    var clickVal=r.val!=null?r.val:+((r.range[0]+r.range[1])/2).toFixed(1);
+    return '<button type="button" onclick="_usaRifPeso('+clickVal+')" style="cursor:pointer;text-align:left;border:1.5px solid '+r.color+';background:'+r.bg+';border-radius:6px;padding:.35rem .6rem;font-size:.7rem;color:'+r.color+';display:flex;flex-direction:column;gap:1px">'
+      +'<span style="font-weight:600">'+r.label+'</span>'
+      +'<span style="font-size:.78rem;font-weight:700">'+displayVal+'</span>'
+      +'<span style="font-size:.62rem;font-weight:400;opacity:.8">'+r.note+'</span>'
+      +'</button>';
+  }).join('');
+  box.innerHTML='<div style="margin:-.3rem 0 .8rem">'
+    +'<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem">Riferimenti per l\'obiettivo peso — clicca per usare il valore:</div>'
+    +'<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+chips+'</div>'
+    +'</div>';
+}
+function _usaRifPeso(val){
+  var el=document.getElementById('mac-peso-target');
+  if(el){ el.value=val; el.dispatchEvent(new Event('input')); }
+}
+function _aggiornaRifPesoTarget(){ /* placeholder: il campo obiettivo peso non ricalcola i riferimenti, solo la sua anteprima; qui per estensioni future */ }
+
 // P-REGIME SLIDER — sincronizza slider/kcal/% (ancorati al TDEE), anteprima target, avviso soglia MB
 function _aggiornaRegimeSlider(origine){
   var tdee = window._tdeeRegime || null;
@@ -8138,7 +8195,7 @@ function _aggiornaRegimeSlider(origine){
     if(tdee){ pct=k/tdee*100; } else { absMode=true; } // senza TDEE la kcal è assoluta
   } else if(origine==='pct'){ pct=parseFloat(pctEl.value)||0; }
   else { pct=parseFloat(slider.value)||0; }
-  if(pct!=null) pct=Math.max(-40,Math.min(20,Math.round(pct)));
+  if(pct!=null) pct=Math.max(-40,Math.min(25,Math.round(pct)));
   var strat=(document.getElementById('mac-strategia')||{}).value||'standard';
   if(!absMode){
     slider.value=pct; pctEl.value=pct;
