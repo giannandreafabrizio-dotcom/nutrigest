@@ -11982,13 +11982,13 @@ function apriAggiungiCella(giorno, slotKey) {
   var p = pazId ? db.pazienti.find(function(x){return x.id===pazId;}) : null;
   if (!p) { alert('Paziente non trovato'); return; }
 
-  // Popup step 1: scegli categoria ALIMENTI (stesse di Preferenze cibi)
-  _mostraPopupCategoriaAlimenti(function(catAlim) {
+  // risolviCompatibili: dato il tasto categoria cliccato, calcola gli alimenti compatibili
+  // con le preferenze del paziente (whitelist P28). Se vuoto, avvisa e resta sullo step 1.
+  function risolviCompatibili(catAlim) {
     var al = p.alimenti || {};
     var catData = ALIMENTI[catAlim];
-    if (!catData || !catData.items) return;
+    if (!catData || !catData.items) return null;
 
-    // Filtra: solo alimenti di questa categoria presenti nelle preferenze del paziente
     var compatibili = [];
     catData.items.forEach(function(item) {
       var key = catAlim + '__' + item.n;
@@ -12006,61 +12006,62 @@ function apriAggiungiCella(giorno, slotKey) {
 
     if (!compatibili.length) {
       alert('Nessun alimento in "' + catAlim + '" disponibile nel profilo del paziente. Aggiungili in Preferenze cibi.');
+      return null;
+    }
+    return compatibili;
+  }
+
+  _mostraPopupSceltaCategoriaAlimento(risolviCompatibili, function(scelto, grCalcolato) {
+    var celle = ctx.pasto.celle;
+    var ordsSx = celle.filter(function(c){return c.colonna==='sx';}).map(function(c){return c.ordine||1;});
+    var ordsDx = celle.filter(function(c){return c.colonna==='dx';}).map(function(c){return c.ordine||1;});
+    var maxSx = ordsSx.length ? Math.max.apply(null, ordsSx) : 0;
+    var maxDx = ordsDx.length ? Math.max.apply(null, ordsDx) : 0;
+    var colonnaNuova = (maxSx <= maxDx) ? 'sx' : 'dx';
+    var ordineNuovo = (colonnaNuova === 'sx' ? maxSx : maxDx) + 1;
+    var nuovoId = 'c' + Date.now();
+
+    // B7: se è ricetta composta, apri popup selezione avena
+    if (scelto.ricettaComposta) {
+      _apriPopupRicettaComposta(scelto.ricettaComposta, function(avenaG, macros) {
+        celle.push({
+          id: nuovoId,
+          colonna: colonnaNuova,
+          ordine: ordineNuovo,
+          alimenti: [{
+            n: scelto.n,
+            g: avenaG,
+            categoria: scelto.cat,
+            ricettaComposta: scelto.ricettaComposta,
+            avenaG: avenaG,
+            macrosOverride: macros
+          }]
+        });
+        _aggiornaPianoBox();
+        if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+        if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+        if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
+        if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+      });
       return;
     }
 
-    _mostraPopupAggiungiAlt(compatibili, 100, '', 100, catAlim, function(scelto, grCalcolato) {
-      var celle = ctx.pasto.celle;
-      var ordsSx = celle.filter(function(c){return c.colonna==='sx';}).map(function(c){return c.ordine||1;});
-      var ordsDx = celle.filter(function(c){return c.colonna==='dx';}).map(function(c){return c.ordine||1;});
-      var maxSx = ordsSx.length ? Math.max.apply(null, ordsSx) : 0;
-      var maxDx = ordsDx.length ? Math.max.apply(null, ordsDx) : 0;
-      var colonnaNuova = (maxSx <= maxDx) ? 'sx' : 'dx';
-      var ordineNuovo = (colonnaNuova === 'sx' ? maxSx : maxDx) + 1;
-      var nuovoId = 'c' + Date.now();
-
-      // B7: se è ricetta composta, apri popup selezione avena
-      if (scelto.ricettaComposta) {
-        _apriPopupRicettaComposta(scelto.ricettaComposta, function(avenaG, macros) {
-          celle.push({
-            id: nuovoId,
-            colonna: colonnaNuova,
-            ordine: ordineNuovo,
-            alimenti: [{
-              n: scelto.n,
-              g: avenaG,
-              categoria: scelto.cat,
-              ricettaComposta: scelto.ricettaComposta,
-              avenaG: avenaG,
-              macrosOverride: macros
-            }]
-          });
-          _aggiornaPianoBox();
-          if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
-          if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
-          if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
-          if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
-        });
-        return;
-      }
-
-      celle.push({
-        id: nuovoId,
-        colonna: colonnaNuova,
-        ordine: ordineNuovo,
-        alimenti: [{n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore}]
-      });
-
-      _aggiornaPianoBox();
-      if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
-      if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
-      if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
-      if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+    celle.push({
+      id: nuovoId,
+      colonna: colonnaNuova,
+      ordine: ordineNuovo,
+      alimenti: [{n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore}]
     });
+
+    _aggiornaPianoBox();
+    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
+    if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
+    if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
   });
 }
 
-function _mostraPopupCategoria(onScelto) { _mostraPopupCategoriaAlimenti(onScelto); }
+// (Rimossa: _mostraPopupCategoria — alias morto, mai chiamato)
 
 // B7 — Popup selezione avena per ricette composte
 function _apriPopupRicettaComposta(chiave, onScelto) {
@@ -12149,11 +12150,17 @@ function _apriPopupRicettaComposta(chiave, onScelto) {
   };
 }
 
-function _mostraPopupCategoriaAlimenti(onScelto) {
-  var existing = document.getElementById('popup-add-cat');
-  if (existing) existing.remove();
-  var existingBg = document.getElementById('popup-add-cat-bg');
-  if (existingBg) existingBg.remove();
+// Popup unificato "Scegli categoria → Aggiungi alimento": un solo popup con due pannelli
+// che scorrono (invece di due popup separati), così il tasto ← indietro funziona sempre
+// e non si intravede mai il pannello sottostante durante la transizione.
+// risolviCompatibili(catKey) deve restituire l'array di alimenti compatibili, oppure un
+// valore falsy se non ce ne sono (in quel caso deve già aver mostrato l'alert: restiamo
+// sullo step categorie senza scorrere).
+function _mostraPopupSceltaCategoriaAlimento(risolviCompatibili, onScelto) {
+  var esistente = document.getElementById('popup-cat-alim');
+  if (esistente) esistente.remove();
+  var esistenteBg = document.getElementById('popup-cat-alim-bg');
+  if (esistenteBg) esistenteBg.remove();
 
   var CAT_ICONE = {
     'Cereali con Glutine':'🌾','Cereali senza Glutine':'🌾',
@@ -12165,20 +12172,70 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
     'Verdura':'🥦','Frutta':'🍎','Spezie':'🌿',
     'Fit':'💪','Dolcificanti & Conserve':'🍯','Olio & Condimenti':'🫙'
   };
+  var STILE_STATO = {
+    'si':            {bg:'var(--teal-bg)', border:'var(--teal-light)', color:'var(--teal)',  dash:false, label:'Consigliato'},
+    'verde':         {bg:'var(--teal-bg)', border:'var(--teal-light)', color:'var(--teal)',  dash:false, label:'Consigliato'},
+    'arancione':     {bg:'#fff3e0',        border:'#e08000',           color:'#a04a00',      dash:false, label:'Con moderazione'},
+    'rosso':         {bg:'#fdecea',        border:'#e57373',           color:'#c62828',      dash:false, label:'Sconsigliato'},
+    'grigio_scuro_1':{bg:'#eceff1',        border:'#78909c',           color:'#37474f',      dash:false, label:'Limitare (patologia)'},
+    'grigio_scuro_2':{bg:'#cfd8dc',        border:'#546e7a',           color:'#263238',      dash:false, label:'Limitare fortemente'},
+    'grigioScuro':   {bg:'#eceff1',        border:'#78909c',           color:'#37474f',      dash:false, label:'Limitare (patologia)'},
+    'celeste_1':     {bg:'#e3f2fd',        border:'#1976d2',           color:'#0d47a1',      dash:true,  label:'Preferire (patologia)'},
+    'celeste_2':     {bg:'#bbdefb',        border:'#1565c0',           color:'#0d47a1',      dash:true,  label:'Preferire fortemente'},
+    'celeste':       {bg:'#e3f2fd',        border:'#1976d2',           color:'#0d47a1',      dash:true,  label:'Preferire (patologia)'}
+  };
 
   var pop = document.createElement('div');
-  pop.id = 'popup-add-cat';
-  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.2rem;z-index:99999;width:90%;max-width:440px;max-height:80vh;display:flex;flex-direction:column';
+  pop.id = 'popup-cat-alim';
+  pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.2);padding:1.1rem 1.2rem;z-index:99999;width:92%;max-width:640px;display:flex;flex-direction:column';
 
   var header = document.createElement('div');
-  header.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem"><strong style="font-size:.95rem;color:var(--teal2)">Scegli categoria</strong><button onclick="ngChiudiPopupCoppia(\'popup-add-cat\',\'popup-add-cat-bg\')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8">×</button></div>';
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem';
+  var headerSx = document.createElement('div');
+  headerSx.style.cssText = 'display:flex;align-items:center;gap:6px';
+  var btnIndietro = document.createElement('button');
+  btnIndietro.innerHTML = '←';
+  btnIndietro.title = 'Torna alle categorie';
+  btnIndietro.style.cssText = 'display:none;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--teal2,#0d9488);padding:0 4px 0 0';
+  var titolo = document.createElement('strong');
+  titolo.style.cssText = 'font-size:.95rem;color:var(--teal2)';
+  titolo.textContent = 'Scegli categoria';
+  headerSx.appendChild(btnIndietro);
+  headerSx.appendChild(titolo);
+  var btnChiudi = document.createElement('button');
+  btnChiudi.innerHTML = '×';
+  btnChiudi.style.cssText = 'background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8';
+  btnChiudi.onclick = function(){
+    var p1=document.getElementById('popup-cat-alim'); if(p1) p1.remove();
+    var b1=document.getElementById('popup-cat-alim-bg'); if(b1) b1.remove();
+  };
+  header.appendChild(headerSx);
+  header.appendChild(btnChiudi);
   pop.appendChild(header);
 
-  var scrollWrap = document.createElement('div');
-  scrollWrap.style.cssText = 'overflow-y:auto;flex:1';
+  var panelWrap = document.createElement('div');
+  panelWrap.style.cssText = 'position:relative;overflow:hidden;height:340px;background:#fff';
+  var panelCats = document.createElement('div');
+  panelCats.style.cssText = 'position:absolute;inset:0;overflow-y:auto;transition:transform .28s cubic-bezier(0.32,0.72,0,1)';
+  var gridCats = document.createElement('div');
+  gridCats.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px';
+  var panelItems = document.createElement('div');
+  panelItems.style.cssText = 'position:absolute;inset:0;overflow-y:auto;background:#fff;transform:translateX(100%);transition:transform .28s cubic-bezier(0.32,0.72,0,1)';
+  var listaItems = document.createElement('div');
+  listaItems.style.cssText = 'display:flex;flex-direction:column;gap:5px';
+  panelItems.appendChild(listaItems);
+  panelCats.appendChild(gridCats);
+  panelWrap.appendChild(panelCats);
+  panelWrap.appendChild(panelItems);
+  pop.appendChild(panelWrap);
 
-  var grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+  function vaiAlleCategorie(){
+    titolo.textContent = 'Scegli categoria';
+    btnIndietro.style.display = 'none';
+    panelCats.style.transform = 'translateX(0)';
+    panelItems.style.transform = 'translateX(100%)';
+  }
+  btnIndietro.onclick = vaiAlleCategorie;
 
   Object.keys(ALIMENTI).forEach(function(catKey) {
     var data = ALIMENTI[catKey];
@@ -12188,29 +12245,57 @@ function _mostraPopupCategoriaAlimenti(onScelto) {
     var gSugg = gs.length ? Math.round(gs.reduce(function(a,b){return a+b;},0)/gs.length) : 100;
 
     var btn = document.createElement('button');
-    btn.style.cssText = 'padding:.55rem .8rem;border:1px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer;font-size:.82rem;color:#1e293b;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s;width:100%';
-    btn.innerHTML = '<span style="font-size:1rem">'+icona+'</span><span style="flex:1;line-height:1.2">'+catKey+'</span><span style="font-size:.68rem;color:#94a3b8;white-space:nowrap">~'+gSugg+'g</span>';
+    btn.style.cssText = 'padding:.6rem .75rem;border:1px solid #e2e8f0;background:#fff;border-radius:9px;cursor:pointer;font-size:.8rem;color:#1e293b;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s;width:100%';
+    btn.innerHTML = '<span style="font-size:1rem;flex-shrink:0">'+icona+'</span><span style="flex:1;line-height:1.25">'+catKey+'</span><span style="font-size:.68rem;color:#94a3b8;white-space:nowrap;flex-shrink:0">~'+gSugg+'g</span>';
     btn.onmouseover = function(){ btn.style.background='#f0fdf4'; btn.style.borderColor='var(--teal)'; };
     btn.onmouseout  = function(){ btn.style.background='#fff';    btn.style.borderColor='#e2e8f0'; };
     btn.onclick = function() {
-      document.getElementById('popup-add-cat').remove();
-      document.getElementById('popup-add-cat-bg').remove();
-      onScelto(catKey);
+      var compatibili = risolviCompatibili(catKey);
+      if (!compatibili || !compatibili.length) return; // il chiamante ha già mostrato l'alert
+
+      listaItems.innerHTML = '';
+      compatibili.forEach(function(a) {
+        var stato = a.stato || a.colore || 'verde';
+        var st = STILE_STATO[stato] || STILE_STATO['verde'];
+        var borderStyle = st.dash ? 'dashed' : 'solid';
+        var grRaw = a.g || 100;
+        var grMostrato = arrotondaPorzioneDiscreta(a.n, grRaw);
+        var cp = getEmojiCp(a.n, a.cat);
+        var emoji = cp ? String.fromCodePoint.apply(null, cp.split('-').map(function(h){return parseInt(h,16);})) : null;
+
+        var riga = document.createElement('button');
+        riga.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.55rem .7rem;border:1px '+borderStyle+' '+st.border+';background:'+st.bg+';border-radius:9px;cursor:pointer;font-size:.83rem;color:'+st.color+';text-align:left;transition:all .15s;width:100%';
+        riga.title = st.label;
+        riga.innerHTML = (emoji ? '<span style="font-size:1rem;flex-shrink:0">'+emoji+'</span>' : '<span style="width:1rem;flex-shrink:0"></span>')
+          + '<span style="flex:1;font-weight:500">'+a.n+'</span>'
+          + '<span style="font-size:.68rem;opacity:.8;white-space:nowrap">'+st.label+'</span>'
+          + '<span style="font-size:.7rem;font-weight:600;white-space:nowrap;margin-left:4px">'+grMostrato+'g</span>';
+        riga.onclick = function() {
+          var p1=document.getElementById('popup-cat-alim'); if(p1) p1.remove();
+          var b1=document.getElementById('popup-cat-alim-bg'); if(b1) b1.remove();
+          onScelto(a, grMostrato);
+        };
+        listaItems.appendChild(riga);
+      });
+
+      titolo.textContent = 'Aggiungi alimento';
+      btnIndietro.style.display = 'inline-block';
+      panelCats.style.transform = 'translateX(-25%)';
+      panelItems.style.transform = 'translateX(0)';
     };
-    grid.appendChild(btn);
+    gridCats.appendChild(btn);
   });
 
-  scrollWrap.appendChild(grid);
-  pop.appendChild(scrollWrap);
-
   var bg = document.createElement('div');
-  bg.id = 'popup-add-cat-bg';
+  bg.id = 'popup-cat-alim-bg';
   bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99998';
-  /* chiusura allo sfondo disabilitata (NG) */
 
   document.body.appendChild(bg);
   document.body.appendChild(pop);
 }
+
+// (Rimossa: _mostraPopupCategoriaAlimenti — sostituita da _mostraPopupSceltaCategoriaAlimento,
+// popup unico a due pannelli scorrevoli con tasto ← indietro funzionante)
 
 function _aggiornaPianoBox() {
   // Se siamo nel compositore manuale, aggiorna la sua vista dedicata (celle + drag&drop)
@@ -13729,6 +13814,157 @@ function _appendBtnConcetti(containerEl) {
 }
 // ── FINE PRIORITA' 2C ─────────────────────────────────────────────────────────
 
+// ── MAPPA EMOJI PER ALIMENTO (nome → codepoint Twemoji) ──
+// Twemoji CDN: https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/{cp}.png
+var TWEMOJI_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/';
+
+// Mappa nome alimento → emoji (unicode)
+var EMOJI_MAP = {
+  // Carne rossa
+  'vitellone tagli magri':'1f969','vitellone':'1f969','fettina di vitello':'1f969',
+  'scaloppina di vitello':'1f969','manzo':'1f969','bistecca':'1f969',
+  'maiale':'1f969','arista di maiale':'1f969','lonza':'1f969','braciola':'1f969',
+  'cavallo magro':'1f969','bistecca di cavallo':'1f969','agnello':'1f969',
+  'carne rossa':'1f969',
+  // Carne bianca
+  'pollo':'1f357','petto di pollo':'1f357','tacchino':'1f357','coniglio':'1f357',
+  'straccetti di pollo':'1f357','spiedini di pollo':'1f357','carne bianca':'1f357',
+  // Pesce
+  'salmone':'1f41f','tonno':'1f41f','merluzzo':'1f41f','branzino':'1f41f',
+  'orata':'1f41f','spigola':'1f41f','cernia':'1f41f','dentice':'1f41f',
+  'pesce spada':'1f41f','sgombro':'1f41f','acciughe':'1f41f',
+  'gamberi':'1f990','calamari':'1f991','polpo':'1f419',
+  'pesce':'1f41f',
+  // Uova
+  'uova di gallina':'1f95a','uovo':'1f95a','albumi':'1f95a','tuorlo':'1f95a',
+  // Latticini — specifici
+  'latte intero':'1f95b','latte parzialmente scremato':'1f95b',
+  'latte scremato':'1f95b','latte':'1f95b',
+  'yogurt greco 0%':'1fad9','yogurt greco 2%':'1fad9','yogurt bianco':'1fad9',
+  'yogurt':'1fad9','skyr':'1fad9',
+  'ricotta di vacca':'1fad9','fiocchi di latte':'1fad9','cottage cheese':'1fad9',
+  'quark':'1fad9',
+  'mozzarella':'1f9c0','parmigiano':'1f9c0','grana padano':'1f9c0',
+  'pecorino':'1f9c0','scamorza':'1f9c0','feta':'1f9c0','provola':'1f9c0',
+  'formaggio':'1f9c0',
+  // Legumi
+  'ceci':'1f33f','lenticchie':'1f33f','fagioli':'1f33f','piselli':'1f33f',
+  'fave':'1f33f','soia':'1f33f','tofu':'1f33f','seitan':'1f33f',
+  'edamame':'1f33f','legumi':'1f33f',
+  // Cereali con glutine
+  'pasta di semola':'1f33e','spaghetti':'1f33e','rigatoni':'1f33e',
+  'farro':'1f33e','orzo':'1f33e','bulgur':'1f33e','cous cous':'1f33e',
+  'pane comune':'1f33e','pane integrale':'1f33e','pane di altamura':'1f33e',
+  'piadina':'1f33e','piadina integrale':'1f33e','crackers':'1f33e',
+  'fette biscottate':'1f33e','grissini':'1f33e','focaccia':'1f33e',
+  // Cereali senza glutine
+  'riso':'1f33e','riso integrale':'1f33e','mais dolce':'1f33e',
+  'grano saraceno':'1f33e','quinoa':'1f33e','amaranto':'1f33e',
+  'fiocchi d\'avena':'1f33e','avena':'1f33e','pasta di legumi':'1f33e',
+  // Pane — icona specifica
+  'pane':'1f35e',
+  // Verdura
+  'broccoli':'1f966','zucchine':'1f966','spinaci':'1f966','bietola':'1f966',
+  'cavolo':'1f966','cavolfiore':'1f966','pak choi':'1f966',
+  'insalata mista':'1f957','lattuga':'1f957','rucola':'1f957',
+  'radicchio':'1f957','insalata':'1f957',
+  'pomodori':'1f966','peperoni':'1f966','melanzane':'1f966','cetrioli':'1f966',
+  'finocchi':'1f966','sedano':'1f966','carote':'1f966','asparagi':'1f966',
+  'fagiolini':'1f966','carciofi':'1f966','friarielli':'1f966',
+  'verdure fresche':'1f966','verdura mista':'1f966','verdure':'1f966',
+  // Frutta specifica
+  'banana':'1f34c',
+  'kiwi':'1f95d',
+  'mirtilli':'1fad0',
+  'limone':'1f34b',
+  'avocado':'1f951',
+  'fragole':'1f353','fragola':'1f353',
+  'uva':'1f347',
+  'anguria':'1f349',
+  'melone':'1f348',
+  'arancia':'1f34a','mandarino':'1f34a',
+  'pesche':'1f351','pesca':'1f351',
+  'pere':'1f350','pera':'1f350',
+  'ciliegie':'1f352','ciliegia':'1f352',
+  'ananas':'1f34d',
+  'mango':'1f96d',
+  'mela':'1f34e','mele':'1f34e',
+  'frutta fresca':'1f34e','frutta mista':'1f34e','frutta':'1f34e',
+  // Frutta secca & semi
+  'noci':'1f95c','mandorle':'1f95c','nocciole':'1f95c','anacardi':'1f95c',
+  'pistacchi':'1f95c','arachidi':'1f95c','frutta secca mista':'1f95c',
+  'semi di chia':'1f95c','semi di lino':'1f95c','semi di girasole':'1f95c',
+  'semi di zucca':'1f95c','semi':'1f95c','frutta secca':'1f95c',
+  // Patate
+  'patate':'1f954','patata dolce':'1f954',
+  // Mais
+  'mais dolce in scatola':'1f33d','mais':'1f33d',
+  // Funghi
+  'funghi':'1f344','champignon':'1f344',
+  // Olio & condimenti
+  'olio di oliva extra vergine':'1fad2','olio evo':'1fad2','olio':'1fad2',
+  'burro d\'arachidi':'1f9c8','burro di arachidi':'1f9c8','burro arachidi':'1f9c8',
+  'burro':'1f9c8',
+  'miele':'1f36f',
+  'tahina':'1fad2',
+  // Dolci / snack
+  'biscotti':'1f36a','cioccolato fondente':'1f36a','cacao':'1f36a',
+  'crackers riso':'1f36a',
+  // Pasti sabato
+  'pizza':'1f355',
+  'panino':'1f354','hamburger':'1f354',
+  'sushi':'1f363',
+  // Integratori
+  'integratore':'2b50','vitamina':'2b50','omega':'2b50','magnesio':'2b50',
+  'berberina':'2b50','probiotici':'2b50',
+};
+
+// Fallback per categoria (dal campo categoria dell'alimento o dal nome pasto)
+var EMOJI_CAT_FALLBACK = {
+  'carne rossa':'1f969',
+  'carne bianca':'1f357',
+  'pesce pranzo':'1f41f',
+  'pesce cena':'1f41f',
+  'uova':'1f95a',
+  'latte e derivati':'1f9c0',
+  'legumi':'1f33f',
+  'cereali con glutine':'1f33e',
+  'cereali senza glutine':'1f33e',
+  'verdura':'1f966',
+  'frutta':'1f34e',
+  'frutta secca e semi':'1f95c',
+  'olio e condimenti':'1fad2',
+  'dolci':'1f36a',
+};
+
+// Cache emoji PNG (codepoint -> dataURL)
+var _emojiCache = emojiCache || {};
+
+function cpFromEmoji(emoji) {
+  if (!emoji) return null;
+  return [...emoji].map(function(c){ return c.codePointAt(0).toString(16); })
+    .filter(function(x){ return x !== 'fe0f'; }).join('-');
+}
+
+function getEmojiCp(nomeAlimento, categoria) {
+  if (!nomeAlimento) return null;
+  var key = nomeAlimento.toLowerCase().trim();
+  if (EMOJI_MAP[key]) return EMOJI_MAP[key];
+  // Cerca corrispondenza parziale (contiene la parola chiave)
+  var keys = Object.keys(EMOJI_MAP);
+  for (var i = 0; i < keys.length; i++) {
+    if (key.indexOf(keys[i]) !== -1 || keys[i].indexOf(key) !== -1) {
+      if (keys[i].length > 3) return EMOJI_MAP[keys[i]];
+    }
+  }
+  // Fallback categoria
+  if (categoria) {
+    var catKey = categoria.toLowerCase().trim();
+    if (EMOJI_CAT_FALLBACK[catKey]) return EMOJI_CAT_FALLBACK[catKey];
+  }
+  return null;
+}
+
 async function generaPDF(paziente, giorni) {
   // Pre-carica tutte le emoji necessarie in modo asincrono PRIMA di aprire jsPDF
   var _emojiCacheGlobal = {};
@@ -13832,156 +14068,6 @@ async function generaPDF(paziente, giorni) {
     'Sii la versione\nmigliore di te stesso.\nNella vita non bisogna\nmai smettere di migliorarsi.'
   ];
 
-  // ── MAPPA EMOJI PER ALIMENTO (nome → codepoint Twemoji) ──
-  // Twemoji CDN: https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/{cp}.png
-  var TWEMOJI_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/';
-
-  // Mappa nome alimento → emoji (unicode)
-  var EMOJI_MAP = {
-    // Carne rossa
-    'vitellone tagli magri':'1f969','vitellone':'1f969','fettina di vitello':'1f969',
-    'scaloppina di vitello':'1f969','manzo':'1f969','bistecca':'1f969',
-    'maiale':'1f969','arista di maiale':'1f969','lonza':'1f969','braciola':'1f969',
-    'cavallo magro':'1f969','bistecca di cavallo':'1f969','agnello':'1f969',
-    'carne rossa':'1f969',
-    // Carne bianca
-    'pollo':'1f357','petto di pollo':'1f357','tacchino':'1f357','coniglio':'1f357',
-    'straccetti di pollo':'1f357','spiedini di pollo':'1f357','carne bianca':'1f357',
-    // Pesce
-    'salmone':'1f41f','tonno':'1f41f','merluzzo':'1f41f','branzino':'1f41f',
-    'orata':'1f41f','spigola':'1f41f','cernia':'1f41f','dentice':'1f41f',
-    'pesce spada':'1f41f','sgombro':'1f41f','acciughe':'1f41f',
-    'gamberi':'1f990','calamari':'1f991','polpo':'1f419',
-    'pesce':'1f41f',
-    // Uova
-    'uova di gallina':'1f95a','uovo':'1f95a','albumi':'1f95a','tuorlo':'1f95a',
-    // Latticini — specifici
-    'latte intero':'1f95b','latte parzialmente scremato':'1f95b',
-    'latte scremato':'1f95b','latte':'1f95b',
-    'yogurt greco 0%':'1fad9','yogurt greco 2%':'1fad9','yogurt bianco':'1fad9',
-    'yogurt':'1fad9','skyr':'1fad9',
-    'ricotta di vacca':'1fad9','fiocchi di latte':'1fad9','cottage cheese':'1fad9',
-    'quark':'1fad9',
-    'mozzarella':'1f9c0','parmigiano':'1f9c0','grana padano':'1f9c0',
-    'pecorino':'1f9c0','scamorza':'1f9c0','feta':'1f9c0','provola':'1f9c0',
-    'formaggio':'1f9c0',
-    // Legumi
-    'ceci':'1f33f','lenticchie':'1f33f','fagioli':'1f33f','piselli':'1f33f',
-    'fave':'1f33f','soia':'1f33f','tofu':'1f33f','seitan':'1f33f',
-    'edamame':'1f33f','legumi':'1f33f',
-    // Cereali con glutine
-    'pasta di semola':'1f33e','spaghetti':'1f33e','rigatoni':'1f33e',
-    'farro':'1f33e','orzo':'1f33e','bulgur':'1f33e','cous cous':'1f33e',
-    'pane comune':'1f33e','pane integrale':'1f33e','pane di altamura':'1f33e',
-    'piadina':'1f33e','piadina integrale':'1f33e','crackers':'1f33e',
-    'fette biscottate':'1f33e','grissini':'1f33e','focaccia':'1f33e',
-    // Cereali senza glutine
-    'riso':'1f33e','riso integrale':'1f33e','mais dolce':'1f33e',
-    'grano saraceno':'1f33e','quinoa':'1f33e','amaranto':'1f33e',
-    'fiocchi d\'avena':'1f33e','avena':'1f33e','pasta di legumi':'1f33e',
-    // Pane — icona specifica
-    'pane':'1f35e',
-    // Verdura
-    'broccoli':'1f966','zucchine':'1f966','spinaci':'1f966','bietola':'1f966',
-    'cavolo':'1f966','cavolfiore':'1f966','pak choi':'1f966',
-    'insalata mista':'1f957','lattuga':'1f957','rucola':'1f957',
-    'radicchio':'1f957','insalata':'1f957',
-    'pomodori':'1f966','peperoni':'1f966','melanzane':'1f966','cetrioli':'1f966',
-    'finocchi':'1f966','sedano':'1f966','carote':'1f966','asparagi':'1f966',
-    'fagiolini':'1f966','carciofi':'1f966','friarielli':'1f966',
-    'verdure fresche':'1f966','verdura mista':'1f966','verdure':'1f966',
-    // Frutta specifica
-    'banana':'1f34c',
-    'kiwi':'1f95d',
-    'mirtilli':'1fad0',
-    'limone':'1f34b',
-    'avocado':'1f951',
-    'fragole':'1f353','fragola':'1f353',
-    'uva':'1f347',
-    'anguria':'1f349',
-    'melone':'1f348',
-    'arancia':'1f34a','mandarino':'1f34a',
-    'pesche':'1f351','pesca':'1f351',
-    'pere':'1f350','pera':'1f350',
-    'ciliegie':'1f352','ciliegia':'1f352',
-    'ananas':'1f34d',
-    'mango':'1f96d',
-    'mela':'1f34e','mele':'1f34e',
-    'frutta fresca':'1f34e','frutta mista':'1f34e','frutta':'1f34e',
-    // Frutta secca & semi
-    'noci':'1f95c','mandorle':'1f95c','nocciole':'1f95c','anacardi':'1f95c',
-    'pistacchi':'1f95c','arachidi':'1f95c','frutta secca mista':'1f95c',
-    'semi di chia':'1f95c','semi di lino':'1f95c','semi di girasole':'1f95c',
-    'semi di zucca':'1f95c','semi':'1f95c','frutta secca':'1f95c',
-    // Patate
-    'patate':'1f954','patata dolce':'1f954',
-    // Mais
-    'mais dolce in scatola':'1f33d','mais':'1f33d',
-    // Funghi
-    'funghi':'1f344','champignon':'1f344',
-    // Olio & condimenti
-    'olio di oliva extra vergine':'1fad2','olio evo':'1fad2','olio':'1fad2',
-    'burro d\'arachidi':'1f9c8','burro di arachidi':'1f9c8','burro arachidi':'1f9c8',
-    'burro':'1f9c8',
-    'miele':'1f36f',
-    'tahina':'1fad2',
-    // Dolci / snack
-    'biscotti':'1f36a','cioccolato fondente':'1f36a','cacao':'1f36a',
-    'crackers riso':'1f36a',
-    // Pasti sabato
-    'pizza':'1f355',
-    'panino':'1f354','hamburger':'1f354',
-    'sushi':'1f363',
-    // Integratori
-    'integratore':'2b50','vitamina':'2b50','omega':'2b50','magnesio':'2b50',
-    'berberina':'2b50','probiotici':'2b50',
-  };
-
-  // Fallback per categoria (dal campo categoria dell'alimento o dal nome pasto)
-  var EMOJI_CAT_FALLBACK = {
-    'carne rossa':'1f969',
-    'carne bianca':'1f357',
-    'pesce pranzo':'1f41f',
-    'pesce cena':'1f41f',
-    'uova':'1f95a',
-    'latte e derivati':'1f9c0',
-    'legumi':'1f33f',
-    'cereali con glutine':'1f33e',
-    'cereali senza glutine':'1f33e',
-    'verdura':'1f966',
-    'frutta':'1f34e',
-    'frutta secca e semi':'1f95c',
-    'olio e condimenti':'1fad2',
-    'dolci':'1f36a',
-  };
-
-  // Cache emoji PNG (codepoint -> dataURL)
-  var _emojiCache = emojiCache || {};
-
-  function cpFromEmoji(emoji) {
-    if (!emoji) return null;
-    return [...emoji].map(function(c){ return c.codePointAt(0).toString(16); })
-      .filter(function(x){ return x !== 'fe0f'; }).join('-');
-  }
-
-  function getEmojiCp(nomeAlimento, categoria) {
-    if (!nomeAlimento) return null;
-    var key = nomeAlimento.toLowerCase().trim();
-    if (EMOJI_MAP[key]) return EMOJI_MAP[key];
-    // Cerca corrispondenza parziale (contiene la parola chiave)
-    var keys = Object.keys(EMOJI_MAP);
-    for (var i = 0; i < keys.length; i++) {
-      if (key.indexOf(keys[i]) !== -1 || keys[i].indexOf(key) !== -1) {
-        if (keys[i].length > 3) return EMOJI_MAP[keys[i]];
-      }
-    }
-    // Fallback categoria
-    if (categoria) {
-      var catKey = categoria.toLowerCase().trim();
-      if (EMOJI_CAT_FALLBACK[catKey]) return EMOJI_CAT_FALLBACK[catKey];
-    }
-    return null;
-  }
 
   // Legge emoji dalla cache pre-caricata (asincrona prima della generazione)
   function loadEmojiSync(cp) {
