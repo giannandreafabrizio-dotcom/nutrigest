@@ -4314,7 +4314,6 @@ function editPaz(){
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
   s('p-integratori',p.integratori);s('p-int-vuole',p.intVuole);s('p-patologie',p.patologie);
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
-  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
   s('p-dove',p.dove);setDove(p.dove);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
@@ -4345,6 +4344,11 @@ function editPaz(){
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
   s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
   setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);setPatologieFromStr(p.patologie||'');setAllergieFromStr(p.allergie||'');setSdvFromStr(p.sdv||'');setCspFromStr(p.condSpeciali||'');
+  /* IMPORTANTE: checkSemaforo va applicato DOPO setPatologieFromStr/setAllergieFromStr,
+     perché condividono gli stessi id di checkbox (es. pat-tiroid, pat-diabete...) e altrimenti
+     il vecchio campo testuale p.patologie (spesso vuoto) resetterebbe a false le patologie
+     attivate da "Applica gruppo clinico" nella scheda Analisi del sangue. */
+  ['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=!!(p.checkSemaforo&&p.checkSemaforo[id]);});
   ss('p-prenanna',p.prenanna);
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
@@ -4890,7 +4894,13 @@ function salvaPaz(){
     acqua:g('p-acqua'),diuresi:g('p-diuresi'),alvo:g('p-alvo'),ciclo:g('p-ciclo'),
     gravidanza:g('p-gravidanza'),sdv:getSdvChip().join(', '),condSpeciali:getCspChip().join(', '),integratori:getIntegratori(),integraWant:getIntegraWant(),
     patologie:getPatologie(),farmaci:g('p-farmaci'),allergie:getAllergie(),
-    checkSemaforo:['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'].reduce((acc,id)=>{const el=document.getElementById(id);if(el&&el.checked)acc[id]=true;return acc;},{}),
+    checkSemaforo:(()=>{
+      const ids=['pat-diabete','pat-lipidi','pat-ipert','pat-ibs','pat-reflusso','pat-irc','pat-uricemia','pat-ossalati','pat-tiroid','all-glutine','all-lattosio','all-nichel','all-fodmap','csp-gravidanza','csp-allattamento'];
+      const pPrec=db.pazienti.find(x=>x.id===(editPazId||currentPazId));
+      const out=Object.assign({},(pPrec&&pPrec.checkSemaforo)||{});
+      ids.forEach(id=>{const el=document.getElementById(id);if(el) out[id]=!!el.checked;});
+      return out;
+    })(),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
     dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
