@@ -10154,6 +10154,19 @@ function _setupPianoTargets(p){
   }
 }
 
+// ── Stagione corrente (emisfero nord / Italia) dalla data odierna ──
+// Ritorna 'primavera' | 'estate' | 'autunno' | 'inverno'. Usata dal generatore
+// per preferire ricette di stagione. Un override manuale è possibile impostando
+// window._stagioneOverride (utile per generare piani "fuori stagione" o per test).
+function getStagioneCorrente(){
+  if(window._stagioneOverride) return window._stagioneOverride;
+  var m=new Date().getMonth()+1; // 1-12
+  if(m>=3 && m<=5) return 'primavera';
+  if(m>=6 && m<=8) return 'estate';
+  if(m>=9 && m<=11) return 'autunno';
+  return 'inverno'; // 12, 1, 2
+}
+
 function costruisciPrompt(pazienteId) {
   var p = (db.pazienti || []).find(function(x){ return x.id === pazienteId; });
   if (!p) return '';
@@ -10243,11 +10256,40 @@ function costruisciPrompt(pazienteId) {
     var found=slots.filter(function(s){return tg.indexOf(s)>=0;});
     return found.length ? found : null; // pasto non determinabile → si tiene
   }
-  var ricetteDB = (db.ricette||[]).filter(function(r){
+  // Prima passata: filtro per pasto attivo (invariato), mantenendo gli OGGETTI ricetta
+  // (servono gli attributi per il successivo filtro stagionale).
+  var _ricettePasto = (db.ricette||[]).filter(function(r){
     var slots=_ricSlots(r);
     if(slots===null) return true;          // metadata ambigua → tieni
     return slots.some(function(s){return _mealActive[s]===true;}); // tieni se almeno un pasto è attivo
-  }).map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
+  });
+
+  // ── Filtro stagionale CONSERVATIVO (Fase 3) ──
+  // Tiene le ricette della stagione corrente OPPURE senza stagione impostata
+  // (= valide tutto l'anno). Stessa filosofia del filtro pasto: metadata assente
+  // → si tiene, la qualità non può peggiorare.
+  // GUARDIA ANTI-POOL-VUOTO: se dopo il filtro stagionale restano troppo poche
+  // ricette (< 8, o meno di un terzo del pool pre-stagione), si RINUNCIA al filtro
+  // stagionale e si torna al pool completo — meglio un piano senza preferenza
+  // stagionale che un piano povero o vuoto. Il generatore riceve comunque un
+  // suggerimento testuale sulla stagione (vedi blocco prompt), quindi la stagione
+  // resta un fattore anche quando il pre-filtro viene disattivato per sicurezza.
+  var _stagioneCorrente = getStagioneCorrente();
+  var _ricetteStagione = _ricettePasto.filter(function(r){
+    var st = (r.attributi && Array.isArray(r.attributi.stagioni)) ? r.attributi.stagioni : [];
+    if(!st.length) return true;                 // nessuna stagione → tutto l'anno → tieni
+    return st.indexOf(_stagioneCorrente) >= 0;  // tieni se include la stagione corrente
+  });
+  var _sogliaMinima = Math.max(8, Math.ceil(_ricettePasto.length / 3));
+  var _filtroStagioneAttivo = (_ricetteStagione.length >= _sogliaMinima);
+  var _ricetteFinali = _filtroStagioneAttivo ? _ricetteStagione : _ricettePasto;
+  if(_filtroStagioneAttivo){
+    console.log('[Prompt] Filtro stagionale ATTIVO ('+_stagioneCorrente+'): '+_ricetteStagione.length+'/'+_ricettePasto.length+' ricette candidate');
+  } else {
+    console.log('[Prompt] Filtro stagionale DISATTIVATO per sicurezza (solo '+_ricetteStagione.length+' ricette per '+_stagioneCorrente+', soglia '+_sogliaMinima+') — uso pool completo');
+  }
+
+  var ricetteDB = _ricetteFinali.map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
   if(ricetteDB.length>80) ricetteDB=ricetteDB.slice(0,80); // tetto token
 
   var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
@@ -10304,6 +10346,7 @@ function costruisciPrompt(pazienteId) {
 
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.
 Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
+Siamo in ${_stagioneCorrente}: prediligi ingredienti e preparazioni di stagione (verdura e frutta di ${_stagioneCorrente}), senza forzare se un alimento non è adatto al paziente.
 Non inventare ricette elaborate o ingredienti difficili da trovare.${ragCtx}
 
 PAZIENTE
