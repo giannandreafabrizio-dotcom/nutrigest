@@ -1729,7 +1729,11 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>Carboidrati (g)</label><input type="number" id="r-carb" placeholder="calcolati dall'AI"></div>
     <div class="fg"><label>Grassi (g)</label><input type="number" id="r-grassi" placeholder="calcolati dall'AI"></div>
   </div>
-  <div class="fg"><label>Ingredienti con grammature</label><textarea id="r-ing" placeholder="Compilato automaticamente dall'AI — puoi modificare" style="min-height:80px"></textarea></div>
+  <div class="fg">
+    <label>Ingredienti con grammature</label>
+    <textarea id="r-ing" placeholder="Compilato automaticamente dall'AI — puoi modificare. Formato: Nome grammiG (es. Pasta 80g, Pomodoro 100g)" style="min-height:80px" oninput="_ricRicalcolaMacroLive()"></textarea>
+    <div id="r-macro-calc-info" style="font-size:.7rem;color:var(--text3);margin-top:.3rem;min-height:1em"></div>
+  </div>
   <div class="fg"><label>Preparazione / Note</label><textarea id="r-desc" placeholder="Note di preparazione..."></textarea></div>
   <div class="mf">
     <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ric'))">Annulla</button>
@@ -13620,6 +13624,72 @@ function _ngScomponiIngredienti(ingStr){
     .filter(function(x){return x!==null;});
 }
 
+// ── Ricalcolo automatico macro ricetta dagli ingredienti (editor ricetta) ──
+// Riusa la STESSA infrastruttura già collaudata per il calcolo macro dei piani
+// (getCategoriaFunzionale + getValoriCREA, con fallback su valori generici per
+// categoria quando l'alimento specifico non è in tabella), così le kcal di una
+// ricetta e le kcal calcolate nel piano derivano sempre dalla stessa fonte.
+function _ricCalcolaMacroDaIngredienti(testoIng){
+  const ingredienti=_ngScomponiIngredienti(testoIng);
+  if(!ingredienti.length) return null;
+  let kcal=0,prot=0,carb=0,grassi=0,riconosciuti=0;
+  const nonRiconosciuti=[];
+  ingredienti.forEach(ing=>{
+    const cat=getCategoriaFunzionale(ing.n);
+    const vals=getValoriCREA(ing.n,cat);
+    if(!vals){nonRiconosciuti.push(ing.n);return;}
+    const f=(parseFloat(ing.g)||0)/100;
+    kcal+=vals.kcal*f; prot+=vals.p*f; carb+=vals.c*f; grassi+=vals.g*f;
+    riconosciuti++;
+  });
+  return {kcal,prot,carb,grassi,totaleIngredienti:ingredienti.length,riconosciuti,nonRiconosciuti};
+}
+
+// Debounce leggero per non ricalcolare a ogni singolo tasto mentre si digita
+let _ricRicalcolaTimer=null;
+function _ricRicalcolaMacroLive(){
+  clearTimeout(_ricRicalcolaTimer);
+  _ricRicalcolaTimer=setTimeout(_ricRicalcolaMacroLiveNow,450);
+}
+// Aggiorna SOLO il messaggio informativo sotto il campo ingredienti, senza
+// toccare i valori macro già presenti nei campi (usato all'apertura in
+// modifica, per non sovrascrivere valori inseriti a mano dal nutrizionista).
+function _ricAggiornaInfoMacro(){
+  const ingEl=document.getElementById('r-ing');
+  const info=document.getElementById('r-macro-calc-info');
+  if(!ingEl||!info) return;
+  const res=_ricCalcolaMacroDaIngredienti(ingEl.value);
+  if(!res||!res.totaleIngredienti){info.innerHTML='';return;}
+  if(res.nonRiconosciuti.length){
+    info.innerHTML='⚠️ '+res.nonRiconosciuti.length+' ingrediente/i non riconosciuto/i ('+res.nonRiconosciuti.join(', ')+') — i macro potrebbero essere incompleti, verifica manualmente';
+    info.style.color='var(--orange)';
+  } else {
+    info.innerHTML='🔄 Coerente con '+res.riconosciuti+' ingrediente/i riconosciuto/i — modifica il testo per ricalcolare i macro';
+    info.style.color='var(--text3)';
+  }
+}
+function _ricRicalcolaMacroLiveNow(){
+  const ingEl=document.getElementById('r-ing');
+  if(!ingEl) return;
+  const res=_ricCalcolaMacroDaIngredienti(ingEl.value);
+  if(!res||!res.totaleIngredienti){ _ricAggiornaInfoMacro(); return; }
+  const kcalEl=document.getElementById('r-kcal'),protEl=document.getElementById('r-prot'),carbEl=document.getElementById('r-carb'),grassiEl=document.getElementById('r-grassi');
+  if(kcalEl) kcalEl.value=Math.round(res.kcal);
+  if(protEl) protEl.value=Math.round(res.prot*10)/10;
+  if(carbEl) carbEl.value=Math.round(res.carb*10)/10;
+  if(grassiEl) grassiEl.value=Math.round(res.grassi*10)/10;
+  const info=document.getElementById('r-macro-calc-info');
+  if(info){
+    if(res.nonRiconosciuti.length){
+      info.innerHTML='⚠️ '+res.nonRiconosciuti.length+' ingrediente/i non riconosciuto/i ('+res.nonRiconosciuti.join(', ')+') — i macro potrebbero essere incompleti, verifica manualmente';
+      info.style.color='var(--orange)';
+    } else {
+      info.innerHTML='🔄 Kcal e macro calcolati automaticamente da '+res.riconosciuti+' ingrediente/i';
+      info.style.color='var(--text3)';
+    }
+  }
+}
+
 // Trova la categoria ALIMENTI di un nome (per costruire la chiave semaforo categoria__nome).
 // 1) match esatto sui nomi del catalogo; 2) match canonico (NOMI_CANONICI); 3) match parziale.
 function _ngTrovaCategoriaAlimento(nome){
@@ -15831,8 +15901,8 @@ function renderRic(){
     </div>`).join('');
 }
 
-function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});setCatChips([]);setStagioniChip([]);setProfiloChip([]);setTagComuniChip([]);document.querySelectorAll('.r-tempoprep-rb').forEach(rb=>{rb.checked=false;rb.dispatchEvent(new Event('change'));});document.querySelectorAll('.r-tipo-rb').forEach(rb=>{rb.checked=(rb.value==='completo');rb.dispatchEvent(new Event('change'));});document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
-function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';setCatChips(catArr(r).length?catArr(r):['pranzo']);document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';const _attr=r.attributi||{};setStagioniChip(_attr.stagioni||[]);setProfiloChip(_attr.profilo||[]);
+function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const _mci=document.getElementById('r-macro-calc-info');if(_mci)_mci.innerHTML='';setCatChips([]);setStagioniChip([]);setProfiloChip([]);setTagComuniChip([]);document.querySelectorAll('.r-tempoprep-rb').forEach(rb=>{rb.checked=false;rb.dispatchEvent(new Event('change'));});document.querySelectorAll('.r-tipo-rb').forEach(rb=>{rb.checked=(rb.value==='completo');rb.dispatchEvent(new Event('change'));});document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';setCatChips(catArr(r).length?catArr(r):['pranzo']);document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';setTimeout(_ricAggiornaInfoMacro,0);const _attr=r.attributi||{};setStagioniChip(_attr.stagioni||[]);setProfiloChip(_attr.profilo||[]);
   /* Migrazione automatica: riconosce nei vecchi tag liberi (r.tags) quali corrispondono
      ai nuovi tag comuni standardizzati e spunta i chip di conseguenza. I tag legacy che
      non corrispondono a nessun tag comune restano comunque salvati in r.tags (non persi),
