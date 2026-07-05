@@ -843,10 +843,11 @@ main{flex:1;overflow-y:auto;}
       <option value="post-workout">Post-workout</option>
     </select>
     <select id="f-ric-tag" onchange="renderRic()">
-      <option value="">Tutti i tipi</option>
-      <option value="proteica">Proteica</option><option value="vegetariana">Vegetariana</option>
-      <option value="vegana">Vegana</option><option value="senza glutine">Senza glutine</option>
-      <option value="light">Light</option><option value="chetogenica">Chetogenica</option>
+      <option value="">Tutti i tag</option>
+      <option value="Proteica">Proteica</option><option value="Leggera">Leggera</option>
+      <option value="Mediterranea">Mediterranea</option><option value="Chetogenica">Chetogenica</option>
+      <option value="Antinfiammatoria">Antinfiammatoria</option><option value="Ricca di fibre">Ricca di fibre</option>
+      <option value="Comfort food">Comfort food</option><option value="Batch cooking">Batch cooking</option>
     </select>
   </div>
   <div class="ric-grid" id="ric-grid"></div>
@@ -1652,23 +1653,72 @@ main{flex:1;overflow-y:auto;}
   <div id="ai-ric-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.7rem 1rem;font-size:.78rem;color:var(--teal2);margin-bottom:.7rem">
     &#9203; L'AI sta analizzando la ricetta e calcolando i valori nutrizionali...
   </div>
-  <div class="fg">
-    <label>Categoria * (seleziona una o più)</label>
-    <div id="r-cat-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
-      <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-cat-cb" value="colazione" style="margin-right:5px;accent-color:var(--orange)">Colazione</label>
-      <label class="cat-chip" data-tagclass="tag-teal"><input type="checkbox" class="r-cat-cb" value="pranzo" style="margin-right:5px;accent-color:var(--teal)">Pranzo</label>
-      <label class="cat-chip" data-tagclass="tag-blue"><input type="checkbox" class="r-cat-cb" value="cena" style="margin-right:5px;accent-color:var(--blue)">Cena</label>
-      <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-cat-cb" value="spuntino" style="margin-right:5px;accent-color:var(--green)">Spuntino</label>
-      <label class="cat-chip" data-tagclass="tag-red"><input type="checkbox" class="r-cat-cb" value="post-workout" style="margin-right:5px;accent-color:var(--red)">Post-workout</label>
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem;margin-bottom:.9rem">
+    <div class="fg" style="margin-bottom:.7rem">
+      <label>Categoria * (seleziona una o più)</label>
+      <div id="r-cat-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+        <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-cat-cb" value="colazione" style="margin-right:5px;accent-color:var(--orange)">Colazione</label>
+        <label class="cat-chip" data-tagclass="tag-teal"><input type="checkbox" class="r-cat-cb" value="pranzo" style="margin-right:5px;accent-color:var(--teal)">Pranzo</label>
+        <label class="cat-chip" data-tagclass="tag-blue"><input type="checkbox" class="r-cat-cb" value="cena" style="margin-right:5px;accent-color:var(--blue)">Cena</label>
+        <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-cat-cb" value="spuntino" style="margin-right:5px;accent-color:var(--green)">Spuntino</label>
+        <label class="cat-chip" data-tagclass="tag-red"><input type="checkbox" class="r-cat-cb" value="post-workout" style="margin-right:5px;accent-color:var(--red)">Post-workout</label>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:.7rem">
+      <label>Stagione <span style="font-weight:400;color:var(--text3)">— vuoto = valida tutto l'anno</span></label>
+      <div id="r-stagione-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+        <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="primavera" style="margin-right:5px">Primavera</label>
+        <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="estate" style="margin-right:5px">Estate</label>
+        <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="autunno" style="margin-right:5px">Autunno</label>
+        <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="inverno" style="margin-right:5px">Inverno</label>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:.7rem">
+      <label>Profilo dietetico <span style="font-weight:400;color:var(--text3)">— vuoto = nessun vincolo</span></label>
+      <div id="r-profilo-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+        <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="vegetariano" style="margin-right:5px">Vegetariano</label>
+        <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="vegano" style="margin-right:5px">Vegano</label>
+        <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="low-carb" style="margin-right:5px">Low-carb</label>
+        <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="senza-glutine" style="margin-right:5px">Senza glutine</label>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:.7rem">
+      <label>Tempo di preparazione</label>
+      <div id="r-tempoprep-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+        <label class="cat-chip" data-tagclass="tag-purple"><input type="radio" name="r-tempoprep" class="r-tempoprep-rb" value="0-5" style="margin-right:5px">0–5 min</label>
+        <label class="cat-chip" data-tagclass="tag-purple"><input type="radio" name="r-tempoprep" class="r-tempoprep-rb" value="5-10" style="margin-right:5px">5–10 min</label>
+        <label class="cat-chip" data-tagclass="tag-purple"><input type="radio" name="r-tempoprep" class="r-tempoprep-rb" value="10-20" style="margin-right:5px">10–20 min</label>
+        <label class="cat-chip" data-tagclass="tag-purple"><input type="radio" name="r-tempoprep" class="r-tempoprep-rb" value="gt20" style="margin-right:5px">Oltre 20 min</label>
+      </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:.7rem">
+      <label>Tipo</label>
+      <div id="r-tipo-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+        <label class="cat-chip" data-tagclass="tag-blue"><input type="radio" name="r-tipo-radio" class="r-tipo-rb" value="completo" style="margin-right:5px" checked>Pasto completo (sostituisce)</label>
+        <label class="cat-chip" data-tagclass="tag-blue"><input type="radio" name="r-tipo-radio" class="r-tipo-rb" value="contorno" style="margin-right:5px">Contorno (si aggiunge)</label>
+      </div>
+    </div>
+
+    <div class="fg">
+      <label>Tag comuni <span style="font-weight:400;color:var(--text3)">— vuoto = nessuno</span></label>
+      <div id="r-tagcomuni-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="proteica" style="margin-right:5px">Proteica</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="leggera" style="margin-right:5px">Leggera</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="mediterranea" style="margin-right:5px">Mediterranea</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="chetogenica" style="margin-right:5px">Chetogenica</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="antinfiammatoria" style="margin-right:5px">Antinfiammatoria</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="fibre" style="margin-right:5px">Ricca di fibre</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="comfort" style="margin-right:5px">Comfort food</label>
+        <label class="cat-chip" data-tagclass="tag-gray"><input type="checkbox" class="r-tagcomuni-cb" value="batch" style="margin-right:5px">Batch cooking</label>
+      </div>
     </div>
   </div>
+
   <div class="fr">
-    <div class="fg"><label>Tipo</label>
-      <select id="r-tipo">
-        <option value="completo">Pasto completo (sostituisce)</option>
-        <option value="contorno">Contorno (si aggiunge)</option>
-      </select>
-    </div>
     <div class="fg"><label>Porzioni</label><input type="number" id="r-porzioni" value="1" min="1"></div>
   </div>
   <div class="fr">
@@ -1681,36 +1731,6 @@ main{flex:1;overflow-y:auto;}
   </div>
   <div class="fg"><label>Ingredienti con grammature</label><textarea id="r-ing" placeholder="Compilato automaticamente dall'AI — puoi modificare" style="min-height:80px"></textarea></div>
   <div class="fg"><label>Preparazione / Note</label><textarea id="r-desc" placeholder="Note di preparazione..."></textarea></div>
-  <div class="fg"><label>Tag (separati da virgola)</label><input id="r-tags" placeholder="proteica, vegetariana, senza glutine, chetogenica..."></div>
-  <div class="fg">
-    <label>Stagione <span style="font-weight:400;color:var(--text3)">— vuoto = valida tutto l'anno</span></label>
-    <div id="r-stagione-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
-      <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="primavera" style="margin-right:5px">Primavera</label>
-      <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="estate" style="margin-right:5px">Estate</label>
-      <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="autunno" style="margin-right:5px">Autunno</label>
-      <label class="cat-chip" data-tagclass="tag-orange"><input type="checkbox" class="r-stagione-cb" value="inverno" style="margin-right:5px">Inverno</label>
-    </div>
-  </div>
-  <div class="fr">
-    <div class="fg">
-      <label>Tempo di preparazione</label>
-      <select id="r-tempo-prep">
-        <option value="">— non specificato —</option>
-        <option value="lt15">Meno di 15 min</option>
-        <option value="15-30">15–30 min</option>
-        <option value="gt30">Oltre 30 min</option>
-      </select>
-    </div>
-  </div>
-  <div class="fg">
-    <label>Profilo dietetico <span style="font-weight:400;color:var(--text3)">— vuoto = nessun vincolo</span></label>
-    <div id="r-profilo-group" style="display:flex;flex-wrap:wrap;gap:.45rem">
-      <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="vegetariano" style="margin-right:5px">Vegetariano</label>
-      <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="vegano" style="margin-right:5px">Vegano</label>
-      <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="low-carb" style="margin-right:5px">Low-carb</label>
-      <label class="cat-chip" data-tagclass="tag-green"><input type="checkbox" class="r-profilo-cb" value="senza-glutine" style="margin-right:5px">Senza glutine</label>
-    </div>
-  </div>
   <div class="mf">
     <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-ric'))">Annulla</button>
     <button class="btn btn-v" style="flex:1" onclick="salvaRic()">Conferma</button>
@@ -3300,6 +3320,35 @@ const CAT_COLORS = {colazione:'tag-orange',pranzo:'tag-teal',cena:'tag-blue',spu
 // P57 — ricette multi-categoria: r.cat può essere array (nuovo) o stringa (retrocompat, ricette pre-esistenti)
 function catArr(r){ if(Array.isArray(r.cat)) return r.cat; return r.cat ? [r.cat] : []; }
 // Spunta/deseleziona i checkbox categoria nel modal ricetta e aggiorna lo stile dei chip
+// ── Tag comuni standardizzati (sostituiscono il vecchio campo di testo libero) ──
+// Ogni entry ha una label canonica (quella salvata in r.tags e mostrata in UI)
+// e un elenco di varianti testuali usate per riconoscere/migrare i vecchi tag
+// scritti a mano, così le ricette esistenti non perdono l'informazione.
+const TAG_COMUNI=[
+  {key:'proteica',        label:'Proteica',         match:['proteica','proteico','iperproteica','high protein']},
+  {key:'leggera',         label:'Leggera',          match:['leggera','leggero','light','ipocalorica']},
+  {key:'mediterranea',    label:'Mediterranea',     match:['mediterranea','mediterraneo']},
+  {key:'chetogenica',     label:'Chetogenica',      match:['chetogenica','cheto','keto']},
+  {key:'antinfiammatoria',label:'Antinfiammatoria', match:['antinfiammatoria','antinfiammatorio','anti-infiammatoria']},
+  {key:'fibre',           label:'Ricca di fibre',   match:['ricca di fibre','ricco di fibre','fibre']},
+  {key:'comfort',         label:'Comfort food',     match:['comfort food','comfort']},
+  {key:'batch',           label:'Batch cooking',    match:['batch cooking','batch','meal prep']}
+];
+function _tagComuniTrova(str){
+  const s=(str||'').trim().toLowerCase();
+  return TAG_COMUNI.find(t=>t.label.toLowerCase()===s||t.match.indexOf(s)>-1)||null;
+}
+function getTagComuniChip(){
+  return Array.from(document.querySelectorAll('.r-tagcomuni-cb:checked')).map(function(cb){return cb.value;});
+}
+function setTagComuniChip(keys){
+  var g=document.getElementById('r-tagcomuni-group'); if(!g) return;
+  g.querySelectorAll('.r-tagcomuni-cb').forEach(function(cb){
+    cb.checked=(keys||[]).indexOf(cb.value)>-1;
+    cb.dispatchEvent(new Event('change'));
+  });
+}
+
 function setCatChips(values){
   var g = document.getElementById('r-cat-group'); if(!g) return;
   g.querySelectorAll('.r-cat-cb').forEach(function(cb){
@@ -3349,6 +3398,28 @@ function wireChipGroup(groupId, cbClass){
 function wireAttrChipGroups(){
   wireChipGroup('r-stagione-group','r-stagione-cb');
   wireChipGroup('r-profilo-group','r-profilo-cb');
+  wireChipGroup('r-tagcomuni-group','r-tagcomuni-cb');
+  wireRadioChipGroup('r-tempoprep-group','r-tempoprep-rb');
+  wireRadioChipGroup('r-tipo-group','r-tipo-rb');
+}
+// I radio button, a differenza dei checkbox, NON emettono l'evento 'change'
+// sugli altri elementi del gruppo che si deselezionano — serve aggiornare
+// lo stile di TUTTI i chip del gruppo ogni volta che uno di essi cambia,
+// altrimenti il colore del chip precedente resterebbe "acceso" per errore.
+function wireRadioChipGroup(groupId, rbClass){
+  var g=document.getElementById(groupId); if(!g) return;
+  var chips=Array.from(g.querySelectorAll('.cat-chip'));
+  chips.forEach(function(chip){
+    var rb=chip.querySelector('.'+rbClass);
+    if(!rb||rb._attrWired) return; rb._attrWired=true;
+    rb.addEventListener('change',function(){
+      chips.forEach(function(c){
+        var cbb=c.querySelector('.'+rbClass); var tc=c.getAttribute('data-tagclass');
+        c.classList.toggle('active',cbb.checked);
+        if(tc) c.classList.toggle(tc,cbb.checked);
+      });
+    });
+  });
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',wireAttrChipGroups);}
 else{wireAttrChipGroups();}
@@ -15760,14 +15831,28 @@ function renderRic(){
     </div>`).join('');
 }
 
-function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc','r-tags'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const _tp=document.getElementById('r-tipo');if(_tp)_tp.value='completo';setCatChips([]);setStagioniChip([]);setProfiloChip([]);const _tprep=document.getElementById('r-tempo-prep');if(_tprep)_tprep.value='';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
-function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';setCatChips(catArr(r).length?catArr(r):['pranzo']);document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';document.getElementById('r-tags').value=(r.tags||[]).join(', ');const _tpE=document.getElementById('r-tipo');if(_tpE)_tpE.value=r.tipo||'completo';const _attr=r.attributi||{};setStagioniChip(_attr.stagioni||[]);setProfiloChip(_attr.profilo||[]);const _tprepE=document.getElementById('r-tempo-prep');if(_tprepE)_tprepE.value=_attr.tempoPrep||'';document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function openNuovaRic(){editRicId=null;document.getElementById('mo-ric-t').textContent='Nuova Ricetta';['r-nome','r-kcal','r-prot','r-carb','r-grassi','r-ing','r-desc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});setCatChips([]);setStagioniChip([]);setProfiloChip([]);setTagComuniChip([]);document.querySelectorAll('.r-tempoprep-rb').forEach(rb=>{rb.checked=false;rb.dispatchEvent(new Event('change'));});document.querySelectorAll('.r-tipo-rb').forEach(rb=>{rb.checked=(rb.value==='completo');rb.dispatchEvent(new Event('change'));});document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
+function editRic(id){const r=db.ricette.find(x=>x.id===id);if(!r)return;editRicId=id;document.getElementById('mo-ric-t').textContent='Modifica Ricetta';document.getElementById('r-nome').value=r.nome||'';setCatChips(catArr(r).length?catArr(r):['pranzo']);document.getElementById('r-kcal').value=r.kcal||'';document.getElementById('r-prot').value=r.prot||'';document.getElementById('r-carb').value=r.carb||'';document.getElementById('r-grassi').value=r.grassi||'';document.getElementById('r-ing').value=r.ing||'';document.getElementById('r-desc').value=r.desc||'';const _attr=r.attributi||{};setStagioniChip(_attr.stagioni||[]);setProfiloChip(_attr.profilo||[]);
+  /* Migrazione automatica: riconosce nei vecchi tag liberi (r.tags) quali corrispondono
+     ai nuovi tag comuni standardizzati e spunta i chip di conseguenza. I tag legacy che
+     non corrispondono a nessun tag comune restano comunque salvati in r.tags (non persi),
+     semplicemente non hanno più un chip dedicato nell'editor. */
+  const _tagComuniRiconosciuti=(r.tags||[]).map(t=>_tagComuniTrova(t)).filter(Boolean).map(t=>t.key);
+  setTagComuniChip(_tagComuniRiconosciuti);
+  document.querySelectorAll('.r-tempoprep-rb').forEach(rb=>{rb.checked=(rb.value===(_attr.tempoPrep||''));rb.dispatchEvent(new Event('change'));});
+  document.querySelectorAll('.r-tipo-rb').forEach(rb=>{rb.checked=(rb.value===(r.tipo||'completo'));rb.dispatchEvent(new Event('change'));});
+  document.getElementById('mo-ric').classList.add('open');if(window.b3Attach)setTimeout(window.b3Attach,50);}
 async function salvaRic(){
   const nome=document.getElementById('r-nome').value.trim();if(!nome){alert('Inserisci nome');return;}
   const _catSel=Array.from(document.querySelectorAll('#r-cat-group .r-cat-cb:checked')).map(cb=>cb.value);
   if(!_catSel.length){alert('Seleziona almeno una categoria');return;}
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
-  const r={nome,cat:_catSel,tipo:(document.getElementById('r-tipo')?document.getElementById('r-tipo').value:'completo'),kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:document.getElementById('r-tags').value.split(',').map(t=>t.trim()).filter(Boolean),attributi:{stagioni:getStagioniChip(),tempoPrep:(document.getElementById('r-tempo-prep')?document.getElementById('r-tempo-prep').value:''),profilo:getProfiloChip()}};
+  const _vecchiaRic=editRicId?db.ricette.find(x=>x.id===editRicId):null;
+  const _vecchiTagsNonRiconosciuti=_vecchiaRic?(_vecchiaRic.tags||[]).filter(t=>!_tagComuniTrova(t)):[];
+  const _tagComuniSel=getTagComuniChip().map(k=>{const t=TAG_COMUNI.find(x=>x.key===k);return t?t.label:null;}).filter(Boolean);
+  const _tempoPrepSel=(document.querySelector('.r-tempoprep-rb:checked')||{}).value||'';
+  const _tipoSel=(document.querySelector('.r-tipo-rb:checked')||{}).value||'completo';
+  const r={nome,cat:_catSel,tipo:_tipoSel,kcal:gn('r-kcal'),prot:gn('r-prot'),carb:gn('r-carb'),grassi:gn('r-grassi'),ing:document.getElementById('r-ing').value.trim(),desc:document.getElementById('r-desc').value.trim(),tags:[...new Set([..._tagComuniSel,..._vecchiTagsNonRiconosciuti])],attributi:{stagioni:getStagioniChip(),tempoPrep:_tempoPrepSel,profilo:getProfiloChip()}};
   if(editRicId){const idx=db.ricette.findIndex(x=>x.id===editRicId);if(idx>=0){r.id=editRicId;db.ricette[idx]=r;}}else{r.id=uid();db.ricette.push(r);}
   console.log('[RICETTE] salvaRic — salvo ricetta:', r.nome, '— id:', r.id);
   saveLocal();
@@ -16014,7 +16099,7 @@ Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza mark
     if(ric.grassi) document.getElementById('r-grassi').value = ric.grassi;
     if(ric.ingredienti) document.getElementById('r-ing').value = ric.ingredienti;
     if(ric.preparazione) document.getElementById('r-desc').value = ric.preparazione;
-    if(ric.tags) document.getElementById('r-tags').value = ric.tags.join(', ');
+    if(ric.tags) setTagComuniChip(ric.tags.map(t=>_tagComuniTrova(t)).filter(Boolean).map(t=>t.key));
     notif('✓ AI ha completato la ricetta! Controlla e modifica se necessario.');
   } catch(e) {
     notif('Errore AI: ' + e.message);
