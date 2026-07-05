@@ -13937,9 +13937,6 @@ var EMOJI_CAT_FALLBACK = {
   'dolci':'1f36a',
 };
 
-// Cache emoji PNG (codepoint -> dataURL)
-var _emojiCache = emojiCache || {};
-
 function cpFromEmoji(emoji) {
   if (!emoji) return null;
   return [...emoji].map(function(c){ return c.codePointAt(0).toString(16); })
@@ -13988,6 +13985,8 @@ async function generaPDF(paziente, giorni) {
 
   // Funzione interna sincrona con cache già pronta
   function _generaPDFSync(paziente, giorni, emojiCache) {
+  // Cache emoji PNG (codepoint -> dataURL) — deve stare qui: emojiCache esiste solo come parametro di questa funzione
+  var _emojiCache = emojiCache || {};
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
