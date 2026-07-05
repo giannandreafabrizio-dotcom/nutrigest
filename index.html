@@ -11595,15 +11595,19 @@ function _renderRicetteTestuali(pasto, slotKey, giorno) {
   var maxRic = (slotKey === 'pranzo' || slotKey === 'cena') ? 4 : 1;
   var ricetteArr = (pasto.ricette || []).filter(function(r){ return r != null; });
   var ricetteVisibili = ricetteArr.filter(function(r){ return (r||'').trim() !== ''; });
+  var _mostraDrag = ricetteVisibili.length > 1; // ha senso trascinare solo se c'è più di una riga
   if (ricetteVisibili.length || maxRic > 0) {
-    html += '<div style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.7;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
+    html += '<div class="ric-drag-list" data-ric-giorno="'+giornoEscR+'" data-ric-slot="'+slotKey+'" style="font-size:.75rem;color:var(--text2);margin:.3rem 0 .5rem;line-height:1.7;background:#f8fafc;border-radius:6px;padding:.4rem .6rem">';
     var _fruttaRigaCounter = 0;
     ricetteArr.forEach(function(r, i) {
       if (!r || !(r||'').trim()) return;
       var _fruttaMk = getFruttaMarker(pasto, window._pianoCorrente, giorno, slotKey, window._pdfPaziente, _fruttaRigaCounter);
       var _fruttaSx = fruttaMarkerHtml(_fruttaMk);
       _fruttaRigaCounter++;
-      html += '<div style="display:flex;align-items:center;gap:6px;border-radius:4px;padding:1px 4px">';
+      html += '<div class="ric-drag-row" data-ric-idx="'+i+'" style="display:flex;align-items:center;gap:6px;border-radius:4px;padding:1px 4px">';
+      if (_mostraDrag) {
+        html += '<span class="ric-drag-handle" title="Trascina per riordinare" style="cursor:grab;color:var(--text3);font-size:.85rem;flex:0 0 auto;touch-action:none;user-select:none;padding:0 2px">⠿</span>';
+      }
       html += '<span class="ric-edit" onclick="apriEditRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" style="flex:1;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'transparent\'" title="Click per modificare"><span style="color:var(--teal);font-weight:600">' + (i+1) + '</span> &rarr; ' + r + _fruttaSx + '</span>';
       html += '<button class="alt-ctrl alt-x" onclick="rimuoviRicetta(\''+giornoEscR+'\',\''+slotKey+'\','+i+')" title="Rimuovi ricetta" style="font-size:.7rem">🗑</button>';
       html += '</div>';
@@ -11618,6 +11622,80 @@ function _renderRicetteTestuali(pasto, slotKey, giorno) {
   }
   return html;
 }
+
+// ── Riordino ricette testuali via drag&drop (Pointer Events, event delegation) ──
+// Un SOLO listener globale attaccato una volta sola: nessun listener aggiunto o
+// rimosso a ogni render, quindi nessun accumulo nel tempo (vedi nota di progetto
+// sui listener di scroll — stesso principio applicato qui ai pasti).
+function scambiaRicette(giorno, slotKey, idxA, idxB) {
+  var ctx = _trovaPasto(giorno, slotKey);
+  if (!ctx || !ctx.pasto || !ctx.pasto.ricette) return;
+  var arr = ctx.pasto.ricette;
+  if (idxA < 0 || idxB < 0 || idxA >= arr.length || idxB >= arr.length || idxA === idxB) return;
+  var tmp = arr[idxA]; arr[idxA] = arr[idxB]; arr[idxB] = tmp;
+  _aggiornaPianoBox();
+  if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
+}
+(function(){
+  var _dragState = null; // {giorno, slotKey, idxFrom, rowEl, listEl}
+  function _ricDragTrovaRigaSotto(clientX, clientY, listEl) {
+    var el = document.elementFromPoint(clientX, clientY);
+    var row = el && el.closest ? el.closest('.ric-drag-row') : null;
+    if (!row || !listEl.contains(row)) return null;
+    return row;
+  }
+  function _ricDragPulisciEvidenza(listEl) {
+    listEl.querySelectorAll('.ric-drag-row').forEach(function(r){ r.style.borderTop=''; r.style.borderBottom=''; r.style.opacity=''; });
+  }
+  function _onPointerMove(e) {
+    if (!_dragState) return;
+    e.preventDefault();
+    var listEl = _dragState.listEl;
+    _ricDragPulisciEvidenza(listEl);
+    _dragState.rowEl.style.opacity = '.4';
+    var target = _ricDragTrovaRigaSotto(e.clientX, e.clientY, listEl);
+    if (target && target !== _dragState.rowEl) {
+      var idxTarget = parseInt(target.getAttribute('data-ric-idx'), 10);
+      target.style.borderTop = idxTarget < _dragState.idxFrom ? '2px solid var(--teal)' : '';
+      target.style.borderBottom = idxTarget > _dragState.idxFrom ? '2px solid var(--teal)' : '';
+      _dragState.idxTarget = idxTarget;
+    } else {
+      _dragState.idxTarget = null;
+    }
+  }
+  function _onPointerUp(e) {
+    if (!_dragState) return;
+    var listEl = _dragState.listEl;
+    _ricDragPulisciEvidenza(listEl);
+    _dragState.rowEl.style.opacity = '';
+    document.removeEventListener('pointermove', _onPointerMove);
+    document.removeEventListener('pointerup', _onPointerUp);
+    document.removeEventListener('pointercancel', _onPointerUp);
+    if (_dragState.idxTarget !== null && _dragState.idxTarget !== _dragState.idxFrom) {
+      scambiaRicette(_dragState.giorno, _dragState.slotKey, _dragState.idxFrom, _dragState.idxTarget);
+    }
+    _dragState = null;
+  }
+  document.addEventListener('pointerdown', function(e){
+    var handle = e.target.closest ? e.target.closest('.ric-drag-handle') : null;
+    if (!handle) return;
+    var row = handle.closest('.ric-drag-row');
+    var listEl = handle.closest('.ric-drag-list');
+    if (!row || !listEl) return;
+    e.preventDefault();
+    _dragState = {
+      giorno: listEl.getAttribute('data-ric-giorno'),
+      slotKey: listEl.getAttribute('data-ric-slot'),
+      idxFrom: parseInt(row.getAttribute('data-ric-idx'), 10),
+      idxTarget: null,
+      rowEl: row,
+      listEl: listEl
+    };
+    document.addEventListener('pointermove', _onPointerMove, {passive:false});
+    document.addEventListener('pointerup', _onPointerUp);
+    document.addEventListener('pointercancel', _onPointerUp);
+  });
+})();
 
 // Helper: dato un pasto nuovo formato (celle), restituisce testo descrittivo per renderPianoBox
 function _renderCelleHtml(pasto, slotKey, giorno) {
