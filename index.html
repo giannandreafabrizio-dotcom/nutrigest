@@ -6950,7 +6950,7 @@ function renderPdAlimenti(p){
 
 function renderPdAnalisi(p){
   const as=p.analisiSangue||{};
-  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti"></div>';
+  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti">'+renderBoxGruppiCliniciSuggeriti(p)+'</div>';
   html+='<div class="upload-area" onclick="document.getElementById(\'as-pdf-input\').click()" style="padding:.5rem .9rem;margin-bottom:.6rem">'
       +'<p style="margin:0">📄 Clicca per importare un referto (PDF o foto) — i valori riconosciuti vengono inseriti automaticamente</p>'
       +'<span id="as-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>'
@@ -7217,11 +7217,64 @@ const _GRUPPI_CLINICI=[
 ];
 
 function applicaGruppoClinico(id){
+  const p=db.pazienti.find(x=>x.id===currentPazId);
+  if(!p){notif('Nessun paziente selezionato');return;}
+
+  /* Scrive sempre sul dato del paziente, indipendentemente dal fatto che
+     il checkbox sia presente nel DOM in questo momento (es. modal chiuso) */
+  p.checkSemaforo=p.checkSemaforo||{};
+  p.checkSemaforo[id]=true;
+
+  /* Marca come applicata anche la voce persistita del suggerimento AI */
+  if(p.gruppiCliniciSuggeriti&&p.gruppiCliniciSuggeriti.length){
+    const voce=p.gruppiCliniciSuggeriti.find(x=>x.id===id);
+    if(voce) voce.applicato=true;
+  }
+
+  /* Se il checkbox è nel DOM (es. modal aperto), sincronizzalo subito */
   const cb=document.getElementById(id);
   if(cb){cb.checked=true;}
+
+  /* Ricalcola il semaforo alimentare con la patologia appena attivata */
+  if(typeof applicaRegoloSemaforo==='function') applicaRegoloSemaforo(p);
+
+  save();
+
   const btn=document.getElementById('btn-applica-'+id);
   if(btn){btn.textContent='✓ Applicato';btn.disabled=true;btn.style.opacity='.5';}
-  notif('✓ Gruppo attivato → controlla semaforo');
+  notif('✓ Gruppo attivato e salvato → controlla semaforo');
+}
+
+function renderBoxGruppiCliniciSuggeriti(p){
+  const gruppi=(p&&p.gruppiCliniciSuggeriti)||[];
+  if(!gruppi.length) return '';
+
+  let h='<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.85rem;margin-bottom:.9rem">'
+       +'<div style="font-weight:600;font-size:.88rem;margin-bottom:.5rem;color:var(--text)">🔍 Gruppi clinici suggeriti '
+       +'<span style="font-weight:400;font-size:.76rem;color:var(--text3)">— decidi tu quali applicare</span></div>';
+
+  gruppi.forEach(g=>{
+    const nome=g.nome||(_GRUPPI_CLINICI.find(x=>x.id===g.id)||{}).nome||g.id;
+    const cb=document.getElementById(g.id);
+    const already=g.applicato || (cb&&cb.checked) || (p.checkSemaforo&&p.checkSemaforo[g.id]);
+    h+='<div style="display:flex;align-items:flex-start;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--border)">'
+      +'<div style="flex:1">'
+      +'<div style="font-weight:600;font-size:.84rem;color:var(--text)">'+nome+'</div>'
+      +'<div style="font-size:.79rem;color:var(--text2);margin-top:.12rem">'+(g.motivazione||'')+'</div>'
+      +'</div>'
+      +'<button id="btn-applica-'+g.id+'" class="btn btn-sm" '
+      +(already
+        ? 'disabled style="background:#16a34a;color:#fff;opacity:.55"'
+        : 'style="background:#16a34a;color:#fff"'
+      )+' onclick="applicaGruppoClinico(\''+g.id+'\')">'
+      +(already?'✓ Già attivo':'Applica')
+      +'</button></div>';
+  });
+
+  h+='<div style="font-size:.73rem;color:var(--text3);margin-top:.55rem;border-top:1px solid var(--border);padding-top:.45rem">'
+    +'Le caselle si trovano nella scheda <strong>Clinica → Anamnesi patologica</strong>. Decisione finale al medico.'
+    +'</div></div>';
+  return h;
 }
 
 async function suggerisciGruppiClinici(){
@@ -7286,36 +7339,24 @@ async function suggerisciGruppiClinici(){
     const gruppi=(parsed&&parsed.gruppi)||[];
 
     if(!gruppi.length){
+      p.gruppiCliniciSuggeriti=[];
+      save();
       box.innerHTML='<div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#166534">✅ Nessun gruppo clinico necessario in base ai valori inseriti.</div>';
       return;
     }
 
-    let h='<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.85rem;margin-bottom:.9rem">'
-         +'<div style="font-weight:600;font-size:.88rem;margin-bottom:.5rem;color:var(--text)">🔍 Gruppi clinici suggeriti '
-         +'<span style="font-weight:400;font-size:.76rem;color:var(--text3)">— decidi tu quali applicare</span></div>';
+    /* Persiste il suggerimento sul paziente, mantenendo lo stato "applicato" già presente
+       (es. se un gruppo era già stato applicato in precedenza, resta segnato tale) */
+    const precedenti=(p.gruppiCliniciSuggeriti)||[];
+    p.gruppiCliniciSuggeriti=gruppi.map(g=>({
+      id:g.id,
+      nome:g.nome||(_GRUPPI_CLINICI.find(x=>x.id===g.id)||{}).nome||g.id,
+      motivazione:g.motivazione||'',
+      applicato: !!((p.checkSemaforo&&p.checkSemaforo[g.id]) || (precedenti.find(x=>x.id===g.id)||{}).applicato)
+    }));
+    save();
 
-    gruppi.forEach(g=>{
-      const nome=g.nome||(_GRUPPI_CLINICI.find(x=>x.id===g.id)||{}).nome||g.id;
-      const cbEl=document.getElementById(g.id);
-      const already=cbEl&&cbEl.checked;
-      h+='<div style="display:flex;align-items:flex-start;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--border)">'
-        +'<div style="flex:1">'
-        +'<div style="font-weight:600;font-size:.84rem;color:var(--text)">'+nome+'</div>'
-        +'<div style="font-size:.79rem;color:var(--text2);margin-top:.12rem">'+(g.motivazione||'')+'</div>'
-        +'</div>'
-        +'<button id="btn-applica-'+g.id+'" class="btn btn-sm" '
-        +(already
-          ? 'disabled style="background:#16a34a;color:#fff;opacity:.55"'
-          : 'style="background:#16a34a;color:#fff"'
-        )+' onclick="applicaGruppoClinico(\''+g.id+'\')">'
-        +(already?'✓ Già attivo':'Applica')
-        +'</button></div>';
-    });
-
-    h+='<div style="font-size:.73rem;color:var(--text3);margin-top:.55rem;border-top:1px solid var(--border);padding-top:.45rem">'
-      +'Le caselle si trovano nella scheda <strong>Clinica → Anamnesi patologica</strong>. Decisione finale al medico.'
-      +'</div></div>';
-    box.innerHTML=h;
+    box.innerHTML=renderBoxGruppiCliniciSuggeriti(p);
 
   }catch(e){
     box.innerHTML='<div style="background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#991b1b">⚠️ Errore: '+e.message+'</div>';
