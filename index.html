@@ -14839,7 +14839,13 @@ async function generaPDF(paziente, giorni) {
         // Emoji stagionale disegnata (immagine Twemoji) a fine dell'ultima riga di questa ricetta
         if (_fruttaCp) {
           var _ultimaLinea = lines[lines.length - 1] || '';
-          var _xEmoji = M + prefixW + measure(_ultimaLinea, 11 * c, 'normal') + EMOJI_GAP * c;
+          var _wUltimaLinea = measure(_ultimaLinea, 11 * c, 'normal');
+          // P60: separatore "+" attenuato tra testo ricetta ed emoji frutta
+          setFont('normal', 11 * c, GRIGIO3);
+          var _xSep = M + prefixW + _wUltimaLinea + (EMOJI_GAP * c * 0.4);
+          doc.text('+', _xSep, _yUltimaRiga);
+          var _wSep = measure('+', 11 * c, 'normal');
+          var _xEmoji = _xSep + _wSep + (EMOJI_GAP * c * 0.6);
           var _emojiData = loadEmojiSync(_fruttaCp);
           if (_emojiData) { try { doc.addImage(_emojiData, 'PNG', _xEmoji, _yUltimaRiga - EMOJI_SIZE * c + 0.8 * c, EMOJI_SIZE * c, EMOJI_SIZE * c); } catch(e) {} }
         }
@@ -14870,8 +14876,13 @@ async function generaPDF(paziente, giorni) {
           if (_fruttaTxtCelle) {
             doc.text(_fruttaTxtCelle, _xF, y);
           } else if (_fruttaCpCelle) {
+            // P60: separatore "+" attenuato prima dell'emoji, anche nel caso pasto a sole celle
+            setFont('normal', 10 * c, GRIGIO3);
+            doc.text('+', _xF, y);
+            var _wSepCelle = measure('+', 10 * c, 'normal');
+            var _xEmojiCelle = _xF + _wSepCelle + (EMOJI_GAP * c * 0.6);
             var _emojiDataCelle = loadEmojiSync(_fruttaCpCelle);
-            if (_emojiDataCelle) { try { doc.addImage(_emojiDataCelle, 'PNG', _xF, y - EMOJI_SIZE * c + 0.8 * c, EMOJI_SIZE * c, EMOJI_SIZE * c); } catch(e) {} }
+            if (_emojiDataCelle) { try { doc.addImage(_emojiDataCelle, 'PNG', _xEmojiCelle, y - EMOJI_SIZE * c + 0.8 * c, EMOJI_SIZE * c, EMOJI_SIZE * c); } catch(e) {} }
           }
           y += 4.6 * c;
         }
