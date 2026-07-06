@@ -14683,11 +14683,6 @@ async function generaPDF(paziente, giorni) {
         var hDx = cellHeight(righe[ord].dx, c);
         h += Math.max(hSx, hDx) + 2.5 * c;
       });
-      // P59: pasto a sole celle (nessuna riga ricetta testuale) — riga sintetica frutta se attiva
-      if (!hasRicette) {
-        var _fruttaMkCelle = giornoNome ? getFruttaMarker(pasto, giorni, giornoNome, slotKey, paziente, 0) : null;
-        if (_fruttaMkCelle) h += 4.6 * c;
-      }
     }
     return h;
   }
@@ -14865,28 +14860,6 @@ async function generaPDF(paziente, giorni) {
         drawCella(riga.dx, M + COL_W + COL_GAP, y, COL_W, c);
         y += hRow + 2.5 * c;
       });
-      // P59: pasto a sole celle (nessuna riga ricetta testuale) — disegna riga sintetica frutta se attiva
-      if (!hasRicette) {
-        var _fruttaMkCelle = giornoNome ? getFruttaMarker(pasto, giorni, giornoNome, slotKey, paziente, 0) : null;
-        if (_fruttaMkCelle) {
-          var _fruttaTxtCelle = (_fruttaMkCelle.tipo === 'generico') ? _fruttaMkCelle.testo : '';
-          var _fruttaCpCelle = (_fruttaMkCelle.tipo === 'stagionale') ? _fruttaMkCelle.cp : null;
-          setFont('normal', 10 * c, NERO);
-          var _xF = M;
-          if (_fruttaTxtCelle) {
-            doc.text(_fruttaTxtCelle, _xF, y);
-          } else if (_fruttaCpCelle) {
-            // P60: separatore "+" attenuato prima dell'emoji, anche nel caso pasto a sole celle
-            setFont('normal', 10 * c, GRIGIO3);
-            doc.text('+', _xF, y);
-            var _wSepCelle = measure('+', 10 * c, 'normal');
-            var _xEmojiCelle = _xF + _wSepCelle + (EMOJI_GAP * c * 0.6);
-            var _emojiDataCelle = loadEmojiSync(_fruttaCpCelle);
-            if (_emojiDataCelle) { try { doc.addImage(_emojiDataCelle, 'PNG', _xEmojiCelle, y - EMOJI_SIZE * c + 0.8 * c, EMOJI_SIZE * c, EMOJI_SIZE * c); } catch(e) {} }
-          }
-          y += 4.6 * c;
-        }
-      }
     }
 
     return y;
