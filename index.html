@@ -13173,6 +13173,128 @@ function _costruisciPromptDelta(pazienteId, nomiGiorniMancanti){
     + '. Non includere gli altri giorni. Il JSON di risposta deve contenere ESATTAMENTE ' + nomiGiorniMancanti.length + ' element'+(nomiGiorniMancanti.length===1?'o':'i')+' array, uno per ciascuno di questi giorni, nello stesso ordine.';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P77 — OUTPUT STRUTTURATO PER LA GENERAZIONE PIANI (tool use / JSON schema)
+// Il piano viene prodotto tramite tool-use con input_schema vincolato invece
+// di testo JSON libero + riparazione: elimina alla radice la classe di bug
+// "JSON malformato/troncato/chiavi impreviste" che parseJSONSicuro tampona.
+// - Schema versionato (PIANO_SCHEMA_VERSION nel meta piano), stessa forma
+//   consumata da _normalizzaPianoNuovo/espandiPiano e letta dal validatore P61.
+// - Doppio parser (settimana di campo): schema-first, fallback legacy
+//   testo+parseJSONSicuro se il blocco tool_use manca o è vuoto.
+// - max_tokens dimensionato dinamicamente sui giorni richiesti.
+// - Cache 90gg NON toccata: _pianoCacheKey non include il prompt e la cache
+//   salva il piano già espanso — nessuna invalidazione.
+// ═══════════════════════════════════════════════════════════════════════════
+
+var PIANO_SCHEMA_VERSION = 1;
+
+// Tool definition Anthropic con JSON Schema vincolato del piano
+// (formato slot/celle Metadieta-style, chiavi abbreviate — identico al
+// contratto testuale descritto in costruisciPrompt, sezione FORMATO OUTPUT).
+function _pianoToolSchema(nGiorni){
+  var alimento = {
+    type:'object',
+    properties:{
+      n:{type:'string', description:'Nome alimento'},
+      g:{type:'number', description:'Grammi'},
+      cat:{type:'string', enum:['ca','pr','le','ve','fr','oi','gx','fi','co'], description:'Categoria abbreviata'},
+      cl:{type:'string', enum:['v','a','r'], description:'Colore semaforo abbreviato'}
+    },
+    required:['n','g','cat','cl'],
+    additionalProperties:false
+  };
+  var cella = {
+    type:'object',
+    properties:{
+      id:{type:'string', description:'Id univoco cella, es. c1'},
+      co:{type:'string', enum:['sx','dx'], description:'Colonna'},
+      or:{type:'integer', description:'Ordine verticale (1,2,3...)'},
+      al:{type:'array', items:alimento, minItems:1, maxItems:6, description:'Alimenti: il primo è il principale, gli altri alternative'}
+    },
+    required:['id','co','or','al'],
+    additionalProperties:false
+  };
+  var pasto = {
+    type:'object',
+    properties:{
+      ric:{type:'array', items:{type:'string'}, description:'Ricette descrittive (3 per pranzo/cena, [] altrove)'},
+      ce:{type:'array', items:cella, description:'Celle (slot) del pasto'}
+    },
+    required:['ric','ce'],
+    additionalProperties:false
+  };
+  var giorno = {
+    type:'object',
+    properties:{
+      g:{type:'string', description:'Giorno, es. "Lunedì" o "Lunedì ON"'},
+      macros:{
+        type:'object',
+        properties:{
+          kcal:{type:'number'}, proteine:{type:'number'}, carboidrati:{type:'number'}, grassi:{type:'number'}
+        },
+        required:['kcal','proteine','carboidrati','grassi'],
+        additionalProperties:false
+      },
+      pasti:{
+        type:'object',
+        properties:{
+          colazione:pasto, spuntino_mattina:pasto, pranzo:pasto,
+          spuntino_pomeriggio:pasto, cena:pasto, pre_nanna:pasto
+        },
+        additionalProperties:false
+      }
+    },
+    required:['g','macros','pasti'],
+    additionalProperties:false
+  };
+  return {
+    name:'genera_piano',
+    description:'Restituisce il piano alimentare settimanale strutturato (formato slot/celle Metadieta-style, chiavi abbreviate).'+(nGiorni?(' Il piano deve contenere ESATTAMENTE '+nGiorni+' giorni.'):''),
+    input_schema:{
+      type:'object',
+      properties:{
+        giorni:{type:'array', items:giorno, description:'Un elemento per giorno, nell\'ordine richiesto dal prompt'}
+      },
+      required:['giorni'],
+      additionalProperties:false
+    }
+  };
+}
+
+// max_tokens dinamico sul numero di giorni richiesti.
+// 7 giorni = 12000 (identico al valore fisso pre-P77: nessuna regressione).
+function _pianoMaxTokens(nGiorni){
+  var n = (+nGiorni > 0) ? +nGiorni : 7;
+  return Math.min(1500*n + 1500, 16000);
+}
+
+// Estrae il piano grezzo (array giorni) dalla risposta API.
+// Percorso primario: blocco tool_use conforme allo schema (P77).
+// Fallback legacy: primo blocco text + parseJSONSicuro (doppio parser).
+// Ritorna { grezzo, viaSchema }; lancia solo se nemmeno il legacy è riparabile.
+function _estraiPianoDaRisposta(data){
+  var blocks = (data && data.content) || [];
+  for (var i = 0; i < blocks.length; i++){
+    var b = blocks[i];
+    if (b && b.type === 'tool_use' && b.name === 'genera_piano' && b.input && Array.isArray(b.input.giorni) && b.input.giorni.length){
+      return { grezzo: b.input.giorni, viaSchema: true };
+    }
+  }
+  console.warn('[P77] fallback legacy: nessun blocco tool_use valido — parsing testuale');
+  var txtBlock = null;
+  for (var j = 0; j < blocks.length; j++){
+    if (blocks[j] && blocks[j].type === 'text'){ txtBlock = blocks[j]; break; }
+  }
+  if (!txtBlock) throw new Error('Risposta AI senza blocco tool_use né testo');
+  var testo = txtBlock.text.trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+  return { grezzo: parseJSONSicuro(testo), viaSchema: false };
+}
+
 async function chiamaGeneraPiano(pazienteId, forceRegen) {
   var paz = db.pazienti.find(function(x){ return x.id === pazienteId; });
   // BUG3 STEP2: barriera anti-generazione se mancano target
@@ -13212,6 +13334,9 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
 
   const apiKey = getAnthropicKey();
 
+  // P77 — atteso calcolato PRIMA della chiamata: dimensiona schema e max_tokens
+  var _attesoPre = _attesoStrutturaPiano(paz);
+
   const risposta = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -13222,7 +13347,9 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 12000,
+      max_tokens: _pianoMaxTokens(_attesoPre.nGiorniAttesi),
+      tools: [_pianoToolSchema(_attesoPre.nGiorniAttesi)],
+      tool_choice: { type: 'tool', name: 'genera_piano' },
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -13236,13 +13363,9 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
   if (_stopReason === 'max_tokens') {
     console.warn('[P62] Risposta AI troncata per max_tokens — verrà comunque tentato il recupero strutturale.');
   }
-  const testo = data.content[0].text.trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/, '')
-    .trim();
-
-  var _pianoGrezzo = parseJSONSicuro(testo);
+  // P77 — estrazione schema-first (tool_use) con fallback legacy testuale
+  var _estratto = _estraiPianoDaRisposta(data);
+  var _pianoGrezzo = _estratto.grezzo;
   // Normalizza chiavi abbreviate (Step 1.7b: token saving)
   if (_pianoGrezzo && _pianoGrezzo.length && _pianoGrezzo[0] && (_pianoGrezzo[0].pasti || _pianoGrezzo[0].g)) {
     _pianoGrezzo = _normalizzaPianoNuovo(_pianoGrezzo);
@@ -13255,7 +13378,7 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
   // stesso contratto slot-per-giorno e resta fuori scope (P77 lo sostituirà).
   var _strutturaEsito = null;
   if (_isNuovoFormato) {
-    var _atteso = _attesoStrutturaPiano(paz);
+    var _atteso = _attesoPre; // P77: fonte unica, calcolato prima della chiamata
     _strutturaEsito = _confrontaStrutturaPiano(pianoEspanso, _atteso);
 
     if (!_strutturaEsito.ok) {
@@ -13277,16 +13400,22 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
               'anthropic-version': '2023-06-01',
               'anthropic-dangerous-direct-browser-access': 'true'
             },
-            body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 6000, messages: [{ role: 'user', content: promptDelta }] })
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-5',
+              max_tokens: _pianoMaxTokens(_giorniMancantiIdx.length),
+              tools: [_pianoToolSchema(_giorniMancantiIdx.length)],
+              tool_choice: { type: 'tool', name: 'genera_piano' },
+              messages: [{ role: 'user', content: promptDelta }]
+            })
           });
           if (rispostaDelta.ok) {
             const dataDelta = await rispostaDelta.json();
             if (dataDelta.stop_reason === 'max_tokens') {
               console.warn('[P62] Anche la rigenerazione delta è stata troncata per max_tokens.');
             }
-            const testoDelta = dataDelta.content[0].text.trim()
-              .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-            var _pianoDeltaGrezzo = parseJSONSicuro(testoDelta);
+            // P77 — stesso estrattore schema-first/fallback della chiamata principale
+            var _estrattoDelta = _estraiPianoDaRisposta(dataDelta);
+            var _pianoDeltaGrezzo = _estrattoDelta.grezzo;
             if (_pianoDeltaGrezzo && _pianoDeltaGrezzo.length && (_pianoDeltaGrezzo[0].pasti || _pianoDeltaGrezzo[0].g)) {
               _pianoDeltaGrezzo = _normalizzaPianoNuovo(_pianoDeltaGrezzo);
             }
@@ -13351,6 +13480,8 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
     pianoEspanso[0].meta = Object.assign({}, pianoEspanso[0].meta, {
       stopReason: _stopReason,
       usage: _usage,
+      schemaVersion: PIANO_SCHEMA_VERSION,          // P77
+      viaSchema: _estratto ? !!_estratto.viaSchema : false, // P77: percorso di estrazione usato
       struttura: _strutturaEsito ? {
         ok: _strutturaEsito.ok,
         giorniAttesi: _strutturaEsito.giorniAttesi,
