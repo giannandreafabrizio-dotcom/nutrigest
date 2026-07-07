@@ -13097,6 +13097,82 @@ function parseJSONSicuro(testo) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P62 — STOP ALL'ACCETTAZIONE SILENZIOSA DI PIANI TRONCATI
+// (a) stop_reason 'max_tokens' → mai salvare in silenzio, avviso esplicito;
+// (b) confronto STRUTTURALE atteso/ottenuto (giorni richiesti, pasti attivi
+//     per giorno) — la riparazione cosmetica di parseJSONSicuro (virgole,
+//     parentesi) resta invariata, ma non deve più mascherare giorni/pasti
+//     mancanti: quello è un errore clinico invisibile, non un JSON malformato;
+// (c) rigenerazione DELTA: se mancano giorni 6-7, richiede SOLO quelli e li
+//     fonde nel piano esistente — costo minimo, non butta via ciò che è già
+//     stato pagato in token;
+// (d) persistenza di stop_reason + usage + esito struttura nel meta del piano
+//     (osservabilità, riuso futuro per i quota di P66).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Calcola cosa il prompt ha effettivamente richiesto: n giorni attesi e quali
+// slot pasto sono attivi per QUESTO paziente (stessa fonte di _pastiCfg usata
+// da generaPiano, duplicata qui in forma pura per essere richiamabile anche
+// dal solo contesto di chiamaGeneraPiano, senza dipendere dal DOM).
+function _attesoStrutturaPiano(p){
+  var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
+  var nGiorniAttesi = isCeto ? 7 : 6;
+  var slotAttesi = [
+    {key:'colazione',          attivo: p.colazione !== 'no'},
+    {key:'spuntino_mattina',   attivo: p.spuntM === 'si'},
+    {key:'pranzo',             attivo: p.pranzo !== 'no'},
+    {key:'spuntino_pomeriggio',attivo: p.spuntP === 'si'},
+    {key:'cena',               attivo: p.cena !== 'no'},
+    {key:'pre_nanna',          attivo: p.prenanna === 'si'}
+  ].filter(function(s){return s.attivo;}).map(function(s){return s.key;});
+  return { nGiorniAttesi: nGiorniAttesi, slotAttesi: slotAttesi };
+}
+
+// Confronta il piano ESPANSO ottenuto contro l'atteso. Ritorna:
+// { ok, giorniMancanti:[idx], pastiMancanti:[{giornoIdx,giorno,slot}], giorniOttenuti, giorniAttesi }
+// NON considera "mancante" un pasto con pasto.celle vuoto MA presente come chiave
+// (l'AI a volte lo lascia intenzionalmente vuoto in un giorno "libero"): manca
+// solo se la CHIAVE del pasto non esiste affatto nel giorno — quello è troncamento,
+// non una scelta del generatore.
+function _confrontaStrutturaPiano(pianoEspanso, atteso){
+  var res = { ok:true, giorniMancanti:[], pastiMancanti:[], giorniOttenuti:0, giorniAttesi: atteso.nGiorniAttesi };
+  if(!pianoEspanso || !pianoEspanso.length){
+    res.ok=false;
+    for(var i=0;i<atteso.nGiorniAttesi;i++) res.giorniMancanti.push(i);
+    return res;
+  }
+  res.giorniOttenuti = pianoEspanso.length;
+  if(pianoEspanso.length < atteso.nGiorniAttesi){
+    res.ok=false;
+    for(var g=pianoEspanso.length; g<atteso.nGiorniAttesi; g++) res.giorniMancanti.push(g);
+  }
+  pianoEspanso.forEach(function(giorno, idx){
+    var pasti = giorno.pasti || {};
+    atteso.slotAttesi.forEach(function(slot){
+      if(!(slot in pasti)){
+        res.ok=false;
+        res.pastiMancanti.push({giornoIdx:idx, giorno: giorno.giorno||giorno.g||('Giorno '+(idx+1)), slot: slot});
+      }
+    });
+  });
+  return res;
+}
+
+// Etichette leggibili per i giorni mancanti (coerenti con costruisciPrompt).
+var _NOMI_GIORNI_ATTESI = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+
+// Prompt DELTA: richiede all'AI SOLO i giorni mancanti, con lo stesso contesto
+// clinico del prompt originale. Riuso di costruisciPrompt con un'appendice che
+// vincola l'output ai soli giorni indicati — evita di rigenerare da zero.
+function _costruisciPromptDelta(pazienteId, nomiGiorniMancanti){
+  var base = costruisciPrompt(pazienteId);
+  if(!base) return '';
+  return base + '\n\n⚠️ RICHIESTA PARZIALE (rigenerazione delta): genera SOLO i seguenti giorni, con lo stesso formato JSON del piano completo: '
+    + nomiGiorniMancanti.join(', ')
+    + '. Non includere gli altri giorni. Il JSON di risposta deve contenere ESATTAMENTE ' + nomiGiorniMancanti.length + ' element'+(nomiGiorniMancanti.length===1?'o':'i')+' array, uno per ciascuno di questi giorni, nello stesso ordine.';
+}
+
 async function chiamaGeneraPiano(pazienteId, forceRegen) {
   var paz = db.pazienti.find(function(x){ return x.id === pazienteId; });
   // BUG3 STEP2: barriera anti-generazione se mancano target
@@ -13154,6 +13230,12 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
   if (!risposta.ok) throw new Error('Errore API: ' + risposta.status);
 
   const data = await risposta.json();
+  // P62(a) — mai accettare in silenzio un troncamento per limite token
+  const _stopReason = data.stop_reason || null;
+  const _usage = data.usage || null;
+  if (_stopReason === 'max_tokens') {
+    console.warn('[P62] Risposta AI troncata per max_tokens — verrà comunque tentato il recupero strutturale.');
+  }
   const testo = data.content[0].text.trim()
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
@@ -13165,8 +13247,72 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
   if (_pianoGrezzo && _pianoGrezzo.length && _pianoGrezzo[0] && (_pianoGrezzo[0].pasti || _pianoGrezzo[0].g)) {
     _pianoGrezzo = _normalizzaPianoNuovo(_pianoGrezzo);
   }
-  const pianoEspanso = espandiPiano(_pianoGrezzo);
+  var pianoEspanso = espandiPiano(_pianoGrezzo);
   var _isNuovoFormato = pianoEspanso && pianoEspanso.length && pianoEspanso[0] && pianoEspanso[0].pasti;
+
+  // ── P62(b)(c) — confronto strutturale + rigenerazione delta ──────────────
+  // Solo per il formato nuovo (pasti/celle): il formato legacy non ha lo
+  // stesso contratto slot-per-giorno e resta fuori scope (P77 lo sostituirà).
+  var _strutturaEsito = null;
+  if (_isNuovoFormato) {
+    var _atteso = _attesoStrutturaPiano(paz);
+    _strutturaEsito = _confrontaStrutturaPiano(pianoEspanso, _atteso);
+
+    if (!_strutturaEsito.ok) {
+      var _giorniMancantiIdx = _strutturaEsito.giorniMancanti;
+      var _nomiMancanti = _giorniMancantiIdx.map(function(i){ return _NOMI_GIORNI_ATTESI[i] || ('Giorno '+(i+1)); });
+      console.warn('[P62] Piano incompleto — giorni ottenuti:', _strutturaEsito.giorniOttenuti, '/', _strutturaEsito.giorniAttesi,
+        '| pasti mancanti:', JSON.stringify(_strutturaEsito.pastiMancanti));
+      notif('⚠ Piano incompleto (' + _strutturaEsito.giorniOttenuti + '/' + _strutturaEsito.giorniAttesi + ' giorni) — recupero i giorni mancanti…', 4000);
+
+      if (_giorniMancantiIdx.length && _giorniMancantiIdx.length < _atteso.nGiorniAttesi) {
+        // Rigenerazione DELTA: richiede SOLO i giorni mancanti e li fonde.
+        try {
+          const promptDelta = _costruisciPromptDelta(pazienteId, _nomiMancanti);
+          const rispostaDelta = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 6000, messages: [{ role: 'user', content: promptDelta }] })
+          });
+          if (rispostaDelta.ok) {
+            const dataDelta = await rispostaDelta.json();
+            if (dataDelta.stop_reason === 'max_tokens') {
+              console.warn('[P62] Anche la rigenerazione delta è stata troncata per max_tokens.');
+            }
+            const testoDelta = dataDelta.content[0].text.trim()
+              .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+            var _pianoDeltaGrezzo = parseJSONSicuro(testoDelta);
+            if (_pianoDeltaGrezzo && _pianoDeltaGrezzo.length && (_pianoDeltaGrezzo[0].pasti || _pianoDeltaGrezzo[0].g)) {
+              _pianoDeltaGrezzo = _normalizzaPianoNuovo(_pianoDeltaGrezzo);
+            }
+            var _pianoDeltaEspanso = espandiPiano(_pianoDeltaGrezzo);
+            // Fusione: accoda i giorni recuperati mantenendo l'ordine atteso.
+            _pianoDeltaEspanso.forEach(function(gNuovo){ pianoEspanso.push(gNuovo); });
+            console.log('[P62] Rigenerazione delta OK — giorni recuperati:', _pianoDeltaEspanso.length);
+            notif('✓ Giorni mancanti recuperati (' + _pianoDeltaEspanso.length + ')', 3000);
+            // Ricalcola l'esito struttura sul piano fuso, per il meta finale.
+            _strutturaEsito = _confrontaStrutturaPiano(pianoEspanso, _atteso);
+          } else {
+            console.warn('[P62] Rigenerazione delta fallita — errore API:', rispostaDelta.status);
+            notif('⚠ Impossibile recuperare i giorni mancanti automaticamente — verifica il piano prima di salvare/PDF', 6000);
+          }
+        } catch (eDelta) {
+          console.warn('[P62] Rigenerazione delta fallita:', eDelta);
+          notif('⚠ Impossibile recuperare i giorni mancanti automaticamente — verifica il piano prima di salvare/PDF', 6000);
+        }
+      } else if (_strutturaEsito.pastiMancanti.length) {
+        // Pasti mancanti dentro giorni comunque presenti: non è un caso da
+        // rigenerazione delta per-giorno (il giorno c'è, manca uno slot) —
+        // resta segnalato esplicitamente, mai salvato in silenzio.
+        notif('⚠ Alcuni pasti risultano mancanti nel piano generato — controlla prima di salvare/PDF', 6000);
+      }
+    }
+  }
 
   // Seconda chiamata: genera note/ricette descrittive solo se vecchio formato
   if (!_isNuovoFormato) {
@@ -13200,10 +13346,25 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
     } catch(e) { console.warn('Note descrittive non generate:', e); }
   }
 
+  // ── P62(d) — persistenza osservabilità nel meta del piano (additivo) ──────
+  if (pianoEspanso && pianoEspanso.length) {
+    pianoEspanso[0].meta = Object.assign({}, pianoEspanso[0].meta, {
+      stopReason: _stopReason,
+      usage: _usage,
+      struttura: _strutturaEsito ? {
+        ok: _strutturaEsito.ok,
+        giorniAttesi: _strutturaEsito.giorniAttesi,
+        giorniOttenuti: _strutturaEsito.giorniOttenuti,
+        pastiMancanti: _strutturaEsito.pastiMancanti
+      } : null,
+      generatoIl: new Date().toISOString()
+    });
+  }
+
   // ── SALVA IN CACHE ─────────────────────────────────────────────────────────
   _salvaPianoCache(pazienteId, pianoEspanso); // fire-and-forget
 
-  return { ok: true, piano: pianoEspanso };
+  return { ok: true, piano: pianoEspanso, stopReason: _stopReason, strutturaOk: _strutturaEsito ? _strutturaEsito.ok : true };
 }
 
 function mostraLoadingSteps(loadEl){
