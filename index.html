@@ -7212,23 +7212,21 @@ async function loadAnalisiSanguePDF(e){
     const clean=testo.replace(/```json|```/g,'').trim();
     const estratti=JSON.parse(clean);
 
-    if(!p.analisiSangue) p.analisiSangue={};
+    // P63 — pattern staging: l'estrazione NON scrive mai su p.analisiSangue.
+    // Popola solo _staging; la scrittura avviene esclusivamente dopo conferma
+    // dell'utente riga per riga nel modal diff (confermaDiffAnalisi).
     const elencoSet=new Set(elencoVoci);
-    let nImportati=0;
+    const staging={};
     Object.entries(estratti).forEach(([nome,val])=>{
       if(val==null || String(val).trim()==='') return;
       if(!elencoSet.has(nome)) return; // ignora chiavi non riconosciute, per sicurezza
-      const key=ANALISI_KEY(nome);
-      p.analisiSangue[key+'_val']=String(val).trim();
-      nImportati++;
+      staging[nome]=String(val).trim();
     });
 
-    if(nImportati===0){
+    if(Object.keys(staging).length===0){
       notif('⚠ Nessun valore riconosciuto nel referto.');
     } else {
-      save();
-      renderPdAnalisi(p); // ridisegna l'intera card con i nuovi valori e i calcoli aggiornati
-      notif('✓ '+nImportati+' valori importati dal referto!');
+      mostraDiffAnalisi(p, staging, file.name);
     }
   } catch(err){
     notif('⚠ Errore estrazione referto: '+err.message);
@@ -7236,6 +7234,87 @@ async function loadAnalisiSanguePDF(e){
     const loadingEl2=document.getElementById('as-pdf-loading'); if(loadingEl2) loadingEl2.style.display='none';
     e.target.value=''; // reset input: permette di ricaricare lo stesso file se necessario
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P63 — CONFERMA CON DIFF PER GLI IMPORT AI DEI REFERTI (Analisi del sangue)
+// Componente generico guidato dallo schema: legge ANALISI (elenco campi) e
+// RANGE_RIF (soglie, dove disponibili) — non serve una tabella scritta a mano
+// per le ~117 voci. L'estrazione scrive SOLO in staging (mai su p.analisiSangue
+// diretto); la conferma applica solo le righe con checkbox spuntato.
+// Evidenzia: valore fuori range (interpretaAnalisi → sem giallo/rosso) e delta
+// anomalo (>50% dal valore precedente, se numerico e precedente presente).
+// Provenienza salvata in p._analisiMeta[key] = {fonte:'ai-import', data, file}.
+// ═══════════════════════════════════════════════════════════════════════════
+function mostraDiffAnalisi(p, staging, fileName){
+  const righe=Object.entries(staging).map(([nome,val])=>{
+    const key=ANALISI_KEY(nome);
+    const attuale=(p.analisiSangue||{})[key+'_val']||'';
+    const nuovoNum=_parseAnalisiNum(val);
+    const attualeNum=_parseAnalisiNum(attuale);
+    let deltaAnomalo=false;
+    if(nuovoNum!=null && attualeNum!=null && attualeNum!==0){
+      const variazione=Math.abs(nuovoNum-attualeNum)/Math.abs(attualeNum);
+      if(variazione>0.5) deltaAnomalo=true;
+    }
+    const interp=interpretaAnalisi(nome, val, p);
+    const fuoriRange = interp && (interp.sem==='giallo' || interp.sem==='rosso');
+    return {nome,key,val,attuale,deltaAnomalo,fuoriRange,interp};
+  });
+
+  const modal=document.createElement('div');
+  modal.className='overlay open';
+  let rowsHtml=righe.map((r,i)=>{
+    const warnBits=[];
+    if(r.fuoriRange) warnBits.push('<span style="color:#DC2626;font-weight:700">⚠ '+(r.interp.et||'fuori range')+'</span>');
+    if(r.deltaAnomalo) warnBits.push('<span style="color:#D97706;font-weight:700">⚠ variazione &gt;50%</span>');
+    const warnHtml = warnBits.length ? '<div style="font-size:.68rem;margin-top:.15rem">'+warnBits.join(' · ')+'</div>' : '';
+    const rowBg = (r.fuoriRange||r.deltaAnomalo) ? 'background:#FFFBEB;' : '';
+    return '<tr style="'+rowBg+'border-bottom:1px solid var(--border)">'
+      +'<td style="padding:.4rem .5rem"><input type="checkbox" class="diff-analisi-chk" data-idx="'+i+'" checked></td>'
+      +'<td style="padding:.4rem .5rem;font-size:.78rem">'+r.nome+'</td>'
+      +'<td style="padding:.4rem .5rem;font-size:.78rem;color:var(--text3)">'+(r.attuale||'—')+'</td>'
+      +'<td style="padding:.4rem .5rem;font-size:.78rem;font-weight:700">'+r.val+warnHtml+'</td>'
+      +'</tr>';
+  }).join('');
+
+  modal.innerHTML='<div class="modal" style="width:640px;max-width:94vw;max-height:82vh;overflow-y:auto">'
+    +'<h3 style="margin:0 0 .3rem">📋 Conferma valori estratti</h3>'
+    +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem">Referto: '+fileName+' — '+righe.length+' valori riconosciuti. Deseleziona le righe che non vuoi importare.</div>'
+    +'<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)">'
+    +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)"></th>'
+    +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Esame</th>'
+    +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Attuale</th>'
+    +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Estratto</th>'
+    +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
+    +'</div>';
+  const mf=document.createElement('div');mf.className='mf';
+  mf.innerHTML='<button class="btn btn-r" style="flex:1">Annulla</button><button class="btn btn-v" style="flex:1">Conferma selezionati</button>';
+  modal.querySelector('.modal').appendChild(mf);
+  mf.children[0].onclick=function(){ngChiudiModale(modal);};
+  mf.children[1].onclick=function(){
+    const checks=modal.querySelectorAll('.diff-analisi-chk');
+    let nImportati=0;
+    if(!p.analisiSangue) p.analisiSangue={};
+    if(!p._analisiMeta) p._analisiMeta={};
+    checks.forEach(function(chk){
+      if(!chk.checked) return;
+      const idx=+chk.getAttribute('data-idx');
+      const r=righe[idx];
+      p.analisiSangue[r.key+'_val']=r.val;
+      p._analisiMeta[r.key]={fonte:'ai-import', data:new Date().toISOString(), file:fileName};
+      nImportati++;
+    });
+    modal.remove();
+    if(nImportati===0){
+      notif('Nessun valore importato.');
+      return;
+    }
+    save();
+    renderPdAnalisi(p);
+    notif('✓ '+nImportati+' valori importati dal referto!');
+  };
+  document.body.appendChild(modal);
 }
 
 // P17 Fase C: stato "includi nel ragionamento FX" per-indice. Default ON: il calcolo
