@@ -4136,13 +4136,8 @@ async function testaAntKey(){
   if(!key){res.style.color='var(--red)';res.textContent='⚠ Inserisci la chiave';return;}
   res.style.color='var(--text3)';res.textContent='⏳ Test in corso...';
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1,messages:[{role:'user',content:'Hi'}]})
-    });
-    if(r.ok){res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';}
-    else{res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
+    await aiCall({tipo:'test',apiKey:key,max_tokens:1,messages:[{role:'user',content:'Hi'}],timeoutMs:20000});
+    res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';
   }catch(e){res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
 }
 function initAntCard(){
@@ -6414,7 +6409,7 @@ async function avviaFX(p,apiKey){
   // P16: FX = unione F1 (scheda macros + composizione + parere) + F3 (flag clinici) in UNA sola chiamata.
   // Il contesto paziente viaggia una volta sola (prima era duplicato tra F1 e F3).
   const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nNel contesto trovi i dati del paziente. Se è presente la riga "⚑ MACROS DECISI DAL MEDICO", quei valori sono i macros scelti da Fabrizio — NON ricalcolarli, NON proporre alternative. Il tuo compito è commentarli criticamente come farebbe un secondo specialista.\n\nPRODUCI ESATTAMENTE queste QUATTRO sezioni, in questo ordine — niente di più, niente di meno.\n\n═══ SEZIONE 1 — SCHEDA MACROS ═══\n\n📊 MACROS SCELTI DAL MEDICO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal rispetto TDEE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET MEDICO: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — 1 commento clinico]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 PARERE CLINICO SUI MACROS SCELTI\n[3-5 righe. Rispondi a: i macros scelti dal medico sono coerenti col profilo InBody e con il regime? Cosa funziona bene? C\'è qualcosa da tenere d\'occhio o che cambieresti e perché? Se ci sono analisi del sangue anomale, commentale. Se il profilo è semplice e tutto torna, dillo chiaramente senza inventare problemi. La decisione finale resta a Fabrizio.]\n\nSe nel contesto NON ci sono macros salvati dal medico, produci la scheda con i macros calcolati automaticamente e segnalalo con: ⚠️ Nessun target salvato — valori stimati automaticamente.\n\n═══ SEZIONE 2 — FLAG CLINICI ═══\n\n🏥 FLAG CLINICI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Per ogni condizione/farmaco rilevante:]\n⚠️ [NOME CONDIZIONE]\n   → [vincolo diretto sul piano: cosa fare o evitare — 1 riga]\n   → [seconda indicazione se serve — 1 riga]\n\n[Per ogni interazione farmaco-nutriente:]\n💊 [FARMACO]\n   → [interazione nutrizionale rilevante — 1 riga]\n\n🔴 AVVISI PRIORITARI\n   1. [cosa piu importante da tenere a mente]\n   2. [seconda priorita se esiste]\n\nSe non ci sono condizioni rilevanti per la Sezione 2 scrivi SOLO: ✅ Profilo standard — nessun vincolo clinico specifico.\n\n═══ SEZIONE 3 — COSA PROPORRE (ORA) ═══\n\n💡 COSA PROPORRE — PROSSIMA FASE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[3-4 azioni operative per il prossimo periodo, una per riga con freccia →. Indicazioni pratiche utili durante la telefonata col paziente: cosa confermare, cosa modificare, cosa monitorare. Basati su macros, trend InBody, flag clinici e sangue. Azioni specifiche per QUESTO paziente, niente di generico.]\n→ [azione 1]\n→ [azione 2]\n→ [azione 3]\n\n═══ SEZIONE 4 — PERCORSO 5-7 MESI ═══\n\n🗺️ PERCORSO 5-7 MESI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMesi 1-2: [obiettivo e focus della prima fase — 1 riga]\nMesi 3-4: [obiettivo della fase intermedia — 1 riga]\nMesi 5-7: [obiettivo finale: mantenimento, educazione, autonomia — 1 riga]\n[Proiezione realistica basata su regime, trend attuale e obiettivo del paziente. Se l\'obiettivo è già vicino, adatta le fasi di conseguenza.]\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli. Nella Sezione 2: niente testo narrativo, solo flag e frecce, massimo 15 righe. Nelle Sezioni 3 e 4: concretezza operativa, frasi brevi, una riga per voce, niente fronzoli.';
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:2000,system:system,messages:[{role:'user',content:(()=>{
+  const data=await aiCall({tipo:'fx',apiKey:apiKey,max_tokens:2000,system:system,messages:[{role:'user',content:(()=>{
     const _ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
     const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
     const _bmi=_ib&&_ib.bmi?parseFloat(_ib.bmi):null;
@@ -6431,9 +6426,7 @@ async function avviaFX(p,apiKey){
       extra+='\nRange P: '+_pMin+'-'+_pMax+'g · Range G: '+_lMin+'-'+_lMax+'g · Kcal indicativo: '+_kcalBase+' (TDEE '+_ct.tdee+' '+(_kcalBase-_ct.tdee>0?'+':'')+(_kcalBase-_ct.tdee)+')';
     }
     return costruisciContestoPaziente(p)+extra+'\n\nProduci le DUE sezioni (scheda macros + flag clinici) per questo paziente nel formato esatto indicato.';
-  })()}]})});
-  if(!r.ok)throw new Error('FX errore '+r.status);
-  const data=await r.json();
+  })()}]});
   return data.content?.[0]?.text||'';
 }
 
@@ -6924,13 +6917,7 @@ async function inviaMessaggioRag(){
   _ragMessages.push({role:'user',content:msg});
   _ragLoading=true;renderPdRagionamento(p);
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,system:RAG_SYSTEM_PROMPT+'\n\n'+costruisciContestoPaziente(p)+contestoFlussi,messages:_ragMessages.map(function(m){return {role:m.role,content:m.content};})})
-    });
-    if(!r.ok)throw new Error('Errore API '+r.status);
-    const data=await r.json();
+    const data=await aiCall({tipo:'ragionamento',apiKey:apiKey,max_tokens:1024,system:RAG_SYSTEM_PROMPT+'\n\n'+costruisciContestoPaziente(p)+contestoFlussi,messages:_ragMessages.map(function(m){return {role:m.role,content:m.content};})});
     _ragMessages.push({role:'assistant',content:data.content?.[0]?.text||''});
   }catch(e){_ragMessages.push({role:'assistant',content:'⚠ Errore: '+e.message});}
   _ragLoading=false;renderPdRagionamento(p);
@@ -6945,13 +6932,7 @@ async function concludiERiassumi(){
   const conv=_ragMessages.length?_ragMessages.map(function(m){return (m.role==='user'?'Dott. Fabrizio':'Claude')+': '+m.content;}).join('\n\n'):'';
   const promptRiass='Sei un assistente clinico. Leggi l analisi prodotta e la conversazione di raffinamento riguardo al paziente '+p.nome+' '+p.cognome+'. Estrai SOLO le decisioni cliniche finali. Produci un riassunto strutturato con, in questo ordine: Obiettivo; poi una riga scritta ESATTAMENTE COSI con le kcal finali decise (post-raffinamento): "🎯 TARGET FINALE: X kcal" (X = numero intero, es. 1900) — questa riga e OBBLIGATORIA e deve contenere il valore calorico definitivo, non MB ne TDEE; Macros definitivi (scrivi esattamente: Proteine: Xg, Carboidrati: Xg, Grassi: Xg); Note cliniche importanti; Integratori consigliati se decisi; Prossimo controllo se menzionato. Sii preciso e conciso.\n\nANALISI PRODOTTA:\n'+flussiTesto+(conv?'\n\nCONVERSAZIONE DI RAFFINAMENTO:\n'+conv:'');
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,messages:[{role:'user',content:promptRiass}]})
-    });
-    if(!r.ok)throw new Error('Errore API '+r.status);
-    const data=await r.json();
+    const data=await aiCall({tipo:'ragionamento-riassunto',apiKey:apiKey,max_tokens:800,messages:[{role:'user',content:promptRiass}]});
     _ragRiassunto=data.content?.[0]?.text||'';
     renderPdRagionamento(p);notif('✓ Riassunto clinico generato!');
   }catch(e){notif('⚠ Errore: '+e.message);}
@@ -7197,17 +7178,7 @@ async function loadAnalisiSanguePDF(e){
       +'- Riporta solo il risultato del paziente, non gli intervalli di riferimento del laboratorio.\n\n'
       +'Formato risposta: {"Nome esame 1": "valore", "Nome esame 2": "valore"}';
 
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-5',
-        max_tokens:2000,
-        messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]
-      })
-    });
-    if(!resp.ok) throw new Error('Errore API '+resp.status);
-    const data=await resp.json();
+    const data=await aiCall({tipo:'import-analisi',apiKey:apiKey,max_tokens:2000,messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]});
     const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
     const clean=testo.replace(/```json|```/g,'').trim();
     const estratti=JSON.parse(clean);
@@ -7564,13 +7535,7 @@ async function suggerisciGruppiClinici(){
     +'\n\nIndica quali gruppi attivare. Per ognuno una motivazione breve (max 1 frase, cita il valore che la giustifica). Formato richiesto — SOLO questo JSON:\n{"gruppi":[{"id":"pat-...","nome":"...","motivazione":"..."}]}\nSe nessun dato giustifica alcun gruppo: {"gruppi":[]}';
 
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:600,system:system,messages:[{role:'user',content:prompt}]})
-    });
-    if(!r.ok) throw new Error('API errore '+r.status);
-    const data=await r.json();
+    const data=await aiCall({tipo:'gruppi-clinici',apiKey:apiKey,max_tokens:600,system:system,messages:[{role:'user',content:prompt}]});
     let txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
     txt=txt.replace(/```json|```/g,'').trim();
     const parsed=JSON.parse(txt);
@@ -11683,6 +11648,118 @@ function getAnthropicKey() {
   return key.trim();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P66 FASE 0 — CLIENT AI UNIFICATO (aiCall)
+// Tutte le chiamate ad Anthropic passano da qui: un solo punto per fetch,
+// headers, stringa modello, timeout, retry-once e log dei consumi.
+// Il TRASPORTO in Fase 0 resta identico a prima (browser-side, chiave in
+// localStorage, header dangerous-direct-browser-access): la Fase 1 cambierà
+// SOLO l'interno di questa funzione (URL → Edge Function Supabase, niente
+// più chiave client-side), senza toccare i 15 chiamanti.
+// NOTA CACHE (vincolo P66/Scoperta #4): la cache piani 90gg è keyed sui
+// parametri paziente, non sul trasporto — questo wrapper non ne altera l'hash.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Registro modelli per tipo di chiamata: il cambio modello ora si fa QUI,
+// in un punto solo (prima era hardcoded in 15 call-site).
+const AI_MODELS = {
+  default: 'claude-sonnet-4-5'
+  // Esempi di override per tipo, quando serviranno:
+  // piano: 'claude-sonnet-4-5',
+  // fx: 'claude-opus-...'
+};
+function _aiModelFor(tipo){
+  return (tipo && AI_MODELS[tipo]) || AI_MODELS.default;
+}
+
+// Log consumi per giorno/tipo in localStorage (osservabilità Fase 0; la
+// Fase 1 sposterà il registro nella tabella ai_usage lato server).
+// Il log non deve MAI rompere la chiamata: tutto in try/catch silenzioso.
+function _aiLogUsage(tipo, model, usage){
+  try{
+    const day = new Date().toISOString().slice(0,10);
+    const store = JSON.parse(localStorage.getItem('aiUsage')||'{}');
+    if(!store[day]) store[day] = {};
+    const t = tipo || 'altro';
+    if(!store[day][t]) store[day][t] = {calls:0, tokIn:0, tokOut:0};
+    store[day][t].calls++;
+    if(usage){
+      store[day][t].tokIn  += (usage.input_tokens  || 0);
+      store[day][t].tokOut += (usage.output_tokens || 0);
+    }
+    const days = Object.keys(store).sort();
+    while(days.length > 30) delete store[days.shift()]; // retention 30gg
+    localStorage.setItem('aiUsage', JSON.stringify(store));
+    console.log('[AI]', t, model, usage ? ('in:'+(usage.input_tokens||0)+' out:'+(usage.output_tokens||0)) : '(no usage)');
+  }catch(e){ /* mai bloccare la chiamata per un errore di log */ }
+}
+
+// aiCall({ tipo, messages, max_tokens, system?, tools?, tool_choice?, model?, apiKey?, timeoutMs? })
+// → restituisce il JSON grezzo della risposta (stessa forma che i chiamanti
+//   già consumano: data.content, data.stop_reason, data.usage, ...).
+// → lancia Error('Errore API <status>') su risposta non-ok (dopo un retry
+//   sugli status transitori), Error di timeout, o l'errore di rete originale.
+// Semantica chiave: apiKey esplicita (anche '') viene usata così com'è —
+// preserva il comportamento dei chiamanti senza guard (chiave vuota → 401
+// come prima). Solo se apiKey è null/undefined interviene getAnthropicKey().
+async function aiCall(opts){
+  const apiKey = (opts.apiKey != null) ? opts.apiKey : getAnthropicKey();
+  const model = opts.model || _aiModelFor(opts.tipo);
+  const body = { model: model, max_tokens: opts.max_tokens, messages: opts.messages };
+  if(opts.system != null) body.system = opts.system;
+  if(opts.tools) body.tools = opts.tools;
+  if(opts.tool_choice) body.tool_choice = opts.tool_choice;
+  const payload = JSON.stringify(body);
+  const timeoutMs = opts.timeoutMs || 300000; // 5 min: generoso (piani 7gg, PDF pesanti)
+  const RETRY_STATUSES = [429, 500, 502, 503, 529]; // transitori: retry-once sicuro
+
+  let lastErr = null;
+  for(let tentativo = 0; tentativo < 2; tentativo++){
+    if(tentativo > 0) await new Promise(function(r){ setTimeout(r, 1500); });
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs);
+    try{
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: payload,
+        signal: ctrl.signal
+      });
+      clearTimeout(timer);
+      if(!resp.ok){
+        if(tentativo === 0 && RETRY_STATUSES.indexOf(resp.status) !== -1){
+          lastErr = new Error('Errore API ' + resp.status);
+          console.warn('[AI] status ' + resp.status + ' — ritento tra 1.5s (' + (opts.tipo||'altro') + ')');
+          continue;
+        }
+        throw new Error('Errore API ' + resp.status);
+      }
+      const data = await resp.json();
+      _aiLogUsage(opts.tipo, model, data.usage);
+      return data;
+    }catch(err){
+      clearTimeout(timer);
+      if(err && err.name === 'AbortError'){
+        // Timeout: NIENTE retry (raddoppierebbe l'attesa) — errore esplicito subito.
+        throw new Error('Timeout chiamata AI (' + Math.round(timeoutMs/1000) + 's)');
+      }
+      if(err instanceof TypeError && tentativo === 0){
+        // Errore di rete puro: unico altro caso in cui si ritenta una volta.
+        lastErr = err;
+        console.warn('[AI] errore di rete — ritento tra 1.5s (' + (opts.tipo||'altro') + ')');
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr || new Error('Chiamata AI fallita');
+}
+
 function _normalizzaPianoNuovo(piano) {
   // Converte chiavi abbreviate (ric, ce, co, or, al, cat, cl) in chiavi estese (ricette, celle, colonna, ordine, alimenti, categoria, colore)
   if (!piano || !piano.length) return piano;
@@ -13416,26 +13493,16 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
   // P77 — atteso calcolato PRIMA della chiamata: dimensiona schema e max_tokens
   var _attesoPre = _attesoStrutturaPiano(paz);
 
-  const risposta = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: _pianoMaxTokens(_attesoPre.nGiorniAttesi),
-      tools: [_pianoToolSchema(_attesoPre.nGiorniAttesi)],
-      tool_choice: { type: 'tool', name: 'genera_piano' },
-      messages: [{ role: 'user', content: prompt }]
-    })
+  // P66 — stessa richiesta di prima (model/max_tokens/tools/tool_choice/messages
+  // identici), solo trasporto unificato in aiCall. Cache 90gg non toccata.
+  const data = await aiCall({
+    tipo: 'piano',
+    apiKey: apiKey,
+    max_tokens: _pianoMaxTokens(_attesoPre.nGiorniAttesi),
+    tools: [_pianoToolSchema(_attesoPre.nGiorniAttesi)],
+    tool_choice: { type: 'tool', name: 'genera_piano' },
+    messages: [{ role: 'user', content: prompt }]
   });
-
-  if (!risposta.ok) throw new Error('Errore API: ' + risposta.status);
-
-  const data = await risposta.json();
   // P62(a) — mai accettare in silenzio un troncamento per limite token
   const _stopReason = data.stop_reason || null;
   const _usage = data.usage || null;
@@ -13471,24 +13538,16 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
         // Rigenerazione DELTA: richiede SOLO i giorni mancanti e li fonde.
         try {
           const promptDelta = _costruisciPromptDelta(pazienteId, _nomiMancanti);
-          const rispostaDelta = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-              'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-5',
-              max_tokens: _pianoMaxTokens(_giorniMancantiIdx.length),
-              tools: [_pianoToolSchema(_giorniMancantiIdx.length)],
-              tool_choice: { type: 'tool', name: 'genera_piano' },
-              messages: [{ role: 'user', content: promptDelta }]
-            })
+          // P66 — aiCall lancia su errore API: il catch(eDelta) qui sotto produce
+          // lo stesso avviso del vecchio ramo else (comportamento invariato).
+          const dataDelta = await aiCall({
+            tipo: 'piano-delta',
+            apiKey: apiKey,
+            max_tokens: _pianoMaxTokens(_giorniMancantiIdx.length),
+            tools: [_pianoToolSchema(_giorniMancantiIdx.length)],
+            tool_choice: { type: 'tool', name: 'genera_piano' },
+            messages: [{ role: 'user', content: promptDelta }]
           });
-          if (rispostaDelta.ok) {
-            const dataDelta = await rispostaDelta.json();
             if (dataDelta.stop_reason === 'max_tokens') {
               console.warn('[P62] Anche la rigenerazione delta è stata troncata per max_tokens.');
             }
@@ -13505,10 +13564,6 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
             notif('✓ Giorni mancanti recuperati (' + _pianoDeltaEspanso.length + ')', 3000);
             // Ricalcola l'esito struttura sul piano fuso, per il meta finale.
             _strutturaEsito = _confrontaStrutturaPiano(pianoEspanso, _atteso);
-          } else {
-            console.warn('[P62] Rigenerazione delta fallita — errore API:', rispostaDelta.status);
-            notif('⚠ Impossibile recuperare i giorni mancanti automaticamente — verifica il piano prima di salvare/PDF', 6000);
-          }
         } catch (eDelta) {
           console.warn('[P62] Rigenerazione delta fallita:', eDelta);
           notif('⚠ Impossibile recuperare i giorni mancanti automaticamente — verifica il piano prima di salvare/PDF', 6000);
@@ -13529,18 +13584,8 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
       + ' per pranzo e cena di ogni giorno nel formato:\n'
       + '[{"giorno":"Lunedì","pranzo_nota":"...","cena_nota":"..."},...]\nNessun testo, solo JSON.';
     try {
-      const rispostaNote = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] })
-      });
-      if (rispostaNote.ok) {
-        const dataNote = await rispostaNote.json();
+      // P66 — aiCall lancia su errore API: il catch qui sotto logga come prima.
+      const dataNote = await aiCall({ tipo: 'piano-note', apiKey: apiKey, max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] });
         const testoNote = dataNote.content[0].text.trim()
           .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
         parseJSONSicuro(testoNote).forEach(function(item) {
@@ -13550,7 +13595,6 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
             if (g.cena && item.cena_nota) g.cena.nota_descrittiva = item.cena_nota;
           }
         });
-      }
     } catch(e) { console.warn('Note descrittive non generate:', e); }
   }
 
@@ -13738,17 +13782,8 @@ Scrivi SOLO il testo del messaggio, senza commenti, senza titoli, senza virgolet
   document.getElementById('ai-wa-btn-genera').disabled = true;
 
   try {
-    const apiKey = localStorage.getItem('anthropicApiKey');
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await resp.json();
+    const apiKey = localStorage.getItem('anthropicApiKey') || '';
+    const data = await aiCall({ tipo: 'whatsapp', apiKey: apiKey, max_tokens: 1000, messages: [{ role: 'user', content: prompt }] });
     const testo = data.content?.[0]?.text?.trim();
     if (!testo) throw new Error('Risposta vuota');
 
@@ -16184,13 +16219,7 @@ Regole:
     btn.innerHTML='⏳ Elaborazione...';
     btn.disabled=true;
 
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:600,messages:[{role:'user',content:prompt}]})
-    });
-    if(!resp.ok)throw new Error('Errore API: '+resp.status);
-    const data=await resp.json();
+    const data=await aiCall({tipo:'voce-progresso',apiKey:apiKey,max_tokens:600,messages:[{role:'user',content:prompt}]});
     const testo=data.content[0].text.trim();
 
     box.textContent=testo;
@@ -17004,16 +17033,7 @@ async function aiSuggerisciRicetta() {
 
 Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza markdown.`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        messages: [{role:'user', content: prompt}]
-      })
-    });
-    const data = await resp.json();
+    const data = await aiCall({tipo:'ricetta',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:1000,messages:[{role:'user', content: prompt}]});
     const testo = data.content?.[0]?.text || '';
     const clean = testo.replace(/```json|```/g,'').trim();
     const ric = JSON.parse(clean);
@@ -17116,19 +17136,10 @@ async function loadInbodyPDF(e) {
       const contentBlock = isImage
         ? {type:'image', source:{type:'base64', media_type:mediaType, data:base64}}
         : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1000,
-          messages: [{role:'user', content:[
+      const data = await aiCall({tipo:'import-inbody',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:1000,messages:[{role:'user', content:[
             contentBlock,
             {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
-          ]}]
-        })
-      });
-      const data = await resp.json();
+          ]}]});
       const testo = data.content?.[0]?.text || '';
       const clean = testo.replace(/```json|```/g,'').trim();
       const ib = JSON.parse(clean);
@@ -17469,14 +17480,8 @@ async function aiRiscriviConcetto(id) {
   if(!c) return;
   notif('⏳ AI sta riscrivendo il concetto...');
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-5', max_tokens:800,
-        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${(c.testo||'').substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]
-      })
-    });
-    const data = await resp.json();
+    const data = await aiCall({tipo:'concetto',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:800,
+        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${(c.testo||'').substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]});
     const nuovoTesto = data.content?.[0]?.text || '';
     const idx=db.concetti.findIndex(x=>x.id===id);
     if(idx>=0) db.concetti[idx].testo=nuovoTesto;
@@ -17518,12 +17523,9 @@ async function openNuovoConcetto() {
   const argomento=prompt('Di cosa vuole parlare? (es. "alimentazione per il sonno")');if(!argomento)return;
   notif('AI in elaborazione...');
   try {
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json','x-api-key':localStorage.getItem('anthropicApiKey')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:800,
-        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]})
-    });
-    const data=await resp.json();const testo=data.content?.[0]?.text||'';
+    const data=await aiCall({tipo:'concetto',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:800,
+        messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]});
+    const testo=data.content?.[0]?.text||'';
     const id='custom_'+Date.now();
     if(!db.concetti)db.concetti=[];
     db.concetti.push({id,titolo,categoria:'Personalizzato',testo,tier:'plus',autore:'fabrizio'});
