@@ -9035,6 +9035,348 @@ function renderBadge75_20_5(piano) {
   if (v.violazioni.length) h += '<div style="margin-top:.3rem;color:#DC2626;font-size:.7rem">'+v.violazioni.join(' | ')+'</div>';
   h += '</div>';
   el.innerHTML = h;
+  // P61 — il validatore clinico si aggiorna insieme al badge 75/20/5:
+  // questo hook copre TUTTI i punti di render/mutazione del piano (15+ call site)
+  // con una sola integrazione, senza toccare i singoli flussi.
+  if (typeof renderBadgeValidatore === 'function') renderBadgeValidatore(piano);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P61 — VALIDATORE CLINICO POST-GENERAZIONE (e post-mutazione)
+// Funzione pura validaPiano(piano, p) → { violazioni[], copertura, livello }
+// Tre esiti per elemento: conforme / violazione (tipo+gravità) / non verificabile.
+// Gravità: allergene → BLOCCO · rosso semaforo → AVVISO · escluso → NOTA.
+// Gira: (a) post-generazione, (b) a ogni mutazione (hook in renderBadge75_20_5),
+// (c) come gate prima di generaPDF e del salvataggio manuale (validaGateExport).
+// Le righe testuali (ricette) sono scansionate a testo intero contro le liste
+// di pericolo E scomposte con _ngScomponiIngredienti per il conteggio copertura:
+// ciò che non è riconoscibile NON viene mai dichiarato sicuro — alimenta il
+// contatore "non verificabili" mostrato sempre (niente falso senso di sicurezza).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Termini testuali per allergene (chip di p.allergie). Liste CONSERVATIVE:
+// un falso positivo è un avviso in più che il medico valuta (esiste l'override),
+// un falso negativo è un allergene che passa. Integrano — non sostituiscono —
+// le regole semaforo (glutine/lattosio/nichel/FODMAP via motivazioniSemaforo).
+var _VALIDA_ALLERGENI_TERMINI = {
+  'Glutine / Celiachia': ['pasta','pane','farro','orzo','seitan','grissini','crackers','cracker','muesli','frisella','friselle','tarallini','taralli','couscous','cous cous','piadina','crostini','crostino','fette biscottate','biscotti','biscotto','wasa','salsa di soia','panbauletto','gnocco','focaccia','pizza','tortilla','bulgur','kamut','segale','avena'],
+  'Lattosio': ['latte','ricotta','mozzarella','fiocchi di latte','philadelphia','stracchino','scamorza','burrata','robiola','yogurt','kefir','panna','besciamella','mascarpone','gelato'],
+  'Latte (proteine)': ['latte','ricotta','mozzarella','fiocchi di latte','philadelphia','stracchino','scamorza','burrata','robiola','yogurt','kefir','panna','besciamella','mascarpone','gelato','parmigiano','grana','pecorino','formaggio','formaggi','burro','feta','provola','caciocavallo','emmental'],
+  'Uova': ['uovo','uova','albume','albumi','tuorlo','frittata','maionese'],
+  'Pesce': ['pesce','merluzzo','nasello','salmone','tonno','sgombro','orata','spigola','branzino','sogliola','trota','alici','acciughe','sardine','baccala','platessa','halibut'],
+  'Crostacei': ['crostacei','gamberi','gamberetti','gambero','scampi','aragosta','astice','granchio','mazzancolle','surimi','frutti di mare'],
+  'Soia': ['soia','tofu','edamame','tempeh','miso','tamari'],
+  'Frutta a guscio': ['noci','noce','mandorle','mandorla','nocciole','nocciola','anacardi','pistacchi','pinoli','frutta secca','frutta a guscio','burro mandorle','macadamia','pecan'],
+  'Arachidi': ['arachidi','arachide','burro arachidi','burro di arachidi'],
+  'Nichel': [],   // coperto dalla regola semaforo all-nichel via motivazioniSemaforo
+  'Istamina': ['tonno','sgombro','alici','acciughe','sardine','pomodoro','pomodori','spinaci','melanzane','parmigiano','grana','pecorino','crauti','salame','salumi','speck','cioccolato','fragole'],
+  'Fruttosio': ['miele','succo di frutta','frutta sciroppata','sciroppo']
+};
+
+// Condizioni di motivazioniSemaforo che valgono come allergia/intolleranza:
+// un alimento grigio per QUESTE motivazioni è un allergene (blocco), non un
+// semplice sconsigliato per patologia (nota).
+var _VALIDA_MOTIVI_ALLERGIA = ['Glutine','Lattosio','Nichel','Low-FODMAP'];
+
+// Normalizzazione per il matching testuale: minuscole, niente accenti,
+// punteggiatura → spazio (così "crostini." e "pasta," matchano a parola intera).
+function _validaNorm(s){
+  return _normNomeAlim(String(s||'')).replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function _validaMatchTermine(testoNorm, termineNorm){
+  if(!testoNorm||!termineNorm) return false;
+  var re=new RegExp('(^|\\s)'+_escRegAlim(termineNorm)+'(\\s|$)');
+  return re.test(testoNorm);
+}
+
+// Costruisce le tre liste di pericolo dal profilo paziente.
+// Ritorna { allergeni:[{t:termineNorm, motivo}], rossi:[{t,nome}], esclusi:[{t,nome,motivo}] }
+function _validaCostruisciListe(p){
+  var out={allergeni:[],rossi:[],esclusi:[]};
+  if(!p) return out;
+  var visti={};
+  function addA(term,motivo){ var t=_validaNorm(term); if(t&&t.length>=3&&!visti['a|'+t]){visti['a|'+t]=1;out.allergeni.push({t:t,motivo:motivo});} }
+  function addR(nome){ var t=_validaNorm(nome); if(t&&t.length>=2&&!visti['r|'+t]){visti['r|'+t]=1;out.rossi.push({t:t,nome:nome});} }
+  function addE(nome,motivo){ var t=_validaNorm(nome); if(t&&t.length>=2&&!visti['e|'+t]){visti['e|'+t]=1;out.esclusi.push({t:t,nome:nome,motivo:motivo||''});} }
+
+  // 1) Semaforo del paziente: rosso → avviso; no → escluso manuale;
+  //    grigioScuro → allergene se la motivazione è un'intolleranza, altrimenti escluso.
+  var al=p.alimenti||{}, mot=p.motivazioniSemaforo||{};
+  Object.keys(al).forEach(function(k){
+    var colore=al[k];
+    var nome=k.indexOf('__')>=0?k.split('__')[1]:k;
+    if(!nome) return;
+    if(colore==='rosso'){ addR(nome); return; }
+    if(colore==='no'){ addE(nome,'escluso manualmente'); return; }
+    if(colore==='grigioScuro'){
+      var grigi=(mot[k]&&mot[k].grigi)||[];
+      var motAll=grigi.filter(function(g){return _VALIDA_MOTIVI_ALLERGIA.indexOf(g)>=0;});
+      if(motAll.length){ addA(nome,motAll.join(', ')); }
+      else { addE(nome, grigi.length?('sconsigliato: '+grigi.join(', ')):'sconsigliato'); }
+    }
+  });
+
+  // 2) Chip allergie → termini testuali statici (liste conservative).
+  var allStr=String(p.allergie||'');
+  var allNorm=_validaNorm(allStr);
+  Object.keys(_VALIDA_ALLERGENI_TERMINI).forEach(function(label){
+    if(_validaNorm(label)&&allNorm.indexOf(_validaNorm(label))>=0){
+      _VALIDA_ALLERGENI_TERMINI[label].forEach(function(t){ addA(t,label); });
+    }
+  });
+
+  // 3) Testo libero in p.allergie: i token non-chip diventano termini di blocco
+  //    (es. "fragole", "kiwi"); in più ogni parola del token che risolve a un
+  //    alimento noto del DB entra come termine (cattura "evitare kiwi").
+  var chipNorms=Object.keys(_VALIDA_ALLERGENI_TERMINI).map(_validaNorm);
+  allStr.split(',').map(function(s){return s.trim();}).filter(Boolean).forEach(function(tok){
+    var tn=_validaNorm(tok);
+    if(!tn||chipNorms.indexOf(tn)>=0) return;
+    addA(tn,'allergia dichiarata: '+tok);
+    tn.split(' ').forEach(function(w){
+      if(w.length>=4&&typeof trovaChiaveAlimento==='function'&&trovaChiaveAlimento(w)) addA(w,'allergia dichiarata: '+tok);
+    });
+  });
+  return out;
+}
+
+// Verifica un singolo testo (nome alimento o riga ricetta) contro le liste.
+// Ritorna la violazione più grave trovata, o null.
+function _validaTesto(testo, liste){
+  var tn=_validaNorm(testo);
+  if(!tn) return null;
+  for(var i=0;i<liste.allergeni.length;i++){
+    if(_validaMatchTermine(tn,liste.allergeni[i].t))
+      return {tipo:'allergene',gravita:'blocco',termine:liste.allergeni[i].t,motivo:liste.allergeni[i].motivo};
+  }
+  for(var j=0;j<liste.rossi.length;j++){
+    if(_validaMatchTermine(tn,liste.rossi[j].t))
+      return {tipo:'rosso',gravita:'avviso',termine:liste.rossi[j].t,motivo:'alimento rosso nel semaforo'};
+  }
+  for(var k2=0;k2<liste.esclusi.length;k2++){
+    if(_validaMatchTermine(tn,liste.esclusi[k2].t))
+      return {tipo:'escluso',gravita:'nota',termine:liste.esclusi[k2].t,motivo:liste.esclusi[k2].motivo};
+  }
+  return null;
+}
+
+// ── FUNZIONE PURA — cuore di P61 ──
+// piano: array giorni (formato nuovo con g.pasti o legacy g[slot])
+// p: paziente. Nessun accesso al DOM, nessun side effect: testabile in golden test.
+function validaPiano(piano, p){
+  var esito={violazioni:[],copertura:{totale:0,verificati:0,nonVerificabili:[]},livello:'ok'};
+  if(!piano||!piano.length||!p) return esito;
+  var liste=_validaCostruisciListe(p);
+  var SLOTS=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+
+  piano.forEach(function(g,gIdx){
+    var nomeGiorno=g.giorno||g.g||('Giorno '+(gIdx+1));
+    SLOTS.forEach(function(slot){
+      var pasto=(g.pasti&&g.pasti[slot])?g.pasti[slot]:g[slot];
+      if(!pasto) return;
+
+      // A) Celle: ogni alimento ha nome canonico → sempre verificabile.
+      (pasto.celle||[]).forEach(function(cella){
+        (cella.alimenti||[]).forEach(function(alx){
+          if(!alx||!alx.n) return;
+          esito.copertura.totale++; esito.copertura.verificati++;
+          var v=_validaTesto(alx.n,liste);
+          if(v){
+            v.elemento=alx.n; v.giorno=nomeGiorno; v.giornoIdx=gIdx; v.slot=slot;
+            v.fonte='cella'; v.cellaId=cella.id||null;
+            esito.violazioni.push(v);
+          }
+        });
+      });
+
+      // B) Righe testuali (ricette): scan a testo intero + copertura via
+      //    scomposizione ingredienti. Il rischio massimo è qui (analisi critica):
+      //    ciò che non si riesce a verificare viene DICHIARATO non verificabile.
+      (pasto.ricette||[]).forEach(function(r,rIdx){
+        var testo=(r||'').trim();
+        if(!testo) return;
+        esito.copertura.totale++;
+        var v=_validaTesto(testo,liste);
+        if(v){
+          v.elemento=testo.length>60?testo.slice(0,57)+'…':testo;
+          v.giorno=nomeGiorno; v.giornoIdx=gIdx; v.slot=slot;
+          v.fonte='ricetta'; v.ricettaIdx=rIdx;
+          esito.violazioni.push(v);
+          esito.copertura.verificati++; // ha prodotto evidenza → verificata
+          return;
+        }
+        var ings=(typeof _ngScomponiIngredienti==='function')?_ngScomponiIngredienti(testo):[];
+        if(!ings.length){
+          esito.copertura.nonVerificabili.push({giorno:nomeGiorno,giornoIdx:gIdx,slot:slot,testo:testo,motivo:'nessun ingrediente con grammatura estraibile'});
+          return;
+        }
+        var nonRic=[];
+        ings.forEach(function(ing){
+          var noto=(typeof trovaChiaveAlimento==='function'&&trovaChiaveAlimento(ing.n))||(typeof getCategoriaFunzionale==='function'&&getCategoriaFunzionale(ing.n));
+          if(!noto) nonRic.push(ing.n);
+        });
+        if(nonRic.length){
+          esito.copertura.nonVerificabili.push({giorno:nomeGiorno,giornoIdx:gIdx,slot:slot,testo:testo,motivo:'ingredienti non riconosciuti: '+nonRic.join(', ')});
+        } else {
+          esito.copertura.verificati++;
+        }
+      });
+    });
+  });
+
+  var haBlocco=esito.violazioni.some(function(v){return v.gravita==='blocco';});
+  var haAvviso=esito.violazioni.some(function(v){return v.gravita==='avviso';});
+  var haNota=esito.violazioni.some(function(v){return v.gravita==='nota';});
+  if(haBlocco) esito.livello='blocco';
+  else if(haAvviso) esito.livello='avviso';
+  else if(haNota||esito.copertura.nonVerificabili.length) esito.livello='nota';
+  else esito.livello='ok';
+  return esito;
+}
+
+// Firma stabile delle violazioni bloccanti — usata per legare l'override
+// esplicito ESATTAMENTE a questo insieme di violazioni (se il piano cambia,
+// l'override decade da solo).
+function _validaFirmaBlocchi(esito){
+  return (esito.violazioni||[]).filter(function(v){return v.gravita==='blocco';})
+    .map(function(v){return v.giorno+'|'+v.slot+'|'+v.elemento+'|'+v.termine;})
+    .sort().join('§');
+}
+
+// ── BADGE PERMANENTE (verde/giallo/rosso) accanto al badge 75/20/5 ──
+function renderBadgeValidatore(piano){
+  var anchor=document.getElementById('piano-badge-75');
+  if(!anchor) return;
+  var el=document.getElementById('piano-badge-valida');
+  if(!el){
+    el=document.createElement('div');
+    el.id='piano-badge-valida';
+    anchor.parentNode.insertBefore(el,anchor.nextSibling);
+  }
+  var p=window._pdfPaziente;
+  if(!piano||!piano.length||!p){ el.innerHTML=''; window._validaUltimoEsito=null; return; }
+  var esito=validaPiano(piano,p);
+  window._validaUltimoEsito=esito;
+  var nB=esito.violazioni.filter(function(v){return v.gravita==='blocco';}).length;
+  var nA=esito.violazioni.filter(function(v){return v.gravita==='avviso';}).length;
+  var nN=esito.violazioni.filter(function(v){return v.gravita==='nota';}).length;
+  var cop=esito.copertura;
+  var colore,sfondo,bordo,icona,testo;
+  if(esito.livello==='blocco'){ colore='#B91C1C';sfondo='#FEF2F2';bordo='#FCA5A5';icona='⛔';testo=nB+' allergene'+(nB===1?'':'/i')+' nel piano'; }
+  else if(esito.livello==='avviso'){ colore='#D97706';sfondo='#FFFBEB';bordo='#FCD34D';icona='⚠';testo=nA+' alimento/i rosso/i'; }
+  else if(esito.livello==='nota'){ colore='#A16207';sfondo='#FEFCE8';bordo='#FDE68A';icona='ℹ';testo=(nN?nN+' escluso/i':'')+((nN&&cop.nonVerificabili.length)?' · ':'')+(cop.nonVerificabili.length?cop.nonVerificabili.length+' non verificabile/i':''); }
+  else { colore='#059669';sfondo='#ECFDF5';bordo='#6EE7B7';icona='✓';testo='Nessuna violazione clinica'; }
+  var h='<div onclick="apriPannelloValidatore()" style="cursor:pointer;padding:.5rem .9rem;background:'+sfondo+';border:1px solid '+bordo+';border-radius:8px;font-size:.75rem;margin-bottom:.6rem" title="Click per il dettaglio">';
+  h+='<span style="font-weight:700;color:'+colore+'">'+icona+' Validatore clinico: '+testo+'</span>';
+  h+=' &nbsp;|&nbsp; <span style="color:var(--text3)">verificati '+cop.verificati+'/'+cop.totale+' elementi</span>';
+  h+=' <span style="color:var(--text3);text-decoration:underline">dettagli</span>';
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+// Navigazione "vai alla cella": porta la vista sul giorno della violazione.
+function _validaVaiAlGiorno(gIdx){
+  window._pianoGiornoCorrente=gIdx;
+  var ov=document.getElementById('valida-overlay'); if(ov) ov.remove();
+  if(typeof _aggiornaPianoBox==='function') _aggiornaPianoBox();
+}
+
+// ── PANNELLO DETTAGLI (+ override esplicito motivato se chiamato come gate) ──
+// mode: 'view' (dal badge) | 'gate' (da PDF/salvataggio, con override).
+// onOverride: callback eseguita dopo un override valido (riprende l'azione).
+function apriPannelloValidatore(mode,onOverride){
+  mode=mode||'view';
+  var esito=window._validaUltimoEsito;
+  var p=window._pdfPaziente, piano=window._pianoCorrente;
+  if(!esito&&piano&&p){ esito=validaPiano(piano,p); window._validaUltimoEsito=esito; }
+  if(!esito){ notif('⚠ Nessun piano da validare'); return; }
+  var old=document.getElementById('valida-overlay'); if(old) old.remove();
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  var GRAV={blocco:{lbl:'⛔ BLOCCO — allergene',col:'#B91C1C'},avviso:{lbl:'⚠ AVVISO — alimento rosso',col:'#D97706'},nota:{lbl:'ℹ NOTA — escluso/sconsigliato',col:'#A16207'}};
+  var SLOT_LBL={colazione:'Colazione',spuntino_mattina:'Spuntino mattina',pranzo:'Pranzo',spuntino_pomeriggio:'Spuntino pomeriggio',cena:'Cena',pre_nanna:'Pre-nanna'};
+  var h='<div class="modal" style="width:560px;max-width:94vw;max-height:82vh;overflow-y:auto">';
+  h+='<h3 style="margin:0 0 .4rem">🛡 Validatore clinico del piano</h3>';
+  h+='<div style="font-size:.75rem;color:var(--text3);margin-bottom:.6rem">Verificati '+esito.copertura.verificati+'/'+esito.copertura.totale+' elementi'+(esito.copertura.nonVerificabili.length?' — '+esito.copertura.nonVerificabili.length+' non verificabili':'')+'. Il validatore non sostituisce il giudizio clinico: è la rete di sicurezza.</div>';
+  if(!esito.violazioni.length){
+    h+='<div style="padding:.6rem;background:#ECFDF5;border:1px solid #6EE7B7;border-radius:8px;font-size:.8rem;color:#059669;font-weight:600">✓ Nessuna violazione rilevata</div>';
+  } else {
+    ['blocco','avviso','nota'].forEach(function(grav){
+      var vs=esito.violazioni.filter(function(v){return v.gravita===grav;});
+      if(!vs.length) return;
+      h+='<div style="font-size:.78rem;font-weight:700;color:'+GRAV[grav].col+';margin:.6rem 0 .25rem">'+GRAV[grav].lbl+' ('+vs.length+')</div>';
+      vs.forEach(function(v){
+        h+='<div style="display:flex;align-items:center;gap:6px;font-size:.76rem;padding:.3rem .4rem;border-bottom:1px solid var(--border)">';
+        h+='<span style="flex:1"><strong>'+esc(v.elemento)+'</strong> <span style="color:var(--text3)">('+esc(v.motivo)+')</span><br><span style="color:var(--text3)">'+esc(v.giorno)+' · '+(SLOT_LBL[v.slot]||v.slot)+(v.fonte==='ricetta'?' · riga ricetta':'')+'</span></span>';
+        h+='<button onclick="_validaVaiAlGiorno('+v.giornoIdx+')" style="flex:0 0 auto;font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Vai al giorno →</button>';
+        h+='</div>';
+      });
+    });
+  }
+  if(esito.copertura.nonVerificabili.length){
+    h+='<div style="font-size:.78rem;font-weight:700;color:#6B7280;margin:.6rem 0 .25rem">◌ NON VERIFICABILI ('+esito.copertura.nonVerificabili.length+') — da controllare a occhio</div>';
+    esito.copertura.nonVerificabili.forEach(function(nv){
+      h+='<div style="display:flex;align-items:center;gap:6px;font-size:.74rem;padding:.3rem .4rem;border-bottom:1px solid var(--border);color:var(--text2)">';
+      h+='<span style="flex:1">'+esc(nv.testo)+'<br><span style="color:var(--text3)">'+esc(nv.giorno)+' · '+(SLOT_LBL[nv.slot]||nv.slot)+' — '+esc(nv.motivo)+'</span></span>';
+      h+='<button onclick="_validaVaiAlGiorno('+nv.giornoIdx+')" style="flex:0 0 auto;font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Vai →</button>';
+      h+='</div>';
+    });
+  }
+  var haBlocco=esito.violazioni.some(function(v){return v.gravita==='blocco';});
+  if(mode==='gate'&&haBlocco){
+    h+='<div style="margin-top:.8rem;padding:.6rem;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px">';
+    h+='<div style="font-size:.76rem;font-weight:700;color:#B91C1C;margin-bottom:.35rem">⛔ Il piano contiene possibili allergeni: PDF/salvataggio bloccati.</div>';
+    h+='<div style="font-size:.72rem;color:var(--text2);margin-bottom:.35rem">Correggi le violazioni oppure procedi con un override esplicito motivato (verrà registrato nel piano).</div>';
+    h+='<textarea id="valida-override-motivo" placeholder="Motivazione clinica dell\'override (obbligatoria)…" style="width:100%;min-height:52px;font-size:.75rem;padding:.4rem;border:1px solid var(--border);border-radius:6px;box-sizing:border-box"></textarea>';
+    h+='<button onclick="_validaEseguiOverride()" style="margin-top:.4rem;font-size:.74rem;padding:.4rem .8rem;border:1px solid #B91C1C;color:#B91C1C;background:#fff;border-radius:6px;cursor:pointer;font-weight:600">Procedi comunque (override motivato)</button>';
+    h+='</div>';
+  }
+  h+='<div style="text-align:right;margin-top:.8rem"><button onclick="document.getElementById(\'valida-overlay\').remove()" style="font-size:.78rem;padding:.4rem .9rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Chiudi</button></div>';
+  h+='</div>';
+  var overlay=document.createElement('div');
+  overlay.id='valida-overlay';
+  overlay.className='overlay open';
+  overlay.innerHTML=h;
+  document.body.appendChild(overlay);
+  window._validaOverrideCallback=(mode==='gate')?(onOverride||null):null;
+  window._validaOverrideEsito=(mode==='gate')?esito:null;
+}
+
+function _validaEseguiOverride(){
+  var ta=document.getElementById('valida-override-motivo');
+  var motivo=ta?ta.value.trim():'';
+  if(!motivo){ notif('⚠ La motivazione dell\'override è obbligatoria'); return; }
+  var esito=window._validaOverrideEsito||window._validaUltimoEsito;
+  var firma=esito?_validaFirmaBlocchi(esito):'';
+  window._validaOverride={firma:firma,motivo:motivo,data:new Date().toISOString()};
+  // Registrazione nel piano: proprietà additiva sul primo giorno (serializza
+  // col piano nella cache Supabase; retrocompatibile — chi non la conosce la ignora).
+  var piano=window._pianoCorrente;
+  if(piano&&piano[0]){
+    piano[0]._validaOverride={motivo:motivo,data:window._validaOverride.data,
+      violazioni:(esito?esito.violazioni.filter(function(v){return v.gravita==='blocco';}).map(function(v){return v.giorno+' · '+v.slot+' · '+v.elemento;}):[])};
+  }
+  console.log('[P61] Override validatore registrato:',JSON.stringify(window._validaOverride));
+  var ov=document.getElementById('valida-overlay'); if(ov) ov.remove();
+  var cb=window._validaOverrideCallback; window._validaOverrideCallback=null;
+  notif('Override registrato — procedo');
+  if(typeof cb==='function') cb();
+}
+
+// ── GATE per PDF e salvataggio: true = via libera; false = pannello aperto.
+// onProceed viene richiamata solo dopo un override valido.
+function validaGateExport(paziente, piano, onProceed){
+  if(!paziente||!piano||!piano.length) return true;
+  var esito=validaPiano(piano,paziente);
+  window._validaUltimoEsito=esito;
+  var haBlocco=esito.violazioni.some(function(v){return v.gravita==='blocco';});
+  if(!haBlocco) return true;
+  var firma=_validaFirmaBlocchi(esito);
+  if(window._validaOverride&&window._validaOverride.firma===firma){
+    console.log('[P61] Gate: override valido in sessione — via libera');
+    return true;
+  }
+  apriPannelloValidatore('gate',onProceed);
+  return false;
 }
 
 function renderRiepilogoSettimana(piano) {
@@ -13324,6 +13666,12 @@ async function generaPiano(forceRegen){
     renderRiepilogoSettimana(pianoAI);
     inizializzaP2(pianoAI);
 
+    // P61 — post-generazione: se il validatore trova possibili allergeni,
+    // apri subito il pannello (non solo il badge): l'errore va visto ORA.
+    if (window._validaUltimoEsito && window._validaUltimoEsito.violazioni.some(function(v){return v.gravita==='blocco';})) {
+      apriPannelloValidatore('view');
+    }
+
   } catch(e) {
     clearInterval(_pianoLoaderIv);
     loadEl.style.cssText='margin-top:1rem;padding:.8rem 1.2rem;background:#fdf3f2;border:1.5px solid #f5c6c2;border-radius:10px;font-size:.85rem;color:#c0392b;text-align:center;';
@@ -13698,6 +14046,11 @@ function _ngSalvaPianoManuale(){
   const sel=document.getElementById('piano-select-paz');
   const id=sel?sel.value:'';
   if(!id){ notif('⚠ Paziente non selezionato'); return; }
+  // P61 — gate clinico anche sul salvataggio manuale (stessa rete del PDF)
+  const _pazGate=window._pdfPaziente||((db&&db.pazienti)||[]).find(function(x){return x.id===id;});
+  if(typeof validaGateExport==='function'&&_pazGate){
+    if(!validaGateExport(_pazGate,window._pianoCorrente,function(){ _ngSalvaPianoManuale(); })) return;
+  }
   const pianoEspanso=(typeof espandiPiano==='function')?espandiPiano(window._pianoCorrente):window._pianoCorrente;
   window._pdfPiano=pianoEspanso;
   if(typeof _salvaPianoCache==='function') _salvaPianoCache(id,pianoEspanso);
@@ -14350,6 +14703,12 @@ function getEmojiCp(nomeAlimento, categoria) {
 }
 
 async function generaPDF(paziente, giorni) {
+  // P61 — gate clinico: se il piano contiene possibili allergeni, il PDF si
+  // blocca e si apre il pannello con override esplicito motivato. Dopo un
+  // override valido il pannello richiama generaPDF con gli stessi argomenti.
+  if (typeof validaGateExport === 'function') {
+    if (!validaGateExport(paziente, giorni, function(){ generaPDF(paziente, giorni); })) return;
+  }
   // Pre-carica tutte le emoji necessarie in modo asincrono PRIMA di aprire jsPDF
   var _emojiCacheGlobal = {};
 
