@@ -5292,7 +5292,7 @@ function salvaPaz(){
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
   window._alMotivazioni=pd.motivazioniSemaforo||{};window._alStato=pd.alimenti||{};
-  save();closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');if(document.getElementById('pd-macros'))renderPdMacros(pd);
+  save(pd.id);closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');if(document.getElementById('pd-macros'))renderPdMacros(pd);
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
 
@@ -5524,7 +5524,7 @@ function updateRoutineCampo(idx, campo, valore) {
   const p = db.pazienti.find(x => x.id === currentPazId);
   if (!p || !p.routineGiornaliera || !p.routineGiornaliera[idx]) return;
   p.routineGiornaliera[idx][campo] = valore;
-  save();
+  save(p.id);
   renderPdRoutine(p);
 }
 
@@ -5602,7 +5602,7 @@ function aggiungiDaLibreriaIdx(idx) {
     pastoRif: sugg.pastoRif 
   });
   p.routineGiornaliera.push(voce);
-  save();
+  save(p.id);
   renderPdRoutine(p);
   const m = document.getElementById('routine-modal');
   if (m) m.style.display = 'block';
@@ -5633,7 +5633,7 @@ function salvaRoutineVoce() {
   if (!p) return;
   if (!p.routineGiornaliera) p.routineGiornaliera = [];
   p.routineGiornaliera.push(voce);
-  save();
+  save(p.id);
   renderPdRoutine(p);
   ['rt-nome','rt-dose','rt-quando','rt-razionale'].forEach(id => {
     const e = document.getElementById(id); if (e) e.value = '';
@@ -5644,7 +5644,7 @@ function salvaRoutineVoce() {
 function salvaRoutine() {
   const p = db.pazienti.find(x => x.id === currentPazId);
   if (!p) return;
-  save();
+  save(p.id);
   notif('✓ Routine salvata');
 }
 
@@ -5681,7 +5681,7 @@ function removeRoutineVoce(idx) {
   if (!p || !p.routineGiornaliera) return;
   const nome = p.routineGiornaliera[idx]?.nome || '';
   p.routineGiornaliera.splice(idx, 1);
-  save();
+  save(p.id);
   renderPdRoutine(p);
   notif('✓ ' + nome + ' rimosso');
 }
@@ -5804,7 +5804,7 @@ function salvaAggiustamento(pazId){
   if(!p.macrosTarget)p.macrosTarget={};
   p.macrosTarget[campoMacro]=totale;
   p.macrosTarget.kcal=Math.round((parseFloat(p.macrosTarget.kcal)||0)+deltaKcal);
-  save();
+  save(p.id);
   renderPdNote(p);
   notif('✓ Aggiustamento registrato — ricorda di rigenerare il piano con la nuova grammatura');
 }
@@ -5813,7 +5813,7 @@ function eliminaAggiustamento(pazId,agId){
   const p=db.pazienti.find(x=>x.id===pazId);if(!p||!p.aggiustamentiMacros)return;
   if(!confirm('Eliminare questo aggiustamento?\n\nAttenzione: i macrosTarget NON verranno ripristinati automaticamente.'))return;
   p.aggiustamentiMacros=p.aggiustamentiMacros.filter(x=>x.id!==agId);
-  save();
+  save(pazId);
   renderPdNote(p);
   notif('✓ Aggiustamento eliminato');
 }
@@ -5863,7 +5863,7 @@ function salvaNotaClinica(){
   if(!p.noteClinica)p.noteClinica=[];
   if(p.noteClinica.length>=15){notif('⚠ Limite 15 note raggiunto');return;}
   p.noteClinica.push({id:uid(),testo,data:today()});
-  save();
+  save(p.id);
   notif('✓ Nota salvata');
   renderPdNote(p);
 }
@@ -5872,12 +5872,12 @@ function deleteNota(nid){
   const p=db.pazienti.find(x=>x.id===currentPazId);
   if(!p||!p.noteClinica)return;
   p.noteClinica=p.noteClinica.filter(n=>n.id!==nid);
-  save();
+  save(p.id);
   renderPdNote(p);
   notif('✓ Nota eliminata');
 }
 
-function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save();}
+function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save(p.id);}
 
 // ── MOTORE SEMAFORO AUTOMATICO — 20 REGOLE ────────────────────────────────
 
@@ -6440,7 +6440,7 @@ function resetSemaforoAuto(p){
     if(coloriAuto.includes(p.alimenti[k]))delete p.alimenti[k];
   });
   _applicaRegoloSemaforoLEGACY(p);
-  save();
+  save(p.id);
   notif('✓ Semaforo automatico ricalcolato!');
 }
 
@@ -6778,7 +6778,7 @@ async function _riepAggiornaFX(p){
     p.ragionamentoClinico.flussi.fx=testo;
     p.ragionamentoClinico.fxSig=_riepDataSig(p);
     p.ragionamentoClinico.fxData=today();
-    if(typeof save==='function') save();
+    if(typeof save==='function') save(p.id);
     notif('✓ Analisi aggiornata');
   }catch(e){
     _riepFxFailed[p.id]=true;
@@ -6799,7 +6799,7 @@ function _riepToggleDomandaDefault(pid, idx){
   var pos=p.domandeChiamata.indexOf(testo);
   if(pos>=0) p.domandeChiamata.splice(pos,1);
   else p.domandeChiamata.push(testo);
-  if(typeof save==='function') save();
+  if(typeof save==='function') save(p.id);
   renderPdRiepilogo(p);
 }
 function _riepAddDomanda(pid){
@@ -6812,14 +6812,14 @@ function _riepAddDomanda(pid){
   if(!p.domandeChiamata) p.domandeChiamata=[];
   if(p.domandeChiamata.indexOf(testo)<0) p.domandeChiamata.push(testo);
   inp.value='';
-  if(typeof save==='function') save();
+  if(typeof save==='function') save(p.id);
   renderPdRiepilogo(p);
 }
 function _riepRemoveDomanda(pid, idx){
   var p=db.pazienti.find(function(x){return x.id===pid;});
   if(!p||!p.domandeChiamata) return;
   p.domandeChiamata.splice(idx,1);
-  if(typeof save==='function') save();
+  if(typeof save==='function') save(p.id);
   renderPdRiepilogo(p);
 }
 
@@ -7170,13 +7170,13 @@ function salvaRagionamento(){
   // Il testo del ragionamento si salva comunque; macrosDecisi resta null e avviso di rilanciare.
   if(!(mKcal&&mProt&&mCarb&&mGras)){
     p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi:null,flussi:{fx:_ragFlussi.fx}};
-    save();renderPdRagionamento(p);
+    save(p.id);renderPdRagionamento(p);
     notif('⚠ Riassunto salvato, ma target non estratto in modo affidabile — rilancia "Concludi e Riassumi" per salvare i macros');
     return;
   }
   const macrosDecisi={kcal:+mKcal[1],P:+mProt[1],C:+mCarb[1],G:+mGras[1],timestamp:Date.now(),source:'fx'};
   p.ragionamentoClinico={data:new Date().toLocaleDateString('it-IT'),testo:_ragRiassunto,macrosDecisi,flussi:{fx:_ragFlussi.fx}};
-  save();notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
+  save(p.id);notif('✓ Ragionamento salvato nel profilo!');renderPdRagionamento(p);
 }
 
 function apriGeneratoreDaRag(){
@@ -7200,7 +7200,7 @@ function cancellaSavedRag(){
   p.ragionamentoClinico=null;
   _ragRiassunto=null;
   _ragFlussi={fx:'',loading:[]};
-  save();notif('Ragionamento eliminato');renderPdRagionamento(p);
+  save(p.id);notif('Ragionamento eliminato');renderPdRagionamento(p);
 }
 
 function renderPazTimeline(p) {
@@ -7501,7 +7501,7 @@ function mostraDiffAnalisi(p, staging, fileName){
       notif('Nessun valore importato.');
       return;
     }
-    save();
+    save(p.id);
     renderPdAnalisi(p);
     notif('✓ '+nImportati+' valori importati dal referto!');
   };
@@ -7523,7 +7523,7 @@ function toggleCalcoloIncluso(id){
   // toggle binario: se mai stato toccato è true; primo toccare → false; secondo → true; ...
   const corrente = p.calcoliClinici.includi[id];
   p.calcoliClinici.includi[id] = corrente === false ? true : false;
-  save();
+  save(p.id);
   // Aggiorna solo il bottone del calcolo toccato, non l'intero pannello
   const btn=document.querySelector('.calc-toggle-fx[data-cid="'+id+'"]');
   if(btn){
@@ -7632,7 +7632,7 @@ function updateAnalisi(changedKey){
     }
   }
 }
-function salvaAnalisi(){updateAnalisi();save();notif('✓ Analisi salvate!');}
+function salvaAnalisi(){const _p=db.pazienti.find(x=>x.id===currentPazId);updateAnalisi();save(_p&&_p.id);notif('✓ Analisi salvate!');}
 
 /* ─── SUGGERITORE GRUPPI CLINICI ─────────────────────────────────── */
 const _GRUPPI_CLINICI=[
@@ -7667,7 +7667,7 @@ function applicaGruppoClinico(id){
   /* Ricalcola il semaforo alimentare con la patologia appena attivata */
   if(typeof applicaRegoloSemaforo==='function') applicaRegoloSemaforo(p);
 
-  save();
+  save(p.id);
 
   const btn=document.getElementById('btn-applica-'+id);
   if(btn){btn.textContent='✓ Applicato';btn.disabled=true;btn.style.opacity='.5';}
@@ -7763,7 +7763,7 @@ async function suggerisciGruppiClinici(){
 
     if(!gruppi.length){
       p.gruppiCliniciSuggeriti=[];
-      save();
+      save(p.id);
       box.innerHTML='<div style="background:#dcfce7;border:1px solid #bbf7d0;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#166534">✅ Nessun gruppo clinico necessario in base ai valori inseriti.</div>';
       return;
     }
@@ -7777,7 +7777,7 @@ async function suggerisciGruppiClinici(){
       motivazione:g.motivazione||'',
       applicato: !!((p.checkSemaforo&&p.checkSemaforo[g.id]) || (precedenti.find(x=>x.id===g.id)||{}).applicato)
     }));
-    save();
+    save(p.id);
 
     box.innerHTML=renderBoxGruppiCliniciSuggeriti(p);
 
@@ -7904,7 +7904,7 @@ function aggiungiPesoIntermedio(pazId){
   // Evita duplicati stessa data
   const idx=p.pesiIntermedi.findIndex(e=>e.data===data);
   if(idx>=0){p.pesiIntermedi[idx].peso=peso;}else{p.pesiIntermedi.push({data,peso});}
-  save();
+  save(p.id);
   renderPdInbody(p);
   notif('✓ Pesata aggiunta!');
 }
@@ -7912,7 +7912,7 @@ function aggiungiPesoIntermedio(pazId){
 function eliminaPesoIntermedio(pazId,idx){
   const p=db.pazienti.find(x=>x.id===pazId);if(!p||!p.pesiIntermedi)return;
   p.pesiIntermedi.splice(idx,1);
-  save();
+  save(pazId);
   renderPdInbody(p);
 }
 
@@ -8937,7 +8937,7 @@ function attivaSlotTDEE(ts){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   const slot=(p.macrosStorico||[]).find(s=>s.timestamp===ts);if(!slot)return;
   p.macrosTarget={...slot};
-  save();renderStoricoTDEE(p);
+  save(p.id);renderStoricoTDEE(p);
   notif('✓ Slot attivato come riferimento per il generatore');
 }
 
@@ -8950,7 +8950,7 @@ function eliminaSlotTDEE(ts){
     const rimasti=(p.macrosStorico||[]).slice().sort((a,b)=>b.timestamp-a.timestamp);
     p.macrosTarget=rimasti.length?{...rimasti[0]}:null;
   }
-  save();renderStoricoTDEE(p);notif('Eliminato');
+  save(p.id);renderStoricoTDEE(p);notif('Eliminato');
 }
 
 // P34 — mostra/nasconde i campi ciclizzazione e aggiorna l'anteprima carboidrati derivati
@@ -9053,7 +9053,7 @@ function salvaCalcoloMacros(){
     if(p.macrosStorico.length>20)p.macrosStorico=p.macrosStorico.slice(-20);
     p.macrosTarget={..._nuovoSlot};
   }
-  save();
+  save(p.id);
   const lafInfo=calcolaTDEE(p);
   const lafEl=document.getElementById('laf-display');
   if(lafEl)lafEl.innerHTML=`LAF: <strong>${lafInfo.laf?lafInfo.laf.toFixed(3):'—'}</strong> · TDEE: <strong>${lafInfo.laf&&lafInfo.mb?Math.round(lafInfo.mb*lafInfo.laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${p.passiGiornalieri||p.oreAllenamento?'calcolato da passi e allenamento':'dati attività mancanti'}</span>`;
@@ -11125,7 +11125,7 @@ function salvaRegolePiano(){
     modello:(document.getElementById('rp-modello')||{}).value||'',
     tipocolazione:(document.querySelector('input[name="rp-colazione"]:checked')||{}).value||'mista',
   };
-  save();
+  save(p.id);
 }
 
 // ── MODELLI DI ROTAZIONE SETTIMANALE ─────────────────────────────────────────
@@ -12307,7 +12307,7 @@ function _appendToggleFruttaStile(containerEl) {
       p.fruttaStile = opt.v;
       var pdb = (db.pazienti || []).find(function(x){ return x.id === p.id; });
       if (pdb) pdb.fruttaStile = opt.v;
-      save();
+      save(p.id);
       _aggiornaPianoBox();
       notif('🍎 Stile frutta: ' + (opt.v === 'stagionale' ? 'stagionale a rotazione' : 'generico'));
     };
@@ -16453,14 +16453,14 @@ function salvaInbody(){
     window._ibAutofill=null;
   }
   if(!p.inbody)p.inbody=[];p.inbody.push(ib);
-  save();closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
+  save(p.id);closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
 }
 
 function delInbody(ibId){
   if(!confirm('Eliminare misurazione?'))return;
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   p.inbody=p.inbody.filter(x=>x.id!==ibId);
-  save();renderPdInbody(p);notif('Eliminata');
+  save(p.id);renderPdInbody(p);notif('Eliminata');
 }
 
 async function ascoltaProgresso(pazId){
@@ -16928,7 +16928,7 @@ function selGiorno(ds){
 
 function setDisp(ds,val){
   if(val)db.disponibilita[ds]=val;else delete db.disponibilita[ds];
-  save();renderCal();selGiorno(ds);
+  save(META_KEY);renderCal();selGiorno(ds);
 }
 
 function openAddEvento(ds){
@@ -17425,7 +17425,7 @@ function salvaConcettiAllegati(btn) {
   p.concettiAllegati = ids;
   const pdb = db.pazienti.find(x=>x.id===p.id);
   if (pdb) pdb.concettiAllegati = ids;
-  save();
+  save(p.id);
   overlay.remove();
   notif(ids.length ? ('✓ '+ids.length+' concetti allegati al piano') : '✓ Nessun concetto allegato');
   if (typeof window._refreshBtnConcetti === 'function') window._refreshBtnConcetti();
@@ -17663,7 +17663,7 @@ function uploadImmagineConcetto(id){
       if(!c.immagini)c.immagini=[];
       const didascalia=prompt('Didascalia immagine (opzionale):','') || '';
       c.immagini.push({src:base64,didascalia,w,h});
-      save();renderConcettiPage();notif('Immagine aggiunta');
+      save(_CONCETTI_META_KEY);renderConcettiPage();notif('Immagine aggiunta');
     });
   };
   input.click();
@@ -17673,7 +17673,7 @@ function uploadImmagineConcetto(id){
 function rimuoviImmagineConcetto(id,idx){
   const c=db.concetti?.find(x=>x.id===id);if(!c||!c.immagini)return;
   c.immagini.splice(idx,1);
-  save();renderConcettiPage();notif('Immagine rimossa');
+  save(_CONCETTI_META_KEY);renderConcettiPage();notif('Immagine rimossa');
 }
 
 // Stato della modalità selezione/eliminazione dei concetti
@@ -17783,7 +17783,7 @@ async function confermaEliminaConcetti(btn){
   _concettiSelMode=false; _concettiSel.clear();
   renderConcettiPage();
   notif('⏳ Eliminazione in corso...');
-  try{ await save(); notif(ids.length>1?'Concetti eliminati':'Concetto eliminato'); }
+  try{ await save(_CONCETTI_META_KEY); notif(ids.length>1?'Concetti eliminati':'Concetto eliminato'); }
   catch(e){ console.error('[CONCETTI] eliminazione fallita',e); notif('⚠ Errore durante l\'eliminazione'); }
 }
 
@@ -17797,7 +17797,7 @@ async function aiRiscriviConcetto(id) {
     const nuovoTesto = data.content?.[0]?.text || '';
     const idx=db.concetti.findIndex(x=>x.id===id);
     if(idx>=0) db.concetti[idx].testo=nuovoTesto;
-    save(); renderConcettiPage(); notif('Concetto riscritto!');
+    save(_CONCETTI_META_KEY); renderConcettiPage(); notif('Concetto riscritto!');
   } catch(e){ notif('⚠ Errore AI'); }
 }
 
@@ -17827,7 +17827,7 @@ function salvaConcetto(id,btn) {
   const idx=db.concetti.findIndex(x=>x.id===id);
   if(idx>=0) db.concetti[idx].testo=nuovoTesto;
   else db.concetti.push({id,testo:nuovoTesto,tier:'plus',autore:'fabrizio'});
-  save(); btn.closest('.overlay').remove(); renderConcettiPage(); notif('Salvato!');
+  save(_CONCETTI_META_KEY); btn.closest('.overlay').remove(); renderConcettiPage(); notif('Salvato!');
 }
 
 async function openNuovoConcetto() {
@@ -17841,7 +17841,7 @@ async function openNuovoConcetto() {
     const id='custom_'+Date.now();
     if(!db.concetti)db.concetti=[];
     db.concetti.push({id,titolo,categoria:'Personalizzato',testo,tier:'plus',autore:'fabrizio'});
-    save();renderConcettiPage();notif('Nuovo concetto creato!');
+    save(_CONCETTI_META_KEY);renderConcettiPage();notif('Nuovo concetto creato!');
   } catch(e){notif('⚠ Errore AI');}
 }
 
@@ -18348,7 +18348,7 @@ function archiviaPaz(id){
   const p=db.pazienti.find(x=>x.id===id);if(!p)return;
   if(!confirm(`Archiviare il paziente ${p.nome} ${p.cognome}?\nNon apparirà più nella lista attiva.`))return;
   p.stato='archiviato';
-  save();
+  save(id);
   goTo('pazienti',document.querySelector('.nav-item'));
   renderPaz();
   notif('📦 Paziente archiviato');
@@ -18356,7 +18356,7 @@ function archiviaPaz(id){
 function ripristinaPaz(id){
   const p=db.pazienti.find(x=>x.id===id);if(!p)return;
   p.stato='attivo';
-  save();renderPaz();
+  save(id);renderPaz();
   notif('✓ Paziente ripristinato');
 }
 async function eliminaPaz(id){
