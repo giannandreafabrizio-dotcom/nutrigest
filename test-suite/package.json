@@ -4,7 +4,7 @@
   "private": true,
   "description": "Suite di test automatica minima per NutriGest (P78) — smoke, unit sulle funzioni pure, render smoke jsPDF.",
   "scripts": {
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test"
   },
   "devDependencies": {
     "jsdom": "^29.1.1",
