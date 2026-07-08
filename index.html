@@ -3714,6 +3714,7 @@ async function pushToSheets(){
     await pushEventiSupabase();
     await pushConcetiSupabase();
     localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
+    window._dirtyIds.clear(); // P68 — il push completo ha coperto ogni riga: set sporco svuotato
     window._syncInFlight = false;
     console.log('[Supabase] push COMPLETATO OK');
     return true;
@@ -3948,7 +3949,127 @@ async function testConnSupabase(){
   }catch(e){if(res){res.style.color='var(--red)';res.textContent='✗ Errore connessione';}}
 }
 
-async function save(){saveLocal();await pushToSheets();}
+// ═══════════════════════════════════════════════════════════════════
+// P68 — Push incrementale (dirty tracking)
+// save() SENZA argomento → comportamento storico invariato (push completo).
+// save(pazId) → salvataggio locale immediato, id marcato "sporco",
+// push per-id coalescato (debounce 2s: raffiche di save → 1 flush).
+// Il set si svuota SOLO per gli id confermati 2xx: un fallimento non
+// azzera gli altri. Coerenza con _syncPendingFail: tra la marcatura e la
+// conferma del push la guardia beforeunload resta armata.
+// I meta-record (META_KEY, __alimenti_custom, __modelli_rotazione,
+// __concetti_educativi) sono righe della stessa tabella pazienti:
+// trattati come id sporchi normali tramite _pushRigaPerId.
+// La migrazione dei 47 call-site è progressiva (parte 2): finché un
+// call-site chiama save() senza id, il comportamento è quello di sempre.
+// ═══════════════════════════════════════════════════════════════════
+window._dirtyIds = new Set();
+let _dirtyFlushTimer = null;
+const P68_DEBOUNCE_MS = 2000;
+
+// Telemetria temporanea: conta per giorno i save() "anonimi" rimasti da
+// migrare, con il chiamante in console. Si rimuove a migrazione conclusa.
+function _p68LogSaveAnonimo(){
+  try{
+    const k='p68SaveAnon';
+    const o=JSON.parse(localStorage.getItem(k)||'{}');
+    const g=today();
+    o[g]=(o[g]||0)+1;
+    const lim=addDays(g,-30);
+    Object.keys(o).forEach(d=>{ if(d<lim) delete o[d]; });
+    localStorage.setItem(k,JSON.stringify(o));
+    const st=((new Error().stack)||'').split('\n')[2]||'';
+    console.log('[P68] save() anonimo → push completo —', st.trim());
+  }catch(e){}
+}
+
+async function save(pazId){
+  saveLocal();
+  if(!pazId){
+    _p68LogSaveAnonimo();
+    await pushToSheets();
+    return;
+  }
+  window._dirtyIds.add(pazId);
+  // Modifica non ancora confermata sul cloud: arma la guardia beforeunload.
+  // Il pallino UI non viene toccato qui: lo aggiorna l'esito del flush.
+  window._syncPendingFail = true;
+  if(_dirtyFlushTimer) clearTimeout(_dirtyFlushTimer);
+  _dirtyFlushTimer = setTimeout(function(){ _dirtyFlushTimer=null; _flushDirtyIds(); }, P68_DEBOUNCE_MS);
+}
+
+// Push di una singola riga della tabella pazienti, per id.
+// Ritorna true SOLO su conferma 2xx (o su id non più esistente in locale,
+// che non ha nulla da pushare: l'eliminazione è già gestita da P64).
+async function _pushRigaPerId(id){
+  try{
+    if(id===META_KEY){
+      await _mergeTombstonesRemoti(); // P64 — non perdere tombstone remoti
+      const meta={disponibilita:db.disponibilita||{}, deleted:_tombstoneAttivi()};
+      const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
+      return r.ok||r.status===200||r.status===201;
+    }
+    if(id===_ALIM_CUSTOM_KEY) return (await pushAlimentiCustomSupabase())===true;
+    if(id===_MODELLI_META_KEY) return (await pushModelliSupabase())===true;
+    if(id===_CONCETTI_META_KEY) return (await pushConcetiSupabase())===true;
+    const p=(db.pazienti||[]).find(x=>x&&x.id===id);
+    if(!p){
+      // Id sporco senza riga locale: eliminato dopo la marcatura (tombstone
+      // P64 già registrato dal flusso di eliminazione) — niente da pushare.
+      console.warn('[P68] id sporco senza riga locale, salto:', id);
+      return true;
+    }
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:new Date().toISOString()})});
+    if(!(r.ok||r.status===200||r.status===201)){
+      console.error('[P68] push per-id ERRORE', id, '— status:', r.status, '— body:', await r.text());
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error('[P68] push per-id ECCEZIONE', id, e);
+    return false;
+  }
+}
+
+async function _flushDirtyIds(){
+  if(!window._dirtyIds.size) return;
+  if(window._syncInFlight){
+    // Push completo (o altro flush) in corso: riprova al prossimo debounce.
+    if(_dirtyFlushTimer) clearTimeout(_dirtyFlushTimer);
+    _dirtyFlushTimer = setTimeout(function(){ _dirtyFlushTimer=null; _flushDirtyIds(); }, P68_DEBOUNCE_MS);
+    return;
+  }
+  window._syncInFlight = true; // P-SYNC-GUARD: flush in corso
+  const ids = Array.from(window._dirtyIds); // snapshot: id arrivati durante il flush restano nel set
+  console.log('[P68] push incrementale —', ids.length, 'id:', ids.join(', '));
+  let okTutti = true;
+  try{
+    await assicuraTokenValido(); // P29 — token fresco prima delle chiamate DB
+    for(const id of ids){
+      const ok = await _pushRigaPerId(id);
+      if(ok) window._dirtyIds.delete(id); // reset SOLO a 2xx, per-id
+      else okTutti = false;
+    }
+  }catch(e){
+    okTutti = false;
+    console.error('[P68] flush ERRORE FATALE:', e);
+  }
+  window._syncInFlight = false;
+  if(okTutti && window._dirtyIds.size===0){
+    localStorage.setItem('lastSync',Date.now());
+    setSyncStatus(true);
+    console.log('[P68] push incrementale COMPLETATO OK');
+  } else if(okTutti){
+    // Tutto lo snapshot è andato, ma nel frattempo sono arrivati nuovi id:
+    // se il debounce non è già armato (caso raro), armalo.
+    if(!_dirtyFlushTimer) _dirtyFlushTimer = setTimeout(function(){ _dirtyFlushTimer=null; _flushDirtyIds(); }, P68_DEBOUNCE_MS);
+  } else {
+    // Id falliti restano nel set: verranno ritentati al prossimo save(id)
+    // o da una sincronizzazione manuale. Retry automatico con backoff = P89.
+    setSyncStatus(false);
+    notif('⚠ Sync fallito — dati salvati solo in locale',3500);
+  }
+}
 
 // ── PIANI SU SUPABASE — tabella dedicata ─────────────────────────────────────
 
@@ -11110,8 +11231,11 @@ async function pushAlimentiCustomSupabase(){
     const rows=await r.json();
     const method=(rows&&rows.length)?'PATCH':'POST';
     const url=SUPA_URL+'/rest/v1/pazienti'+(method==='PATCH'?'?id=eq.'+_ALIM_CUSTOM_KEY:'');
-    await fetch(url,{method,headers:supaHeaders(),body:JSON.stringify(payload)});
-  }catch(e){console.error('[ALIM_CUSTOM] push failed',e);}
+    const resp=await fetch(url,{method,headers:supaHeaders(),body:JSON.stringify(payload)});
+    // P68 — esito esplicito: serve al push per-id per svuotare il set solo a 2xx
+    if(!resp.ok&&resp.status!==200&&resp.status!==201){console.error('[ALIM_CUSTOM] push ERRORE — status:',resp.status);return false;}
+    return true;
+  }catch(e){console.error('[ALIM_CUSTOM] push failed',e);return false;}
 }
 
 async function pullAlimentiCustomSupabase(){
