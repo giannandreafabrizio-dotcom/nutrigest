@@ -3522,6 +3522,83 @@ const SUPA_URL = 'https://zrhmspylnlklppvhgplp.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpyaG1zcHlsbmxrbHBwdmhncGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDA0NDQsImV4cCI6MjA5MzY3NjQ0NH0.imawIV00emURjzLAWyrHdQ0VsRC_3pey4-D-6z8Y5Jg';
 const META_KEY = 'meta_collections';
 
+// ═══════════════════════════════════════════════════════════════════
+// P64 — Registro tombstone (anti-"resurrezione" multi-dispositivo)
+// Un id paziente eliminato viene marcato qui e propagato nel meta record
+// (già sincronizzato). Push e pull consultano il registro per non
+// ripubblicare né riscaricare pazienti eliminati. Scadenza 90 giorni.
+// ═══════════════════════════════════════════════════════════════════
+const TOMBSTONE_TTL_MS = 90 * 24 * 3600 * 1000; // 90 giorni
+
+function _registraTombstone(id){
+  if(!id) return;
+  if(!db._deleted || typeof db._deleted !== 'object') db._deleted = {};
+  db._deleted[id] = Date.now();
+  saveLocal();
+}
+
+// Registro locale ripulito dalle voci scadute (>90gg)
+function _tombstoneAttivi(){
+  if(!db._deleted || typeof db._deleted !== 'object'){ db._deleted = {}; return {}; }
+  const ora = Date.now();
+  const vivi = {};
+  for(const [id, ts] of Object.entries(db._deleted)){
+    if(typeof ts === 'number' && (ora - ts) < TOMBSTONE_TTL_MS) vivi[id] = ts;
+  }
+  db._deleted = vivi;
+  return vivi;
+}
+
+// Fonde un registro remoto in quello locale mantenendo il timestamp più vecchio
+function _fondiTombstones(remoto){
+  if(!db._deleted || typeof db._deleted !== 'object') db._deleted = {};
+  if(remoto && typeof remoto === 'object'){
+    for(const [id, ts] of Object.entries(remoto)){
+      if(typeof ts !== 'number') continue;
+      if(!(id in db._deleted) || ts < db._deleted[id]) db._deleted[id] = ts;
+    }
+  }
+  return _tombstoneAttivi();
+}
+
+// Legge il registro remoto dal meta e lo fonde (best-effort). Usato PRIMA di
+// pushare il meta, così una scrittura concorrente del meta (last-write-wins)
+// non cancella i tombstone creati da un altro dispositivo.
+async function _mergeTombstonesRemoti(){
+  try{
+    const r = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+encodeURIComponent(META_KEY)+'&select=data', {headers:supaHeaders()});
+    if(!r.ok) return;
+    const rows = await r.json();
+    const rd = rows && rows[0] && rows[0].data && rows[0].data.deleted;
+    if(rd) _fondiTombstones(rd);
+  }catch(e){ /* best-effort: in caso di errore si usa il solo registro locale */ }
+}
+
+// Applica i tombstone dopo un pull: scarta eventuali "resurrezioni" arrivate
+// da un altro dispositivo, ripulisce le copie locali e rielimina da remoto le
+// righe risorte (paziente + piani/cache + entrate + eventi collegati).
+async function _applicaTombstones(){
+  const ids = Object.keys(_tombstoneAttivi());
+  if(!ids.length) return;
+  const set = new Set(ids);
+  // Cattura le righe risorte PRIMA di filtrarle, per poterle rieliminare da remoto
+  const pazientiRisorti = (db.pazienti||[]).filter(p=>p&&set.has(p.id));
+  const entrateRisorte  = (db.entrate||[]).filter(e=>e&&set.has(e.pazId));
+  const eventiRisorti   = (db.eventi||[]).filter(e=>e&&set.has(e.pazId));
+  // Ripulitura copie locali
+  db.pazienti = (db.pazienti||[]).filter(p=>!(p&&set.has(p.id)));
+  db.piani    = (db.piani||[]).filter(pl=>!(pl&&set.has(pl.pazienteId)));
+  db.entrate  = (db.entrate||[]).filter(e=>!(e&&set.has(e.pazId)));
+  db.eventi   = (db.eventi||[]).filter(e=>!(e&&set.has(e.pazId)));
+  // Rieliminazione remota delle sole righe effettivamente risorte
+  if(pazientiRisorti.length || entrateRisorte.length || eventiRisorti.length){
+    console.warn('[TOMBSTONE] resurrezione rilevata — ripulisco remoto', {paz:pazientiRisorti.length, entrate:entrateRisorte.length, eventi:eventiRisorti.length});
+    for(const p of pazientiRisorti){ await delPazienteSupabase(p.id); await delPianiPazienteSupabase(p.id); }
+    for(const e of entrateRisorte){ if(e&&e.id) await delEntrataSupabase(e.id); }
+    for(const e of eventiRisorti){ if(e&&e.id) await delEventoSupabase(e.id); }
+  }
+}
+
 function supaHeaders(){
   // P29 — sicurezza: usa l'access_token personale dell'utente loggato per il Bearer,
   // così RLS row-owner riconosce il proprietario. Fallback alla anon key se non loggato
@@ -3620,8 +3697,9 @@ async function pushToSheets(){
         throw new Error('err paz '+p.id+' status '+r.status);
       }
     }
-    // Meta contiene solo disponibilita (tutto il resto ha tabelle dedicate)
-    const meta={disponibilita:db.disponibilita||{}};
+    // Meta contiene disponibilita + registro tombstone P64 (il resto ha tabelle dedicate)
+    await _mergeTombstonesRemoti(); // P64 — non perdere tombstone remoti sotto last-write-wins
+    const meta={disponibilita:db.disponibilita||{}, deleted:_tombstoneAttivi()};
     const metaSize = JSON.stringify(meta).length;
     console.log('[Supabase] push meta — size:', Math.round(metaSize/1024)+'KB');
     const rm=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
@@ -3661,6 +3739,8 @@ async function pullFromSheets(){
     if(mr&&mr.data){
       // Ricette NON più nel meta — usa tabella dedicata
       db.disponibilita=mr.data.disponibilita||{};
+      // P64 — carica il registro tombstone dal meta e fondilo con quello locale
+      _fondiTombstones(mr.data.deleted);
       // Migra eventi dal meta se ancora presenti
       if(mr.data.eventi && mr.data.eventi.length > 0){
         console.log('[EVENTI] trovati nel meta, migro...');
@@ -3709,6 +3789,7 @@ async function pullFromSheets(){
     try { const cOk=await pullConcetiSupabase();if(cOk){CONCETTI_EDUCATIVI=db.concetti;} } catch(e){ console.error('[CONCETTI] pull error:', e); }
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
+    await _applicaTombstones(); // P64 — scarta resurrezioni, ripulisci locale + remoto
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
     console.log('[Supabase] pull COMPLETATO — pazienti:', db.pazienti.length, '— ricette:', db.ricette.length);
     return true;
@@ -3776,6 +3857,7 @@ async function sincronizzaTutto(){
     db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
     if(mr&&mr.data){
       db.disponibilita=mr.data.disponibilita||{};
+      _fondiTombstones(mr.data.deleted); // P64 — carica registro tombstone dal meta
       if(mr.data.eventi&&mr.data.eventi.length>0){db.eventi=mr.data.eventi;await pushEventiSupabase();}
       if(mr.data.entrate&&mr.data.entrate.length>0){db.entrate=mr.data.entrate;await pushEntrateSupabase();}
       if(mr.data.piani&&mr.data.piani.length>0&&!mr.data._pianiMigrati){
@@ -3811,6 +3893,7 @@ async function sincronizzaTutto(){
     try{const cOk=await pullConcetiSupabase();if(cOk){CONCETTI_EDUCATIVI=db.concetti;}}catch(e){}
     ['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});
     if(!db.disponibilita)db.disponibilita={};
+    await _applicaTombstones(); // P64 — scarta resurrezioni, ripulisci locale + remoto
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
     stpSet('stp-extra','done',3);stpMsg('Entrate OK');
     renderPaz();renderRic();renderCal();renderEntrate();
@@ -3915,6 +3998,22 @@ async function delPianoSupabase(pianoId){
     return true;
   } catch(e) {
     console.error('[PIANI] delete ECCEZIONE:', e);
+    return false;
+  }
+}
+
+// P64 — elimina TUTTI i piani di un paziente + la cache AI in una sola chiamata.
+// Piani reali e cache condividono la colonna pazienteId nella tabella 'piani',
+// quindi un solo filtro pazienteId=eq.<id> li copre entrambi (i template hanno
+// pazienteId='__TEMPLATE__' e non vengono toccati).
+async function delPianiPazienteSupabase(pazId){
+  try {
+    const resp = await fetch(SUPA_URL+'/rest/v1/piani?pazienteId=eq.'+encodeURIComponent(pazId), {method:'DELETE', headers: supaHeaders()});
+    if(!resp.ok){ console.error('[PIANI] delete-by-paz ERRORE — status:', resp.status); return false; }
+    console.log('[PIANI] delete-by-paz OK — paziente:', pazId);
+    return true;
+  } catch(e) {
+    console.error('[PIANI] delete-by-paz ECCEZIONE:', e);
     return false;
   }
 }
@@ -18139,19 +18238,41 @@ function ripristinaPaz(id){
 async function eliminaPaz(id){
   const p = db.pazienti.find(x=>x.id===id);
   if(!p) return;
-  if(!confirm(`Eliminare definitivamente il profilo di ${p.nome} ${p.cognome}?\nQuesta azione non può essere annullata.`)) return;
-  // Cattura gli eventi collegati PRIMA di rimuoverli dallo stato locale
-  const eventiCollegati = (db.eventi||[]).filter(e=>e.pazId===id);
+  // P64 — cattura il fascicolo collegato PRIMA di qualsiasi rimozione (conteggi + export)
+  const pianiCollegati   = (db.piani||[]).filter(pl=>pl && pl.pazienteId===id);
+  const entrateCollegate = (db.entrate||[]).filter(e=>e && e.pazId===id);
+  const eventiCollegati  = (db.eventi||[]).filter(e=>e && e.pazId===id);
+  if(!confirm(`Eliminare definitivamente il profilo di ${p.nome} ${p.cognome}?\n\nVerranno rimossi anche:\n• ${pianiCollegati.length} piano/i alimentare/i\n• ${entrateCollegate.length} entrata/e contabile/i\n• ${eventiCollegati.length} evento/i in agenda\n• la cache dei piani AI di questo paziente\n\nPrima dell'eliminazione verrà scaricato un backup JSON del fascicolo.\nQuesta azione NON può essere annullata.`)) return;
+  // P64 — export del fascicolo PRIMA dell'eliminazione (sicurezza + portabilità GDPR)
+  try{
+    const fascicolo = {_export:'fascicolo-paziente', _versione:1, esportatoIl:new Date().toISOString(), paziente:p, piani:pianiCollegati, entrate:entrateCollegate, eventi:eventiCollegati};
+    const blob = new Blob([JSON.stringify(fascicolo,null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fascicolo_'+(((p.cognome||'')+'_'+(p.nome||'')).replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_|_$/g,'')||'paziente')+'_'+today()+'.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){
+    console.error('[P64] export fascicolo fallito:', e);
+    if(!confirm('⚠ Il backup JSON del fascicolo non è stato creato.\nProcedere comunque con l\'eliminazione DEFINITIVA?')) return;
+  }
+  // P64 — rimozione locale a cascata (paziente + piani + entrate + eventi)
   db.pazienti = db.pazienti.filter(x=>x.id!==id);
-  // Rimuovi anche eventi collegati
-  db.eventi = db.eventi.filter(e=>e.pazId!==id);
-  // Elimina le righe remote su Supabase: senza questo il profilo (e i suoi eventi) riappare al prossimo sync
+  db.piani    = (db.piani||[]).filter(pl=>!(pl && pl.pazienteId===id));
+  db.entrate  = (db.entrate||[]).filter(e=>!(e && e.pazId===id));
+  db.eventi   = (db.eventi||[]).filter(e=>!(e && e.pazId===id));
+  // P64 — tombstone: impedisce la "resurrezione" del profilo da un altro dispositivo
+  _registraTombstone(id);
+  // P64 — eliminazione remota a cascata
   await delPazienteSupabase(id);
+  await delPianiPazienteSupabase(id); // piani reali + cache AI (colonna pazienteId condivisa)
+  for(const e of entrateCollegate){ if(e&&e.id) await delEntrataSupabase(e.id); }
   for(const e of eventiCollegati){ if(e&&e.id) await delEventoSupabase(e.id); }
-  await save();
+  await save(); // saveLocal + push: il meta ora propaga il registro tombstone
   goTo('pazienti', document.querySelector('.nav-item'));
   renderPaz();
-  notif('Profilo eliminato');
+  notif('Profilo e fascicolo eliminati');
 }
 
 // ═══════════════════════════════════════
