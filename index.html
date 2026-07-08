@@ -3676,6 +3676,7 @@ async function delPazienteSupabase(id){
   try {
     const resp = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+id, {method:'DELETE', headers: supaHeaders()});
     if(!resp.ok){ console.error('[PAZIENTI] delete ERRORE — status:', resp.status); return false; }
+    if(typeof _p69DropBaseline==='function') _p69DropBaseline(id); // P69 — niente baseline stale per record eliminato
     console.log('[PAZIENTI] delete OK — id:', id);
     return true;
   } catch(e) {
@@ -3690,12 +3691,14 @@ async function pushToSheets(){
   try{
     for(const p of db.pazienti){
       if(!p||!p.id){console.warn('[Supabase] paziente senza id ignorato:',p);continue;}
-      const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:new Date().toISOString()})});
+      const _tsFull=new Date().toISOString();
+      const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:_tsFull})});
       const bodyText = await r.text();
       if(!r.ok&&r.status!==200&&r.status!==201){
         console.error('[Supabase] push ERRORE paziente', p.id, '— status:', r.status, '— body:', bodyText);
         throw new Error('err paz '+p.id+' status '+r.status);
       }
+      _p69SetBaseline(p.id, _tsFull); // P69 — allinea baseline dopo push completo (evita falsi conflitti al prossimo edit)
     }
     // Meta contiene disponibilita + registro tombstone P64 (il resto ha tabelle dedicate)
     await _mergeTombstonesRemoti(); // P64 — non perdere tombstone remoti sotto last-write-wins
@@ -3728,12 +3731,13 @@ async function pushToSheets(){
 async function pullFromSheets(){
   console.log('[Supabase] pull iniziato...');
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data',{method:'GET',headers:supaHeaders()});
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data,updated_at',{method:'GET',headers:supaHeaders()});
     if(!r.ok) throw new Error('status '+r.status);
     const rows=await r.json();
     console.log('[Supabase] pull — righe ricevute:', rows.length);
     if(!rows||!rows.length) return false;
     const pr=rows.filter(row=>row.id!==META_KEY);
+    _p69SetBaselineFromRows(pr); // P69 — allinea la baseline updated_at per-record a questo pull
     const mr=rows.find(row=>row.id===META_KEY);
     if(!pr.length){ console.warn('[Supabase] pull — nessun paziente trovato'); return false; }
     db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
@@ -3850,10 +3854,11 @@ async function sincronizzaTutto(){
   try{
     // Tappa 1 — Pazienti
     stpSet('stp-paz','active',null);stpMsg('Download pazienti…');
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data',{method:'GET',headers:supaHeaders()});
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data,updated_at',{method:'GET',headers:supaHeaders()});
     if(!r.ok)throw new Error('status '+r.status);
     const rows=await r.json();
     const pr=(rows||[]).filter(row=>row.id!==META_KEY);
+    _p69SetBaselineFromRows(pr); // P69 — allinea la baseline updated_at per-record a questa sincronizzazione
     const mr=(rows||[]).find(row=>row.id===META_KEY);
     db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
     if(mr&&mr.data){
@@ -4019,11 +4024,14 @@ async function _pushRigaPerId(id){
       console.warn('[P68] id sporco senza riga locale, salto:', id);
       return true;
     }
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:new Date().toISOString()})});
+    const _tsPush=new Date().toISOString();
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:_tsPush})});
     if(!(r.ok||r.status===200||r.status===201)){
       console.error('[P68] push per-id ERRORE', id, '— status:', r.status, '— body:', await r.text());
       return false;
     }
+    _p69SetBaseline(id, _tsPush); // P69 — la mia scrittura è ora la verità nota per questo record
+    window._p69ForceOverwrite && window._p69ForceOverwrite.delete(id); // consumato l'eventuale "sovrascrivi consapevole"
     return true;
   }catch(e){
     console.error('[P68] push per-id ECCEZIONE', id, e);
@@ -4040,35 +4048,234 @@ async function _flushDirtyIds(){
     return;
   }
   window._syncInFlight = true; // P-SYNC-GUARD: flush in corso
-  const ids = Array.from(window._dirtyIds); // snapshot: id arrivati durante il flush restano nel set
+  if(!window._p69Pending) window._p69Pending = new Set();
+  // P69 — escludi dal flush gli id in attesa di decisione conflitto (evita di riaprire il dialogo a ogni debounce)
+  let ids = Array.from(window._dirtyIds).filter(function(id){ return !window._p69Pending.has(id); });
+  if(!ids.length){ window._syncInFlight = false; return; } // solo conflitti in attesa: nulla da pushare ora
   console.log('[P68] push incrementale —', ids.length, 'id:', ids.join(', '));
   let okTutti = true;
   try{
     await assicuraTokenValido(); // P29 — token fresco prima delle chiamate DB
+    // ── P69 — rilevamento conflitti multi-dispositivo (prima di scrivere) ──
+    // Chiede al server updated_at dei soli id paziente sporchi e li confronta
+    // con la baseline locale. I conflitti "modificato altrove" NON vengono
+    // pushati ora (restano sporchi) e aprono il dialogo a tre vie; i record
+    // "eliminati altrove" non vengono resuscitati (guardia tombstone P64).
+    const _c = await _p69RilevaConflitti(ids);
+    if(_c.deleted.length){
+      _c.deleted.forEach(function(d){ window._dirtyIds.delete(d.id); });
+      const nomi = _c.deleted.map(function(d){ return d.nome; }).join(', ');
+      notif('ℹ '+_c.deleted.length+' paziente/i eliminato/i su un altro dispositivo ('+nomi+') — non ripristinato/i',4500);
+    }
+    if(_c.modified.length){
+      // Sospendi il push dei record in conflitto: restano sporchi + "pending" per il dialogo.
+      const inConflitto = new Set(_c.modified.map(function(m){ return m.id; }));
+      _c.modified.forEach(function(m){ window._p69Pending.add(m.id); });
+      ids = ids.filter(function(id){ return !inConflitto.has(id); });
+    }
     for(const id of ids){
       const ok = await _pushRigaPerId(id);
       if(ok) window._dirtyIds.delete(id); // reset SOLO a 2xx, per-id
       else okTutti = false;
+    }
+    if(_c.modified.length){
+      // Il dialogo gestirà i conflitti in modo asincrono, fuori dal flush corrente.
+      setTimeout(function(){ _p69DialogoConflitti(_c.modified); }, 30);
     }
   }catch(e){
     okTutti = false;
     console.error('[P68] flush ERRORE FATALE:', e);
   }
   window._syncInFlight = false;
-  if(okTutti && window._dirtyIds.size===0){
+  const _pendCount = window._p69Pending ? window._p69Pending.size : 0;
+  const _restanti = Array.from(window._dirtyIds).filter(function(id){ return !window._p69Pending.has(id); }).length;
+  if(okTutti && _restanti===0 && _pendCount===0){
     localStorage.setItem('lastSync',Date.now());
     setSyncStatus(true);
     console.log('[P68] push incrementale COMPLETATO OK');
-  } else if(okTutti){
-    // Tutto lo snapshot è andato, ma nel frattempo sono arrivati nuovi id:
-    // se il debounce non è già armato (caso raro), armalo.
+  } else if(okTutti && _restanti>0){
+    // Restano id non-pending (arrivati durante il flush): se il debounce non è già armato, armalo.
     if(!_dirtyFlushTimer) _dirtyFlushTimer = setTimeout(function(){ _dirtyFlushTimer=null; _flushDirtyIds(); }, P68_DEBOUNCE_MS);
+  } else if(okTutti){
+    // Solo conflitti P69 in attesa di decisione: il dialogo li risolverà, niente re-arm.
+    console.log('[P69] flush sospeso — in attesa di decisione su', _pendCount, 'conflitto/i');
   } else {
     // Id falliti restano nel set: verranno ritentati al prossimo save(id)
     // o da una sincronizzazione manuale. Retry automatico con backoff = P89.
     setSyncStatus(false);
     notif('⚠ Sync fallito — dati salvati solo in locale',3500);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// P69 — Conflitti multi-dispositivo (updated_at)
+// Baseline locale = ultimo updated_at che QUESTO dispositivo ha visto sul
+// server per ciascun record paziente (aggiornata a ogni pull e a ogni push
+// riuscito). Prima di scrivere, il flush confronta il remoto con la baseline:
+// se il remoto è più recente → un altro dispositivo ha scritto nel frattempo
+// → dialogo a tre vie. Nessun merge per-campo (il record è un blob — onestà
+// architetturale). Record assente remoto con baseline nota = eliminato altrove
+// → non resuscitato (guardia tombstone P64). Meta-record esclusi: restano
+// last-write-wins. Fail-open: una GET fallita non blocca mai un salvataggio.
+// ═══════════════════════════════════════════════════════════════════
+const _P69_BASELINE_KEY = 'p69Baseline';
+window._p69ForceOverwrite = window._p69ForceOverwrite || new Set();
+window._p69Pending = window._p69Pending || new Set();
+
+function _p69LoadBaseline(){
+  try{ return JSON.parse(localStorage.getItem(_P69_BASELINE_KEY)||'{}'); }catch(e){ return {}; }
+}
+function _p69StoreBaseline(map){
+  try{ localStorage.setItem(_P69_BASELINE_KEY, JSON.stringify(map||{})); }catch(e){ console.error('[P69] baseline store errore', e); }
+}
+function _p69SetBaseline(id, ts){
+  if(!id || !ts) return;
+  const m=_p69LoadBaseline(); m[id]=ts; _p69StoreBaseline(m);
+}
+function _p69DropBaseline(id){
+  const m=_p69LoadBaseline(); if(m[id]!==undefined){ delete m[id]; _p69StoreBaseline(m); }
+}
+// Allinea la baseline a un set di righe {id, updated_at} arrivate da un pull.
+function _p69SetBaselineFromRows(rows){
+  if(!Array.isArray(rows)) return;
+  const m=_p69LoadBaseline();
+  rows.forEach(function(row){ if(row && row.id && row.updated_at) m[row.id]=row.updated_at; });
+  _p69StoreBaseline(m);
+}
+function _p69NomePaz(id){
+  const p=(db.pazienti||[]).find(function(x){ return x && x.id===id; });
+  if(!p) return id;
+  return ((p.nome||'')+' '+(p.cognome||'')).trim() || id;
+}
+function _p69InList(ids){
+  return ids.map(function(id){ return '"'+encodeURIComponent(String(id))+'"'; }).join(',');
+}
+
+// Interroga il server per updated_at dei soli id paziente sporchi e classifica:
+// modified (remoto > baseline), deleted (assente ma baseline nota), safe (resto).
+// Fail-open su errore rete: tutto safe → nessuna regressione rispetto al
+// last-write-wins pre-P69.
+async function _p69RilevaConflitti(dirtyIds){
+  const META = new Set([META_KEY, _ALIM_CUSTOM_KEY, _MODELLI_META_KEY, _CONCETTI_META_KEY]);
+  const pazDirty = (dirtyIds||[]).filter(function(id){
+    return !META.has(id) && !window._p69ForceOverwrite.has(id); // "sovrascrivi consapevole" salta il check una volta
+  });
+  const vuoto = {modified:[], deleted:[], safe:(dirtyIds||[]).slice()};
+  if(!pazDirty.length) return vuoto;
+  const baseline = _p69LoadBaseline();
+  let remoteMap = null;
+  try{
+    const rr = await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,updated_at&id=in.('+_p69InList(pazDirty)+')',{method:'GET',headers:supaHeaders()});
+    if(!rr.ok) throw new Error('status '+rr.status);
+    const rows = await rr.json();
+    remoteMap = {};
+    rows.forEach(function(row){ if(row && row.id) remoteMap[row.id]=row.updated_at; });
+  }catch(e){
+    console.warn('[P69] pre-check conflitti fallito (fail-open, procedo come last-write-wins):', e);
+    return vuoto;
+  }
+  const modified=[], deleted=[];
+  pazDirty.forEach(function(id){
+    const base = baseline[id];
+    const rem = remoteMap[id];
+    if(rem === undefined){
+      // Assente sul server: se già sincronizzato (baseline nota) è stato eliminato
+      // altrove → non resuscitare. Altrimenti record nuovo mai pushato → push ok.
+      if(base !== undefined) deleted.push({id:id, nome:_p69NomePaz(id)});
+    } else if(base !== undefined && new Date(rem) > new Date(base)){
+      modified.push({id:id, nome:_p69NomePaz(id), remoteTs:rem, baseTs:base});
+    }
+    // base indefinita + presente remoto: prima sync (id già esistente) → safe.
+  });
+  return {modified:modified, deleted:deleted, safe:pazDirty};
+}
+
+// Dialogo a tre vie per i conflitti "modificato altrove".
+function _p69DialogoConflitti(conflitti){
+  if(!conflitti || !conflitti.length) return;
+  if(document.getElementById('p69-overlay')) return; // già aperto
+  const lista = conflitti.map(function(c){
+    return '<div style="padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.4rem">'
+      +'<div style="font-weight:600;font-size:.9rem">'+String(c.nome).replace(/</g,'&lt;')+'</div>'
+      +'<div style="font-size:.7rem;color:var(--text2);margin-top:2px">Modificato su un altro dispositivo dopo il tuo ultimo allineamento.</div>'
+      +'</div>';
+  }).join('');
+  const modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.id='p69-overlay';
+  modal.innerHTML='<div class="modal" style="width:520px;max-width:94vw;max-height:82vh;overflow-y:auto">'
+    +'<h3 style="margin:0 0 .4rem">⚠ Conflitto multi-dispositivo</h3>'
+    +'<div style="font-size:.78rem;color:var(--text2);margin-bottom:.7rem">Questi record risultano modificati anche su un altro dispositivo. Scegli come procedere — la scelta vale per tutti i record elencati.</div>'
+    +'<div style="max-height:300px;overflow:auto;margin-bottom:.3rem">'+lista+'</div>'
+    +'</div>';
+  const box=modal.querySelector('.modal');
+  const mf=document.createElement('div'); mf.className='mf'; mf.style.flexDirection='column'; mf.style.gap='.4rem';
+  mf.innerHTML=''
+    +'<button class="btn btn-g" style="width:100%;text-align:left;padding:.6rem .8rem" id="p69-btn-reload">☁ Ricarica dal cloud <span style="color:var(--text3);font-size:.7rem">(scarta le mie modifiche a questi record)</span></button>'
+    +'<button class="btn btn-g" style="width:100%;text-align:left;padding:.6rem .8rem" id="p69-btn-export">💾 Esporta le mie copie, poi ricarica dal cloud</button>'
+    +'<button class="btn btn-r" style="width:100%;text-align:left;padding:.6rem .8rem" id="p69-btn-force">⬆ Sovrascrivi — le mie versioni vincono <span style="opacity:.85;font-size:.7rem">(consapevole)</span></button>';
+  box.appendChild(mf);
+  document.body.appendChild(modal);
+  const ids = conflitti.map(function(c){ return c.id; });
+  function chiudi(){ modal.remove(); }
+  document.getElementById('p69-btn-reload').onclick=function(){ chiudi(); _p69RisolviRicarica(ids); };
+  document.getElementById('p69-btn-export').onclick=function(){ chiudi(); _p69EsportaLocali(ids); _p69RisolviRicarica(ids); };
+  document.getElementById('p69-btn-force').onclick=function(){ chiudi(); _p69RisolviSovrascrivi(ids); };
+}
+
+// Ricarica dal cloud: sovrascrive le copie locali con quelle remote, riallinea
+// la baseline, libera pending/dirty.
+async function _p69RisolviRicarica(ids){
+  try{
+    await assicuraTokenValido();
+    const rr = await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data,updated_at&id=in.('+_p69InList(ids)+')',{method:'GET',headers:supaHeaders()});
+    if(!rr.ok) throw new Error('status '+rr.status);
+    const rows = await rr.json();
+    const byId={}; rows.forEach(function(r){ byId[r.id]=r; });
+    ids.forEach(function(id){
+      const remote = byId[id];
+      if(remote && remote.data){
+        const idx = (db.pazienti||[]).findIndex(function(p){ return p && p.id===id; });
+        if(idx>=0) db.pazienti[idx]=remote.data; else db.pazienti.push(remote.data);
+        if(remote.updated_at) _p69SetBaseline(id, remote.updated_at);
+      }
+      // se assente remoto (eliminato): non lo ricreiamo, lo lasciamo com'è in locale
+      window._dirtyIds.delete(id);
+      window._p69Pending.delete(id);
+      window._p69ForceOverwrite.delete(id);
+    });
+    saveLocal();
+    if(typeof renderPaz==='function') renderPaz();
+    notif('☁ Ricaricato dal cloud — '+ids.length+' record aggiornato/i',3000);
+  }catch(e){
+    console.error('[P69] ricarica errore', e);
+    notif('⚠ Ricarica fallita — riprova dalla sincronizzazione',3500);
+  }
+}
+
+// Esporta su file JSON le copie locali dei record in conflitto (prima di ricaricare).
+function _p69EsportaLocali(ids){
+  try{
+    const copie = ids.map(function(id){ return (db.pazienti||[]).find(function(p){ return p && p.id===id; }); }).filter(Boolean);
+    const blob=new Blob([JSON.stringify(copie,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='nutrigest_conflitto_'+today()+'.json'; a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){ console.error('[P69] export errore', e); }
+}
+
+// Sovrascrivi consapevole: le versioni locali vincono. Marca gli id come
+// force-overwrite (il prossimo pre-check li salta) e ri-arma il flush.
+function _p69RisolviSovrascrivi(ids){
+  ids.forEach(function(id){
+    window._p69ForceOverwrite.add(id);
+    window._p69Pending.delete(id);
+    window._dirtyIds.add(id);
+  });
+  if(_dirtyFlushTimer) clearTimeout(_dirtyFlushTimer);
+  _dirtyFlushTimer=setTimeout(function(){ _dirtyFlushTimer=null; _flushDirtyIds(); }, 60);
+  notif('⬆ Sovrascrittura in corso — le tue versioni vincono',2500);
 }
 
 // ── PIANI SU SUPABASE — tabella dedicata ─────────────────────────────────────
