@@ -4136,7 +4136,7 @@ async function testaAntKey(){
   if(!key){res.style.color='var(--red)';res.textContent='⚠ Inserisci la chiave';return;}
   res.style.color='var(--text3)';res.textContent='⏳ Test in corso...';
   try{
-    await aiCall({tipo:'test',apiKey:key,max_tokens:1,messages:[{role:'user',content:'Hi'}],timeoutMs:20000});
+    await aiCall({tipo:'test',apiKey:key,trasportoDiretto:true,max_tokens:1,messages:[{role:'user',content:'Hi'}],timeoutMs:20000});
     res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';
   }catch(e){res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
 }
@@ -11649,19 +11649,28 @@ function getAnthropicKey() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// P66 FASE 0 — CLIENT AI UNIFICATO (aiCall)
+// P66 FASE 0+1 — CLIENT AI UNIFICATO (aiCall) + PROXY EDGE FUNCTION
 // Tutte le chiamate ad Anthropic passano da qui: un solo punto per fetch,
 // headers, stringa modello, timeout, retry-once e log dei consumi.
-// Il TRASPORTO in Fase 0 resta identico a prima (browser-side, chiave in
-// localStorage, header dangerous-direct-browser-access): la Fase 1 cambierà
-// SOLO l'interno di questa funzione (URL → Edge Function Supabase, niente
-// più chiave client-side), senza toccare i 15 chiamanti.
+// FASE 1 (trasporto proxy): aiCall chiama la Edge Function Supabase
+// 'ai-proxy' col JWT della sessione utente — la chiave Anthropic vive SOLO
+// come secret server-side e il MODELLO lo decide il registro del server.
+// TRANSIZIONE (stesso pattern del doppio parser P77): se il proxy non è
+// raggiungibile, la sessione manca, o il kill-switch è attivo
+// (localStorage aiProxyDisabled='1'), fallback automatico al trasporto
+// diretto legacy (chiave in localStorage). Il commit di chiusura, a campo
+// validato, rimuoverà trasporto diretto, chiave client e window.prompt.
+// Le risposte del proxy passate ad Anthropic portano l'header
+// 'x-proxy-upstream': la sua ASSENZA distingue gli errori d'infrastruttura
+// del proxy (→ fallback) dagli errori API veri (→ retry normale).
 // NOTA CACHE (vincolo P66/Scoperta #4): la cache piani 90gg è keyed sui
 // parametri paziente, non sul trasporto — questo wrapper non ne altera l'hash.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Registro modelli per tipo di chiamata: il cambio modello ora si fa QUI,
-// in un punto solo (prima era hardcoded in 15 call-site).
+// Registro modelli per tipo di chiamata — usato SOLO dal trasporto diretto
+// legacy. Col proxy attivo (Fase 1) il modello lo decide il MODEL_REGISTRY
+// server-side dentro la Edge Function ai-proxy: cambio modello senza
+// nemmeno un deploy del client.
 const AI_MODELS = {
   default: 'claude-sonnet-4-5'
   // Esempi di override per tipo, quando serviranno:
@@ -11694,43 +11703,119 @@ function _aiLogUsage(tipo, model, usage){
   }catch(e){ /* mai bloccare la chiamata per un errore di log */ }
 }
 
-// aiCall({ tipo, messages, max_tokens, system?, tools?, tool_choice?, model?, apiKey?, timeoutMs? })
+// ── FASE 1: trasporto proxy ────────────────────────────────────────────────
+// AI_PROXY_URL usa SUPA_URL (const top-level già definita): riferita solo a
+// runtime, quindi nessun problema d'ordine di dichiarazione.
+function _aiProxyUrl(){ return SUPA_URL + '/functions/v1/ai-proxy'; }
+
+// Kill-switch di rollback: localStorage.setItem('aiProxyDisabled','1')
+// riporta TUTTE le chiamate al trasporto diretto legacy, senza redeploy.
+function _aiProxyDisabled(){
+  try{ return localStorage.getItem('aiProxyDisabled') === '1'; }catch(e){ return false; }
+}
+
+// Token per il proxy: access_token della sessione se valido (margine 60s),
+// altrimenti tentativo di refresh col refresh_token (sessione o "resta
+// connesso"). Legge la sessione GREZZA prima di tutto: getSessioneSalvata()
+// CANCELLA la chiave se scaduta e perderebbe il refresh_token che ci serve.
+async function _aiTokenPerProxy(forzaRefresh){
+  try{
+    let raw = null;
+    try{ raw = JSON.parse(localStorage.getItem(NG_SESSION_KEY) || 'null'); }catch(e){}
+    if(!forzaRefresh && raw && raw.access_token &&
+       (!raw.expires_at || Date.now()/1000 < raw.expires_at - 60)){
+      return raw.access_token;
+    }
+    const cred = (typeof getCredenzialiPersistenti === 'function') ? getCredenzialiPersistenti() : null;
+    const rt = (raw && raw.refresh_token) || (cred && cred.refresh_token) || null;
+    if(!rt) return null;
+    const nuova = await rinnovaSessioneConRefreshToken(rt);
+    if(nuova && nuova.access_token){
+      salvaSessione(nuova);
+      if(cred && nuova.refresh_token) salvaCredenzialiPersistenti(cred.email, nuova.refresh_token);
+      return nuova.access_token;
+    }
+    return null;
+  }catch(e){ return null; }
+}
+
+// aiCall({ tipo, messages, max_tokens, system?, tools?, tool_choice?, model?, apiKey?, timeoutMs?, trasportoDiretto? })
 // → restituisce il JSON grezzo della risposta (stessa forma che i chiamanti
 //   già consumano: data.content, data.stop_reason, data.usage, ...).
 // → lancia Error('Errore API <status>') su risposta non-ok (dopo un retry
 //   sugli status transitori), Error di timeout, o l'errore di rete originale.
-// Semantica chiave: apiKey esplicita (anche '') viene usata così com'è —
-// preserva il comportamento dei chiamanti senza guard (chiave vuota → 401
-// come prima). Solo se apiKey è null/undefined interviene getAnthropicKey().
+// TRASPORTO: proxy Edge Function (default, con JWT sessione) con fallback
+// automatico al diretto legacy; trasportoDiretto:true lo forza (es. il test
+// della chiave in Impostazioni, che deve testare LA CHIAVE, non il proxy).
+// Semantica chiave (solo trasporto diretto): apiKey esplicita (anche '')
+// viene usata così com'è; solo se null/undefined interviene getAnthropicKey().
 async function aiCall(opts){
-  const apiKey = (opts.apiKey != null) ? opts.apiKey : getAnthropicKey();
-  const model = opts.model || _aiModelFor(opts.tipo);
-  const body = { model: model, max_tokens: opts.max_tokens, messages: opts.messages };
-  if(opts.system != null) body.system = opts.system;
-  if(opts.tools) body.tools = opts.tools;
-  if(opts.tool_choice) body.tool_choice = opts.tool_choice;
-  const payload = JSON.stringify(body);
+  const model = opts.model || _aiModelFor(opts.tipo); // usato SOLO dal diretto: nel proxy decide il server
+  const bodyComune = { max_tokens: opts.max_tokens, messages: opts.messages };
+  if(opts.system != null) bodyComune.system = opts.system;
+  if(opts.tools) bodyComune.tools = opts.tools;
+  if(opts.tool_choice) bodyComune.tool_choice = opts.tool_choice;
   const timeoutMs = opts.timeoutMs || 300000; // 5 min: generoso (piani 7gg, PDF pesanti)
   const RETRY_STATUSES = [429, 500, 502, 503, 529]; // transitori: retry-once sicuro
+
+  async function fetchConTimeout(url, headers, payload){
+    const ctrl = new AbortController();
+    const timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs);
+    try{
+      return await fetch(url, { method:'POST', headers: headers, body: payload, signal: ctrl.signal });
+    } finally { clearTimeout(timer); }
+  }
+
+  // ── scelta trasporto ──
+  let usaProxy = !opts.trasportoDiretto && !_aiProxyDisabled();
+  let token = null;
+  if(usaProxy){
+    token = await _aiTokenPerProxy(false);
+    if(!token){
+      console.warn('[AI] nessuna sessione valida per il proxy — trasporto diretto (legacy)');
+      usaProxy = false;
+    }
+  }
+  let refreshGiaTentato = false;
+
+  async function unTentativo(){
+    if(usaProxy){
+      const resp = await fetchConTimeout(
+        _aiProxyUrl(),
+        { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token },
+        JSON.stringify(Object.assign({ tipo: opts.tipo || 'altro' }, bodyComune))
+      );
+      if(!resp.headers.get('x-proxy-upstream')){
+        // Errore d'INFRASTRUTTURA del proxy: Anthropic non è mai stato
+        // interpellato. 401 → un solo tentativo di refresh token; tutto il
+        // resto (404 funzione assente, 5xx della funzione, JWT irrecuperabile)
+        // → fallback al trasporto diretto, l'ambulatorio non si ferma.
+        if(resp.status === 401 && !refreshGiaTentato){
+          refreshGiaTentato = true;
+          const t2 = await _aiTokenPerProxy(true);
+          if(t2){ token = t2; return unTentativo(); }
+        }
+        console.warn('[AI] proxy non disponibile (status ' + resp.status + ') — fallback trasporto diretto');
+        usaProxy = false;
+        return unTentativo();
+      }
+      return resp; // risposta Anthropic verbatim (ok o errore API vero)
+    }
+    // ── trasporto diretto legacy (fallback/kill-switch/trasportoDiretto) ──
+    const apiKey = (opts.apiKey != null) ? opts.apiKey : getAnthropicKey();
+    return fetchConTimeout(
+      'https://api.anthropic.com/v1/messages',
+      { 'Content-Type':'application/json', 'x-api-key': apiKey,
+        'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      JSON.stringify(Object.assign({ model: model }, bodyComune))
+    );
+  }
 
   let lastErr = null;
   for(let tentativo = 0; tentativo < 2; tentativo++){
     if(tentativo > 0) await new Promise(function(r){ setTimeout(r, 1500); });
-    const ctrl = new AbortController();
-    const timer = setTimeout(function(){ ctrl.abort(); }, timeoutMs);
     try{
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: payload,
-        signal: ctrl.signal
-      });
-      clearTimeout(timer);
+      const resp = await unTentativo();
       if(!resp.ok){
         if(tentativo === 0 && RETRY_STATUSES.indexOf(resp.status) !== -1){
           lastErr = new Error('Errore API ' + resp.status);
@@ -11740,16 +11825,20 @@ async function aiCall(opts){
         throw new Error('Errore API ' + resp.status);
       }
       const data = await resp.json();
-      _aiLogUsage(opts.tipo, model, data.usage);
+      _aiLogUsage(opts.tipo, usaProxy ? '(proxy)' : model, data.usage);
       return data;
     }catch(err){
-      clearTimeout(timer);
       if(err && err.name === 'AbortError'){
         // Timeout: NIENTE retry (raddoppierebbe l'attesa) — errore esplicito subito.
         throw new Error('Timeout chiamata AI (' + Math.round(timeoutMs/1000) + 's)');
       }
       if(err instanceof TypeError && tentativo === 0){
-        // Errore di rete puro: unico altro caso in cui si ritenta una volta.
+        // Errore di rete puro: ritenta una volta; se era il proxy a essere
+        // irraggiungibile, il retry avviene già sul trasporto diretto.
+        if(usaProxy){
+          console.warn('[AI] rete/proxy irraggiungibile — fallback trasporto diretto');
+          usaProxy = false;
+        }
         lastErr = err;
         console.warn('[AI] errore di rete — ritento tra 1.5s (' + (opts.tipo||'altro') + ')');
         continue;
