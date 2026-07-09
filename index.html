@@ -6698,24 +6698,19 @@ function costruisciContestoPaziente(p){
 
   const offset=_regimeOffset(p, tdee);
 
-  // ── MODIFICA: leggi prima i macros salvati dal medico, fallback al calcolo grezzo ──
-  const _activeMt = (typeof _getActiveMacrosTarget === 'function') ? _getActiveMacrosTarget(p) : null;
+  // ── P55: sorgente unica dei target (medico se salvati, altrimenti fallback canonico) ──
+  const _t55 = (typeof getTargetAttivi === 'function') ? getTargetAttivi(p) : null;
   let kcalTarget, protG, carbG, grassiG, protGkg, grassiGkg, _macrosSorgente;
-  if(_activeMt && _activeMt.kcal){
-    kcalTarget  = _activeMt.kcal;
-    protG       = _activeMt.protG;
-    carbG       = _activeMt.carbG;
-    grassiG     = _activeMt.grassiG;
-    protGkg     = _activeMt.raw && _activeMt.raw.protGkg ? _activeMt.raw.protGkg : (peso ? +(_activeMt.protG/peso).toFixed(2) : null);
-    grassiGkg   = _activeMt.raw && _activeMt.raw.grassiGkg ? _activeMt.raw.grassiGkg : (peso ? +(_activeMt.grassiG/peso).toFixed(2) : null);
-    _macrosSorgente = _activeMt.source === 'fx' ? 'ragionamento-clinico' : 'TDEE-salvato';
+  if(_t55){
+    kcalTarget  = _t55.kcal;
+    protG       = _t55.protG;
+    carbG       = _t55.carbG;
+    grassiG     = _t55.grassiG;
+    protGkg     = _t55.protGkg;
+    grassiGkg   = _t55.grassiGkg;
+    _macrosSorgente = _t55.fonte === 'fx' ? 'ragionamento-clinico' : _t55.fonte === 'tdee' ? 'TDEE-salvato' : 'calcolo-automatico';
   } else {
-    kcalTarget  = tdee ? tdee+offset : null;
-    protGkg     = p.proteine_gkg || 1.8;
-    grassiGkg   = p.grassi_gkg  || 0.9;
-    protG       = peso ? Math.round(protGkg*peso) : null;
-    grassiG     = peso ? Math.round(grassiGkg*peso) : null;
-    carbG       = (kcalTarget&&protG&&grassiG) ? Math.max(0,Math.round((kcalTarget-protG*4-grassiG*9)/4)) : null;
+    kcalTarget = null; protG = null; carbG = null; grassiG = null; protGkg = null; grassiGkg = null;
     _macrosSorgente = 'calcolo-automatico';
   }
 
@@ -9174,20 +9169,10 @@ function _aggiornaAnteprimaCiclizzazione(){
   var onV=parseFloat((document.getElementById('cic-kcal-on')||{}).value);
   var offV=parseFloat((document.getElementById('cic-kcal-off')||{}).value);
   if(!p||!(onV>0)||!(offV>0)){ box.textContent=''; return; }
-  // P/G fissi dai target attivi, altrimenti dal riferimento peso/FFM
-  var base=(typeof _getActiveMacrosTarget==='function')?_getActiveMacrosTarget(p):null;
+  // P55: P/G fissi dalla sorgente unica (target medico o fallback canonico)
+  var base=(typeof getTargetAttivi==='function')?getTargetAttivi(p):null;
   var protG=null, grassiG=null;
   if(base&&base.protG!=null&&base.grassiG!=null){ protG=base.protG; grassiG=base.grassiG; }
-  else {
-    var _ct=calcolaTDEE(p);
-    var _lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
-    var _ffm=_lastIb&&_lastIb.m?parseFloat(_lastIb.m):null;
-    var _bmi=_lastIb&&_lastIb.bmi?parseFloat(_lastIb.bmi):null;
-    var _rif=p.rifCalcolo||'auto';
-    var _useFFM=_rif==='ffm'?(_ffm!==null):_rif==='peso'?false:(_ffm!==null&&_bmi!==null&&_bmi>=25);
-    var _ref=_useFFM?_ffm:_ct.peso;
-    if(_ref){ protG=Math.round(1.8*_ref); grassiG=Math.round(0.9*_ref); }
-  }
   if(protG==null||grassiG==null){ box.innerHTML='⚠ Salva prima proteine e grassi (target) per vedere i carboidrati derivati.'; return; }
   var kcalPG=protG*4+grassiG*9;
   var carbON=Math.max(0,Math.round((onV-kcalPG)/4));
@@ -10053,11 +10038,15 @@ function pianoPazSelezionato(id){
     const refLabel=useFFM?'FFM':'peso';
     const refColor=useFFM?'#185FA5':'#3B6D11';
     // BUG3 STEP2b: usa target attivi per i box macros (vince ultimo aggiornato)
-    const _activeDisp=_getActiveMacrosTarget(p);
-    const protG=_activeDisp?_activeDisp.protG:Math.round(1.8*ref);
-    const grassiG=_activeDisp?_activeDisp.grassiG:Math.round(0.9*ref);
-    const carbG=_activeDisp?_activeDisp.carbG:Math.max(0,Math.round((kcalTarget-Math.round(1.8*ref)*4-Math.round(0.9*ref)*9)/4));
+    // P55: numeri sempre dalla sorgente unica; _activeDisp resta il target MEDICO (per i label)
+    const _t55Disp=(typeof getTargetAttivi==='function')?getTargetAttivi(p):null;
+    const _activeDisp=(_t55Disp&&_t55Disp.fonte!=='fallback')?_t55Disp:null;
+    const protG=_t55Disp&&_t55Disp.protG!=null?_t55Disp.protG:Math.round(1.8*ref);
+    const grassiG=_t55Disp&&_t55Disp.grassiG!=null?_t55Disp.grassiG:Math.round(0.9*ref);
+    const carbG=_t55Disp&&_t55Disp.carbG!=null?_t55Disp.carbG:Math.max(0,Math.round((kcalTarget-Math.round(1.8*ref)*4-Math.round(0.9*ref)*9)/4));
     const kcalDisp=_activeDisp?_activeDisp.kcal:kcalTarget;
+    const _gkgP=_t55Disp&&_t55Disp.fonte==='fallback'&&_t55Disp.protGkg?_t55Disp.protGkg:1.8;
+    const _gkgG=_t55Disp&&_t55Disp.fonte==='fallback'&&_t55Disp.grassiGkg?_t55Disp.grassiGkg:0.9;
     const kcalProt=protG*4;const kcalGrassi=grassiG*9;
     const ciclizzatoBadge=(p.ciclizzazione&&p.ciclizzazione.attiva&&p.ciclizzazione.kcalON>0&&p.ciclizzazione.kcalOFF>0)?'<div style="margin-top:.7rem;padding:.35rem .7rem;background:#E1F5EE;border:1px solid #9FE1CB;border-radius:6px;font-size:.72rem;font-weight:600;color:#0F6E56;">⚡ Ciclizzazione attiva — ON '+p.ciclizzazione.kcalON+' / OFF '+p.ciclizzazione.kcalOFF+' kcal · carico: '+(( p.giorniAllenamento||[]).join(", ")||'nessun giorno')+'</div>':'';
 
@@ -10075,7 +10064,7 @@ function pianoPazSelezionato(id){
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Proteine</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${protG}g</div>
-        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.protGkg?_activeDisp.raw.protGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'FX')):'1.8 g/kg '+refLabel} · ${kcalProt} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.protGkg?_activeDisp.raw.protGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'FX')):(_gkgP)+' g/kg '+refLabel} · ${kcalProt} kcal</div>
       </div>
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Carboidrati</div>
@@ -10085,7 +10074,7 @@ function pianoPazSelezionato(id){
       <div style="background:#fff;border-radius:7px;padding:.6rem .9rem;grid-column:span 2;">
         <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.2rem;">Grassi</div>
         <div style="font-size:1rem;font-weight:600;color:var(--text1);">${grassiG}g</div>
-        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.grassiGkg?_activeDisp.raw.grassiGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'FX')):'0.9 g/kg '+refLabel} · ${kcalGrassi} kcal</div>
+        <div style="font-size:.65rem;color:${refColor};">${_activeDisp?(_activeDisp.source==='tdee'&&_activeDisp.raw&&_activeDisp.raw.grassiGkg?_activeDisp.raw.grassiGkg+' g/kg '+(_activeDisp.raw.ref==='ffm'?'FFM':'peso'):'da '+(_activeDisp.source==='tdee'?'TDEE':'FX')):(_gkgG)+' g/kg '+refLabel} · ${kcalGrassi} kcal</div>
       </div>
       ${ciclizzatoBadge}${renderTargetBadge(p)}`;
 
@@ -10900,6 +10889,51 @@ function _getActiveMacrosTarget(p){
   return {kcal:tF.kcal,protG:tF.P,carbG:tF.C,grassiG:tF.G,source:'fx',timestamp:tF.timestamp,raw:tF};
 }
 
+// ── P55 — SORGENTE UNICA dei target macros (kcal/P/C/G) ───────────────────────
+// Regola: OVUNQUE servano i target del paziente si chiama QUESTA funzione, mai
+// ricalcolare in loco (Scoperta #13 — la duplicazione ha già causato P34/BUG3).
+// Ordine di priorità:
+//   1) target salvati dal medico (_getActiveMacrosTarget: TDEE o Ragionamento FX,
+//      vince il più recente) → fonte 'tdee' | 'fx';
+//   2) fallback canonico unificato → fonte 'fallback':
+//      riferimento peso/FFM (p.rifCalcolo: 'auto' usa FFM se BMI>=25 e InBody
+//      presente), g/kg personalizzati (p.proteine_gkg / p.grassi_gkg, default
+//      1.8 / 0.9), kcal = TDEE + offset regime, carbo = kcal residue / 4.
+// Ritorna null solo se mancano anche i dati minimi per il fallback.
+// Il campo 'source' è alias di 'fonte' per compatibilità con i consumer BUG3.
+function getTargetAttivi(p){
+  if(!p) return null;
+  var act = (typeof _getActiveMacrosTarget==='function') ? _getActiveMacrosTarget(p) : null;
+  var _ct = calcolaTDEE(p);
+  var peso = _ct.peso;
+  if(act && act.kcal!=null){
+    var pk = act.raw && act.raw.protGkg ? act.raw.protGkg : (peso && act.protG!=null ? +(act.protG/peso).toFixed(2) : null);
+    var gk = act.raw && act.raw.grassiGkg ? act.raw.grassiGkg : (peso && act.grassiG!=null ? +(act.grassiG/peso).toFixed(2) : null);
+    return {kcal:act.kcal, protG:act.protG, carbG:act.carbG, grassiG:act.grassiG,
+            protGkg:pk, grassiGkg:gk,
+            ref:peso||null, refTipo:(act.raw && act.raw.ref)||null,
+            fonte:act.source, source:act.source, timestamp:act.timestamp, raw:act.raw};
+  }
+  // Fallback canonico (nessun target salvato dal medico)
+  var lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
+  var ffm = lastIb && lastIb.m ? parseFloat(lastIb.m) : null;
+  var bmi = lastIb && lastIb.bmi ? parseFloat(lastIb.bmi) : null;
+  var rif = p.rifCalcolo || 'auto';
+  var useFFM = rif==='ffm' ? (ffm!==null) : rif==='peso' ? false : (ffm!==null && bmi!==null && bmi>=25);
+  var ref = useFFM ? ffm : peso;
+  var kcal = _ct.tdee ? _ct.tdee + _regimeOffset(p,_ct.tdee) : null;
+  if(!ref && !kcal) return null;
+  var protGkg = p.proteine_gkg || 1.8;
+  var grassiGkg = p.grassi_gkg || 0.9;
+  var protG = ref ? Math.round(protGkg*ref) : null;
+  var grassiG = ref ? Math.round(grassiGkg*ref) : null;
+  var carbG = (kcal && protG!=null && grassiG!=null) ? Math.max(0,Math.round((kcal-protG*4-grassiG*9)/4)) : null;
+  return {kcal:kcal, protG:protG, carbG:carbG, grassiG:grassiG,
+          protGkg:protGkg, grassiGkg:grassiGkg,
+          ref:ref, refTipo:useFFM?'ffm':'peso',
+          fonte:'fallback', source:'fallback', timestamp:null, raw:null};
+}
+
 // ── P34 — CICLIZZAZIONE CARBOIDRATI (carico/scarico) ──────────────────────────
 // Modello: il medico imposta due kcal a mano (ON=carico, OFF=scarico). Proteine e
 // grassi restano FISSI (dai target attivi rag./TDEE); i carboidrati assorbono tutta
@@ -10910,21 +10944,11 @@ function calcolaTargetsCiclizzazione(p){
   var kcalON  = cic.kcalON!=null  ? +cic.kcalON  : NaN;
   var kcalOFF = cic.kcalOFF!=null ? +cic.kcalOFF : NaN;
   if(!(kcalON>0) || !(kcalOFF>0)) return {attiva:true, incompleta:true};
-  // Proteine e grassi FISSI: presi dai target decisi dal medico (rag./TDEE) se presenti,
-  // altrimenti calcolati sul riferimento peso/FFM come nel resto del generatore.
-  var base = (typeof _getActiveMacrosTarget==='function') ? _getActiveMacrosTarget(p) : null;
+  // P55: Proteine e grassi FISSI dalla sorgente unica (target medico o fallback canonico).
+  var base = (typeof getTargetAttivi==='function') ? getTargetAttivi(p) : null;
   var protG=null, grassiG=null;
   if(base && base.protG!=null && base.grassiG!=null){
     protG = base.protG; grassiG = base.grassiG;
-  } else {
-    var _ct = calcolaTDEE(p);
-    var _lastIb = p.inbody && p.inbody.length ? p.inbody[p.inbody.length-1] : null;
-    var _ffm = _lastIb && _lastIb.m ? parseFloat(_lastIb.m) : null;
-    var _bmi = _lastIb && _lastIb.bmi ? parseFloat(_lastIb.bmi) : null;
-    var _rif = p.rifCalcolo || 'auto';
-    var _useFFM = _rif==='ffm' ? (_ffm!==null) : _rif==='peso' ? false : (_ffm!==null && _bmi!==null && _bmi>=25);
-    var _ref = _useFFM ? _ffm : _ct.peso;
-    if(_ref){ protG = Math.round(1.8*_ref); grassiG = Math.round(0.9*_ref); }
   }
   if(protG==null || grassiG==null) return {attiva:true, incompleta:true};
   var kcalPG = protG*4 + grassiG*9;
@@ -10945,7 +10969,6 @@ function _setupPianoTargets(p){
   window._pianoTargetsOFF = null;
   window._pianoGiorniON = (p && p.giorniAllenamento) || [];
   if(!p) return;
-  var _active = (typeof _getActiveMacrosTarget==='function') ? _getActiveMacrosTarget(p) : null;
   var _cic = calcolaTargetsCiclizzazione(p);
   if(_cic.attiva && _cic.on){
     // Ciclizzato: ON di default, OFF per i giorni non di carico. Source 'calcolo'
@@ -10954,16 +10977,10 @@ function _setupPianoTargets(p){
     window._pianoTargetsOFF = {kcal:_cic.off.kcal, p:_cic.off.p, c:_cic.off.c, g:_cic.off.g, source:'calcolo-off'};
     return;
   }
-  // Non ciclizzato: singolo target (rag./TDEE se presente, altrimenti fallback da peso).
-  if(_active && _active.kcal){
-    window._pianoTargets = {kcal:_active.kcal, p:_active.protG, c:_active.carbG, g:_active.grassiG, source:_active.source==='fx'?'ragionamento':'calcolo'};
-  } else {
-    var _ct = calcolaTDEE(p);
-    var _kcal = _ct.tdee ? _ct.tdee+_regimeOffset(p,_ct.tdee) : null;
-    var _prot = _ct.peso ? Math.round(1.8*_ct.peso) : null;
-    var _gras = _ct.peso ? Math.round(0.9*_ct.peso) : null;
-    var _carb = (_kcal&&_prot&&_gras) ? Math.max(0,Math.round((_kcal-_prot*4-_gras*9)/4)) : null;
-    window._pianoTargets = {kcal:_kcal, p:_prot, c:_carb, g:_gras, source:'calcolo'};
+  // P55: non ciclizzato — singolo target dalla sorgente unica (medico o fallback canonico).
+  var _t55 = (typeof getTargetAttivi==='function') ? getTargetAttivi(p) : null;
+  if(_t55){
+    window._pianoTargets = {kcal:_t55.kcal, p:_t55.protG, c:_t55.carbG, g:_t55.grassiG, source:_t55.fonte==='fx'?'ragionamento':'calcolo'};
   }
 }
 
@@ -10988,27 +11005,22 @@ function costruisciPrompt(pazienteId) {
   var _ct = calcolaTDEE(p);
   var mb = _ct.mb, peso = _ct.peso;
 
-  // ── BUG3 FIX: leggi target attivi da p.macrosTarget o p.ragionamentoClinico ──
-  var _active = _getActiveMacrosTarget(p);
+  // ── P55: target dalla sorgente unica getTargetAttivi (medico o fallback canonico) ──
+  // La generazione da UI resta BLOCCATA senza target salvato (BUG3 STEP2); questo
+  // fallback è cintura di sicurezza per percorsi non-UI, e ora avvisa in modo visibile.
+  var _t55 = getTargetAttivi(p);
   var kcalTarget = null, protG = null, carbG = null, grassiG = null;
-  if(_active){
-    kcalTarget = _active.kcal;
-    protG = _active.protG;
-    carbG = _active.carbG;
-    grassiG = _active.grassiG;
-    console.log('[Prompt] Target attivi da:', _active.source, '| ts:', new Date(_active.timestamp).toLocaleString('it-IT'));
-  } else if (mb && peso) {
-    // Fallback legacy (paziente senza target salvati)
-    kcalTarget = _ct.tdee + _regimeOffset(p,_ct.tdee);
-    var _ffmP=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
-    var _bmiP=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
-    var _rifP=p.rifCalcolo||'auto';
-    var _useFFMP=_rifP==='ffm'?(_ffmP!==null):_rifP==='peso'?false:(_ffmP!==null&&_bmiP!==null&&_bmiP>=25);
-    var _refP=_useFFMP?_ffmP:peso;
-    protG = Math.round(1.8 * _refP);
-    grassiG = Math.round(0.9 * _refP);
-    carbG = Math.max(0, Math.round((kcalTarget - protG*4 - grassiG*9) / 4));
-    console.log('[Prompt] Nessun target salvato — usando fallback hardcoded');
+  if(_t55){
+    kcalTarget = _t55.kcal;
+    protG = _t55.protG;
+    carbG = _t55.carbG;
+    grassiG = _t55.grassiG;
+    if(_t55.fonte === 'fallback'){
+      console.log('[Prompt] Nessun target salvato — fallback canonico getTargetAttivi (P55)');
+      if(typeof notif === 'function') notif('⚠️ Piano con macros STIMATI: nessun target salvato per questo paziente', 6000);
+    } else {
+      console.log('[Prompt] Target attivi da:', _t55.fonte, '| ts:', _t55.timestamp ? new Date(_t55.timestamp).toLocaleString('it-IT') : '—');
+    }
   }
 
   // Contesto ragionamento (testuale) sempre passato all'AI se presente
