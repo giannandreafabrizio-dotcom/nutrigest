@@ -1618,7 +1618,7 @@ main{flex:1;overflow-y:auto;}
 <!-- ══════════════ MODAL RICETTA -->
 <div class="overlay" id="mo-alim-custom">
 <div class="modal" style="max-width:400px">
-  <h3>➕ Nuovo alimento</h3>
+  <h3 id="ac-titolo">➕ Nuovo alimento</h3>
   <div class="fg"><label>Nome alimento</label><input type="text" id="ac-nome" placeholder="es. Skyr naturale"></div>
   <div class="fg"><label>Categoria semaforo</label><select id="ac-cat"><option value="Cereali con Glutine">Cereali con Glutine</option><option value="Cereali senza Glutine">Cereali senza Glutine</option><option value="Carne Bianca">Carne Bianca</option><option value="Carne Rossa">Carne Rossa</option><option value="Pesce (Pranzo)">Pesce (Pranzo)</option><option value="Pesce (Cena)">Pesce (Cena)</option><option value="Insaccati & Salumi">Insaccati & Salumi</option><option value="Legumi">Legumi</option><option value="Uova">Uova</option><option value="Latte & Derivati">Latte & Derivati</option><option value="Bevande Vegetali">Bevande Vegetali</option><option value="Frutta Secca & Semi">Frutta Secca & Semi</option><option value="Superfoods">Superfoods</option><option value="Verdura">Verdura</option><option value="Frutta">Frutta</option><option value="Spezie">Spezie</option><option value="Fit">Fit</option><option value="Dolcificanti & Conserve">Dolcificanti & Conserve</option><option value="Olio & Condimenti">Olio & Condimenti</option></select></div>
   <div class="fg"><label>Grammatura default (g)</label><input type="number" id="ac-g" placeholder="es. 125" step="1" min="1"></div>
@@ -1631,6 +1631,7 @@ main{flex:1;overflow-y:auto;}
       <div class="fg" style="margin:0"><label>Grassi (g)</label><input type="number" id="ac-gras" placeholder="es. 0.2" step="0.1" min="0"></div>
     </div>
   </div>
+  <div id="ac-prev-box" style="display:none;margin-bottom:.8rem"><button class="btn btn-g btn-sm" style="width:100%" onclick="ripristinaValoriPrecedentiAlimento()">↺ Ripristina valori precedenti</button></div>
   <div class="mf">
     <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-alim-custom'))">Annulla</button>
     <button class="btn btn-v" style="flex:1" onclick="salvaAlimentoCustom()">Conferma</button>
@@ -11432,6 +11433,9 @@ function salvaModelliCustomLocal(){
 // === SUPABASE SYNC modelli rotazione (riga dedicata in tabella pazienti) ===
 const _ALIM_CUSTOM_KEY = '__alimenti_custom';
 
+// ── P82: ponte UNICO custom→CREA_ALIMENTI (Scoperta #12: a.g100 = grassi/100g → campo .g) ──
+function _alimCustomMacros(a){ return {kcal:a.kcal, p:a.p||0, c:a.c||0, g:a.g100||0}; }
+
 // ── ALIMENTI CUSTOM: carica dal db in ALIMENTI + CREA_ALIMENTI ──
 function caricaAlimentiCustom(){
   (db.alimentiCustom||[]).forEach(function(a){
@@ -11439,8 +11443,8 @@ function caricaAlimentiCustom(){
     if(!ALIMENTI[a.cat]) ALIMENTI[a.cat]={items:[]};
     var esiste=ALIMENTI[a.cat].items.find(function(i){return i.n===a.n;});
     if(!esiste) ALIMENTI[a.cat].items.push({n:a.n, g:a.g, _custom:true});
-    // Aggiunge a CREA_ALIMENTI per i macros
-    if(a.kcal!=null) CREA_ALIMENTI[a.n]={kcal:a.kcal, p:a.p||0, c:a.c||0, g:a.g100||0};
+    // Aggiunge a CREA_ALIMENTI per i macros (ponte unico P82)
+    if(a.kcal!=null) CREA_ALIMENTI[a.n]=_alimCustomMacros(a);
   });
 }
 
@@ -16906,14 +16910,201 @@ function renderAlEditor(){
       if(s==='celeste_2')_cls='celeste-2';
       var _simbolo=_conflitto?'\u26a1 ':(s==='si'?'\u2713 ':s==='arancione'?'\u25d0 ':s==='rosso'?'\u2193 ':(s==='grigioScuro'||s==='grigio_scuro_1'||s==='grigio_scuro_2')?'\u2715 ':(s==='celeste'||s==='celeste_1'||s==='celeste_2')?'\u2605 ':'');
       const _customBadge=item._custom?` <span style="font-size:.55rem;background:#7c3aed;color:#fff;padding:1px 4px;border-radius:3px;vertical-align:middle">✦custom</span>`:'';
-      const _delBtn=item._custom?` <span onclick="event.stopPropagation();eliminaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;color:#f87171;margin-left:2px" title="Rimuovi">✕</span>`:'';
-      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}${_customBadge}${_delBtn}</span>`;
+      const _editBtn=item._custom?` <span onclick="event.stopPropagation();modificaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;color:#60a5fa;margin-left:4px" title="Modifica valori (kcal/P/C/G, categoria)">✎</span> <span onclick="event.stopPropagation();rinominaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;margin-left:2px" title="Rinomina (aggiorna piani, ricette e profili)">🏷</span>`:'';
+      const _delBtn=item._custom?` <span onclick="event.stopPropagation();eliminaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;color:#f87171;margin-left:2px" title="Rimuovi (solo se non usato)">✕</span>`:'';
+      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}${_customBadge}${_editBtn}${_delBtn}</span>`;
     });
     html+='</div></div>';
   });
   // Bottone aggiungi alimento custom
-  html+='<div style="padding:1rem 0 .5rem;text-align:center"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'mo-alim-custom\').classList.add(\'open\');document.getElementById(\'ac-nome\').focus()">➕ Aggiungi alimento personalizzato</button></div>';
+  html+='<div style="padding:1rem 0 .5rem;text-align:center"><button class="btn btn-g btn-sm" onclick="apriNuovoAlimentoCustom()">➕ Aggiungi alimento personalizzato</button></div>';
   c.innerHTML=html;
+}
+
+// ═══════════════ P82 — ALIMENTI CUSTOM: identità, rinomina, eliminazione sicura ═══════════════
+// L'identità di un alimento è il NOME (stringa): celle piano, ricette e profili semaforo
+// lo referenziano per nome. Rinominare/eliminare senza scansione = riferimenti orfani silenziosi.
+
+// Regex nome con confini di parola compatibili con accentate. flags: '' per test, 'g'/'gi' per replace.
+function _alimNomeRegex(nome, flags){
+  var esc=String(nome).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return new RegExp('(^|[^A-Za-zÀ-ÿ0-9])'+esc+'(?=$|[^A-Za-zÀ-ÿ0-9])', flags||'i');
+}
+
+var _ALIM_SLOTS=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+
+// Funzione PURA: conta i riferimenti a `nome` in un array di giorni (celle esatte + righe testuali).
+function _scanGiorniPerNome(giorni, nome){
+  var n=0, rx=_alimNomeRegex(nome);
+  (giorni||[]).forEach(function(g){
+    _ALIM_SLOTS.forEach(function(slot){
+      var pasto=(g&&g.pasti&&g.pasti[slot])?g.pasti[slot]:(g?g[slot]:null);
+      if(!pasto) return;
+      (pasto.celle||[]).forEach(function(c){(c.alimenti||[]).forEach(function(a){if(a&&a.n===nome)n++;});});
+      (pasto.ricette||[]).forEach(function(r){ if(typeof r==='string'&&rx.test(r)) n++; });
+    });
+  });
+  return n;
+}
+
+// Funzione PURA (legge db, non scrive): tutti i riferimenti a un nome alimento.
+// → {tot, dettagli:[{tipo:'piano'|'template'|'ricetta'|'profilo', label, count, ref}]}
+function scanRiferimentiAlimento(nome){
+  var out={tot:0,dettagli:[]};
+  if(!nome) return out;
+  (db.piani||[]).forEach(function(pl){
+    var n=_scanGiorniPerNome(pl&&pl.pianoJSON, nome);
+    if(n>0){
+      var paz=(db.pazienti||[]).find(function(x){return x&&x.id===pl.pazienteId;});
+      out.tot+=n;
+      out.dettagli.push({tipo:'piano',label:'Piano di '+(paz?((paz.nome||'')+' '+(paz.cognome||'')).trim():(pl.pazienteId||'?')),count:n,ref:pl});
+    }
+  });
+  (db.templatePiani||[]).forEach(function(tpl){
+    var n=_scanGiorniPerNome(tpl&&tpl.pianoJSON, nome);
+    if(n>0){out.tot+=n;out.dettagli.push({tipo:'template',label:'Template "'+(tpl.nome||tpl.id||'?')+'"',count:n,ref:tpl});}
+  });
+  var rxR=_alimNomeRegex(nome);
+  (db.ricette||[]).forEach(function(r){
+    if(!r) return;
+    var testo=((r.ing||'')+' '+(r.nome||''));
+    if(rxR.test(testo)){out.tot++;out.dettagli.push({tipo:'ricetta',label:'Ricetta "'+(r.nome||r.id||'?')+'"',count:1,ref:r});}
+  });
+  (db.pazienti||[]).forEach(function(p){
+    if(!p||!p.alimenti) return;
+    var n=Object.keys(p.alimenti).filter(function(k){return k.indexOf('__')>=0&&k.split('__')[1]===nome;}).length;
+    if(n>0){out.tot+=n;out.dettagli.push({tipo:'profilo',label:'Profilo semaforo di '+((p.nome||'')+' '+(p.cognome||'')).trim(),count:n,ref:p});}
+  });
+  return out;
+}
+
+function _alimRefsRighe(refs, max){
+  return refs.dettagli.slice(0,max).map(function(d){return '• '+d.label+' ('+d.count+')';}).join('\n')
+    +(refs.dettagli.length>max?'\n…e altri '+(refs.dettagli.length-max):'');
+}
+
+// RINOMINA = operazione dedicata: scansiona, mostra "trovati N riferimenti — aggiorno tutti?", applica ovunque.
+function rinominaAlimentoCustom(vecchio){
+  var rec=(db.alimentiCustom||[]).find(function(a){return a.n===vecchio;});
+  if(!rec){alert('Alimento custom "'+vecchio+'" non trovato.');return;}
+  var nuovo=prompt('Nuovo nome per "'+vecchio+'":',vecchio);
+  if(nuovo==null)return;
+  nuovo=nuovo.trim();
+  if(!nuovo||nuovo===vecchio)return;
+  // Duplicati: tra i custom, nei macros, nel database base
+  if((db.alimentiCustom||[]).find(function(a){return a.n===nuovo;})||CREA_ALIMENTI[nuovo]){alert('Esiste già un alimento chiamato "'+nuovo+'".');return;}
+  var dupBase=false;
+  Object.values(ALIMENTI).forEach(function(d){if((d.items||[]).find(function(i){return i.n===nuovo;}))dupBase=true;});
+  if(dupBase){alert('Esiste già un alimento chiamato "'+nuovo+'" nel database base.');return;}
+
+  var refs=scanRiferimentiAlimento(vecchio);
+  var msg=refs.tot>0
+    ? 'Trovati '+refs.tot+' riferimenti a "'+vecchio+'":\n\n'+_alimRefsRighe(refs,10)+'\n\nAggiorno tutti in "'+nuovo+'"?'
+    : 'Nessun riferimento trovato. Rinomino "'+vecchio+'" in "'+nuovo+'"?';
+  if(!confirm(msg))return;
+
+  function _renameInGiorni(giorni){
+    var hit=false;
+    (giorni||[]).forEach(function(g){
+      _ALIM_SLOTS.forEach(function(slot){
+        var pasto=(g&&g.pasti&&g.pasti[slot])?g.pasti[slot]:(g?g[slot]:null);
+        if(!pasto)return;
+        (pasto.celle||[]).forEach(function(c){(c.alimenti||[]).forEach(function(a){if(a&&a.n===vecchio){a.n=nuovo;hit=true;}});});
+        if(pasto.ricette&&pasto.ricette.length){
+          pasto.ricette=pasto.ricette.map(function(r){
+            if(typeof r==='string'&&_alimNomeRegex(vecchio).test(r)){hit=true;return r.replace(_alimNomeRegex(vecchio,'gi'),function(m,p1){return (p1||'')+nuovo;});}
+            return r;
+          });
+        }
+      });
+    });
+    return hit;
+  }
+
+  var pianiMod=[], tplMod=[], pazModIds=[], ricMod=false;
+  (db.piani||[]).forEach(function(pl){ if(_renameInGiorni(pl&&pl.pianoJSON)) pianiMod.push(pl); });
+  (db.templatePiani||[]).forEach(function(tpl){ if(_renameInGiorni(tpl&&tpl.pianoJSON)) tplMod.push(tpl); });
+  if(window._pianoCorrente) _renameInGiorni(window._pianoCorrente); // piano aperto nell'editor: evita che un salvataggio reintroduca il vecchio nome
+  (db.ricette||[]).forEach(function(r){
+    if(!r) return;
+    if(typeof r.ing==='string'&&_alimNomeRegex(vecchio).test(r.ing)){r.ing=r.ing.replace(_alimNomeRegex(vecchio,'gi'),function(m,p1){return (p1||'')+nuovo;});ricMod=true;}
+  });
+  (db.pazienti||[]).forEach(function(p){
+    if(!p||!p.alimenti) return;
+    var toccato=false;
+    Object.keys(p.alimenti).forEach(function(k){
+      if(k.indexOf('__')>=0&&k.split('__')[1]===vecchio){
+        var nk=k.split('__')[0]+'__'+nuovo;
+        p.alimenti[nk]=p.alimenti[k]; delete p.alimenti[k]; toccato=true;
+      }
+    });
+    if(toccato) pazModIds.push(p.id);
+  });
+
+  // Record custom: {updated_at, prev} per undo singolo
+  rec.prev={n:vecchio, updated_at:rec.updated_at||null};
+  rec.n=nuovo;
+  rec.updated_at=new Date().toISOString();
+  // Strutture runtime
+  if(ALIMENTI[rec.cat]){var it=(ALIMENTI[rec.cat].items||[]).find(function(i){return i.n===vecchio&&i._custom;});if(it)it.n=nuovo;}
+  if(CREA_ALIMENTI[vecchio]!=null){delete CREA_ALIMENTI[vecchio];}
+  if(rec.kcal!=null)CREA_ALIMENTI[nuovo]=_alimCustomMacros(rec);
+
+  // Persistenza + sync
+  saveLocal();
+  pushAlimentiCustomSupabase();
+  pianiMod.forEach(function(pl){pushPianoSupabase(pl);});
+  tplMod.forEach(function(tpl){pushTemplateSupabase(tpl);});
+  if(ricMod)pushRicetteSupabase();
+  pazModIds.forEach(function(id){save(id);});
+
+  renderAlEditor();
+  if(typeof _aggiornaPianoBox==='function'&&window._pianoCorrente)_aggiornaPianoBox();
+  notif('✓ "'+vecchio+'" rinominato in "'+nuovo+'" — aggiornati '+refs.tot+' riferimenti');
+}
+
+// MODIFICA VALORI (kcal/P/C/G, categoria, grammatura): sicura, il nome non cambia.
+function modificaAlimentoCustom(nome){
+  var a=(db.alimentiCustom||[]).find(function(x){return x.n===nome;});
+  if(!a){alert('Alimento custom "'+nome+'" non trovato.');return;}
+  window._alimEditNome=nome;
+  document.getElementById('ac-titolo').textContent='✎ Modifica: '+nome;
+  var inp=document.getElementById('ac-nome');inp.value=a.n;inp.disabled=true;
+  document.getElementById('ac-cat').value=a.cat||'Latte & Derivati';
+  document.getElementById('ac-g').value=(a.g!=null?a.g:'');
+  document.getElementById('ac-kcal').value=(a.kcal!=null?a.kcal:'');
+  document.getElementById('ac-prot').value=(a.p!=null?a.p:'');
+  document.getElementById('ac-carb').value=(a.c!=null?a.c:'');
+  document.getElementById('ac-gras').value=(a.g100!=null?a.g100:'');
+  document.getElementById('ac-prev-box').style.display=a.prev&&a.prev.cat!==undefined?'block':'none';
+  document.getElementById('mo-alim-custom').classList.add('open');
+}
+
+function ripristinaValoriPrecedentiAlimento(){
+  var a=(db.alimentiCustom||[]).find(function(x){return x.n===window._alimEditNome;});
+  if(!a||!a.prev||a.prev.cat===undefined)return;
+  document.getElementById('ac-cat').value=a.prev.cat||'Latte & Derivati';
+  document.getElementById('ac-g').value=(a.prev.g!=null?a.prev.g:'');
+  document.getElementById('ac-kcal').value=(a.prev.kcal!=null?a.prev.kcal:'');
+  document.getElementById('ac-prot').value=(a.prev.p!=null?a.prev.p:'');
+  document.getElementById('ac-carb').value=(a.prev.c!=null?a.prev.c:'');
+  document.getElementById('ac-gras').value=(a.prev.g100!=null?a.prev.g100:'');
+  notif('↺ Valori precedenti ricaricati nel form — Conferma per applicarli');
+}
+
+function _resetAlimModal(){
+  window._alimEditNome=null;
+  document.getElementById('ac-titolo').textContent='➕ Nuovo alimento';
+  var inp=document.getElementById('ac-nome');inp.disabled=false;inp.value='';
+  ['ac-g','ac-kcal','ac-prot','ac-carb','ac-gras'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('ac-cat').value='Latte & Derivati';
+  document.getElementById('ac-prev-box').style.display='none';
+}
+
+function apriNuovoAlimentoCustom(){
+  _resetAlimModal();
+  document.getElementById('mo-alim-custom').classList.add('open');
+  document.getElementById('ac-nome').focus();
 }
 
 function salvaAlimentoCustom(){
@@ -16925,6 +17116,34 @@ function salvaAlimentoCustom(){
   const c=parseFloat(document.getElementById('ac-carb').value)||0;
   const g100=parseFloat(document.getElementById('ac-gras').value)||0;
   if(!nome){alert('Inserisci il nome dell\'alimento');return;}
+
+  // ── P82: ramo MODIFICA VALORI (nome invariato, {updated_at, prev} per undo singolo) ──
+  if(window._alimEditNome){
+    const a=db.alimentiCustom.find(function(x){return x.n===window._alimEditNome;});
+    if(!a){alert('Alimento non trovato.');_resetAlimModal();closeM('mo-alim-custom');return;}
+    a.prev={cat:a.cat,g:a.g,kcal:a.kcal,p:a.p,c:a.c,g100:a.g100,updated_at:a.updated_at||null};
+    // Categoria cambiata → sposta l'item runtime nel gruppo nuovo
+    if(cat!==a.cat){
+      if(ALIMENTI[a.cat])ALIMENTI[a.cat].items=ALIMENTI[a.cat].items.filter(function(i){return !(i.n===a.n&&i._custom);});
+      if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
+      ALIMENTI[cat].items.push({n:a.n,g:g,_custom:true});
+    } else if(ALIMENTI[cat]){
+      var it=ALIMENTI[cat].items.find(function(i){return i.n===a.n&&i._custom;});
+      if(it)it.g=g;
+    }
+    a.cat=cat;a.g=g;a.kcal=kcal;a.p=p;a.c=c;a.g100=g100;
+    a.updated_at=new Date().toISOString();
+    if(kcal!=null)CREA_ALIMENTI[a.n]=_alimCustomMacros(a);else delete CREA_ALIMENTI[a.n];
+    saveLocal();
+    pushAlimentiCustomSupabase();
+    closeM('mo-alim-custom');
+    _resetAlimModal();
+    if(window.b3Attach)window.b3Attach();
+    renderAlEditor();
+    notif('✓ Valori di "'+a.n+'" aggiornati');
+    return;
+  }
+
   // Evita duplicati
   if(db.alimentiCustom.find(function(a){return a.n===nome;})){alert('Alimento "'+nome+'" già presente.');return;}
   const alim={n:nome,cat:cat,g:g,kcal:kcal,p:p,c:c,g100:g100,_custom:true};
@@ -16932,14 +17151,13 @@ function salvaAlimentoCustom(){
   // Aggiorna ALIMENTI
   if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
   ALIMENTI[cat].items.push({n:nome,g:g,_custom:true});
-  // Aggiorna CREA_ALIMENTI
-  if(kcal!=null)CREA_ALIMENTI[nome]={kcal:kcal,p:p,c:c,g:g100};
+  // Aggiorna CREA_ALIMENTI (ponte unico P82)
+  if(kcal!=null)CREA_ALIMENTI[nome]=_alimCustomMacros(alim);
   saveLocal();
   pushAlimentiCustomSupabase();
   closeM('mo-alim-custom');
   // Reset form
-  ['ac-nome','ac-g','ac-kcal','ac-prot','ac-carb','ac-gras'].forEach(function(id){document.getElementById(id).value='';});
-  document.getElementById('ac-cat').value='Latte & Derivati';
+  _resetAlimModal();
   // Riaggancia validazione B3
   if(window.b3Attach)window.b3Attach();
   // Ricarica editor alimenti se aperto
@@ -16948,7 +17166,13 @@ function salvaAlimentoCustom(){
 }
 
 function eliminaAlimentoCustom(nome){
-  if(!confirm('Eliminare "'+nome+'" dal database personalizzato?'))return;
+  // P82: eliminazione consentita SOLO a riferimenti zero
+  var refs=scanRiferimentiAlimento(nome);
+  if(refs.tot>0){
+    alert('Impossibile eliminare "'+nome+'": è usato in '+refs.tot+' punti.\n\n'+_alimRefsRighe(refs,8)+'\n\nRimuovi prima i riferimenti, oppure usa 🏷 Rinomina per sostituirlo ovunque.');
+    return;
+  }
+  if(!confirm('Eliminare "'+nome+'" dal database personalizzato?\n(Nessun piano, ricetta o profilo lo utilizza.)'))return;
   db.alimentiCustom=db.alimentiCustom.filter(function(a){return a.n!==nome;});
   // Rimuovi da ALIMENTI
   Object.values(ALIMENTI).forEach(function(data){
