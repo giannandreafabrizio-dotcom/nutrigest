@@ -2159,13 +2159,76 @@ const NOMI_CANONICI = {
   'olio di oliva': 'Olio EVO'
 };
 
-// Lookup CREA con fallback su generici per categoria funzionale
+// ═══════════════ P108 FASE 0 — CATALOGO UNICO ALIMENTI (id stabile) ═══════════════
+// Ogni alimento è UN record: {id, nome, categoriaSem, categoriaFunz, gDefault, gl, per100g, tags[], barcode, fonte, attivo}.
+// - fonte 'crea': costruito al boot da ALIMENTI (categoria/grammatura) + CREA_ALIMENTI (macros/100g),
+//   id deterministico 'crea:<slug-del-nome>' — identico su ogni dispositivo senza bisogno di sync.
+// - fonte 'custom': record persistiti in db.alimentiCustom, id 'cust:<ts>-<rnd>' assegnato alla creazione
+//   (o alla migrazione lazy del formato vecchio) e sincronizzato via Supabase.
+// I per100g dei record CONDIVIDONO l'oggetto con CREA_ALIMENTI[nome]: una sola verità, zero copie divergenti.
+// ALIMENTI e CREA_ALIMENTI restano popolate identiche (viste legacy): i punti di consumo esistenti non cambiano.
+
+function _slugAlimento(nome){
+  return String(nome).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+const CATALOGO_ALIMENTI = new Map();      // id → record
+const _CATALOGO_BY_NOME = new Map();      // nome (lowercase, trim) → record
+
+function _catalogoIndicizza(rec){
+  CATALOGO_ALIMENTI.set(rec.id, rec);
+  if(rec.nome!=null) _CATALOGO_BY_NOME.set(String(rec.nome).toLowerCase().trim(), rec);
+}
+function _catalogoDeindicizza(rec){
+  CATALOGO_ALIMENTI.delete(rec.id);
+  var k=rec.nome!=null?String(rec.nome).toLowerCase().trim():null;
+  if(k!=null&&_CATALOGO_BY_NOME.get(k)===rec) _CATALOGO_BY_NOME.delete(k);
+}
+
+// Costruzione al boot dai dati CREA-INRAN hardcoded. NON muta ALIMENTI/CREA_ALIMENTI: li avvolge.
+function costruisciCatalogo(){
+  Object.keys(ALIMENTI).forEach(function(cat){
+    ((ALIMENTI[cat]&&ALIMENTI[cat].items)||[]).forEach(function(i){
+      var id='crea:'+_slugAlimento(i.n);
+      if(CATALOGO_ALIMENTI.has(id)) return; // stesso nome in più categorie: vale la prima (come la risoluzione per nome oggi)
+      _catalogoIndicizza({id:id, nome:i.n, categoriaSem:cat, categoriaFunz:null, gDefault:(i.g!=null?i.g:null),
+        gl:(i.gl!=null?i.gl:null), per100g:null, tags:[], barcode:null, fonte:'crea', attivo:true});
+    });
+  });
+  Object.keys(CREA_ALIMENTI).forEach(function(nome){
+    var rec=_CATALOGO_BY_NOME.get(nome.toLowerCase().trim());
+    if(rec){ if(!rec.per100g) rec.per100g=CREA_ALIMENTI[nome]; return; }
+    // Alimento solo-CREA (es. generici 'Verdura mista'): record senza casa a catalogo, con macros
+    var id2='crea:'+_slugAlimento(nome);
+    if(CATALOGO_ALIMENTI.has(id2)) id2=id2+'-2'; // anti-collisione slug tra nomi diversi (deterministico)
+    _catalogoIndicizza({id:id2, nome:nome, categoriaSem:null, categoriaFunz:null, gDefault:null,
+      gl:null, per100g:CREA_ALIMENTI[nome], tags:[], barcode:null, fonte:'crea', attivo:true});
+  });
+}
+costruisciCatalogo();
+
+// RISOLUZIONE UNICA (P108): trova un alimento per id ('crea:…','cust:…') O per nome
+// (esatto → case-insensitive → nome canonico). Ritorna il record del catalogo, o null.
+function risolviAlimento(rif){
+  if(rif==null||rif==='') return null;
+  var s=String(rif);
+  if(CATALOGO_ALIMENTI.has(s)) return CATALOGO_ALIMENTI.get(s);
+  var k=s.toLowerCase().trim();
+  var rec=_CATALOGO_BY_NOME.get(k);
+  if(rec) return rec;
+  var canonico=NOMI_CANONICI[k];
+  if(canonico) return _CATALOGO_BY_NOME.get(canonico.toLowerCase().trim())||null;
+  return null;
+}
+
+// Lookup CREA con fallback su generici per categoria funzionale.
+// P108: internamente usa la risoluzione unica del catalogo; firma, fallback e oggetti restituiti INVARIATI
+// (rec.per100g È l'oggetto CREA_ALIMENTI[nome]). In più risolve i nomi con differenze di maiuscole/spazi.
 function getValoriCREA(nomeAlimento, categoriaFunzionale) {
   if (!nomeAlimento) return null;
-  if (CREA_ALIMENTI[nomeAlimento]) return CREA_ALIMENTI[nomeAlimento];
-  // Disambiguazione nomi generici (case-insensitive)
-  const chiaveCanonica = NOMI_CANONICI[nomeAlimento.toLowerCase().trim()];
-  if (chiaveCanonica && CREA_ALIMENTI[chiaveCanonica]) return CREA_ALIMENTI[chiaveCanonica];
+  const rec = risolviAlimento(nomeAlimento);
+  if (rec && rec.per100g) return rec.per100g;
   if (categoriaFunzionale === 'verdura') return CREA_ALIMENTI['Verdura mista'];
   if (categoriaFunzionale === 'frutta') return CREA_ALIMENTI['Frutta mista'];
   if (categoriaFunzionale === 'grasso') return CREA_ALIMENTI['Frutta secca mista'];
@@ -11441,19 +11504,55 @@ function salvaModelliCustomLocal(){
 // === SUPABASE SYNC modelli rotazione (riga dedicata in tabella pazienti) ===
 const _ALIM_CUSTOM_KEY = '__alimenti_custom';
 
-// ── P82: ponte UNICO custom→CREA_ALIMENTI (Scoperta #12: a.g100 = grassi/100g → campo .g) ──
-function _alimCustomMacros(a){ return {kcal:a.kcal, p:a.p||0, c:a.c||0, g:a.g100||0}; }
+// ── P108: migrazione lazy record custom (formato vecchio {n,cat,g,kcal,p,c,g100} → record catalogo) ──
+// Idempotente: assegna l'id UNA volta e completa i campi nuovi solo se mancanti.
+// Mantiene ANCHE gli alias legacy nel record persistito (n,cat,g,kcal,p,c,g100): un dispositivo
+// con il codice precedente ancora in cache continua a leggerli finché non si aggiorna.
+// (P82 Scoperta #12 resta valida: g100 = grassi/100g → per100g.g)
+function _migraRecordCustom(a){
+  if(!a.id) a.id='cust:'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+  if(a.nome==null) a.nome=a.n;
+  if(a.categoriaSem==null) a.categoriaSem=(a.cat!=null?a.cat:null);
+  if(a.gDefault==null) a.gDefault=(a.g!=null?a.g:100);
+  if(!a.per100g&&a.kcal!=null) a.per100g={kcal:a.kcal,p:a.p||0,c:a.c||0,g:a.g100||0};
+  if(!a.tags) a.tags=[];
+  if(a.barcode===undefined) a.barcode=null;
+  if(a.fonte==null) a.fonte='custom';
+  if(a.attivo==null) a.attivo=true;
+  _syncAliasLegacy(a);
+  return a;
+}
+// Riallinea gli alias legacy ai campi nuovi (dopo ogni modifica del record).
+function _syncAliasLegacy(a){
+  a.n=a.nome; a.cat=a.categoriaSem; a.g=a.gDefault; a._custom=true;
+  if(a.per100g){a.kcal=a.per100g.kcal;a.p=a.per100g.p;a.c=a.per100g.c;a.g100=a.per100g.g;}
+  else{a.kcal=null;}
+}
 
-// ── ALIMENTI CUSTOM: carica dal db in ALIMENTI + CREA_ALIMENTI ──
+// ── ALIMENTI CUSTOM (P108): migra + registra nel CATALOGO + proietta nelle viste legacy ──
+// IDEMPOTENTE: richiamabile dopo ogni pull Supabase senza creare duplicati (svuota e ricostruisce
+// la sola proiezione custom; i record 'crea' non vengono mai toccati).
 function caricaAlimentiCustom(){
-  (db.alimentiCustom||[]).forEach(function(a){
-    // Aggiunge a ALIMENTI per il semaforo
-    if(!ALIMENTI[a.cat]) ALIMENTI[a.cat]={items:[]};
-    var esiste=ALIMENTI[a.cat].items.find(function(i){return i.n===a.n;});
-    if(!esiste) ALIMENTI[a.cat].items.push({n:a.n, g:a.g, _custom:true});
-    // Aggiunge a CREA_ALIMENTI per i macros (ponte unico P82)
-    if(a.kcal!=null) CREA_ALIMENTI[a.n]=_alimCustomMacros(a);
+  var daPersistere=(db.alimentiCustom||[]).some(function(a){return !a.id;});
+  // 1) rimuovi le proiezioni custom precedenti
+  var vecchi=[];
+  CATALOGO_ALIMENTI.forEach(function(rec){ if(rec.fonte!=='crea') vecchi.push(rec); });
+  vecchi.forEach(function(rec){
+    if(rec.nome!=null&&CREA_ALIMENTI[rec.nome]===rec.per100g) delete CREA_ALIMENTI[rec.nome];
+    _catalogoDeindicizza(rec);
   });
+  Object.values(ALIMENTI).forEach(function(d){ d.items=(d.items||[]).filter(function(i){return !i._custom;}); });
+  // 2) migra e reinserisci
+  (db.alimentiCustom||[]).forEach(function(a){
+    _migraRecordCustom(a);
+    _catalogoIndicizza(a);
+    var cat=a.categoriaSem||'Altro';
+    if(!ALIMENTI[cat]) ALIMENTI[cat]={items:[]};
+    ALIMENTI[cat].items.push({n:a.nome,g:a.gDefault,_custom:true});
+    if(a.per100g) CREA_ALIMENTI[a.nome]=a.per100g;
+  });
+  // 3) se abbiamo appena assegnato id nuovi, fissali subito (altrimenti a ogni boot cambierebbero)
+  if(daPersistere){saveLocal();pushAlimentiCustomSupabase();}
 }
 
 async function pushAlimentiCustomSupabase(){
@@ -17007,11 +17106,9 @@ function rinominaAlimentoCustom(vecchio){
   if(nuovo==null)return;
   nuovo=nuovo.trim();
   if(!nuovo||nuovo===vecchio)return;
-  // Duplicati: tra i custom, nei macros, nel database base
-  if((db.alimentiCustom||[]).find(function(a){return a.n===nuovo;})||CREA_ALIMENTI[nuovo]){alert('Esiste già un alimento chiamato "'+nuovo+'".');return;}
-  var dupBase=false;
-  Object.values(ALIMENTI).forEach(function(d){if((d.items||[]).find(function(i){return i.n===nuovo;}))dupBase=true;});
-  if(dupBase){alert('Esiste già un alimento chiamato "'+nuovo+'" nel database base.');return;}
+  // Duplicati (P108): unicità globale via risoluzione unica — copre custom, macros, database base,
+  // differenze di sole maiuscole e nomi canonici equivalenti ('pollo' ≡ 'Petto di pollo').
+  if(risolviAlimento(nuovo)){alert('Esiste già un alimento chiamato "'+nuovo+'" (o un nome equivalente) nel database.');return;}
 
   var refs=scanRiferimentiAlimento(vecchio);
   var msg=refs.tot>0
@@ -17064,14 +17161,17 @@ function rinominaAlimentoCustom(vecchio){
     if(toccato) pazModIds.push(p.id);
   });
 
-  // Record custom: {updated_at, prev} per undo singolo
+  // Record custom: {updated_at, prev} per undo singolo. P108: il NOME cambia, l'ID resta lo stesso.
   rec.prev={n:vecchio, updated_at:rec.updated_at||null};
-  rec.n=nuovo;
+  _catalogoDeindicizza(rec);
+  rec.nome=nuovo;
   rec.updated_at=new Date().toISOString();
-  // Strutture runtime
-  if(ALIMENTI[rec.cat]){var it=(ALIMENTI[rec.cat].items||[]).find(function(i){return i.n===vecchio&&i._custom;});if(it)it.n=nuovo;}
-  if(CREA_ALIMENTI[vecchio]!=null){delete CREA_ALIMENTI[vecchio];}
-  if(rec.kcal!=null)CREA_ALIMENTI[nuovo]=_alimCustomMacros(rec);
+  _syncAliasLegacy(rec);
+  _catalogoIndicizza(rec);
+  // Strutture runtime (viste legacy)
+  if(rec.categoriaSem&&ALIMENTI[rec.categoriaSem]){var it=(ALIMENTI[rec.categoriaSem].items||[]).find(function(i){return i.n===vecchio&&i._custom;});if(it)it.n=nuovo;}
+  if(CREA_ALIMENTI[vecchio]===rec.per100g){delete CREA_ALIMENTI[vecchio];}
+  if(rec.per100g)CREA_ALIMENTI[nuovo]=rec.per100g;
 
   // Persistenza + sync
   saveLocal();
@@ -17146,17 +17246,20 @@ function salvaAlimentoCustom(){
     if(!a){alert('Alimento non trovato.');_resetAlimModal();closeM('mo-alim-custom');return;}
     a.prev={cat:a.cat,g:a.g,kcal:a.kcal,p:a.p,c:a.c,g100:a.g100,updated_at:a.updated_at||null};
     // Categoria cambiata → sposta l'item runtime nel gruppo nuovo
-    if(cat!==a.cat){
-      if(ALIMENTI[a.cat])ALIMENTI[a.cat].items=ALIMENTI[a.cat].items.filter(function(i){return !(i.n===a.n&&i._custom);});
+    if(cat!==a.categoriaSem){
+      if(a.categoriaSem&&ALIMENTI[a.categoriaSem])ALIMENTI[a.categoriaSem].items=ALIMENTI[a.categoriaSem].items.filter(function(i){return !(i.n===a.nome&&i._custom);});
       if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
-      ALIMENTI[cat].items.push({n:a.n,g:g,_custom:true});
+      ALIMENTI[cat].items.push({n:a.nome,g:g,_custom:true});
     } else if(ALIMENTI[cat]){
-      var it=ALIMENTI[cat].items.find(function(i){return i.n===a.n&&i._custom;});
+      var it=ALIMENTI[cat].items.find(function(i){return i.n===a.nome&&i._custom;});
       if(it)it.g=g;
     }
-    a.cat=cat;a.g=g;a.kcal=kcal;a.p=p;a.c=c;a.g100=g100;
+    // P108: aggiorna i campi nuovi, poi riallinea gli alias legacy (per100g resta condiviso con CREA_ALIMENTI)
+    a.categoriaSem=cat;a.gDefault=g;
+    a.per100g=(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null);
     a.updated_at=new Date().toISOString();
-    if(kcal!=null)CREA_ALIMENTI[a.n]=_alimCustomMacros(a);else delete CREA_ALIMENTI[a.n];
+    _syncAliasLegacy(a);
+    if(a.per100g)CREA_ALIMENTI[a.nome]=a.per100g;else delete CREA_ALIMENTI[a.nome];
     saveLocal();
     pushAlimentiCustomSupabase();
     closeM('mo-alim-custom');
@@ -17167,15 +17270,18 @@ function salvaAlimentoCustom(){
     return;
   }
 
-  // Evita duplicati
-  if(db.alimentiCustom.find(function(a){return a.n===nome;})){alert('Alimento "'+nome+'" già presente.');return;}
-  const alim={n:nome,cat:cat,g:g,kcal:kcal,p:p,c:c,g100:g100,_custom:true};
+  // Evita duplicati (P108): unicità GLOBALE via risoluzione unica — prima il check era solo tra i custom,
+  // e un custom omonimo di un alimento base ne sovrascriveva silenziosamente i macros.
+  if(risolviAlimento(nome)){alert('Esiste già un alimento chiamato "'+nome+'" (o un nome equivalente) nel database.');return;}
+  // P108: il record nasce nel formato unificato, con id stabile; _migraRecordCustom completa i campi e gli alias legacy
+  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null)});
   db.alimentiCustom.push(alim);
-  // Aggiorna ALIMENTI
+  _catalogoIndicizza(alim);
+  // Aggiorna ALIMENTI (vista legacy)
   if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
   ALIMENTI[cat].items.push({n:nome,g:g,_custom:true});
-  // Aggiorna CREA_ALIMENTI (ponte unico P82)
-  if(kcal!=null)CREA_ALIMENTI[nome]=_alimCustomMacros(alim);
+  // Aggiorna CREA_ALIMENTI: riferimento CONDIVISO al per100g del record
+  if(alim.per100g)CREA_ALIMENTI[nome]=alim.per100g;
   saveLocal();
   pushAlimentiCustomSupabase();
   closeM('mo-alim-custom');
@@ -17196,6 +17302,9 @@ function eliminaAlimentoCustom(nome){
     return;
   }
   if(!confirm('Eliminare "'+nome+'" dal database personalizzato?\n(Nessun piano, ricetta o profilo lo utilizza.)'))return;
+  // P108: rimuovi anche dal catalogo unificato
+  var recDel=(db.alimentiCustom||[]).find(function(a){return a.n===nome;});
+  if(recDel)_catalogoDeindicizza(recDel);
   db.alimentiCustom=db.alimentiCustom.filter(function(a){return a.n!==nome;});
   // Rimuovi da ALIMENTI
   Object.values(ALIMENTI).forEach(function(data){
