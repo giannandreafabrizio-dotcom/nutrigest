@@ -1,0 +1,1807 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NUTRIGEST — Documento di Contesto
+Dott. Fabrizio Giannandrea · Studio Magic e Centro Curae · Matera
+Aggiornato: 12 luglio 2026 (sessione pomeridiana) — P82 alimenti custom: gestione
+  completa con identità sicura (commit 8edc873, fix 8ac585e). In sintesi:
+  `scanRiferimentiAlimento(nome)` — funzione pura che cerca un alimento custom
+  in celle piano (match esatto), righe testuali (regex a confini di parola,
+  accentate incluse), ingredienti ricette e chiavi semaforo profili paziente.
+  🏷 Rinomina scandisce, mostra "trovati N riferimenti — aggiorno tutti?" e
+  applica ovunque (piani, template, piano aperto in editor, ricette, profili)
+  con push mirato di ciò che è cambiato. ✕ Eliminazione bloccata se in uso
+  (mostra dove), consentita solo a riferimenti zero. ✎ Modifica valori
+  (kcal/P/C/G/categoria) con `{prev, updated_at}` per un undo singolo, il nome
+  resta bloccato. Ponte macros unificato in `_alimCustomMacros()` (mappatura
+  g100↔g, Scoperta #12). Bug post-rilascio nella stessa sessione: rinomina ed
+  eliminazione non producevano effetto né messaggio — causa: `pianoJSON` è
+  salvato come stringa JSON, lo scanner la trattava come array già parsato,
+  `.forEach()` su stringa lanciava TypeError non gestito prima di mostrare
+  qualsiasi alert (la ✎ modifica valori funzionava perché non chiama lo
+  scanner). Fix: normalizzatore `_alimGiorniDaPiano()` (parse-o-fallback-[])
+  usato dallo scanner; la rinomina ri-serializza in stringa dopo la mutazione.
+  Verificato con 25 asserzioni Node su funzioni pure e confermato funzionante
+  in produzione. Nella stessa sessione, fix separato non legato a P82:
+  `riapriPiano(pazId, idx)` indicizzava `db.piani[idx]` sull'array GLOBALE di
+  tutti i pazienti, ma lo storico rapido nel generatore calcolava `idx`
+  relativo al singolo paziente selezionato — apriva quasi sempre l'ultimo
+  piano salvato in assoluto invece di quello del paziente scelto (bug
+  preesistente, scoperto da screenshot: selezionando Terenzio Ruggieri si
+  apriva il piano di Stacchio Mangieri). Fix: indice globale reale via
+  `db.piani.indexOf(pl)` (stessa logica già corretta dello storico completo)
+  + guardrail in `riapriPiano` che rifiuta di montare un piano il cui
+  `pazienteId` non combacia col paziente atteso, recuperando invece il più
+  recente di quel paziente. Commit 259d787. Vedi CHANGELOG.md per il
+  dettaglio tecnico completo.
+Aggiornamento precedente: 9 luglio 2026 (2ª sessione) — P55 chiuso: getTargetAttivi(p) sorgente
+  unica dei target macros (commit 85b18ea). Audit di implementazione: 6 sedi
+  ricalcolavano i target per conto proprio (non 2 come stimato), già divergenti
+  tra loro su riferimento peso/FFM e g/kg personalizzati. Unificate dietro
+  un'unica funzione (dettaglio tecnico in CHANGELOG.md e più sotto in questo
+  documento). Il blocco generazione senza target salvato resta bloccante;
+  avviso ora visibile (non solo console.log) quando si cade nel fallback
+  stimato. 24 test JSDOM (P78), tutti pass. Tentativo P72 (SRI CDN) nella
+  stessa sessione: rimandato per limite d'ambiente (cdnjs non raggiungibile
+  dal sandbox, hash non calcolabile in modo affidabile) — nessun codice
+  modificato, dettaglio in CHANGELOG.md e in Roadmap.
+Aggiornamento precedente: 8 luglio 2026 (2ª sessione) — P64 eliminazione a cascata + tombstone
+  anti-resurrezione (commit ffec363) + fix CI test suite P78 (commit d13cdbc) +
+  cleanup repo (commit d565393). In sintesi: eliminaPaz rimuove ora a cascata
+  piani/cache AI/entrate/eventi collegati con conferma a conteggi reali ed
+  export JSON del fascicolo pre-eliminazione; nuovo registro tombstone
+  db._deleted (id→timestamp, TTL 90gg) propagato nel meta record con merge
+  anti-last-write-wins, applicato in entrambi i percorsi di pull esistenti.
+  Fix CI: la suite P78 falliva su ogni commit dal 7 luglio per uno script
+  test dipendente da bash globstar (npm esegue con sh) — script cambiato a
+  `node --test` senza percorso (discovery nativa, indipendente dalla shell).
+  Cleanup: rimossi 3 file morti dalla root (git vuoto, apps_script.gs
+  backend Google Sheets pre-Supabase confermato non più referenziato,
+  Logica ricettario.txt). Vedi CHANGELOG.md per il dettaglio completo.
+Aggiornamento precedente: 7 luglio 2026 (sessione serale) — P77 output strutturato generazione
+  piani via tool-use Anthropic (commit 676927e). In sintesi: chiamaGeneraPiano
+  ora forza tool_choice sul tool genera_piano con input_schema JSON vincolato
+  (_pianoToolSchema), identico nella forma al formato pasti/celle già consumato
+  da _normalizzaPianoNuovo/espandiPiano/validaPiano — elimina alla radice la
+  classe di bug "JSON malformato/troncato" che parseJSONSicuro tamponava.
+  PIANO_SCHEMA_VERSION=1 nel meta piano. Doppio parser (_estraiPianoDaRisposta):
+  percorso primario tool_use, fallback legacy testo+parseJSONSicuro se il
+  blocco manca (settimana di campo prevista, monitorata via meta.viaSchema).
+  max_tokens dinamico su nGiorniAttesi (_pianoMaxTokens: 7gg=12000, invariato
+  rispetto a prima — nessuna regressione di costo). Verificato ESPLICITAMENTE
+  che l'hash di _pianoCacheKey non include il prompt: zero invalidazione cache
+  90gg, a differenza di quanto temuto dall'analisi critica del CTO. Pulizia
+  del blocco FORMATO OUTPUT nel prompt (assorbimento P43) RIMANDATA al commit
+  di chiusura del fallback legacy, perché quel testo resta necessario finché
+  il doppio parser è attivo. Applicata anche alla chiamata delta di P62 (stesso
+  schema, max_tokens sui soli giorni mancanti). Suite invariata 61/61 (nessun
+  golden test nuovo: P77 è infrastruttura del contratto, non nuova logica
+  clinica — coperta indirettamente dai test di struttura P62 già esistenti).
+  Sessione di verifica successiva (stessa giornata): controllato che P62,
+  come descritta nella scheda dell'analisi critica (a,b,c,d), risultasse GIÀ
+  interamente implementata nel codice — nessuna riga aggiuntiva necessaria,
+  P77 la rafforza soltanto (garanzia strutturale a monte riduce la frequenza
+  dei casi che P62 gestisce a valle). Nessun commit da questa verifica (a
+  differenza della voce già chiusa in precedenza con commit 9b2aa9e, sotto).
+  Vedi STORICO SESSIONI E COMMIT.
+Aggiornamento precedente: 7 luglio 2026 — P61 validatore clinico post-generazione AI (commit
+  ed1e3e9) + P62 stop accettazione piani troncati (commit 9b2aa9e). In sintesi:
+  ogni piano generato dall'AI (o modificato a mano) passa ora per una rete di
+  sicurezza clinica permanente — funzione pura validaPiano(piano, p) con tre
+  esiti per elemento (conforme / violazione / non verificabile), gravità a tre
+  livelli (allergene→blocco, rosso semaforo→avviso, escluso→nota), badge
+  permanente accanto al badge 75/20/5, pannello dettagli con "vai al giorno",
+  gate bloccante su generaPDF e sul salvataggio manuale con override esplicito
+  motivato (registrato nel piano, decade da solo se il piano cambia). Le righe
+  testuali delle ricette — il punto cieco identificato dall'analisi critica —
+  sono scansionate a testo intero contro le liste di pericolo E scomposte con
+  _ngScomponiIngredienti per il conteggio di copertura: ciò che non è
+  riconoscibile non viene mai dichiarato sicuro, alimenta il contatore "non
+  verificabili" sempre visibile nel badge. A fianco, P62 chiude il buco della
+  generazione: stop_reason della risposta AI catturato e mai accettato in
+  silenzio se max_tokens; confronto STRUTTURALE tra giorni/pasti attesi
+  (dal profilo paziente) e quelli ottenuti nel piano espanso; se mancano
+  giorni interi, rigenerazione DELTA che richiede all'AI SOLO i giorni
+  mancanti e li fonde nel piano esistente (nessuno spreco dei giorni già
+  pagati in token); stop_reason/usage/esito struttura persistiti in
+  pianoEspanso[0].meta per osservabilità futura (P66). 24 golden test nuovi
+  (14 per validaPiano, 10 per il confronto strutturale), suite completa
+  passata da 51 a 61/61. Vedi STORICO SESSIONI E COMMIT.
+Aggiornamento precedente: 7 luglio 2026 — P60 separatore frutta PDF (con revert P59) + P78 suite
+  test automatica minima. In sintesi: il checkbox "🍎 frutta" per pasto resta
+  agganciato SOLO alla riga di ricetta TESTUALE (getFruttaMarker) — un tentativo di
+  estenderlo anche ai pasti a sole celle (P59) è stato implementato, verificato via
+  screenshot e poi ESPLICITAMENTE REVERTITO su richiesta clinica: quando lo spuntino è
+  già composto da celle-alimento (es. "🍎 Frutta mista 150g"), la riga sintetica
+  aggiuntiva era ridondante e confondeva la lettura del PDF (commit d3c50e0 → revert
+  177dce9). Resta invece attivo P60: separatore "+" in grigio attenuato (GRIGIO3,
+  160,160,160, stesso tono usato per "Alternative:") tra il testo dell'ultima riga
+  ricetta e l'emoji frutta stagionale nel PDF, quando lo stile paziente è
+  "stagionale" (getFruttaStile) — prima si toccavano senza spazio (commit 17064c8).
+  + P78: prima suite di test automatica del repo (test-suite/, `npm test`, CI GitHub
+  Actions su push/PR a main, commit ba5c109): S1 smoke (sintassi + caricamento JSDOM
+  senza ReferenceError sulle funzioni pure chiave); S2 unit reali su getValoriCREA/
+  NOMI_CANONICI, trovaChiaveAlimento, parseJSONSicuro, _ngScomponiIngredienti,
+  applicaRegoloSemaforo (31 test, alcuni hanno corretto assunzioni sbagliate emerse
+  solo testando il codice vero, es. comportamento di "X o Y" in _ngParseIngrediente);
+  S3 render-smoke jsPDF limitato al prerequisito di libreria (generaPDF() reale ha
+  measurePasto/drawPasto annidate non esportate + fetch di rete per le emoji: un
+  fixture end-to-end darebbe falso senso di sicurezza — resta verifica manuale
+  browser, come i Pointer Events). Era prerequisito per P61 (finding F2
+  dell'analisi critica del CTO: "P61 senza golden test è un validatore non
+  validato") — i golden test di validaPiano sono stati aggiunti in
+  test-suite/test/s2-valida-piano.test.js quando P61 è stata chiusa il 7 lug 2026
+  (commit ed1e3e9). Vedi STORICO SESSIONI E COMMIT.
+Aggiornamento precedente: 6 luglio 2026 — BLOCCO 17 (sessione serale del 5 lug, verificata sul codice
+  main il 6 lug, commit finale ab4d472): ricettario con attributi strutturati e macro
+  automatici + stagionalità nel generatore AI + fix persistenza gruppi clinici + fix
+  root-cause editPaz/checkSemaforo. In sintesi: suggerimenti AI dei gruppi clinici ora
+  PERSISTITI sul paziente (p.gruppiCliniciSuggeriti, box renderBoxGruppiCliniciSuggeriti
+  che sopravvive al cambio tab; applicaGruppoClinico marca la voce e scrive
+  checkSemaforo, commit decf5ef) + fix ROOT-CAUSE editPaz(): il vecchio campo testuale
+  p.patologie (spesso vuoto) resettava in silenzio i checkbox patologie, che condividono
+  gli id con checkSemaforo — ora checkSemaforo è applicato DOPO setPatologieFromStr/
+  setAllergieFromStr e salvaPaz() riparte dal checkSemaforo GIÀ SALVATO (commit 5a0721f)
+  + sistema attributi strutturati ricette r.attributi {stagioni, tempoPrep, profilo} a
+  chip, separato da r.tags (commit 48805d9) + editor ricetta riorganizzato con 8
+  TAG_COMUNI standardizzati a chip al posto del testo libero, migrazione automatica dei
+  vecchi tag riconosciuti e conservazione di quelli non riconosciuti (commit d68bfec) +
+  ricalcolo automatico kcal/macro della ricetta dagli ingredienti (riuso
+  _ngScomponiIngredienti + getValoriCREA, live con debounce, avviso ingredienti non
+  riconosciuti, commit 7e2edf1) + stagionalità nel generatore: getStagioneCorrente() +
+  filtro conservativo su r.attributi.stagioni con GUARDIA anti-pool-vuoto — soglia
+  max(8, un terzo del pool): sotto soglia il pre-filtro si disattiva da solo (commit
+  66139ec) + drag&drop per riordinare le ricette testuali nel piano (handle ⠿, Pointer
+  Events, scambiaRicette, commit ab4d472). Vedi STORICO SESSIONI E COMMIT.
+Aggiornamento precedente: 5 luglio 2026 — BLOCCO 16: compositore manuale allineato al generatore AI +
+  copia alimenti tra celle + popup categoria/alimento ridisegnato + fix critico login.
+  In sintesi: fix bug semaforo carne rossa (cavallo/agnello non riconosciuti, causa
+  `getCategoriaFunzionale` con `Array.isArray` sempre falso su ALIMENTI, commit 900bdb3)
+  + drag&drop per copiare un alimento già piazzato in un'altra cella/pasto dello stesso
+  giorno, stesso comportamento di drop della libreria (commit 68fce7b) + footer
+  compositore manuale allineato al generatore AI: toggle nutrizionali/promemoria/frutta,
+  Concetti da allegare, WhatsApp, Salva template (commit ec6d6a6) + griglia celle
+  UNIFICATA tra generatore AI e compositore manuale (`_renderCelleGriglia` condivisa):
+  menu ⋯ completo con sposta/elimina/swap alternativa, checkbox frutta per pasto,
+  scoperto e corretto che `_aggiornaPianoBox()` non riconosceva la modalità manuale
+  (commit 6ec4b22) + barra giorni: tab orizzontali cliccabili con scroll a frecce e
+  drag-to-scroll mouse via Pointer Events (nessun listener su window, evita leak),
+  rimosso vecchio selettore verticale, "Pesca ricetta" ora scrive anche la riga
+  descrittiva testuale (necessaria perché la frutta si aggancia solo lì, non alle
+  celle) (commit bdc10c6, fa2a323, 358fd11) + popup "Scegli categoria → Aggiungi
+  alimento" RIDISEGNATO: un solo popup con due pannelli che scorrono (invece di due
+  popup separati), 3 colonne, emoji per alimento, tasto ← indietro funzionante,
+  nessuna barra di ricerca nello step alimenti, sfondo opaco tra i due step
+  (`_mostraPopupSceltaCategoriaAlimento`, sostituisce la vecchia
+  `_mostraPopupCategoriaAlimenti` rimossa) — richiesta l'estrazione di `getEmojiCp`/
+  `EMOJI_MAP`/`EMOJI_CAT_FALLBACK` da dentro `generaPDF` a livello globale, riusate sia
+  dal PDF sia dal nuovo popup (commit 552c316) + BUG CRITICO introdotto e risolto in
+  giornata: nell'estrazione sopra, la riga `var _emojiCache = emojiCache || {}` è
+  finita per errore a livello globale (dove `emojiCache` non esiste, essendo un
+  parametro di `_generaPDFSync`) → `ReferenceError` al caricamento pagina che
+  bloccava l'intero script, login incluso (non un problema di GitHub Pages/cache
+  come inizialmente sospettato — diagnosticato da un secondo `Uncaught
+  ReferenceError: emojiCache is not defined` in console). Fix: rimessa la riga
+  dentro `_generaPDFSync` dove il parametro esiste (commit febf056). Nota
+  parallela: un deploy GitHub Pages era anche fallito con "Error: Deployment
+  failed, try again later" (errore infrastrutturale generico, non del codice),
+  risolto con un commit vuoto (`git commit --allow-empty`) per forzare il
+  redeploy. Commit finale sessione: febf056. Vedi STORICO SESSIONI E COMMIT.
+Aggiornamento precedente: 4 luglio 2026 — BLOCCO 15b: regressione accidentale + fix — il commit
+  71dc1b9 (guard anti-perdita dati) aveva cancellato per intero la feature viste
+  Lista/Kanban pazienti del commit precedente be151e7 (causa: file locale
+  disallineato prima del commit, non un errore nel codice generato). Ricostruito
+  unendo be151e7 (viste integre) + le modifiche del guard sync riapplicate sopra,
+  verificato via diff mirato (solo le 17 righe attese del guard, nessun'altra
+  perdita). Commit fix: 80fdf6c. Vedi STORICO SESSIONI E COMMIT per il dettaglio.
+Aggiornamento precedente: 4 luglio 2026 — BLOCCO 15: campo Sesso in anagrafica + BIA-Condizione
+  migrata a per-misurazione InBody (commit 30150f3, dfe6ac1) + rimossa conferma
+  di chiusura da tutti i modal (commit fbefa99) + autofill data di nascita/sesso
+  dal referto InBody (commit 8358790) + viste Lista/Kanban pazienti con filtri
+  estesi stato piano/regime/controllo (commit be151e7) + guard anti-perdita dati:
+  avviso beforeunload solo se push Supabase fallito o in corso (commit 71dc1b9,
+  ha causato una regressione accidentale poi corretta — vedi BLOCCO 15b).
+  Vedi STORICO SESSIONI E COMMIT per il dettaglio completo.
+Aggiornamento precedente: 4 luglio 2026 — BLOCCO 14: fix sync su database pazienti vuoto
+  (commit fab46c1) + P57 ricette multi-categoria, una ricetta vale per più pasti
+  (commit c49c2a3) + fix NaN grassi alimenti custom, chiave g100 non allineata a
+  g (commit 6cb545d) + P34 diagnosi bug kcal CHIUSA (causa reale: prompt con un
+  solo target, verifica con due — mai i dati come si pensava il 24 mag) +
+  ciclizzazione carboidrati carico/scarico a due kcal decisi dal medico (commit
+  fd4c23c) + P7-TDEE: motore MET additivo Compendium 2024 (MB+NEAT+EAT+TEF) con
+  confronto LARN, sostituisce il vecchio calcolo PAL a bucket (commit 2a020eb) +
+  P58: regime energetico da menu fisso a slider kcal/percentuale sincronizzato,
+  soglia di sicurezza sul metabolismo basale, strategia chetogenica sganciata dal
+  livello di deficit (commit e357527). Vedi STORICO SESSIONI E COMMIT e sezione
+  STILE NUTRIZIONALE per il dettaglio completo.
+Aggiornamento precedente: 1 luglio 2026 — BLOCCO 0 completato: P29 (sicurezza RLS + token,
+  commit 54e8c8d) + P30 (multi-tenancy: blindatura meta-record, registrazione
+  self-service con conferma email, recupero password, onboarding nuovi utenti,
+  commit P30). Vedi STORICO e sezione SICUREZZA / P29-P30 per dettaglio completo.
+Aggiornamento precedente: 30 giugno 2026 (sessione 2) — 4 modifiche completate + 1 scoperta:
+  Funzionalità renale: campo 'Creatinina+eGFR' diviso in 3 voci separate
+  (Creatinina / Creatinina umol/L / e-GFR MDRD, commit 1479c96) + P56 nuovo:
+  struttura RANGE_RIF con soglie cliniche da linee guida internazionali
+  (ADA 2026, ESC/EAS 2019+2025, KDIGO 2024, EndocrineSoc 2024, AHA/CDC),
+  architettura a 3 livelli A/B/C, interpretazione sotto ogni campo analisi
+  con semaforo + ℹ️ cliccabile, 33 test Node (commit 585759b) + Fix bug
+  gruppi clinici: applicaGruppoClinico ora scrive su checkSemaforo e salva,
+  non solo sul DOM (commit a54cb14) + Fix ℹ️ range non cliccabile su mobile:
+  ora apre notif() al tap (commit 154611f) + Scoperta P55: fallback macros
+  silenzioso in costruisciPrompt() (console.log a riga 9346, non visibile in
+  UI) — aggiunto in roadmap come P55, nessun codice modificato. Vedi STORICO.
+Aggiornamento precedente: 30 giugno 2026 — 4 modifiche completate in una sessione: Integratori
+  (4 nuove voci + dosaggio Vitamina D a tendina, commit 46fd0af) + Ciclo colori
+  alimenti consigliati/sconsigliati corretto in 2 passi, bug di ritorno
+  all'origine dopo il primo giro risolto con mappa _alOrigineAuto (commit
+  b198953→6b4dfad) + Analisi del sangue completamente riorganizzata: 23 sezioni
+  cliniche, 117 voci (da ~50), 21 calcoli automatici, nuovo import automatico da
+  PDF/foto referto (commit eebc06f) + P33 chiuso: nuova modalità di composizione
+  MANUALE del piano alternativa alla generazione AI (bivio a monte, albero
+  alimenti drag&drop colorato dal semaforo, scomposizione automatica ricette nei
+  principali con colore-sul-nome), confermata funzionante sul campo da Fabrizio
+  (commit 216381f→d64ab64). Nate in roadmap P33b (aggancio automatico
+  alternative, rimandato) e P33c (piano lungo 10-12 giorni a ricetta singola, da
+  pensare). Vedi STORICO SESSIONI e ROADMAP (P33, P33b, P33c).
+Aggiornamento precedente: 29 giugno 2026 (sessione successiva) — P22 Vista Consulto/Riepilogo chiamata
+  completato: FX esteso da 2 a 4 sezioni (Sezione 3 "Cosa proporre ora" + Sezione
+  4 "Percorso 5-7 mesi", max_tokens 1400→2000, commit 63c5128) + nuova tab paziente
+  "📞 Riepilogo chiamata" con trend peso, indici clinici fuori range, macro, note,
+  domande aperte (nuovo campo p.domandeChiamata), routine e storia paziente, con
+  AUTO-RIGENERAZIONE dell'FX quando i dati clinici cambiano dopo l'ultima analisi
+  (commit 1744b20). + P1 Ottimizzazione token ricettario completato in versione
+  conservativa: filtro titoli ricetta per pasto attivo del paziente, fallback
+  "tieni sempre" su metadata ambigua, tetto 80 titoli (commit 96e21b4). Vedi
+  STORICO SESSIONI.
+Aggiornamento precedente: 29 giugno 2026 — Tre fix/feature indipendenti nel generatore: pulsante
+  "+ Aggiungi spuntino" ora apre "Scegli categoria" invece di "Ricette
+  compatibili" (nuova funzione ngAggiungiSpuntinoVuoto, commit 879a6e9) +
+  fix bug residuo P27 (label bottone salva piano restava sul paziente
+  precedente dopo il cambio, commit 61e9604) + P5 chiuso: l'AI in
+  "+ Aggiungi ricetta" ora corregge/completa anche il titolo, non solo i
+  macro (commit 01dd853). Vedi STORICO SESSIONI.
+Aggiornamento precedente: 28 giugno 2026 (sessione successiva) — Fix uscita accidentale dai modali:
+  click sullo sfondo disabilitato ovunque (inclusi i 4 popup "Aggiungi alimento"
+  non standard), X con conferma iniettata automaticamente su ogni modale, footer
+  uniformati Annulla rosso/Conferma verde a piena larghezza su tutti i 13 footer
+  dell'app, nessuna eccezione (commit 4e86631, 3bc09aa). Vedi UI — PALETTE E
+  REGOLE STILE (nuova sottosezione MODALI) e STORICO SESSIONI.
+Aggiornamento precedente: 28 giugno 2026 (continuazione stessa giornata) — P32 chiuso: campo
+  ricetta `tipo` completo/contorno, nuovo tab "Ricette parziali" nel popup di
+  editing piano per i contorni, fusione testuale nella riga invece di sostituirla
+  (commit 9121f07→b1f5ede). Criterio finale diverso da quanto P32 prevedeva
+  originariamente (funzione "sostituisce/si aggiunge", non più struttura
+  "componente/pasto montato") — emerso da esempi reali in conversazione. P5
+  (titolo AI ricette) resta aperto ma scollegato dalla vecchia dipendenza P32.
+  Vedi STORICO SESSIONI.
+Aggiornamento precedente: 28 giugno 2026 — Frutta nei pasti completata (casella per pasto,
+  stile Generico/Stagionale a rotazione su 11 frutti, sync editor↔PDF, commit
+  19f72b7→9ac394c) + Concetti: modalità selezione/eliminazione con flag
+  anti-resurrezione (commit 1ba666a→cd5a14a) + fix eliminazione paziente non
+  persistente su Supabase (commit 10c5a87) + layout pazienti a 4 colonne +
+  ordinamento per nome (commit a6aec49). Ricostruito da `git log` dopo perdita
+  della chat originale di lavoro su Frutta/Concetti — nessun codice perso, solo
+  roadmap/contesto disallineati. Vedi STORICO SESSIONI.
+Aggiornamento precedente: 27 giugno 2026 — P10 completato (pulsante aggiungi spuntino manuale post-
+  generazione, commit a0b83b7) + P15 completato (14 nuovi alimenti: integratori
+  sportivi, alcolici, biscotti, pesto, fiocchi di farro, puccia, commit 1300250).
+  Vedi STORICO SESSIONI.
+Aggiornamento precedente: 27 giugno 2026 — Feature "Template di piano" (libreria piani-modello riutilizzabili,
+  conflict-check non bloccante, commit 4fd39b2) + P27 completato (salva/aggiorna piano con
+  stato editing, risolve doppioni, commit be2cd9f). Vedi STORICO SESSIONI.
+Aggiornamento precedente: 25 giugno 2026 (2ª sessione, continuazione) — Blocco 3 COMPLETATO per
+  intero: P26 (target kcal ancorato), P18 Fase A (fix trappola checkbox), P17 Fasi
+  B+C+D (modulo Calcoli clinici, 18 indici con semaforo/glossario/toggle FX).
+  Commit c9fab21→70b2c2a. Vedi STORICO SESSIONI.
+Aggiornamento precedente: 25 giugno 2026 (2ª sessione) — Blocco 3 / P16 completato (unione F1+F3
+  in un'unica chiamata FX, pannello UI unico, commit 84e776a). Vedi STORICO SESSIONI.
+Aggiornamento precedente: 25 giugno 2026 — Blocco 6 / P11 completato (riepilogo settimanale:
+  Vista A riscritta per categoria funzionale con fallback, Vista B compatta,
+  Vista C rimossa). Vedi STORICO SESSIONI.
+Aggiornamento precedente: 24 giugno 2026 — Blocco B2 (P20 vincoli clinici generatore + P24-pat
+  gotta/ossalati) + P31 (concetti educativi allegabili al PDF) + UX bottoni export
+  + fix footer PDF + incidente deploy GitHub Pages risolto. Vedi STORICO SESSIONI.
+Aggiornamento precedente: 22 giugno 2026 — aggiunta sessione PDF estetica (footer pillole +
+  ingrandimento adattivo pagina giorno), vedi STORICO SESSIONI in fondo.
+Aggiornamento precedente: 21 giugno 2026 — SEPARAZIONE contesto/roadmap: tutta la
+  pianificazione (roadmap, strategia long-term, suggerimento prossima sessione)
+  spostata nel file operativo NutriGest_Roadmap_v4.md (P1–P53). Questo file
+  è ora puramente DESCRITTIVO (com'è fatto / perché): infrastruttura, dati,
+  decisioni, storico. Codici storici mappati ai nuovi P (PASSO A→P29, B8→P33,
+  C10→P34, D1–D7→P47–P53…).
+  Sessione precedente (4 giu): concetti educativi a fonte unica su Supabase + analisi
+  SICUREZZA del 2 giu (RLS disabilitato → P29, piano 6 step non ancora eseguito).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TL;DR — QUICK REFERENCE (leggere SEMPRE per primo)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COS'È: NutriGest, web-app gestionale per nutrizionisti (uso clinico reale del
+  Dott. Fabrizio Giannandrea, Matera). File UNICO index.html (~18.125 righe,
+  commit ab4d472), vanilla JS, no framework, no build. Backend dati: Supabase.
+
+LE 4 REGOLE D'ORO (non derogabili):
+  1. ORIGINE CODICE = GITHUB MAIN. Fabrizio NON modifica MAI in locale. A inizio
+     sessione scaricare sempre index.html da:
+       raw.githubusercontent.com/giannandreafabrizio-dotcom/nutrigest/main/index.html
+     Mai chiedere upload, mai assumere altre fonti, sempre dichiarare il commit usato.
+  2. COMMIT = BLOCCO UNICO SU UNA RIGA (Windows, cartella su Desktop):
+       cd %USERPROFILE%\Desktop\nutrigest && git add index.html && git commit -m "messaggio breve" && git push
+     Niente bullet, niente trattini, niente messaggi multi-linea, niente ~/ (sintassi Linux).
+  3. UN SOLO FILE. Mai CSS o JS separati. Modifiche con str_replace puntuali, mai
+     riscrivere funzioni da zero. Leggere tutta la funzione prima di toccarla.
+  4. COMMIT DOPO OGNI FEATURE FUNZIONANTE. Single-commit per set di modifiche completo.
+
+STACK SINTETICO:
+  Frontend: index.html unico (HTML+CSS+JS inline) | Hosting: GitHub Pages (~30s deploy)
+  Dati: Supabase (zrhmspylnlklppvhgplp) tabelle pazienti/ricette/piani/entrate/eventi
+  AI: Anthropic API browser-side (claude-sonnet-4-5), API key in localStorage
+  Dispositivi: Windows 10 Chrome (Lenovo Yoga 510) + iPhone 15 Pro Max Safari
+  LocalStorage chiavi: ng_db (database) | ng_cfg (config)
+
+DATI PRINCIPALI: db = {pazienti, ricette, eventi, entrate, piani, concetti, disponibilita}
+  Dettaglio campi paziente p.* → sezione STRUTTURA DATI.
+
+TRAPPOLE CRITICHE (dettaglio in MODALITÀ DI LAVORO + DECISIONI ARCHITETTURALI):
+  - Nel generatore il paziente è _ragPazId (non currentPazId)
+  - ALIMENTI: usare sempre data.items (non items diretto)
+  - Null check obbligatorio: document.getElementById(id)?.something
+  - NON modificare la struttura delle funzioni sync
+  - Apostrofi in JS onclick: doppi apici o escape
+  - Estraendo una funzione da dentro un'altra per renderla globale: NON portare con
+    sé righe che dipendono da un parametro della funzione originale (es. emojiCache
+    di generaPDF) — verificare ogni riga del blocco spostato. Un ReferenceError a
+    livello globale blocca l'INTERO script incluso il login (BLOCCO 16, 5 lug 2026).
+  - Gli id dei checkbox patologie/allergie/speciali (pat-*, all-*, csp-*) sono CONDIVISI
+    tra il vecchio campo testuale p.patologie e p.checkSemaforo: in editPaz() applicare
+    checkSemaforo SEMPRE DOPO setPatologieFromStr/setAllergieFromStr, altrimenti il
+    campo legacy (spesso vuoto) resetta le patologie in silenzio (BLOCCO 17, 5 lug 2026).
+
+DOVE TROVARE COSA (mappa rapida):
+  Come è fatto un sistema / nomi funzioni  → FUNZIONALITÀ IMPLEMENTATE
+  Perché una scelta è stata fatta          → DECISIONI ARCHITETTURALI
+  Campi dati e strutture                   → STRUTTURA DATI
+  Cosa fare dopo / priorità / strategia    → file NutriGest_Roadmap_v4.md (P1–P58)
+  Formule cliniche, LAF, regimi            → STILE NUTRIZIONALE
+  Storia commit e perché di vecchie scelte → STORICO SESSIONI (archivio, in fondo)
+
+NOTA: questo documento vive solo sul Desktop/progetto di Fabrizio, NON è nel repo.
+  Va caricato manualmente da Fabrizio quando si aggiorna a fine sessione.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INFRASTRUTTURA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+URL produzione:  giannandreafabrizio-dotcom.github.io/nutrigest/
+Repository:      github.com/giannandreafabrizio-dotcom/nutrigest (PUBBLICO)
+File principale: index.html (verificato da GitHub main l'8 lug 2026)
+Commit attuale:  85fc8cd — P66 Fase 0+1 (8 lug 2026): client AI unificato
+                 (aiCall, 15 call-site migrati) + trasporto proxy Edge
+                 Function con fallback automatico al diretto legacy, refresh
+                 token e kill-switch (localStorage aiProxyDisabled='1').
+                 Precedente: 8c9e77a — P63 conferma con diff per import AI
+                 analisi sangue (staging + modal diff, provenienza
+                 p._analisiMeta).
+                 Precedente: ab4d472 — BLOCCO 17 (5 lug 2026, sessione
+                 serale): ricettario con attributi strutturati (8 TAG_COMUNI
+                 a chip + r.attributi stagioni/tempoPrep/profilo) + ricalcolo
+                 automatico kcal/macro dagli ingredienti + stagionalità nel
+                 generatore con guardia anti-pool-vuoto + riordino drag&drop
+                 ricette testuali + persistenza suggerimenti gruppi clinici
+                 (p.gruppiCliniciSuggeriti) + fix root-cause
+                 editPaz/checkSemaforo.
+                 Precedente: febf056 — BLOCCO 16 (fix ReferenceError
+                 emojiCache che bloccava login e intero script + compositore
+                 manuale allineato al generatore AI, griglia celle
+                 unificata, barra giorni a tab, popup categoria/alimento
+                 ridisegnato)
+Cartella locale: C:\Users\giann\Desktop\nutrigest
+Modello AI:      claude-sonnet-4-5 | max_tokens piano:12000 | FX (ex-F1+F3):2000
+                 (dal proxy P66 il modello è deciso lato server nel
+                 MODEL_REGISTRY di ai-proxy/index.ts — cambio modello senza
+                 deploy del client)
+API key:         TRANSIZIONE P66: ancora in localStorage come
+                 anthropicApiKey, ma NON più il percorso primario — usata
+                 solo come fallback se il proxy non è raggiungibile, la
+                 sessione manca, o il kill-switch è attivo. Verrà rimossa
+                 al commit di chiusura P66 (vedi DECISIONI ARCHITETTURALI).
+
+Supabase: https://zrhmspylnlklppvhgplp.supabase.co
+  Edge Functions:
+    ai-proxy — deployata l'8 lug 2026 (via editor dashboard, non CLI/GitHub
+      — il collegamento GitHub↔Supabase resta volutamente NON attivo:
+      valutato e scartato, complessità non giustificata per un solo
+      sviluppatore con deploy poco frequenti; da riconsiderare solo se la
+      funzione inizia a cambiare spesso).
+      Codice: ai-proxy-index.ts. Legge il JWT della sessione utente (claim
+      sub → user_id), tiene il secret ANTHROPIC_API_KEY, decide il modello
+      dal MODEL_REGISTRY server-side, inoltra ad api.anthropic.com, logga
+      i consumi in ai_usage (service role, bypassa RLS). Risposte passate
+      ad Anthropic marcate con header x-proxy-upstream (la sua ASSENZA
+      distingue errori d'infrastruttura del proxy dagli errori API veri).
+    Secret configurato: ANTHROPIC_API_KEY (Project Settings → Edge
+      Functions → Secrets — NON sotto Project Settings → General/API Keys,
+      è una pagina propria del dashboard).
+  Auth: email+password, sessione 7 giorni; conferma email ATTIVA (1 lug 2026)
+  ✅ RLS ATTIVO (1 lug 2026 — P29 completato). Tutte e 5 le tabelle con
+     policy row-owner (user_id = auth.uid()). supaHeaders() ora invia
+     l'access_token utente nel Bearer, con rinnovo automatico ogni 30 min
+     + proattivo (buffer 2 min) via assicuraTokenValido(). Costante APP_URL
+     hardcoded per redirect email. Chiave primaria pazienti ora (id, user_id)
+     per consentire meta-record con id fissi a più utenti.
+  Tabelle: pazienti | ricette | piani | entrate | eventi | meta(solo disponibilita)
+  Funzioni sync: pushToSheets/pullFromSheets = nomi legacy che usano Supabase internamente
+  Funzioni dedicate per tabella (verificate nel codice):
+    Ricette:  pushRicetteSupabase  pullRicetteSupabase  delRicetteSupabase
+    Piani:    pushPianoSupabase    pullPianiSupabase    delPianoSupabase
+              pushCachePianoSupabase (cache 90gg, chiave hash deterministico)
+    Entrate:  pushEntrateSupabase  pullEntrateSupabase  pushEntrataSupabase  delEntrataSupabase
+    Eventi:   pushEventoSupabase   pushEventiSupabase   pullEventiSupabase   delEventoSupabase
+    Modelli rotazione (21 mag): pushModelliSupabase  pullModelliSupabase
+      → riga __modelli_rotazione in tabella pazienti (no tabella dedicata, scelta A1)
+    Alimenti custom (22 mag): pushAlimentiCustomSupabase  pullAlimentiCustomSupabase
+      → riga __alimenti_custom in tabella pazienti (stesso pattern modelli rotazione)
+    Concetti educativi (4 giu): pushConcetiSupabase  pullConcetiSupabase  migraConcetti
+      → riga __concetti_educativi in tabella pazienti (stesso pattern). data={concetti:[...]}
+      → fonte UNICA db.concetti; CONCETTI_EDUCATIVI_SEED solo per migrazione iniziale
+  Semantica sync — fotografia del comportamento attuale (aggiornata 9 luglio 2026, P68):
+    save(pazId?) è ora retro-compatibile con due modalità.
+    save() SENZA argomento = comportamento storico invariato: saveLocal() +
+    pushToSheets(). pushToSheets() invia TUTTI i pazienti, un POST per paziente,
+    payload {id, data:<intero oggetto paziente>, updated_at} con Prefer:
+    resolution=merge-duplicates (upsert: l'ultimo push vince sull'intero blob).
+    Resta il comportamento di importa() e dell'eliminazione definitiva paziente
+    (deve propagare rimozione + tombstone in un colpo, push completo corretto).
+    save(pazId) = push incrementale: saveLocal() immediato, poi l'id finisce in
+    window._dirtyIds (Set), _syncPendingFail si arma subito (guardia beforeunload
+    attiva finché il cloud non conferma), un debounce di 2s coalesce raffiche di
+    save() ravvicinate in un solo flush. Il flush (_flushDirtyIds) pusha SOLO le
+    righe sporche via _pushRigaPerId, una POST per id, e rimuove ogni id dal set
+    SOLO a conferma 2xx per-id — un fallimento non azzera gli altri, restano nel
+    set per il prossimo tentativo. Se un push completo (o un altro flush) è già
+    in corso (_syncInFlight), il flush si riprogramma senza perdere id. I 4
+    meta-record (meta_collections/__alimenti_custom/__modelli_rotazione/
+    __concetti_educativi) sono id sporchi come gli altri, gestiti dallo stesso
+    _pushRigaPerId. Migrati 44/47 call-site storici a save(pazId) (commit
+    97f0d53); i 3 rimasti anonimi sono voluti (importa, eliminazione paziente,
+    più la telemetria interna). Telemetria temporanea in localStorage
+    (p68SaveAnon, retention 30gg) traccia eventuali save() anonimi residui non
+    ancora migrati, da rimuovere quando la migrazione sarà considerata completa.
+    pullFromSheets() SOSTITUISCE db.pazienti con le righe del server; guardia: se il
+    server restituisce 0 righe i dati locali NON vengono toccati. Il client non invia
+    mai user_id nei payload: la valorizzazione avviene lato Supabase (setup P29/P30,
+    vedi STORICO). eliminaPaz(id): rimuove paziente + eventi collegati (locale e
+    Supabase); i PIANI e le ENTRATE collegati al paziente NON vengono rimossi
+    (comportamento attuale: le righe restano nelle tabelle piani/entrate).
+
+Dispositivi: Windows 10 Chrome (Lenovo Yoga 510) + iPhone 15 Pro Max Safari
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODALITÀ DI LAVORO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Flusso: descrivi modifica → carica index.html → Claude fa str_replace Python
+        → git add . && git commit -m "msg" && git push → GitHub Pages ~30s
+
+COMMIT (Windows): la cartella nutrigest è sul Desktop Windows. Claude fornisce
+  SEMPRE un singolo blocco copia-incollabile su UNA SOLA RIGA, formato:
+  cd %USERPROFILE%\Desktop\nutrigest && git add index.html && git commit -m "messaggio breve" && git push
+  — niente bullet, niente trattini, niente messaggi multi-linea, niente ~/ (sintassi Linux).
+
+Usare SEMPRE il sito GitHub Pages per il lavoro clinico reale.
+Il file locale serve SOLO per testare modifiche al codice.
+
+WORKFLOW FILE INDEX.HTML (aggiornato 4 giu 2026 — sostituisce il vecchio "carica il file"):
+  Fabrizio NON fa MAI modifiche al codice in locale. Di conseguenza GitHub branch main
+  è SEMPRE la fonte di verità assoluta. All'inizio di OGNI sessione Claude scarica sempre
+  la versione corrente da:
+    raw.githubusercontent.com/giannandreafabrizio-dotcom/nutrigest/main/index.html
+  Claude NON chiede a Fabrizio di caricare index.html e NON assume altre fonti.
+  Claude dichiara sempre quale versione/commit sta usando prima di modificare.
+  Questo garantisce diff puliti e nessuna regressione da file obsoleti.
+  NOTA: il documento di contesto (questo file) vive solo sul Desktop/progetto di Fabrizio,
+  NON è nel repo — va caricato manualmente da Fabrizio quando si aggiorna a fine sessione.
+
+REGOLE DI SVILUPPO:
+  1. Leggi tutta la funzione prima di modificarla
+  2. Testa in Chrome dopo ogni modifica
+  3. Apostrofi in JS: doppi apici o escape \'
+  4. ALIMENTI: usa sempre data.items (non items direttamente)
+  5. Null check: document.getElementById(id)?.something
+  6. Un solo file — mai CSS o JS separati
+  7. Commit dopo ogni funzionalità che funziona
+
+ATTENZIONE CODICE:
+  - Nel generatore il paziente è _ragPazId (non currentPazId)
+    → const pid = currentPazId || _ragPazId || document.getElementById('piano-select-paz')?.value
+  - NON modificare la struttura delle funzioni sync
+  - Tasto "Inizializza tabella X" nelle impostazioni per migrare dati
+
+AGGIORNAMENTO MODELLO AI — regole:
+  Formato stringa: claude-sonnet-X-YYYYMMDD (es. claude-sonnet-4-5)
+  Testare su UN paziente prima di aggiornare in produzione
+  Verificare ottimizzazione per ragionamento clinico (FX, ex-F1 scheda + ex-F3 flag)
+  Costi: vedi sezione COSTI E PROIEZIONI ECONOMICHE
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRUTTURA DATI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+db = { pazienti:[], ricette:[], eventi:[], entrate:[], piani:[], concetti:[], disponibilita:{}, _deleted:{} }
+
+db._deleted = { '<pazId>': timestamp_ms, ... }  // P64, 8 lug 2026 — registro tombstone
+  // Scritto da _registraTombstone() quando un paziente viene eliminato (eliminaPaz).
+  // Propagato dentro il meta record (meta_collections, chiave 'deleted') insieme a
+  // disponibilita — nessuna tabella Supabase dedicata. TTL 90gg (_tombstoneAttivi
+  // pota le voci scadute a ogni lettura/scrittura). Prima di ogni push del meta,
+  // _mergeTombstonesRemoti fonde il registro remoto in quello locale (vince il
+  // timestamp più vecchio) per non perdere tombstone di un altro dispositivo sotto
+  // last-write-wins. In pull, _applicaTombstones scarta pazienti/piani/entrate/eventi
+  // "risorti" e rielimina da remoto SOLO le righe effettivamente ricomparse.
+  // Applicato in entrambi i percorsi di pull (pullFromSheets e il blocco pull dentro
+  // sincronizzaTutto — doppia fonte nota, vedi F4, refactor fuori scope di P64).
+
+ALIMENTI = { 'Categoria': { items: [{n:'Nome', g:100, gl:true/false}] } }
+  Chiave preferenze: 'Categoria__NomeAlimento'
+  'Bieta' aggiunta 24 giu 2026 (categoria Verdura, {n:'Bieta',g:200}, dopo Spinaci):
+    era nome fantasma in 4 regole semaforo esistenti (scritto ma non in ALIMENTI →
+    trovaChiaveAlimento restituiva null, scartato in silenzio). Ora attiva ovunque.
+    Calcolo nutrizionale via fallback categoria 'verdura'→Verdura mista in getValoriCREA
+    (nessuna riga CREA_ALIMENTI dedicata necessaria — stesso pattern di Spinaci/Cicoria).
+
+p.sesso: 'M' | 'F' | '' // BLOCCO 15, 4 lug 2026 — campo anagrafico aggiunto ex novo.
+  // Era già letto in 8 punti del codice (soglia T/E2, ferritina, cintura/fianchi,
+  // formule Devine/Robinson) ma MAI scritto da alcun form: sempre undefined prima
+  // di questa sessione. Select nel tab Dati del modal paziente, accanto a Data di
+  // nascita (stessa riga fr a 2 colonne). Autofill da referto InBody se vuoto
+  // (vedi loadInbodyPDF), non sovrascrive mai un valore già presente.
+
+ib.condizioneBia: 'Digiuno' | 'Post-spuntino' | 'Post-pranzo' | ''  // BLOCCO 15, 4 lug 2026
+  // Migrato da campo unico paziente (p.bia, ora deprecato) a campo per-misurazione
+  // dentro ogni oggetto p.inbody[]. Motivo: la condizione BIA è specifica della
+  // singola rilevazione, non della persona — necessario per interpretare
+  // correttamente lo storico (misure in condizioni diverse non comparabili 1:1).
+  // Mostrato come badge (🩺 Digiuno) nella card di ogni misurazione. p.bia legacy
+  // preservato nel merge di salvaPaz() se non sovrascritto, non più scritto da UI.
+
+window._syncPendingFail / window._syncInFlight: boolean  // BLOCCO 15, 4 lug 2026; esteso P68, 9 lug 2026
+  // Flag di stato per il guard anti-perdita dati. _syncPendingFail=true se
+  // l'ultimo push (completo O incrementale) è fallito, o è stato appena marcato
+  // sporco un id non ancora confermato dal flush P68; _syncInFlight=true mentre
+  // un push completo O un flush incrementale è in corso (i due si rispettano a
+  // vicenda: se uno dei due trova l'altro attivo, si riprogramma). Azzerati
+  // entrambi ad ogni push/flush riuscito (per l'incrementale: solo quando il
+  // dirty set torna vuoto). Consumati dal listener beforeunload (mostra il
+  // dialog nativo di conferma chiusura se uno dei due è true, silenzioso
+  // altrimenti) — non persistiti, non hanno altro effetto sul funzionamento
+  // dell'app.
+
+window._dirtyIds: Set<string>  // P68, 9 lug 2026
+  // Id (pazienti o meta-key: meta_collections/__alimenti_custom/
+  // __modelli_rotazione/__concetti_educativi) marcati "sporchi" da save(id),
+  // in attesa del flush incrementale (debounce 2s, vedi _flushDirtyIds).
+  // Svuotato per-id solo a conferma 2xx; un push completo riuscito lo svuota
+  // per intero. Vive solo in memoria, non persistito: un reload a metà flush
+  // perde la marcatura, ma saveLocal() ha già scritto il dato in localStorage
+  // — il rischio è un ritardo nel prossimo push cloud, non perdita del dato.
+
+p.gruppiCliniciSuggeriti[] = { id, nome, motivazione, applicato }  // BLOCCO 17, 5 lug 2026
+  // Suggerimenti del bottone 🔍 Gruppi clinici PERSISTITI sul paziente (prima vivevano
+  // solo nel DOM e sparivano al cambio tab). Il box è ridisegnato da
+  // renderBoxGruppiCliniciSuggeriti(p) in testa alla card Analisi del sangue.
+  // applicato=true quando il medico applica il gruppo via applicaGruppoClinico, che
+  // scrive anche p.checkSemaforo[id]=true, sincronizza il checkbox se nel DOM,
+  // ricalcola il semaforo (applicaRegoloSemaforo) e salva. Lo stato "già applicato"
+  // mostrato nel box è l'OR di: voce.applicato | checkbox DOM | p.checkSemaforo[id].
+
+p.checkSemaforo = { 'pat-diabete':true, ... }  // fonte di verità patologie/allergie/speciali
+  // (campo esistente dal fix a54cb14 del 30 giu; documentato qui il 6 lug 2026).
+  // ATTENZIONE (BLOCCO 17, commit 5a0721f): gli id sono CONDIVISI coi checkbox del
+  // vecchio campo testuale p.patologie/p.allergie — in editPaz() i checkbox vanno
+  // popolati da checkSemaforo DOPO setPatologieFromStr/setAllergieFromStr, e
+  // salvaPaz() costruisce il nuovo checkSemaforo partendo da quello GIÀ SALVATO
+  // (Object.assign dal paziente precedente) prima di applicare lo stato del DOM:
+  // così le patologie attivate da "Applica gruppo clinico" sopravvivono anche se
+  // il loro checkbox non è presente nel DOM al momento del salvataggio.
+
+r.attributi = { stagioni:[], tempoPrep:'', profilo:[] }  // BLOCCO 17, 5 lug 2026 — ricette
+  // stagioni: sottoinsieme di ['primavera','estate','autunno','inverno'] — array
+  //   VUOTO = esplicitamente "valida tutto l'anno" (resta candidata a ogni filtro).
+  // tempoPrep: '' | '0-5' | '5-10' | '10-20' | 'gt20' (radio, uno solo).
+  // profilo: sottoinsieme di ['vegetariano','vegano','low-carb','senza-glutine'].
+  // Campo SEPARATO da r.tags: r.tags resta libero/legacy (e fa da fallback per lo
+  // slot pasto nel generatore, vedi P1); r.attributi è strutturato per categoria.
+
+r.tags — dal BLOCCO 17: unione di TAG_COMUNI selezionati a chip (8 label canoniche:
+  Proteica, Leggera, Mediterranea, Chetogenica, Antinfiammatoria, Ricca di fibre,
+  Comfort food, Batch cooking) + eventuali vecchi tag liberi NON riconosciuti dalla
+  migrazione (conservati al salvataggio, semplicemente senza chip dedicato).
+  _tagComuniTrova() riconosce le varianti storiche (es. 'keto'→Chetogenica, 'light'→
+  Leggera, 'meal prep'→Batch cooking) e accende il chip canonico aprendo l'editor.
+
+p.concettiAllegati: [] // array di ID (non oggetti) — P31, 24 giu 2026
+  Selezionati via apriConcettiModal()/salvaConcettiAllegati(), risolti in oggetti
+  da db.concetti al momento della stampa PDF (fonte unica, vedi sezione PDF).
+
+p.routineGiornaliera[] = {
+  nome: "Berberina",
+  dose: "500 mg",
+  tipo: "integratore" | "spezia" | "superfood",
+  quando: "30 min prima dei pasti principali",
+  quandoRif: "prima" | "durante" | "dopo",
+  pastoRif: "colazione" | "spuntino_mattina" | "pranzo" | "spuntino_pomeriggio" | "cena" | "pre_nanna",
+  razionale: "Migliora sensibilità insulinica via AMPK",
+  attivo: true
+}
+
+p.noteClinica[] = { id, testo, data }  // max 15 note, append-only
+p.note = ""  // campo legacy — retrocompatibile, migrazione automatica
+
+p.aggiustamentiMacros[] = { id, data, macro:'C'|'P'|'G', delta, totale, peso, nota }
+  // max 15 voci — aggiustamenti mensili reverse dieting (B5, 24 mag 2026)
+  // al salvataggio aggiorna p.macrosTarget[campoMacro] e p.macrosTarget.kcal (delta×4 per C/P, ×9 per G)
+  // eliminazione: non ripristina macrosTarget automaticamente (warning all'utente)
+
+p.pesiIntermedi[] = { data, peso }
+  // campo presente nel codice ma C4 SCARTATO (bilance domestiche ≠ bilancia studio, delta inaffidabile)
+  // il campo resta in struttura per non rompere migrazione, ma nessuna UI attiva (da rimuovere)
+
+p.domandeChiamata[] = stringa[]  // P22, 29 giu 2026 — domande aperte selezionate per il
+  // Riepilogo chiamata. Selezionabili da libreria RIEP_DOMANDE_DEFAULT (12 domande
+  // hardcoded in JS, non in db) + testo libero aggiunto dall'utente. Stesso array
+  // contiene sia le default attivate sia le custom, nessuna distinzione di provenienza.
+
+p.ragionamentoClinico.fxSig = stringa  // P22, 29 giu 2026 — firma dei dati clinici
+  // (peso/InBody/macro/regime/farmaci/sangue) calcolata da _riepDataSig() al momento
+  // dell'ultima generazione FX. Confrontata ad ogni apertura della tab Riepilogo
+  // chiamata: se i dati attuali producono una firma diversa, l'FX viene rigenerato
+  // in automatico (auto-rigenerazione P22). Non è una firma crittografica, solo
+  // concatenazione di campi → falsi positivi possibili se cambi un campo non incluso.
+p.ragionamentoClinico.fxData = stringa  // data (formato today()) dell'ultima generazione FX,
+  // mostrata nell'header del box "Cosa proporre" della tab Riepilogo chiamata.
+
+p.integratori: doppio quadratino □ verde (prende già) | □ ambra (vorrebbe prendere)
+  "Vorrebbe prendere" NON va automaticamente in Routine
+
+p.regolePiano: {
+  pesce, carnebianca, carnerossa, uova, affettati, latticini, legumi, pesceconsv,
+  legumi135, sabatolibero, rotazione, verdura200, frsecca, cenaleggera,
+  uovanote,
+  modello: '' | 'naruto' | 'hinata' | '<chiave_custom>',   // modello rotazione settimanale attivo
+  tipocolazione: 'dolce' | 'salata' | 'mista'  // default 'mista'
+}
+
+MODELLI_ROTAZIONE: let (modificabile runtime) — sistema: naruto, hinata; + custom dinamici
+  MODELLI_ROTAZIONE_DEFAULT: const (immutabile) — copia originale per ripristino
+  Ogni modello: { nome, descrizione, cereali:{pranzo,cena}, griglia:{lun/.../sab[/dom]:{pranzo:[],cena:[]}} }
+  Categorie nelle celle: 'Legumi','Latte & Derivati','Carne Bianca','Carne Rossa',
+    'Pesce (Cena)','Pesce (Pranzo)','Uova','Insaccati & Salumi','LIBERO'
+  Quando modello attivo: frequenze auto-derivate (read-only), legumi135+rotazione disabilitate
+  Griglie: 6 giorni (lun→sab) o 7 giorni (lun→dom) — configurabile per modello
+  Sync: riga __modelli_rotazione in tabella pazienti Supabase (A1 — zero modifiche schema)
+  LocalStorage: chiave 'modelliRotazione' — salva solo custom + sistema-modificati
+  UI: dropdown dinamico + 4 azioni: 👁 Vedi · ✏️ Modifica · 📋 Duplica · ➕ Nuovo
+    Modifica sistema: conferma → modifica diretta → badge "(modificato)" → 🔄 Ripristina
+    Modelli custom: 🗑️ Elimina disponibile
+getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiamata da tutte
+  le 6 sedi che un tempo li ricalcolavano per conto proprio (costruisciContestoPaziente,
+  _aggiornaAnteprimaCiclizzazione, box macros generatore, calcolaTargetsCiclizzazione,
+  _setupPianoTargets, costruisciPrompt). Priorità: (1) _getActiveMacrosTarget(p) — vince
+  ultimo aggiornato tra p.macrosTarget e p.ragionamentoClinico.macrosDecisi → fonte 'fx'/'tdee';
+  (2) fallback canonico se nessun target salvato → fonte 'fallback': riferimento FFM se
+  BMI≥25 e InBody presente (altrimenti peso, rispettando p.rifCalcolo), g/kg personalizzati
+  p.proteine_gkg/p.grassi_gkg (default 1.8/0.9), kcal = TDEE + offset regime. Ritorna
+  {kcal,protG,carbG,grassiG,protGkg,grassiGkg,ref,refTipo,fonte,source,timestamp,raw}.
+  La generazione da UI resta bloccata senza target salvato (BUG3 STEP2); costruisciPrompt
+  mostra un avviso visibile (notif(), non solo console.log) quando cade nel fallback.
+  24 test JSDOM in P78. Regola permanente: nessun nuovo punto del codice deve ricalcolare
+  i target autonomamente — sempre getTargetAttivi.
+
+p.dateCalendario: { visita, controllo, chiamata1, msg2 }  // generate da inizioPiano
+p.pesiIntermedi[] = { data, peso }  // futura — sblocca msg WA clinici (C4)
+
+CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0): Map id→record che avvolge
+  ALIMENTI+CREA_ALIMENTI SENZA sostituirli — entrambe restano popolate e
+  invariate per compatibilità con tutto il codice esistente. Ogni record:
+  {id, nome, categoriaSem, categoriaFunz, gDefault, gl, per100g, tags,
+  barcode, fonte:'crea'|'custom', attivo}. Id deterministico
+  crea:<slug-nome> per i CREA-INRAN, cust:<ts>-<rnd> per i custom (assegnato
+  una volta, poi stabile — serve a far convivere in futuro due prodotti
+  diversi con lo stesso nome a schermo, es. scanner barcode P110).
+  risolviAlimento(rif): risoluzione UNICA per id o nome (esatto →
+  case-insensitive → canonico). getValoriCREA ora è un involucro sottile su
+  questa funzione — firma e fallback invariati per chi la chiama.
+  ~298 voci totali nel catalogo dopo P109 (13 lug 2026): 68 alimenti in più
+  con kcal/P/C/G (prima avevano solo categoria/grammatura e cadevano nel
+  fallback generico). 27 restano senza macros (spezie, esotici/integratori,
+  voci composte di Fabrizio) — non presenti nelle tabelle CREA classiche.
+
+CREA_ALIMENTI: ~230 voci kcal/P/C/G per 100g (dopo }; di ALIMENTI nel codice)
+  Generici: Verdura mista {25,2,4,0.3} | Frutta mista {50,0.8,12,0.2} | Frutta secca {615,18,7,55}
+  Legumi mista (fallback): {88,6.3,13.5,0.9} — media barattoli
+  Eccezioni: Banana, Avocado, Cocco fresco, Datteri, Ciocc.fondente 85%, Olio di cocco
+  Alias senza parentesi (per match AI): Ceci/Lenticchie/Fagioli borlotti/Piselli
+    barattolo + Filetti di merluzzo/nasello singoli (commit dc268bc)
+
+NOMI_CANONICI: mappa di disambiguazione (commit 2b1a2f0)
+  Quando l'AI scrive nomi generici nelle ricette/piani ("fagioli", "tonno",
+  "pasta"), getValoriCREA() applica le preferenze cliniche Fabrizio:
+    Legumi → barattolo (escluso piselli → surgelati)
+    Tonno → sottolio | Salmone → fresco | Pollo → petto
+    Latte/Yogurt/Ricotta/Mozzarella → vaccino intero
+    Olio (tutte varianti) → Olio EVO | Pasta/Riso → bianco | Pane → comune
+  21 regole totali, case-insensitive, applicate prima dei fallback di categoria.
+  Espandere quando emergono nuovi pattern di scrittura AI.
+
+Badge macros: Verde ±10% | Arancio ±20% | Rosso >±20% | Giallo = alimento non in CREA
+
+Tab paziente (ordine): Dati → Preferenze cibi → Analisi sangue → InBody →
+  TDEE → Note cliniche → 🌿 Routine → 💭 Ragionamento
+
+Pazienti attivi: Francesca Bia | Carmelo Lazzaro | Roberto Cifarelli | Floriana Chimenti
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DECISIONI ARCHITETTURALI (con motivazione)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+P66 TRASPORTO PROXY CON FALLBACK, NON TAGLIO NETTO (8 lug 2026): al posto
+  di sostituire il trasporto diretto in un colpo solo, aiCall prova prima
+  il proxy e ricade sul diretto legacy se il proxy non è raggiungibile,
+  la sessione manca, o via kill-switch (aiProxyDisabled='1'). Motivo:
+  un'app clinica in uso quotidiano non può fermarsi per un problema di
+  deploy della funzione o di configurazione secret — stesso principio già
+  applicato al doppio parser di P77 (schema-first con fallback testuale).
+  Il fallback NON è permanente per design: è la fase di transizione.
+  PIANO DI CHIUSURA (non ancora eseguito, in attesa di qualche giorno di
+  uso stabile in produzione): commit dedicato che rimuove per intero il
+  ramo trasporto diretto in aiCall, la lettura/scrittura della chiave
+  Anthropic in localStorage (anthropicApiKey), e il window.prompt di
+  getAnthropicKey. Da quel commit in poi la chiave Anthropic non esisterà
+  più lato browser per nessun utente — solo come secret server-side nella
+  Edge Function ai-proxy. Non chiudere questo passo finché l'uso reale in
+  produzione (piano, import analisi/InBody, WhatsApp AI, concetti) non ha
+  attraversato il proxy per più giorni senza fallback anomali in ai_usage.
+
+GITHUB NON COLLEGATO A SUPABASE PER IL DEPLOY DELLE EDGE FUNCTIONS
+  (8 lug 2026): valutato esplicitamente al momento del deploy di ai-proxy.
+  Il collegamento servirebbe solo per auto-deploy ad ogni push; oggi si
+  deploya via editor dashboard (incolla manuale). Per un solo sviluppatore
+  con una funzione che cambia raramente, il collegamento è complessità
+  senza vantaggio pratico. Da riconsiderare SOLO se ai-proxy (o future
+  funzioni) iniziano a richiedere iterazioni frequenti.
+
+CACHE PIANI 90 GIORNI (non 30): struttura piano è stabile, cambiano solo
+  grammature e ricette specifiche → cache lunga ha senso. Hash chiave da
+  pazienteId + regime + kcal + P/C/G + alimenti + giorni vegetariani.
+
+MAX_TOKENS PIANO 12000 (non 8000): margine sicurezza, output reale 4-6k.
+  Abbassare non riduce costi (si paga output effettivo), evita output troppo
+  lunghi in caso di bug prompt.
+
+AI RICETTE USA CREA DAL TRAINING (non CREA_ALIMENTI codice): valori molto
+  simili (stessa fonte) ma non identici. Eccezioni personalizzate non considerate.
+  Differenza trascurabile per alimenti comuni → lasciare così.
+
+CREA_ALIMENTI NON NEL PROMPT: troppi token. Futuro: passare solo le 10 voci
+  critiche/eccezioni.
+
+MENU ⋯ CELLE (non hover né tasti sempre visibili): hover non funziona su
+  iPhone, sempre visibili affolla. Menu funziona su entrambi.
+
+TOGGLE MISURE CASALINGHE SUL PDF (non sul profilo paziente): il medico
+  lavora sempre con i grammi, sceglie le misure al momento della stampa
+  per ogni paziente.
+
+F2/F4 ELIMINATI (Scelta Alimenti + Integratori): si erano dimostrati non
+  utili in studio. Solo FX ora (F1+F3 fusi in un'unica chiamata, P16 — 25 giu 2026).
+
+CAMPO "PREPARAZIONE/NOTE" RICETTE: sola lettura paziente, NON nel piano
+  generato. Serve per app paziente futura + ricettario editoriale + IG.
+
+PANNELLO LATERALE: variante C (350px sticky). Scopo: vista analitica per
+  alimento (confronto principale vs alternative) per aggiustare grammature
+  senza perdere il filo. NON è un riepilogo pasto.
+
+VERSIONING PAZIENTE (B5 — implementato 24 mag 2026): aggiustamenti macros mensili
+  in tab Note Cliniche come sezione strutturata separata. Scelta: solo manuale (medico
+  decide quando registrare), non trigger automatico. Workflow: registra → aggiorna
+  macrosTarget automaticamente → medico rigenera piano a mano con nuove grammature.
+  Le Note Cliniche testuali restano per il contesto qualitativo (umore, aderenza, eventi).
+  (Possibili evoluzioni future — unione sezioni, grafico, WA AI — in roadmap P35.)
+
+RICETTARIO V10 NON INTEGRATO AUTOMATICAMENTE: 1256 ricette da 77 piani
+  reali, ma il generatore AI già produce ricette simili. Flusso futuro:
+  genera piano → click ricetta → lista DB filtrata per categoria.
+
+NIENTE ChatGPT/FarmaMetabolic/Wearable in NutriGest:
+  ChatGPT solo come secondo parere esterno (mai integrato)
+  FarmaMetabolic completo = troppo complesso + rischio medico-legale
+  Wearable veri solo dopo app paziente nativa (12+ mesi)
+
+SILHOUETTE SEGMENTALE — SOLO VISUALIZZAZIONE, COLORE COME SEGNALE (26 mag 2026):
+  Scelta "Variante F" dopo iterazione su ~7 alternative. Principi vincenti:
+  (1) sagoma morbida stilizzata, non realistica né a blocchi geometrici;
+  (2) intensità del colore = scostamento dalla norma (il dato visivo immediato);
+  (3) valori posizionati anatomicamente con simmetria sx/dx perfetta;
+  (4) NIENTE percentuali a schermo (solo kg) — Fabrizio le ha rimosse esplicitamente;
+  (5) tronco con valore centrato DENTRO la sagoma, non spostato a lato.
+  Sola visualizzazione (no editing dai segmenti): gli input restano nella modale.
+  La norma per-segmento è STIMATA da peso proporzionale atteso sul totale (l'InBody 120
+  non fornisce il valore di riferimento nativo) → soglie InBody-standard per la colorazione.
+
+PESO IDEALE — ESTRAZIONE DAL PDF E LEGAME COL TDEE (26 mag 2026):
+  Il riferimento g/Peso Ideale nel calcolo macro esisteva già ma falliva perché il valore
+  non veniva mai estratto: il prompt AI non lo chiedeva e il parser leggeva una chiave
+  sbagliata (ib.pesoIdeale). Risolto allineando prompt (peso_ideale) e parser. Da qui in poi
+  caricando il PDF il campo si compila e il calcolo g×Peso Ideale funziona automaticamente.
+
+PROTOCOLLO ANTI-REGRESSIONE — PARTIRE SEMPRE DAL REPO GITHUB (26 mag 2026):
+  Lezione appresa: una fix (reset nome PDF, commit 6e86fa2) è stata sovrascritta da un
+  commit successivo (b3eecba) perché costruito su un index.html caricato che NON conteneva
+  ancora quella fix. Regola rinforzata: prima di modificare, partire sempre dalla versione
+  CORRENTE del repo (giannandreafabrizio-dotcom/nutrigest, branch main), mai da un file
+  potenzialmente più vecchio di quello in produzione. Se in dubbio, verificare il file remoto.
+
+PROTOCOLLO ORIGINE CODICE — GITHUB MAIN UNICA FONTE (4 giu 2026, rafforza quello sopra):
+  Fabrizio ha confermato esplicitamente che NON farà MAI modifiche al codice in locale.
+  Quindi non esiste più ambiguità: GitHub main è SEMPRE allineato alla produzione ed è
+  l'unica fonte. Claude scarica index.html da raw.githubusercontent.com (.../main/index.html)
+  all'inizio di ogni sessione, senza chiedere upload e senza assumere altre fonti.
+  Eliminato il vecchio workflow "Fabrizio carica il file" (poteva introdurre file obsoleti).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNZIONALITÀ IMPLEMENTATE (sintesi)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RAGIONAMENTO CLINICO (FX — unificato dal 25 giu 2026, P16, commit 84e776a):
+  FX "🧠 Analisi clinica" (avviaFX, sonnet-4-5, 1400 tok): UNA sola chiamata che
+    produce due sezioni nel medesimo output:
+    📊 Sezione 1 (ex-F1): MB/LAF/TDEE/macros + composizione corporea + acqua
+       corporea totale + parere clinico
+    🏥 Sezione 2 (ex-F3): flag clinici compatti, max 15 righe, zero narrativa
+  Pannello UI unico "🧠 Analisi clinica (FX)" (prima due riquadri F1+F3 affiancati
+    desktop / verticali iPhone). Contesto paziente inviato UNA volta (era duplicato).
+  Storico: F1(900)+F3(450) erano due chiamate parallele Promise.allSettled, fuse in
+    FX il 25 giu 2026. "⚡ Flag rapidi" di F1 rimosso (ridondante col blocco flag).
+  "Concludi e Riassumi" visibile subito dopo il pannello (macrosDecisi.source='fx')
+  Target kcal finale (P26, 25 giu 2026, commit c9fab21): il riassunto post-raffinamento
+    DEVE contenere la riga "🎯 TARGET FINALE: X kcal" (imposta dal prompt). salvaRagionamento
+    ancora la regex lì, non sul primo numero+kcal del testo (bug storico: prendeva MB/TDEE).
+    Se l'ancora o un macro manca → testo salvato ma macrosDecisi=null, avviso "rilancia".
+    Stesso fix nel fallback del generatore (apriGeneratoreDaRag, bug gemello non previsto).
+  Cosa passa a FX automaticamente:
+    - Tutti i dati anagrafici e InBody (peso, grasso, muscolo, acqua corporea totale)
+    - Acqua corporea totale con flag clinico: ⚠️ se <30L (disidratazione), ✅ se >35L
+    - Tutte le analisi del sangue compilate (P18-A, 25 giu: basta il valore, niente più
+      checkbox — prima un valore senza spunta veniva ignorato, bug corretto)
+    - Calcoli clinici derivati inclusi (P17-C, 25 giu): vedi blocco CALCOLI CLINICI sotto
+    - Tutte le note cliniche con timestamp [data] testo
+    - Patologie, allergie, condizioni speciali, semaforo attivo
+    - Integratori (presi + vorrebbe prendere) e abitudini pasto
+  ELIMINATI: F2 (Scelta Alimenti) e F4 (Integratori) — non utili in studio
+
+CALCOLI CLINICI (P17/P18, 25 giu 2026, commit ec1a313→70b2c2a — 4 fasi):
+  Sezione "📐 Calcoli automatici" in cima alla scheda Analisi del sangue. 18 indici
+    derivati, ognuno con: formula, semaforo verde/giallo/rosso/info, glossario ℹ️
+    (cosa misura · range · nota clinica), toggle 📤 "includi in FX" (default ON).
+  Indici: Tot/HDL, LDL/HDL, TG/HDL, non-HDL, HOMA-IR, TyG, BUN/Creatinina, Fabbisogno
+    idrico, FT3/FT4, AST/ALT (De Ritis), NLR (Neutrofili/Linfociti), Ferritina/Transferrina
+    (rapporto numerico: infiammazione vs sovraccarico vs carenza), T/E2 (solo maschi),
+    ACR (microalbuminuria), WHR (sesso-specifico, da InBody.cintFianchi), WHtR (girovita/
+    altezza), PA media, ApoB/ApoA1 (predittore INTERHEART).
+  Campi nuovi aggiunti per supportarli: Neutrofili, Linfociti, Transferrina, Testosterone
+    totale, Estradiolo, Albumina urinaria, Creatinina urinaria, ApoA1 (in ANALISI);
+    Girovita cm, Pressione SIST./DIAST. (in InBody, persistiti come girovita/paSbp/paDbp).
+  Sezioni analisi ora collassabili (aperte se ≥1 voce compilata), voci compilate
+    evidenziate in verde, badge contatore. Niente più checkbox (P18-A).
+  Stato toggle FX: p.calcoliClinici.includi[id] — default true (undefined→incluso),
+    solo false esplicito esclude. Generatore piano NON riceve i calcoli (solo FX).
+  Debito tecnico noto: "Creatinina + eGFR" è un campo unico → se inserito eGFR invece
+    di creatinina sierica, BUN/Creatinina dà un numero senza senso (da splittare, ~15min).
+
+GENERATORE PIANO:
+  Prompt: regime, kcal/P/C/G target, alimenti verdi/arancioni/rossi/esclusi,
+    ricette dal DB, contesto ragionamento, ultime 4 note cliniche
+  VINCOLI CLINICI nel prompt (P20, 24 giu 2026 — approccio A pragmatico):
+    Blocco dedicato in costruisciPrompt (var vincoliClinici), iniettato dopo Allenamento
+    e prima di GRAMMATURE FISSE. Patologie, farmaci, analisi sangue alterate, integratori
+    in uso, alvo, flusso, familiarità → incorniciati come VINCOLI OPERATIVI da applicare
+    nella scelta alimenti, non da commentare (l'AI non deve narrare, solo seguire).
+    Traduzioni esplicite per casi alto impatto: anticoagulante (warfarin/coumadin/sintrom)
+    → verdura a foglia verde costante (non alternare per via vitamina K); alvo →
+    fibra se stipsi / modera fibra insolubile se diarrea; flusso abbondante → ferro.
+    Contesto emotivo ESCLUSO di proposito (rumore/rischio nel piano alimentare, utile
+    solo a FX per il parere clinico, non al generatore).
+    Nessun lucchetto sul piano finale: il medico resta libero di modificare in
+    contrasto coi vincoli — sono supporto alla bozza AI, non guardiani del piano.
+  Regola distribuzione colori alimenti: 75% verdi | 20% arancioni | 5% rossi
+  FILTRO STAGIONALE RICETTE (BLOCCO 17, 5 lug 2026, commit 66139ec):
+    getStagioneCorrente() dal mese corrente (3-5 primavera, 6-8 estate, 9-11 autunno,
+    12-2 inverno), override manuale window._stagioneOverride (piani fuori stagione o
+    test). In costruisciPrompt(), DOPO il filtro per pasto attivo (P1), le ricette
+    candidate sono ridotte a quelle della stagione corrente O senza stagioni impostate
+    (array vuoto = tutto l'anno). GUARDIA ANTI-POOL-VUOTO: soglia = max(8, un terzo
+    del pool post-P1, arrotondato per eccesso); se le stagionali sono sotto soglia il
+    pre-filtro SI DISATTIVA da solo e si usa il pool completo (stessa filosofia
+    conservativa di P1: metadata assente → si tiene, la qualità non può peggiorare).
+    In entrambi i casi il prompt riceve comunque il suggerimento testuale della
+    stagione corrente; log in console dichiara filtro ATTIVO/DISATTIVATO con i numeri.
+  Logica vegetariana/ciclizzata pranzi (vecchio schema, oggi sostituito da NARUTO/HINATA):
+    Giorni 1-3-5 → legumi (barattolo 120g) + proteina leggera
+    Giorni 2-4-6 → proteina principale senza legumi
+  Pill tabs Lun/Mar/Mer... | 900px desktop | pannello laterale macros 350px sticky (>1130px)
+  Celle: menu ⋯ contestuale (sposta/elimina/aggiungi alt) | Calcolo macros 40/30/30
+    menu ⋯ usa position:fixed + getBoundingClientRect (mai tagliato, z-index 99999,
+    apre sopra o sotto in base allo spazio disponibile) — commit 82377bf
+    "Aggiungi alternativa" filtra per categoria SEMAFORO (non funzionale):
+      Salmone → pesci da cena | Pollo → carni bianche | Pasta → tutti i cereali
+      Pesce (Pranzo) e Pesce (Cena) nello stesso gruppo → alternative intercambiabili
+      Cereali con/senza glutine nello stesso gruppo → alternative intercambiabili
+      Se nessun alimento nel profilo → confirm "Mostra tutto il database?"
+      Funzioni: getCategoriaSemaforo(), _getCategorieGruppo(), _GRUPPI_SEMAFORO
+    commit aggiungi-alternativa: 282a9ab → f287da2
+    (principale 40% + alt2 30% + alt3 30% | 100% se solo principale | 40/60 se due)
+  Cache Supabase 90gg (pushCachePianoSupabase) | pulsante 🔄 Rigenera
+    Chiave hash deterministico: pazienteId + regime + kcal + P/C/G +
+      alimenti verdi/rossi/esclusi + giorni vegetariani
+  Tasto 🌿 Routine → popup sola lettura voci raggruppate per pastoRif
+  Tasto 📲 WhatsApp → genera PDF + apre WA Web dopo 800ms con messaggio pre-compilato:
+    "Ciao [Nome]! Ti invio il tuo piano alimentare personalizzato — prenditi un po'
+    di tempo per leggerlo con calma. Quando sei libero/a, chiamami così lo commentiamo
+    insieme: ti spiego i concetti chiave e rispondo a tutte le tue domande. A presto! 💪"
+
+COMPOSITORE MANUALE (P33, nato 30 giu 2026 — allineato al generatore AI il 5 lug 2026, BLOCCO 16):
+  Bivio a monte: "Genera con AI" / "Componi a mano" (apriSceltaModalitaPiano). Cliccando
+    "Componi a mano" si entra SUBITO nell'editor con 6 giorni di default (nessuna
+    domanda preliminare) — _ngCreaPianoManuale(6). Flag window._ngModalitaManuale=true,
+    resettato a false in inizializzaP2() quando si entra nel flusso AI.
+  Layout split (_ngRenderEditorManuale): albero alimenti a sinistra (_ngRenderAlbero,
+    colore-sul-nome dal semaforo paziente) + pannello piano a destra (#ng-piano-destra,
+    _ngRenderPianoDestra).
+  Barra giorni (5 lug 2026): tab orizzontali cliccabili (non più verticale), scroll con
+    frecce ‹ › + drag-to-scroll mouse via Pointer Events/setPointerCapture (bind solo
+    sull'elemento, MAI su window, per non accumulare listener a ogni cambio giorno).
+    Selettore numero giorni (1-14) sempre modificabile vicino alla navigazione
+    (_ngCambiaNumeroGiorni): riducendo i giorni con contenuto già inserito chiede
+    conferma (confirm()) prima di cancellare, altrimenti procede senza chiedere.
+  Griglia celle (_renderCelleGriglia, 5 lug 2026): UNIFICATA col generatore AI — stessa
+    funzione usata da entrambi (era prima duplicata in _ngRenderCelleManuale, ora
+    rimossa). Include: menu ⋯ completo (aggiungi alternativa/sposta su-giù-sx-dx/
+    elimina), grammatura cliccabile per modificarla, tasto ⇄ per promuovere
+    un'alternativa a principale. IMPORTANTE: _aggiornaPianoBox() ha un ramo dedicato
+    per la modalità manuale (controlla window._ngModalitaManuale + esistenza di
+    #ng-piano-destra) — senza quel ramo, ogni azione del menu ⋯ romperebbe la vista
+    manuale sovrascrivendola con quella classica del generatore AI.
+  Copia alimento tra celle (drag&drop, 5 lug 2026): ogni alimento già piazzato in una
+    cella è trascinabile (_ngDragStartCella) per copiarlo in un altro pasto dello
+    STESSO giorno — stesso comportamento del drop dalla libreria (drop su zona vuota →
+    nuova cella, drop su cella esistente → alternativa). L'originale resta sempre
+    (è una copia, non uno spostamento). Guardia anti-autocopia: trascinare un alimento
+    sulla sua stessa cella d'origine viene ignorato.
+  Ricette testuali + frutta (_renderRicetteTestuali, condivisa col generatore AI):
+    riga descrittiva sopra le celle di ogni pasto, con "+ Aggiungi ricetta" (max 4 per
+    pranzo/cena, 1 per gli altri slot). "📖 Pesca ricetta" (_ngPescaRicetta) scompone
+    gli ingredienti nelle celle E scrive anche il nome della ricetta come riga
+    descrittiva — necessario perché il checkbox "🍎 frutta" per pasto si aggancia
+    SOLO a una riga di ricetta testuale (getFruttaMarker), non alle celle: senza
+    quella riga scritta, la frutta non compariva nel PDF anche con la casella attiva.
+    Riordino drag&drop (BLOCCO 17, 5 lug 2026, commit ab4d472): ogni riga ricetta ha
+    un handle ⠿ (touch-action:none, user-select:none); il trascinamento usa Pointer
+    Events con listener pointermove/pointerup/pointercancel aggiunti su document SOLO
+    durante il gesto e SEMPRE rimossi alla fine (stato in _dragState, nessun accumulo
+    di listener). Lo scambio effettivo è scambiaRicette(giorno, slotKey, idxA, idxB)
+    su pasto.ricette, con _aggiornaPianoBox() e riallineamento di window._pdfPiano.
+    Condiviso tra generatore AI e compositore manuale.
+  Footer (allineato al generatore AI il 5 lug 2026): stessi toggle nutrizionali,
+    promemoria PDF, stile frutta, "Concetti da allegare", Scarica PDF + WhatsApp,
+    Salva/Aggiorna piano (nome paziente dinamico), Salva come template — tutti via
+    riuso delle funzioni già esistenti (_appendToggleNutrizionali ecc.), zero
+    duplicazione. Il salvataggio resta su _ngSalvaPianoManuale (non unificato con
+    l'upsert Supabase del generatore AI — scelta deliberata, fuori scope).
+  Aggiungi alimento — popup "Scegli categoria → Aggiungi alimento" (RIDISEGNATO 5 lug
+    2026, _mostraPopupSceltaCategoriaAlimento, sostituisce la vecchia
+    _mostraPopupCategoriaAlimenti a due popup separati): un SOLO popup con due
+    pannelli che scorrono (slide orizzontale), non due popup distrutti/ricreati —
+    per questo il tasto ← indietro funziona sempre. Griglia categorie a 3 colonne;
+    step alimenti senza barra di ricerca, sfondo opaco (non si intravede lo step
+    precedente), emoji per alimento via getEmojiCp() quando disponibile (non tutti
+    gli alimenti ne hanno una — nessuna icona forzata se assente). Il flusso
+    "aggiungi alternativa su una cella già esistente" (cellaAggiungiAlt) resta
+    un popup separato e diverso (_mostraPopupAggiungiAlt, con ricerca, senza step
+    categoria) — non toccato.
+  Nota tecnica (rilevante per futuri interventi su emoji/PDF): getEmojiCp(),
+    EMOJI_MAP, EMOJI_CAT_FALLBACK sono state estratte da dentro generaPDF a livello
+    GLOBALE (5 lug 2026) per essere riusate anche dal popup sopra. _emojiCache
+    (che dipende dal parametro emojiCache di _generaPDFSync) resta invece dentro
+    quella funzione — attenzione a non "hoistare" per errore variabili che
+    dipendono da un parametro di funzione: ha causato un ReferenceError bloccante
+    l'intero script (vedi STORICO SESSIONI, BLOCCO 16, per il dettaglio dell'incidente).
+
+RICETTARIO — EDITOR ATTRIBUTI E MACRO AUTOMATICI (BLOCCO 17, 5 lug 2026):
+  Editor ricetta riorganizzato (openNuovaRic/editRic, commit d68bfec + 48805d9):
+    blocco unico in testa al modal con tutti gli attributi a CHIP standardizzati —
+    Categoria* (checkbox multiple, coerente con P57 multi-categoria: colazione/pranzo/
+    cena/spuntino/post-workout), Stagione (checkbox, vuoto = tutto l'anno), Profilo
+    dietetico (checkbox: vegetariano/vegano/low-carb/senza-glutine), Tempo di
+    preparazione (radio: 0-5 / 5-10 / 10-20 / gt20 min), Tipo (radio completo/contorno
+    — il campo P32 esistente, ora a chip), Tag comuni (8 chip fissi da TAG_COMUNI).
+    Wiring visivo generico wireChipGroup/wireRadioChipGroup/wireAttrChipGroups; nota
+    tecnica: i radio, a differenza dei checkbox, NON emettono 'change' sugli elementi
+    che si deselezionano — lo stile va riallineato su TUTTO il gruppo a ogni cambio,
+    altrimenti il chip precedente resta "acceso" per errore.
+  Migrazione tag legacy: aprendo una ricetta, i vecchi tag liberi riconosciuti da
+    _tagComuniTrova() (label o varianti: 'keto', 'light', 'meal prep'...) accendono il
+    chip canonico; i NON riconosciuti restano in r.tags al salvataggio (nessuna
+    perdita d'informazione), semplicemente senza chip dedicato nell'editor.
+  Ricalcolo automatico kcal/macro dagli ingredienti (commit 7e2edf1):
+    oninput sul campo ingredienti (r-ing) → _ricRicalcolaMacroLive() (debounce via
+    timer) → _ricCalcolaMacroDaIngredienti(): riusa _ngScomponiIngredienti (parser
+    P33) + getCategoriaFunzionale + getValoriCREA per sommare kcal/P/C/G dei soli
+    ingredienti riconosciuti. SOVRASCRIVE i 4 campi macro (kcal intere, P/C/G a 0.1g)
+    e mostra sotto l'esito: "🔄 Kcal e macro calcolati automaticamente da N
+    ingrediente/i" oppure, in arancione, "⚠ M ingrediente/i non riconosciuto/i
+    (elenco) — i macro potrebbero essere incompleti, verifica manualmente".
+  Lista ricettario: aggiunto select "Tutti i tag" (f-ric-tag, valori = le 8 label
+    TAG_COMUNI) accanto a ricerca e filtro categoria; renderRic() filtra anche per tag.
+
+REGOLE DEL PIANO (Generatore → accordion "⚙ Regole del piano"):
+  SEZIONE 0 — Rotazione settimanale:
+    Dropdown: Nessuno / 🍜 NARUTO (cereali pranzo+cena) / 🌸 HINATA (cereali solo pranzo)
+    Bottone "👁 Vedi schema" → popup tabella 6×2 con categorie proteiche
+    Se modello attivo: frequenze auto-derivate e grigie, legumi135+rotazione disabilitate
+    Integrazione AI: schema inviato nel prompt con "⚠️ OBBLIGATORIO — SEGUIRE ESATTAMENTE"
+    commit: 33d2d35 (UI) → ee3b535 (integrazione AI)
+  SEZIONE 1 — Frequenze settimanali:
+    Ordine SX: 🥩 Carne rossa | 🍗 Carne bianca | 🐟 Pesce | 🍖 Affettati magri
+    Ordine DX: 🌱 Legumi | 🥚 Uova | 🐟 Pesce conservato | 🧀 Latticini
+    Emoji aggiornate: 🌱 Legumi (era 🫘), 🍖 Affettati (era 🥗) — commit cff3096
+  SEZIONE 2 — Regole strutturali:
+    ☑ Legumi lun/mer/ven a pranzo (disabilitato se modello attivo)
+    ☑ Sabato cena libera | ☑ Rotazione proteine (disabilitato se modello attivo)
+    ☑ Verdura 200g pranzo+cena | ☐ Frutta secca 20g | ☐ Cena leggera
+    🥐 Tipo colazione: ⚪ Dolce | ⚪ Salata | ⚪ Mista (default) — inviato al prompt AI
+    Note posizionamento uova (campo testo libero)
+
+PDF: + nome + frase motivazionale casuale (4 frasi)
+  Twemoji PNG per alimenti (pre-load async Promise.all) | emoji titolo pasto ☀️⚡🍽️🕒🌙💤
+  Giorno MAIUSCOLO | pasto 11pt teal | ricette 11pt | routine bold 8.5pt
+  Toggle 🏠 misure casalinghe (40+ conversioni: mestoli, cucchiai, vasetti, uova, scatolette)
+  Footer da pag.2 | porzioni casalinghe ±15% se attivo
+  Compressione/espansione adattiva anti-overflow (P12a, commit 1fe5227 → evoluta il
+    22 giu, commit 7e79ffe — vedi STORICO): scala unica 0.85 (giorno pieno) ↔ 1.15
+    (giorno scarno) su font/celle/gap; se anche al minimo il giorno non entra, riga
+    rossa di avviso in testa pagina: "⚠ Contenuto compresso al minimo: verificare il
+    piano di questo giorno".
+  Footer promemoria (pillole P23-bis) limitato alle pagine giorni (fix 24 giu 2026):
+    var _primaPaginaConcetti = doc.internal.getNumberOfPages()+1 catturato prima di
+    disegnare i "Consigli per te"; il loop footer esclude (i >= _primaPaginaConcetti).
+    Nome paziente/"Generato il"/numero pagina restano ovunque (footer informativo, non
+    promemoria) — solo le pillole Acqua/Passi/Sonno sono escluse dalle pagine concetti.
+  CONCETTI EDUCATIVI ALLEGABILI AL PDF (P31, 24 giu 2026):
+    renderConcettiModal(selectedIds) legge da db.concetti (fonte primaria, fallback
+    CONCETTI_EDUCATIVI), pre-seleziona gli id già allegati al paziente.
+    apriConcettiModal() / salvaConcettiAllegati(): modale overlay con scorciatoie
+    "seleziona/deseleziona tutti", salva SOLO gli id (non oggetti) su p.concettiAllegati.
+    Il PDF risolve id→oggetti da db.concetti al momento della stampa (fonte unica:
+    modificare un concetto aggiorna tutti i PDF futuri, zero copie obsolete). Fallback
+    legacy su paziente.concetti se mai popolato in vecchio formato.
+    Pulsante "📚 Concetti da allegare" (_appendBtnConcetti, helper condiviso) presente
+    in tutti i 3 punti export del piano — riga-impostazione con badge conteggio,
+    NON bottone pieno (vedi UX bottoni export sotto).
+    Default: paziente senza selezione → nessuna pagina concetti nel PDF (scelta esplicita).
+  UX BOTTONI EXPORT — opzione "Gerarchia" (24 giu 2026, in tutti i 3 punti export):
+    Salva piano definitivo = azione primaria piena (teal, #p2-save)
+    Scarica PDF + WhatsApp = secondari, affiancati in riga, bordo sottile, sfondo bianco
+    Concetti da allegare = riga-impostazione discreta sopra, badge conteggio, non bottone
+    (area 3/terza vista non ha WhatsApp, mantenuto come nell'originale — solo PDF secondario)
+
+CALENDARIO + TIMELINE:
+  Fasi: Prima visita → Inizio piano → Chiamata sett.1 → Msg sett.2 → Controllo
+  Date automatiche da inizioPiano | colori done(verde)/today(teal)/warn(arancio se ≤14gg)/future(grigio)
+  Calendario mensile con mini-vista anno | agenda giorno nella dashboard
+  WhatsApp: messaggi preimpostati per ogni evento (Copia + 📲 Apri in WhatsApp)
+    Link WA: https://wa.me/39{tel}?text={encodeURIComponent}
+  Tipi evento: visita, controllo, chiamata sett.1, msg sett.2 (con foto+testo),
+    promemoria visita/controllo
+  AI WhatsApp (B1 — implementato): pulsante ✨ AI nella timeline + popup eventi
+    Modal: info paziente, scelta tono (4), scelta lunghezza (3), note libere
+    Genera messaggio Sonnet 4-5 (~€0.01-0.02) con dati clinici reali
+    Usa delta peso InBody se disponibile | motivazione generica altrimenti
+    Tono differenziato per fase del percorso:
+      Sett.1 — focus aderenza, "come ti senti con il piano"
+      Sett.2 — motivazione + costanza, "stai costruendo l'abitudine"
+      Sett.3 — rinforzo "siamo a metà del primo controllo"
+      Pre-controllo — anticipa positivamente la misurazione
+    Azioni: Rigenera | Salva variante (max 5/fase) | Copia (→storico) | Apri WA
+    Storico messaggi inviati per paziente/fase (max 20) — localStorage
+    Variante C futura: storico cross-sessione su Supabase + analisi toni più efficaci
+    NOTA: C4 (peso casalingo) scartato — messaggi restano motivazionali generici
+      senza delta peso preciso (bilance domestiche non confrontabili con bilancia studio)
+
+NOTE CLINICHE + AGGIUSTAMENTI MACROS (tab "Note cliniche"):
+  AGGIUSTAMENTI MACROS (B5 — 24 mag 2026): sezione in cima al tab, separata dalle note
+    Form: data, macro (C/P/G), variazione ±g, peso al controllo (opz.), nota breve (opz.)
+    Al salvataggio: aggiorna p.macrosTarget (campo macro + kcal ricalcolate delta×4 o ×9)
+    Lista tabella compatta: data · macro · +Xg → Ytot · peso controllo con Δ vs precedente · nota · ✕
+    Workflow: registra aggiustamento → vai nel generatore → modifica grammature a mano → rigenera PDF
+    Cap 15 | eliminazione con warning "macrosTarget non ripristinato automaticamente"
+  NOTE TESTUALI: append-only, timestamp, ✕ cancellazione singola, 0/15
+    Passa a FX per intero (tutte le note)
+    Passa al generatore in forma compressa (ultime 4)
+
+ROUTINE GIORNALIERA TERAPEUTICA:
+  Libreria 35 voci + 5 succhi salute | tasto 💾 Salva con toast
+  Visibile nel generatore via popup 🌿 Routine
+  Voci ordinate per pasto, raggruppate, con timing e razionale
+
+SEMAFORO (15 condizioni validate):
+  Patologie (9): Diabete/IR/PCOS | Profilo lipidico | Ipertensione | IBS | Reflusso | IRC |
+    Gotta/Iperuricemia | Calcolosi ossalica | Ipotiroidismo/Hashimoto
+    (Gotta + Calcolosi ossalica aggiunte 24 giu 2026 — P24-pat, vedi STORICO SESSIONI.
+     Liste alimenti verificate nome-per-nome contro ALIMENTI prima di scrivere le regole:
+     scartati alimenti non presenti nel DB — es. Frattaglie/Selvaggina/Acciughe/Sardine
+     per Gotta — per evitare righe morte/ignorate in silenzio. Frattaglie tradotto come
+     Fegato di vitello + Cuore di vitello, già presenti.)
+  Allergie/Intolleranze (4): Glutine | Lattosio | Nichel | Low-FODMAP (separato da IBS — fase eliminazione)
+  Speciali (2): Gravidanza | Allattamento
+  Fonti primarie: ADA 2024, ESC/EAS 2019, ESH/ESC 2024, AIGO/BDA 2022, ACG GERD 2022,
+    KDIGO 2024, ESPEN 2021, ATA 2014, ESPGHAN 2020, AIC, AIGO 2019, Monash University 2023,
+    ISS/ACOG 2023, WHO | Nichel: tabella BraMa-Ni completa
+    Gotta/Iperuricemia: EULAR 2016/2020, ACR 2020 | Calcolosi ossalica: EAU Urolithiasis 2023, AUA 2014
+  Etichette descrittive: grigio "Alto X ✕" / celeste "Basso/Low X ✓"
+  Ciclo colori togAl():
+    Click celeste/arancio/rosso → ritorna celeste (cicla)
+    Click grigio scuro → rosso → grigio scuro (cicla)
+    Click neutro → verde → arancio → rosso → neutro (manuale)
+  Badge contatore visibile anche in stato manuale
+
+GRAFICI INBODY (visibili solo con ≥2 misurazioni):
+  G1 composizione+traiettoria ideale (peso+grasso+muscolo) | KPI sopra: peso/Δgrasso/Δmuscolo
+  G2 adiposità centrale (cintura/fianchi+viscerale, soglia 0.85F/0.90M)
+  G3 ritmo per periodo (grasso vs muscolo, zone verde/giallo)
+  G4 composizione barre impilate (grasso/muscolo/acqua)
+
+MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
+  Modale orizzontale (classe .modal-lg 880px): campi numerici in 3 colonne (.fr-3),
+    segmentali in 5 colonne (.fr-5, un campo per segmento sulla stessa riga).
+    Responsive: .fr-3/.fr-5 collassano a 2 colonne ≤760px.
+  openInbody() resetta TUTTI i campi + lo span ib-pdf-name + l'input ib-pdf-input
+    (fix regressione: il nome del PDF restava "appiccicato" tra pazienti diversi).
+  Estrazione PDF AI (loadInbodyPDF): il prompt richiede esplicitamente peso_ideale
+    ("Peso ideale" o "Peso target" dal referto) → popola ib-peso-ideale → alimenta
+    il riferimento g/Peso Ideale nel calcolo macro TDEE (prima il campo restava vuoto:
+    il prompt non lo chiedeva e il parser leggeva ib.pesoIdeale invece di ib.peso_ideale).
+  Silhouette segmentale "Variante F" (_ibSilhouetteSegmentale, iniettata in renderPdInbody
+    prima delle card singole, sull'ultima misurazione con dati segmentali):
+    due sagome SVG morbide affiancate (Massa Magra teal / Massa Grassa arancio-rosso),
+    centrate sotto il rispettivo titolo. Valori in kg posizionati anatomicamente
+    (braccia ai lati in alto, tronco al centro dentro la sagoma, gambe ai lati in basso),
+    simmetria sx/dx perfetta. NIENTE percentuali a schermo (scelta esplicita Fabrizio).
+    Intensità del COLORE = scostamento dalla norma (heatmap a 3 livelli):
+      Magra: <90% chiaro (sotto) | 90-110% medio (normale) | >110% intenso (sopra)
+      Grassa: <80% rosa chiaro (bassa) | 80-160% arancio (normale) | >160% rosso scuro (alta)
+    Norma stimata da peso proporzionale atteso per segmento sul totale (no valore InBody nativo).
+    Legenda colori discreta sotto le silhouette.
+
+SUGGERITORE AI GRUPPI CLINICI (26 mag 2026 — altra chat, commit e2e71cf):
+  Bottone 🔍 Gruppi clinici nella card Analisi del sangue.
+  Analizza: valori del sangue compilati + BMI / %Grassa / Viscerale dall'ultimo InBody.
+  L'AI propone i gruppi semaforo pertinenti con motivazione clinica.
+  NESSUNA spunta automatica: il medico applica solo i gruppi che condivide (decisione sempre sua).
+  Es. trigliceridi 173 → propone Profilo lipidico alterato + Diabete/IR.
+  PERSISTENZA (BLOCCO 17, 5 lug 2026, commit decf5ef): i suggerimenti sono salvati in
+    p.gruppiCliniciSuggeriti e il box (renderBoxGruppiCliniciSuggeriti, in testa alla
+    card Analisi del sangue) sopravvive a cambio tab e ricarica pagina; ogni voce
+    mostra lo stato "già applicato" (voce.applicato | checkbox DOM | p.checkSemaforo).
+    applicaGruppoClinico(id): p.checkSemaforo[id]=true + marca voce.applicato +
+    sincronizza il checkbox se il modal è aperto + ricalcola il semaforo alimentare
+    (applicaRegoloSemaforo) + salva. Vedi anche il fix gemello su editPaz in
+    STRUTTURA DATI → p.checkSemaforo e STORICO BLOCCO 17.
+
+DASHBOARD: KPI pazienti attivi | appuntamenti settimana (visite+controlli sep) | entrate mese
+  Agenda oggi | todo list categorie | agenda personale (non legata pazienti)
+
+ENTRATE: tracciamento incassi data+importo | KPI entrate mese corrente
+STORICO PIANI: ricerca/filtro per paziente, eliminazione singola/totale
+PORZIONI DISCRETE: 18+ alimenti con porzioni commerciali reali
+  Tonno 60g/120g, wasa 10/20/30g, yogurt 125/150/200/250g, uova 50/100/150g,
+  tofu 125/200/250g, seitan 180/250g, piadina 70/100/140g, fette biscottate 6g/cad
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STILE NUTRIZIONALE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Schema: MB (InBody) + NEAT + EAT + TEF → TDEE → deficit/surplus (slider) → P/C/G
+  (motore MET additivo, P7-TDEE 4 lug 2026 — commit 2a020eb, sostituisce il
+  vecchio calcolo PAL/LAF a bucket sotto)
+
+TDEE — motore MET additivo (Compendium of Physical Activities 2024):
+  TDEE = MB(InBody) + NEAT(passi) + EAT((MET−1)×peso×ore effettive) + TEF(10%)
+  MET−1 (non il MET pieno): 1 MET = riposo, già contato nel MB — evita il
+    doppio conteggio che affliggeva il vecchio modello PAL (NEAT+EAT sommati
+    su base già "attiva").
+  NEAT: frazione del MB calibrata sui passi/giorno — <4000→15% | <7500→25% |
+    <10000→35% | ≥10000→50%.
+  EAT: richiede peso e ore effettive di allenamento/giorno (settimanali/7).
+    Ore effettive da due possibili fonti:
+    - Sedute/settimana + Minuti effettivi/seduta (NUOVO, priorità se compilati) —
+      minuti di lavoro REALE, esclusi i recuperi lunghi (risolve la sovrastima
+      della forza: una seduta da 75min con pause può avere 35-40min effettivi).
+    - Ore allenamento/settimana (legacy, fallback se sedute/minuti non compilati).
+    MET da: Attività specifica (opzionale, tabella `_MET_ATTIVITA` dal
+      Compendium — ha priorità) oppure griglia tipo×intensità `_MET_GRIGLIA`:
+        Forza:  bassa 3.5 | media 5.0 | alta 6.0
+        Cardio: bassa 6.0 | media 8.0 | alta 10.0
+        Misto:  bassa 4.5 | media 6.0 | alta 7.5
+      (valori validati contro 3 tabelle MET fornite da Fabrizio; 2 valori di
+      una fonte scartati perché incoerenti col Compendium — corsa 8km/h e
+      nuoto lento erano invertiti/errati nella tabella originale)
+  TEF: 10% di (MB+NEAT+EAT).
+  Fallback totale: nessun dato attività (né passi né sedute/ore) → LAF manuale
+    da selettore (comportamento storico invariato).
+  Confronto LARN (guardrail, non target): SINU stile di vita a 4 livelli
+    (1.45/1.60/1.75/2.10, classificato su passi e sedute/settimana) mostrato a
+    fianco del TDEE calcolato nel pannello "Ricalcola LAF" — scarto >300 kcal
+    segnalato in rosso. Il medico decide quale target adottare, nessuno dei
+    due è imposto.
+  Resta aperto: procedura senza referto InBody (BMR stimato via Mifflin-St
+    Jeor o Katch-McArdle) per un futuro acquirente del software privo di
+    bioimpedenziometro — non affrontata nella sessione P7-TDEE del 4 lug 2026.
+
+REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e357527):
+  Il vecchio menu a tendina a 8 regimi fissi (sotto, sezione storica) è
+  sostituito da uno slider in percentuale del TDEE, sincronizzato in tempo
+  reale con un campo kcal assolute (muovi uno, l'altro si aggiorna). Range
+  −40%/+20%, preset rapidi −10/−15/−20/−25%/mantenimento/+10%. Più corretto
+  clinicamente di un offset fisso uguale per tutti (−500 kcal è leggero su un
+  TDEE 2800, pesante su un TDEE 1600).
+  Soglia di sicurezza: il metabolismo basale del paziente (non più un limite
+  fisso) — avviso se il target scende sotto l'MB misurato.
+  Strategia dieta (selettore separato, indipendente dallo slider): Standard /
+  Keto moderata / Keto aggressiva — la chetogenica non è un livello di
+  deficit ma una distribuzione macro, ora può coesistere con qualsiasi %.
+  Compatibilità: p.regime resta un'etichetta testuale composta
+  automaticamente (_componiRegimeText) per i punti che la leggono come
+  stringa (generatore, prompt AI, badge, isCeto — invariati). Fonte di
+  verità reale: p.regimeOffsetPct, letto da un helper unico _regimeOffset()
+  (sostituisce 8 tabelle di offset duplicate nel codice), con fallback per i
+  pazienti legacy salvati col solo regime testuale.
+
+CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):
+  Per pazienti sportivi (a prescindere dal dimagrimento) o non sportivi che
+  ciclizzano per aderenza/metabolismo. Attivazione: casella dedicata
+  "Ciclizzazione carboidrati" nella scheda TDEE, indipendente dai giorni di
+  allenamento (usabile anche su chi non si allena).
+  Il medico imposta a mano kcal ON (carico) e kcal OFF (scarico). Proteine e
+  grassi restano fissi (dai target attivi da Ragionamento/TDEE); i
+  carboidrati assorbono tutta la differenza kcal (calcolaTargetsCiclizzazione).
+  Esempio: TDEE 2000, deficit −500 → OFF 1500 kcal, ON 1800 kcal → a P/G
+  fissi, i carboidrati ON risultano ~75g in più degli OFF.
+  Selettore giorni: condiviso con "giorni allenamento" (stesso dato salvato,
+  p.giorniAllenamento), rietichettato in UI "Giorni di carico (ON)".
+  Barriera: se la ciclizzazione è attiva ma mancano kcal ON/OFF o giorni di
+  carico, la generazione del piano si blocca con avviso (stesso pattern della
+  barriera "nessun target salvato").
+  Il generatore AI (costruisciPrompt) riceve i due target espliciti con
+  grammature carbo per pasto distinte per ON e OFF — prima riceveva un solo
+  target con etichette ON/OFF solo cosmetiche sui nomi giorno (causa reale
+  del bug P34, vedi STORICO SESSIONI E COMMIT).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCHEMA STORICO (pre 4 luglio 2026, superato dal motore MET additivo sopra)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Schema: MB (InBody) × LAF → TDEE → deficit/surplus → P/C/G
+
+LAF (cap 1.80 — calibrato WHO/FAO 2004 + Tudor-Locke + Compendium MET):
+  Base: Sedentario 1.20 | Liev.attivo 1.375 | Moderato 1.55 | Molto attivo 1.725
+  NEAT (passi): <3000→0 | 3000-5000→+0.10 | 5000-7500→+0.20 | 7500-10000→+0.30 | >10000→+0.40
+  EAT (sport): 2h→+0.06 | 4h→+0.12 | 6h→+0.18 (compensato per DLW free-living)
+  Validazione Perplexity Pro: PAL sedentario 1.40-1.69 | attivo 1.70-1.99 | vigoroso 2.00-2.40
+    Cap 1.80 = limite DLW free-living adults — nessun paziente ambulatoriale lo supera
+
+8 regimi (offset kcal vs TDEE) — SOSTITUITI dallo slider percentuale (vedi sopra),
+riportati qui solo come riferimento storico per capire la mappatura % equivalente:
+  Ipocalorico lento     -200/-300
+  Ipocalorico moderato  -500
+  Ipocalorico aggressivo -700
+  Normocalorico         0
+  Ipercalorico leggero  +150/+200
+  Ipercalorico chiaro   +300/+500
+  Chetogenico WLKD      -500 (aggressivo)
+  Chetogenico moderato  -300
+
+P/G: 3 riferimenti espliciti — g/FFM (blu) · g/Peso Ideale (ambra) · g/Peso corporeo (verde)
+  Selezione automatica: BMI≥25 → FFM | BMI<25 → Peso corporeo (pallino teal)
+  Peso Ideale: dal referto InBody (BMI target 22F / 23M), campo editabile
+
+Piani: settimanali 6 giorni (7 per chetogenici) | Colazione/Sp.mattina/Pranzo/Merenda/Cena/Pre-nanna
+  Sabato cena sempre libera (pizza/panino/sushi/pesce/carne rossa)
+  PDF: "Regime alimentare — Nome Cognome" + Concetti Educativi allegati
+
+STIMA KCAL CENA LIBERA SABATO (per badge macros reali):
+  Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750
+  Pesce+verdure fuori 600 | Carne rossa fuori 750
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UI — PALETTE E REGOLE STILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NAVIGAZIONE: la voce di menu attiva è sempre evidenziata (classe .nav-item.active),
+  gestita da goTo(): rimuove active da tutte le voci e la applica al bottone cliccato.
+
+VARIABILI CSS PRINCIPALI:
+  --teal, --teal2, --teal-bg, --teal-light   (colore primario)
+  --green                                      (verde — successo, valori positivi)
+  --bg, --s1, --border                         (sfondi e bordi)
+  --text, --text2, --text3                     (testo: principale/secondario/terziario)
+
+CLASSI BOTTONI:
+  .btn .btn-p     teal (primario)
+  .btn .btn-g     grigio (secondario)
+  .btn .btn-d     rosso (delete)
+  .btn .btn-v     verde (28 giu 2026 — Conferma nei footer modale, vedi MODALI sotto)
+  .btn .btn-r     rosso pieno (28 giu 2026 — Annulla nei footer modale, vedi MODALI sotto)
+  .btn .btn-orange  arancio (azione speciale, es. "Genera Piano con specifiche")
+  .btn .btn-wa    verde WhatsApp #25D366
+  Modificatori: .btn-sm (small)
+
+CLASSI LAYOUT:
+  .fr   flex row    | .fg   flex group (campo col label+input)
+  .fr-3  griglia 3 colonne | .fr-5  griglia 5 colonne (collassano a 2 col ≤760px) — modale InBody
+  .modal  720px | .modal-sm 480px | .modal-lg 880px (InBody orizzontale)
+  .card .card-hd .card-bd    box standard NutriGest
+  .pd-tab .pd-tabs            tab paziente
+  .f1f3-wrapper               pannello FX unico (ex-F1+F3), classe invariata; ≤700px
+
+FONT:
+  DM Sans 'sans-serif'        testo generico
+  DM Serif Display 'serif'    titoli (card-hd h3)
+
+MODALI — chiusura e footer (uniformati 28 giu 2026, commit 4e86631→3bc09aa):
+  Comportamento valido per OGNI modale dell'app, statico (.overlay/.modal con id
+    mo-*) o creato dinamicamente in JS, incluso i 4 popup "Aggiungi alimento"
+    (popup-add-cat, popup-add-alt, popup-ric, popup-ricetta-composta) che NON
+    usano le classi standard .overlay/.modal ma position:fixed proprio.
+  - Click sullo sfondo scuro: NON chiude più nulla, in nessun modale (prima
+    chiudeva senza conferma — causa di uscite accidentali durante la modifica
+    di un piano alimentare, bug segnalato da Fabrizio).
+  - X in alto a destra: iniettata automaticamente su ogni .modal da un
+    MutationObserver (funzione ngUpgradeModali/ngAggiungiX), niente da
+    aggiungere a mano nei nuovi modali statici. Al click chiede sempre
+    conferma ("Vuoi chiudere questa finestra? Le eventuali modifiche non
+    salvate andranno perse") tramite confirm() nativo, coerente con lo stile
+    già usato altrove nell'app (19 usi di confirm() preesistenti).
+  - Footer (.mf): schema fisso ovunque, Annulla rosso (.btn-r) a sinistra +
+    Conferma verde (.btn-v) a destra, bottoni a piena larghezza (flex:1),
+    nessuna eccezione per i modali "di sola lettura" o le azioni distruttive
+    (es. elimina concetti) — scelta esplicita di Fabrizio per uniformità
+    visiva, anche dove il colore non rifletterebbe la semantica standard.
+  Helper centralizzati (da riusare per ogni nuovo modale):
+    ngChiudiModale(overlayEl, salta=false)   — singolo elemento overlay/modal
+    ngChiudiPopupCoppia(popId, bgId)         — popup con elemento+sfondo separati
+    Entrambi chiedono conferma salvo salta=true (usato solo per bottoni di
+    chiusura espliciti non distruttivi, es. "Conferma" su un modale di sola
+    lettura come mo-ev-detail/mo-ai-wa).
+  CSS: .modal ora position:relative (ancora la X) | .ng-modal-x (stile X) |
+    .mf .btn{padding:.62rem 1rem;font-size:.85rem} per bottoni footer a
+    grandezza piena, non più compressi.
+
+TOAST: animation CSS pura, NO trucchi JS
+  .notif        animation notifIn 0.65s cubic-bezier(.34,1.4,.64,1)
+  .notif.hide   animation notifOut 0.5s ease-in
+
+BREAKPOINT:
+  ≤700px   → mobile (pannello FX, ecc.)
+  >1050px  → pannello laterale macros visibile
+  >1130px  → pannello laterale macros con tab nomi completi
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MATERIALE CLINICO E CONCETTI EDUCATIVI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONCETTI EDUCATIVI COMPLETATI (14):
+  ✓ Crucifere: sulforafano, detossificazione epatica, taglio 10min prima
+    cottura per attivare enzimi, cottura breve | foto pronta
+  ✓ Berberina: meccanismo AMPK, glicemia, colesterolo, PCOS, dosaggio
+    500mg×3/die, abbinamento silimarina, non-responders rivalutare 3 mesi
+  ✓ FODMAP teorico: cos'è, meccanismo, protocollo 6-8 settimane 3 fasi
+    (eliminazione 4-6sett → reintroduzione 4-8sett → personalizzazione long-term)
+  ✓ FODMAP lista pratica: alimenti sì/no fase eliminazione (Dott. Gallo)
+  ✓ Tisane senza nichel:
+      Sì: anice, menta, zenzero-limone, vaniglia, curcuma, tiglio, biancospino,
+          passiflora, valeriana, verbena, malva, tisane alla frutta
+      No: finocchio, frutti di bosco, alloro, cannella, tè, camomilla
+  ✓ Allergia al nichel — cosa mangiare e cosa evitare (HARDCODED commit c508817)
+      Soglia <250μg/die, gruppi a rischio con valori μg, consigli pratici,
+      tip couscous+legumi, procedura calcolo giornaliero, immagine BraMa-Ni
+  ✓ Semi di chia — come assorbirli al meglio (via UI db.concetti)
+      Mucillagine, gel intestinale, ammollare 30-60min, abbinamenti,
+      immagine infografica trita/mastica/conserva/aggiungi
+  ✓ Probiotici? Non sono solo uno yogurt! — Microbiota (via UI db.concetti)
+      UFC miliardi, kefir vs yogurt, prebiotici, provocazione Enterogermina
+  ✓ Zabaione pre-workout (via UI db.concetti — categoria Sport e performance)
+      Analisi nutrizionale, versione classica + rivisitata (miele/dattero/spirulina)
+  ✓ Ferro negli alimenti — come assorbirlo davvero (via UI db.concetti)
+      Ferro eme vs non eme, calcio −30-50%, vit.C +200-400%, tabella porzioni
+  ✓ Pane, ricotta e marmellata — uno spuntino fatto bene (via UI db.concetti)
+      Scelta ricotta (mucca/bufala/pecora) + marmellata in base agli obiettivi
+  ✓ La mia filosofia alimentare — no fanatismi (via UI db.concetti — categoria Mindset)
+  ✓ Cheto e intestino — gestire la stipsi (via UI db.concetti — Profili dietetici)
+      MCT graduato, semi lino/chia, probiotici mirati ceppi specifici, Mg serale
+  ✓ Cheto e integratori — timing ottimale (via UI db.concetti — Profili dietetici)
+      Omega-3 col pasto grasso (Lawson&Hughes 1988), multivit con omega-3,
+      Mg+K mattino a digiuno o post-camminata, schema integrato
+  ✓ Alga spirulina (via UI db.concetti — Alimenti)
+      3g/die, controindicazioni tiroide/autoimmuni, usi in cucina, curiosità astronauti
+  ✓ Concetto base "Regime alimentare chetogenico" aggiornato via UI:
+      timing integratori corretto + rimandi ai 2 nuovi concetti cheto
+  ✓ Solanacee (via UI db.concetti — fatto manualmente 26 giu 2026, modello Crucifere)
+  ✓ Quanto pesa dopo la cottura (via UI db.concetti — fatto manualmente 26 giu 2026)
+
+CONCETTI EDUCATIVI — P36/P36-bis chiusi 26 giu 2026 (vedi sopra: Solanacee e "Quanto pesa dopo la cottura" fatti, gli altri 4 abbandonati per scelta).
+
+RICETTE AGGIUNTE IN SESSIONE 24 MAG (nel ricettario):
+  ✓ Insalata di barbabietola cruda remineralizzante (Pranzo)
+  ✓ Barbabietola arrosto speziata (Cena)
+  ✓ Hummus di barbabietola (Spuntino)
+
+DECISIONE ARCHITETTURALE CONCETTI (24 mag 2026 — SUPERATA il 4 giu 2026, vedi sotto):
+  Concetti hardcoded in CONCETTI_EDUCATIVI: contenuti "core" stabili, patrimonio
+  software per eventuale vendita SaaS futura. Nuovi concetti personali del medico
+  → sempre via UI (db.concetti su Supabase). Nessun appesantimento del codice.
+  La logica editConcettoOverride fa da fallback: se un concetto hardcoded viene
+  modificato via UI, l'app legge l'override dal db senza toccare il codice.
+
+DECISIONE ARCHITETTURALE CONCETTI — FONTE UNICA (4 giu 2026, sostituisce quella sopra):
+  Problema emerso: i 21 concetti vivevano nel codice (CONCETTI_EDUCATIVI) e i custom
+  in db.concetti, con due bug: (1) il conteggio sommava le due liste gonfiando il numero
+  (36 "disponibili" ma solo 21 visibili); (2) i custom NON venivano disegnati da
+  renderConcettiPage (ciclava solo sull'array statico) e NON venivano salvati su Supabase
+  (pushToSheets non includeva db.concetti) → vivevano solo in localStorage, a rischio.
+  SOLUZIONE: fonte UNICA = db.concetti, sincronizzata su Supabase (__concetti_educativi).
+  CONCETTI_EDUCATIVI diventa un SEED (CONCETTI_EDUCATIVI_SEED) usato solo per la migrazione
+  iniziale; l'alias let CONCETTI_EDUCATIVI viene riassegnato a db.concetti dopo migrazione/pull
+  (così il codice legacy che lo legge — es. PDF, modal — continua a funzionare).
+  migraConcetti() al primo avvio FONDE seed + custom locali: per ogni concetto del seed
+  fonde l'eventuale personalizzazione locale (testo/immagini locali vincono), poi aggiunge
+  i custom non presenti nel seed. Marca i fusi con _seed:true (flag anti-loop: alle riaperture
+  successive NON rifonde) e tutti con tier:'plus', autore:'fabrizio'.
+  Tutti i concetti (seed + custom) sono marcati tier:'plus' in vista della VERSIONE PLUS a
+  pagamento di NutriGest (vedi Strategia Long-term): i contenuti di Fabrizio saranno un
+  pacchetto premium che i nutrizionisti clienti potranno sbloccare. Selezione e miglioramento
+  dei concetti nel tempo. Prerequisiti per il premium: multi-tenancy (Passo B) + libreria
+  condivisa read-only (Passo C) — non ancora implementati.
+
+SICUREZZA / P29 + P30 — RLS, TOKEN E MULTI-TENANCY (completati 1 lug 2026):
+
+  P29 — Problema originale (2 giu 2026): RLS disabilitato + supaHeaders() inviava
+  solo la anon key pubblica → dati pazienti accessibili a chiunque con l'URL. Email
+  di warning Supabase (rls_disabled_in_public) del 28 giu 2026 ha accelerato l'intervento.
+
+  P29 — Soluzione in 3 fasi ordinate (non invertibili):
+  1. SQL Parte 1: colonna user_id uuid su tutte e 5 le tabelle (IF NOT EXISTS);
+     backfill di tutte le righe esistenti con UUID 627dfd55-... (unico utente);
+     default auth.uid() per i nuovi record. RLS ancora spento → app intatta.
+  2. Codice (commit 54e8c8d): supaHeaders() legge getSessioneSalvata() e usa
+     access_token nel Bearer (fallback anon key se non loggato o token scaduto).
+     Aggiunta assicuraTokenValido(): rinnovo proattivo con buffer 2 min prima
+     della scadenza (~1h). Timer avviaRinnovoTokenPeriodico() ogni 30 min,
+     avviato al login/avvio, fermato al logout. Rinnovo anche in testa a syncNow().
+     Costante APP_URL = URL GitHub Pages per redirect email. RLS ancora spento →
+     se token sbagliato, app non si rompe (cade sul fallback anon key).
+  3. SQL Parte 2: user_id SET NOT NULL; policy row-owner owner_all_* (FOR ALL
+     USING/WITH CHECK user_id = auth.uid()) su tutte e 5 le tabelle; ENABLE RLS.
+     Rimossa policy legacy accesso_completo_pazienti (qual=true → annullava
+     l'isolamento su pazienti). Verifica finale: 5 tabelle × rls_attivo=true ×
+     numero_policy=1. Test sul campo: login → pazienti visibili → sync OK.
+
+  P105 — Fix sessione anti-RLS 42501 (12 lug 2026, commit d32f6aa):
+  Il punto 2 sopra descrive il comportamento fino all'11 lug 2026: "fallback anon
+  key... se token scaduto" NON è più il comportamento attuale su scrittura. Con
+  RLS attiva (punto 3), quel fallback produceva auth.uid() NULL e la scrittura
+  veniva respinta con 42501 — bug scoperto perché getSessioneSalvata() cancellava
+  da localStorage la sessione appena scaduta, perdendo il refresh_token prima che
+  assicuraTokenValido() potesse rinnovarla. Stato ATTUALE:
+  - getSessioneSalvata(): su token scaduto ritorna null ma NON cancella più il
+    record da localStorage — il refresh_token resta disponibile al rinnovo.
+    Cancellato solo dal logout esplicito (cancellaSessione).
+  - _garantiscoSessionePerSync(): nuovo guard davanti a ogni SCRITTURA su
+    Supabase. Chiama assicuraTokenValido(); se il rinnovo fallisce, avvisa
+    l'utente ("Sessione scaduta — esci e rientra per sincronizzare") e la
+    scrittura NON parte (niente più fallback anonimo silenzioso).
+  - syncNow(), sincronizzaTutto() (il bottone "Sincronizza" — prima l'unico dei
+    tre a NON rinnovare affatto il token prima di scrivere) e _flushDirtyIds()
+    (push incrementale P68) passano tutti dal guard.
+  - _p69RisolviRicarica (risoluzione conflitti P69) resta con il vecchio
+    assicuraTokenValido() non verificato: è una LETTURA, non una scrittura — da
+    anonimo tornerebbe 0 righe, non un 42501, quindi il guard lì non serve.
+  Effetto per l'utente: sessioni lunghe (>1h) ora si rinnovano da sole in
+  silenzio come previsto da P29; se il rinnovo fallisce davvero (refresh_token
+  scaduto/assente), l'app lo dice chiaramente invece di fallire con un errore
+  criptico lato Supabase.
+
+  P30 — Blindatura meta-record (1 lug 2026):
+  Le 4 righe con id fissi (__alimenti_custom, __concetti_educativi,
+  __modelli_rotazione, meta_collections) condividono la tabella pazienti. Con la
+  vecchia PK (id), un secondo utente non poteva salvare i suoi meta record (collisione
+  chiave). Fix: PK cambiata da (id) a (id, user_id) → ogni utente ha i suoi meta
+  record indipendenti. Nessun cambio al codice JS (l'isolamento è a livello DB).
+  Verifica: INSERT di riga test con id '__alimenti_custom' e UUID finto → 2 righe
+  coesistenti → DELETE riga test → 1 sola riga rimasta (la tua).
+
+  P30 — Registrazione self-service (1 lug 2026, commit P30):
+  Schermata login divisa in 4 modalità (auth-mode-login/signup/recover/newpass).
+  Flusso registrazione: email+password+conferma → /auth/v1/signup?redirect_to=APP_URL
+  → email di conferma Supabase → clic link → ritorno su NutriGest → auto-login
+  (gestisciRitornoAuth legge hash #access_token+type=signup). Se l'utente prova
+  ad accedere prima della conferma → messaggio italiano chiaro (regex su
+  "not confirmed"). Flusso recupero password: /auth/v1/recover?redirect_to=APP_URL
+  → email con link → ritorno su app con #type=recovery → mostra schermata
+  nuova password → /auth/v1/user PUT con il recovery token. Funzione
+  gestisciRitornoAuth() intercetta l'hash URL a ogni avvio e smista al flusso
+  corretto prima di verificaSessioneEAvvia(). Hash pulito con history.replaceState.
+  Configurazione Supabase: Site URL e Redirect URLs impostati su
+  https://giannandreafabrizio-dotcom.github.io/nutrigest/ (1 lug 2026).
+  Conferma email: ON. Piano Free: email da dominio Supabase (può finire in spam —
+  da migrare a SMTP proprio quando arriveranno clienti veri).
+
+  P30 — Onboarding nuovi utenti (1 lug 2026):
+  renderPaz() ora distingue "zero pazienti in assoluto" (→ schermata benvenuto con
+  messaggio + pulsante "+ Crea il primo paziente") da "filtro/ricerca senza
+  risultati" (→ "Nessun paziente trovato, modifica ricerca"). Prima era sempre
+  "Nessun paziente / Clicca + Nuovo paziente" in entrambi i casi.
+
+DOCUMENTI NEL PROGETTO CLAUDE (fonti):
+  • Tabelle sostituzioni Dott.ssa Colombo (2 pagine) — futuro DB EQUIVALENZE
+  • Dieta senza FODMAP Dott. Gallo — già usata per concetti FODMAP
+  • Tabella allergia nichel BraMa-Ni — già usata per semaforo + futuro concetto
+  • Articolo Berberina endocrinologiaoggi.it — già usato
+  • Lista tisane Raffaella Cascella — già usata
+  • Crucifere/Solanacee — entrambi fatti (Solanacee completato manualmente 26 giu 2026)
+  • Semi di chia — slide + infografica
+  • Slide ChatGPT pronte ma abbandonate (non interessano più, 26 giu 2026): antinfiammatoria, IG, borborigmi, ott.ormonale
+
+TIP CLINICO NICHEL — Mirianna:
+  Legumi abbinati al couscous sono meglio tollerati (couscous cattura il nichel)
+  → utile per tutti i pazienti nichel che vogliono reintrodurre i legumi
+
+GRAMMATURE COTTE (tabella di riferimento — concetto educativo "Quanto pesa dopo
+  la cottura" completato 26 giu 2026, ex roadmap P36-bis):
+  Pasta ×2.5 | Riso ×3.0 | Farro/Orzo/Quinoa ×2.8 | Lenticchie/Ceci secchi ×2.5
+  Patate: già espresse cotte
+
+SUCCHI DELLA SALUTE (già in Routine):
+  🟢 Verde: spinaci, sedano, cetriolo, mela verde, prezzemolo, limone, cavolo nero
+  🟡 Giallo: zenzero, limone, curcuma, ananas, mango, melone giallo
+  🔴 Rosso: barbabietola, melograno, fragole, pomodoro, cavolo viola, zenzero, limone
+  🟠 Arancione: carota, arancia, papaya, zucca, zenzero, curcuma, pepe nero
+  🟣 Viola: mirtilli, mora, cavolo viola, ribes nero, limone, zenzero
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RICETTARIO V10 + RICETTE DA CARICARE — SPOSTATO IN ROADMAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Contenuto pendente (ricette/ingredienti ancora da completare o caricare:
+KETO DA COMPLETARE, VERDURE quasi complete, COLAZIONI NON-KETO, CONDIMENTI
+ANTINFIAMMATORI, SMOOTHIE BOWL) spostato l'8 luglio 2026 in
+NutriGest_Roadmap_v4.md sotto P37 (Ricettario, caricamento graduale),
+perché è lavoro da fare, non descrizione del funzionamento attuale.
+Il RICETTARIO V10 (1.256 ricette, 77 piani reali, non integrato in NutriGest)
+resta descritto sopra in questo file dove già citato (vedi "RICETTARIO V10
+NON INTEGRATO AUTOMATICAMENTE").
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROADMAP E STRATEGIA → SPOSTATE IN NutriGest_Roadmap_v4.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dal 21 giugno 2026 tutta la pianificazione (cosa fare, priorità, strategia
+long-term) vive nel file operativo NutriGest_Roadmap_v4.md (P1–P58).
+Questo documento di contesto è ora puramente DESCRITTIVO: com'è fatto / perché.
+
+Mappatura codici storici → nuovi P (per continuità con lo STORICO sotto):
+  PASSO A (sicurezza/RLS) → P29   |   PASSO B (multi-tenancy) → P30
+  B8 scomposizione ingredienti → P33   |   C10 bug kcal piano AI → P34
+  C4 peso casalingo → P35   |   C1 5 concetti mancanti → P36
+  C2 ricettario caricamento → P37   |   B4 ghiaccioli → P38
+  ROT-KETO template keto → P39   |   C3 passi → P40   |   C5 link paziente → P41
+  Gestione offline → P42   |   'quando capita' (minori) → P43
+  D1 keto avanzato → P47   |   D2 storico piani → P48   |   D3 refactor → P49
+  D5 app paziente → P50   |   D4 Vercel → P51   |   D6 Instagram → P52
+  D7 vendita SaaS → P53
+
+NOTA: i ✅ COMPLETATI e le note di sessione restano nello STORICO SESSIONI
+(in fondo a questo file) — sono il 'perché', non cambiano.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COSTI E PROIEZIONI ECONOMICHE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PER SESSIONE PAZIENTE COMPLETA:
+  FX (ex-F1+F3, contesto non più duplicato): €0.06-0.10 | Concludi e Riassumi: €0.03-0.05
+  Piano completo: €0.10-0.15 | Chat raffinamento (5-6 scambi): €0.05-0.08
+  TOTALE: ~€0.25-0.40
+  Msg WhatsApp AI: ~€0.01-0.02 cad.
+
+SCALING SAAS:
+  Fase attuale (solo Fabrizio): €5-15/mese
+  5 nutrizionisti: ~€127-197/mese → ricavo €245 → coperto con margine
+  20 nutrizionisti: ~€345-545/mese → ricavo €980 → margine netto €435-635
+
+REGOLA: NON passare a Haiku/modelli economici prima di 10+ utenti SaaS attivi
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NOTE DI SESSIONE (storico — il 'perché' delle scelte, non cambia)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le priorità correnti / cosa fare nella prossima sessione NON stanno più qui:
+vivono in NutriGest_Roadmap_v4.md (vedi 'Quadro priorità sintetico'
+e 'Materiali che Fabrizio invierà'). Sotto restano solo le note che spiegano
+il perché di scelte passate, utili da rileggere prima di toccare il codice.
+
+NOTA SESSIONE 20 maggio: bug "Aggiungi alternativa" causato da mismatch tra
+categoria semaforo salvata sulla cella ("Pesce (Cena)") e categoria funzionale
+degli alimenti del profilo ("proteine"). Fix: ignora proprietà categoria salvata,
+ricalcola sempre dal nome con getCategoriaSemaforo(). Introdotto concetto
+_GRUPPI_SEMAFORO per categorie intercambiabili (cereali, pesce pranzo/cena).
+Scelta architetturale: categorie semaforo restano FISICAMENTE SEPARATE (zero
+rischio migrazione dati), ma vengono trattate come gruppo solo per le alternative.
+
+NOTA SESSIONE 20 maggio — Rotazione settimanale: modelli NARUTO e HINATA
+implementati come griglia hardcoded 6×2. La scelta di non fare l'editor subito
+era deliberata: prima testare il concetto con pazienti reali, poi decidere quale
+flessibilità serve nell'editor. Integrazione AI completa: il modello sovrascrive
+le istruzioni generiche di rotazione nel prompt.
+→ ROT-EDITOR completato il 21 maggio (vedi storico sopra).
+→ B2 (template vegetariani) eliminato dalla roadmap: l'editor ROT copre già
+  il caso d'uso. Quando arriva il primo paziente vegetariano → crea modello
+  VEGETARIANO direttamente nell'editor, zero codice.
+
+NOTA SESSIONE 19 maggio mattina: bug calcolo macros legumi e altri alimenti
+ambigui era causato da mismatch nomi tra quello che genera l'AI (italiano
+naturale) e le chiavi CREA_ALIMENTI (con parentesi, doppia denominazione).
+Risolto con doppia strategia:
+  (1) Alias diretti in CREA_ALIMENTI per i 6 casi più frequenti
+  (2) Mappa NOMI_CANONICI con 21 regole di disambiguazione clinica Fabrizio
+      applicata silenziosamente in getValoriCREA() — zero token AI in più.
+Approccio: SEMPRE disambiguare nel codice, MAI gonfiare il prompt AI.
+
+NOTA SESSIONE 18 maggio: tema ricorrente "macros salvati non rispettati ovunque".
+Fix applicata su F1/ragionamento (7bac530) + generatore aveva gia BUG3 prima.
+Verificare che TUTTI i consumer leggano _getActiveMacrosTarget(p), non ricalcolino dal grezzo.
+
+Comandi utili (Windows):
+  cd %USERPROFILE%\Desktop\nutrigest && git add index.html && git commit -m "msg" && git push
+  git log --oneline -5
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STRUMENTI PARALLELI (usati manualmente, non integrati)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PERPLEXITY PRO (Fabrizio ha l'abbonamento attivo):
+  USO IDEALE — sempre prima di scrivere/modificare contenuto clinico:
+  - Revisione condizioni semaforo: fonti aggiornate AIGO / ESPEN / ADA /
+    ESC / KDIGO / ATA / Monash / ESPGHAN / ACG / ISS
+  - Validare nuovi Concetti Educativi con studi recenti (PubMed indicizzato)
+  - Calibrazione formule cliniche (es. LAF già validato WHO/FAO + Tudor-Locke)
+  - Verifica ingredienti/integratori emergenti (es. silimarina+berberina)
+  - Tabelle alimentari aggiornate (CREA, USDA, BraMa-Ni)
+  - Trend nutrizionali per Instagram (1 post/mese su trend con evidenza)
+  - Ricette emergenti, dosaggi, biodisponibilità
+  - Verifica protocolli clinici (FODMAP fasi, keto reintroduzione, ecc.)
+
+  COME USARLO con Claude:
+    1. Fabrizio fa la ricerca su Perplexity Pro
+    2. Copia i risultati nella chat Claude
+    3. Claude integra nel codice/documento/concetto
+  Vantaggio: Perplexity cita fonti primarie verificabili, Claude scrive il codice.
+
+CLAUDE (questo progetto):
+  Tutto lo sviluppo NutriGest, Concetti Educativi, strategia IG, analisi documenti
+
+CHATGPT:
+  Solo come secondo parere su casi clinici complessi. Mai integrato nel codice.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STORICO SESSIONI E COMMIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Spostato in `CHANGELOG.md` (estratto l'8 luglio 2026 — prima ~56% di questo
+file). Contiene la cronologia completa sessione per sessione con i relativi
+commit, dalla più recente alla più vecchia. Regola invariata: APPEND in
+cima, MAI eliminare da lì.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROCEDURA AGGIORNAMENTO DOCUMENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A fine chat: Fabrizio carica il documento e chiede a Claude di aggiornarlo.
+
+NOTA ORDINE (riorganizzato 4 giu 2026 — ottimizzato per lettura Claude):
+  Il documento è stato riordinato mettendo in alto ciò che si legge per primo e più
+  spesso prima di toccare il codice, e in fondo l'archivio (storico) consultato di rado.
+  Lo storico è stato mantenuto INTATTO (zero perdite). Nessun dato è stato eliminato:
+  solo riordinato e de-duplicato (ridondanze letterali accorpate, con rimandi).
+
+ARCHITETTURA DEL DOCUMENTO (ordine attuale):
+
+  APERTURA — lettura rapida
+    0. TL;DR / QUICK REFERENCE — cosa è NutriGest, stack, 4 regole d'oro, mappa
+       "dove trovare cosa". Aggiornare le regole d'oro solo se cambiano i protocolli base.
+
+  PARTE 1 — OPERATIVA (ciò che serve prima di modificare il codice)
+    1. INFRASTRUTTURA — repo, Supabase, funzioni sync, dispositivi.
+       Sovrascrivere solo se cambia. Aggiornare "Commit attuale" ogni sessione.
+       AGGIUNGERE nuove funzioni sync quando create.
+    2. MODALITÀ DI LAVORO E REGOLE SVILUPPO — workflow, trappole codice, commit.
+       Sovrascrivere solo se cambia il workflow.
+    3. STRUTTURA DATI — db, p.*, ALIMENTI, CREA_ALIMENTI, NOMI_CANONICI.
+       AGGIUNGERE quando si aggiungono campi a p.* o tabelle. MAI eliminare campi
+       anche se obsoleti (storico).
+    4. DECISIONI ARCHITETTURALI — il "perché" di ogni scelta. AGGIUNGERE quando si
+       prende una decisione importante, MAI eliminare quelle vecchie (marcare "SUPERATA"
+       con rimando alla nuova, se cambiate).
+    5. FUNZIONALITÀ IMPLEMENTATE — cosa esiste e come funziona. SPOSTARE testo da
+       roadmap a qui quando una feature passa da TODO a fatto.
+
+  PARTE 2 — DOMINIO (clinica, contenuti, design)
+    6. STILE NUTRIZIONALE — formule, LAF, regimi. Sovrascrivere solo se cambia formula.
+    7. UI — PALETTE E REGOLE STILE — sovrascrivere se cambia palette/classi.
+    8. MATERIALE CLINICO E CONCETTI EDUCATIVI — spostare voci da "da fare" a "completati".
+    9. RICETTARIO V10 — la lista di ricette da caricare/completare vive ora nella
+       Roadmap (P37); qui resta solo la descrizione del ricettario esistente.
+
+  PARTE 3 — PIANIFICAZIONE  ⟶  SPOSTATA IN NutriGest_Roadmap_v4.md
+    La roadmap (ex sez. 10), la strategia long-term (ex sez. 11) e il suggerimento
+    prossima sessione (ex sez. 13) NON stanno più in questo file. Vivono nel file
+    operativo NutriGest_Roadmap_v4.md (P1–P58). Qui resta solo:
+    12. COSTI E PROIEZIONI — sovrascrivere solo se cambiano prezzi modelli AI.
+    Le NOTE DI SESSIONE (perché di scelte passate) restano nel contesto come storico.
+
+  PARTE 4 — ARCHIVIO E META (in fondo, consultazione rara)
+    14. STRUMENTI PARALLELI — sovrascrivere solo se cambia.
+    15. STORICO SESSIONI E COMMIT — spostato in CHANGELOG.md (estratto 8 lug 2026).
+        APPEND in cima lì (cronologia inversa), MAI eliminare. Sessioni vecchie >6 mesi
+        possono essere compresse a 1-2 righe (solo se necessario).
+    16. PROCEDURA AGGIORNAMENTO — questa sezione. Aggiornare la mappa ordine solo se si
+        riorganizza il documento; i PRINCIPI CARDINE non si toccano.
+
+PRINCIPI CARDINE (invariati):
+  - MAI cancellare informazione senza motivazione esplicita scritta
+  - Nelle sezioni stabili: accumulo additivo, no riscritture
+  - Nella roadmap: voci si spostano ma non scompaiono
+  - Storico: cresce sempre, è la memoria del progetto
+  - C'è SEMPRE un modo di sapere "perché" è stata presa una decisione
+
+REGOLE OPERATIVE:
+  1. Leggere TUTTO il file con view() a range espliciti — mai fidarsi del troncamento
+  2. wc -l sul file caricato — output finale deve avere ≥ righe iniziali + aggiunte
+     (eccetto riorganizzazioni dichiarate, dove si de-duplica: in tal caso verificare
+      che tutti i dati critici — commit, funzioni, soglie — siano ancora presenti)
+  3. Modificare SEMPRE con str_replace puntuali — MAI riscrivere da zero (salvo
+     riorganizzazione esplicita richiesta da Fabrizio)
+  4. Modifiche standard ad ogni sessione:
+     - Data in testa (questo file solo se cambia qualcosa di descrittivo)
+     - Commit attuale in INFRASTRUTTURA + TL;DR se cambia un protocollo base
+     - Sessione nuova in cima a CHANGELOG.md (STORICO SESSIONI, ora file separato)
+     - Roadmap e priorità: aggiornare il file NutriGest_Roadmap_v4.md
+       (NON questo file) — riga tolta dalla roadmap, eventuale storico aggiunto qui
+  5. Quando si recuperano informazioni da versioni precedenti del documento,
+     verificare prima nel codice se ancora valide (es. nomi funzioni esistenti)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Fine documento — 6 luglio 2026 (BLOCCO 17, sessione serale del 5 lug: editor ricette con attributi strutturati e 8 TAG_COMUNI a chip + ricalcolo automatico kcal/macro dagli ingredienti + stagionalità nel generatore AI con guardia anti-pool-vuoto + riordino drag&drop ricette testuali + persistenza suggerimenti gruppi clinici + fix root-cause editPaz/checkSemaforo, commit finale ab4d472)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
