@@ -10106,7 +10106,7 @@ function pianoPazSelezionato(id){
       var _d = new Date(pl.timestamp || pl.createdAt || Date.now());
       var _ds = isNaN(_d) ? 'Data n/d' : _d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
       var _os = isNaN(_d) ? '' : _d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-      var _idx = (db.piani||[]).filter(function(x){ return x.pazienteId===_idPaz; }).length - 1 - i;
+      var _idx = (db.piani||[]).indexOf(pl);
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:.35rem;">'
         +'<div><div style="font-size:.8rem;font-weight:600;">📋 Piano del '+_ds+'</div>'
         +'<div style="font-size:.7rem;color:var(--text3);">ore '+_os+'</div></div>'
@@ -10454,6 +10454,14 @@ function pmgCambiaGrammi(input) {
 function riapriPiano(pazId, idx) {
   var piano = (db.piani||[])[idx];
   if (!piano) return;
+  // Guardrail identità: l'indice deve puntare a un piano DEL paziente atteso.
+  // Se non combacia (indice calcolato su base sbagliata), ritrova il piano corretto per id/paziente
+  // invece di montare silenziosamente il piano di un altro.
+  if (pazId && piano.pazienteId !== pazId) {
+    var _corretti = (db.piani||[]).filter(function(pl){ return pl.pazienteId === pazId; });
+    if (!_corretti.length) { notif('⚠ Nessun piano salvato per questo paziente'); return; }
+    piano = _corretti[_corretti.length - 1]; // il più recente del paziente atteso
+  }
   try {
     // Supporta sia formato definitivo {pianoJSON} che formato cache {piano:[...]} (legacy)
     var pianoAI;
