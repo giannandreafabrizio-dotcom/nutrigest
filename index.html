@@ -16941,6 +16941,14 @@ function _alimNomeRegex(nome, flags){
 
 var _ALIM_SLOTS=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
 
+// P82-fix: pianoJSON è salvato come STRINGA (JSON.stringify). Normalizza a array di giorni per la scansione.
+function _alimGiorniDaPiano(pj){
+  var g=pj;
+  if(typeof g==='string'){ try{ g=JSON.parse(g); }catch(e){ return []; } }
+  if(g&&g.giorni) g=g.giorni;
+  return Array.isArray(g)?g:[];
+}
+
 // Funzione PURA: conta i riferimenti a `nome` in un array di giorni (celle esatte + righe testuali).
 function _scanGiorniPerNome(giorni, nome){
   var n=0, rx=_alimNomeRegex(nome);
@@ -16961,7 +16969,7 @@ function scanRiferimentiAlimento(nome){
   var out={tot:0,dettagli:[]};
   if(!nome) return out;
   (db.piani||[]).forEach(function(pl){
-    var n=_scanGiorniPerNome(pl&&pl.pianoJSON, nome);
+    var n=_scanGiorniPerNome(_alimGiorniDaPiano(pl&&pl.pianoJSON), nome);
     if(n>0){
       var paz=(db.pazienti||[]).find(function(x){return x&&x.id===pl.pazienteId;});
       out.tot+=n;
@@ -16969,7 +16977,7 @@ function scanRiferimentiAlimento(nome){
     }
   });
   (db.templatePiani||[]).forEach(function(tpl){
-    var n=_scanGiorniPerNome(tpl&&tpl.pianoJSON, nome);
+    var n=_scanGiorniPerNome(_alimGiorniDaPiano(tpl&&tpl.pianoJSON), nome);
     if(n>0){out.tot+=n;out.dettagli.push({tipo:'template',label:'Template "'+(tpl.nome||tpl.id||'?')+'"',count:n,ref:tpl});}
   });
   var rxR=_alimNomeRegex(nome);
@@ -17029,10 +17037,17 @@ function rinominaAlimentoCustom(vecchio){
     return hit;
   }
 
+  // pianoJSON è una STRINGA: parsa → rinomina nell'array → ri-serializza in stringa.
+  function _renameInPianoRecord(rec){
+    var giorni=_alimGiorniDaPiano(rec&&rec.pianoJSON);
+    if(!giorni.length) return false;
+    if(_renameInGiorni(giorni)){ rec.pianoJSON=JSON.stringify(giorni); return true; }
+    return false;
+  }
   var pianiMod=[], tplMod=[], pazModIds=[], ricMod=false;
-  (db.piani||[]).forEach(function(pl){ if(_renameInGiorni(pl&&pl.pianoJSON)) pianiMod.push(pl); });
-  (db.templatePiani||[]).forEach(function(tpl){ if(_renameInGiorni(tpl&&tpl.pianoJSON)) tplMod.push(tpl); });
-  if(window._pianoCorrente) _renameInGiorni(window._pianoCorrente); // piano aperto nell'editor: evita che un salvataggio reintroduca il vecchio nome
+  (db.piani||[]).forEach(function(pl){ if(_renameInPianoRecord(pl)) pianiMod.push(pl); });
+  (db.templatePiani||[]).forEach(function(tpl){ if(_renameInPianoRecord(tpl)) tplMod.push(tpl); });
+  if(window._pianoCorrente) _renameInGiorni(window._pianoCorrente); // piano aperto nell'editor: è già un array in memoria
   (db.ricette||[]).forEach(function(r){
     if(!r) return;
     if(typeof r.ing==='string'&&_alimNomeRegex(vecchio).test(r.ing)){r.ing=r.ing.replace(_alimNomeRegex(vecchio,'gi'),function(m,p1){return (p1||'')+nuovo;});ricMod=true;}
