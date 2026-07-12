@@ -3804,7 +3804,7 @@ async function pullFromSheets(){
 }
 
 async function syncNow(){
-  await assicuraTokenValido(); // P29 — token fresco prima delle chiamate DB
+  if(!await _garantiscoSessionePerSync()) return; // no scrittura anonima a RLS accesa (→ 42501)
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
   const bar=document.getElementById('sync-bar');
   if(bar){bar.style.width='0%';bar.style.background='#facc15';}
@@ -3817,6 +3817,7 @@ async function syncNow(){
 }
 
 async function sincronizzaTutto(){
+  if(!await _garantiscoSessionePerSync()) return; // sessione valida obbligatoria: senza, il push arriverebbe anonimo → RLS 42501
   var wrap=document.getElementById('btn-sync-wrap');var btn=document.getElementById('btn-sync-tutto');
   if(wrap){wrap.classList.remove('is-ok','is-err');wrap.classList.add('is-loading');}
   if(btn){btn.disabled=true;btn.textContent='Sincronizzazione...';}
@@ -4055,7 +4056,7 @@ async function _flushDirtyIds(){
   console.log('[P68] push incrementale —', ids.length, 'id:', ids.join(', '));
   let okTutti = true;
   try{
-    await assicuraTokenValido(); // P29 — token fresco prima delle chiamate DB
+    if(!await _garantiscoSessionePerSync()){ window._syncInFlight = false; return; } // no push anonimo (→ 42501); libera il lock
     // ── P69 — rilevamento conflitti multi-dispositivo (prima di scrivere) ──
     // Chiede al server updated_at dei soli id paziente sporchi e li confronta
     // con la baseline locale. I conflitti "modificato altrove" NON vengono
@@ -18689,7 +18690,13 @@ function getSessioneSalvata() {
     if (!s) return null;
     const parsed = JSON.parse(s);
     if (parsed.expires_at && Date.now() / 1000 > parsed.expires_at) {
-      localStorage.removeItem(NG_SESSION_KEY);
+      // NON cancellare la sessione qui: il refresh_token al suo interno serve ad
+      // assicuraTokenValido() per rinnovare l'access_token. Cancellarla era la causa
+      // radice dei sync falliti (fallback anonimo → violazione RLS 42501): il primo
+      // che leggeva la sessione scaduta distruggeva il refresh_token prima che il
+      // rinnovo potesse usarlo. Ritorniamo null (token non valido) ma lasciamo il
+      // record in localStorage: viene sovrascritto al prossimo login/rinnovo e
+      // azzerato solo dal logout esplicito (cancellaSessione).
       return null;
     }
     return parsed;
@@ -18833,6 +18840,22 @@ async function assicuraTokenValido(){
     }
     return false;
   }catch(e){ console.error('[AUTH] rinnovo token fallito:', e); return false; }
+}
+
+// Guard prima di ogni SCRITTURA su Supabase. Ritorna true solo se c'è una
+// sessione utente valida (dopo eventuale rinnovo col refresh_token). Se false
+// avvisa l'utente e il chiamante DEVE interrompere: a RLS accesa una scrittura
+// senza token utente arriva come anonima (auth.uid() NULL) e viene respinta con
+// 42501. Sostituisce il vecchio comportamento che ripiegava in silenzio sulla
+// chiave anonima producendo l'errore criptico.
+async function _garantiscoSessionePerSync(){
+  const ok = await assicuraTokenValido();
+  if(!ok){
+    console.warn('[AUTH] sessione non valida e non rinnovabile — sync annullato (nessuna scrittura anonima)');
+    if(typeof setSyncStatus==='function') setSyncStatus(false);
+    if(typeof notif==='function') notif('⚠ Sessione scaduta — esci e rientra per sincronizzare', 4000);
+  }
+  return ok;
 }
 
 // Timer di rinnovo periodico (idempotente): tiene il token fresco mentre l'app è aperta.
