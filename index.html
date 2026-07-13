@@ -860,15 +860,15 @@ main{flex:1;overflow-y:auto;}
 <div class="page" id="page-alimenti">
   <div class="page-hd">
     <div><h2>Alimenti</h2><p id="alim-count">—</p></div>
-    <button class="btn btn-p" onclick="apriNuovoAlimentoCustom()">+ Nuovo alimento</button>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn btn-g" onclick="apriScannerBarcode()">📷 Scansiona barcode</button><button class="btn btn-p" onclick="apriNuovoAlimentoCustom()">+ Nuovo alimento</button></div>
   </div>
   <div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .85rem;margin-bottom:.9rem;font-size:.76rem;color:var(--teal2);line-height:1.5">
-    Gli alimenti di base provengono dalle tabelle <strong>CREA-INRAN</strong> e sono in sola lettura. Puoi ampliare il tuo database aggiungendo alimenti personalizzati (a mano qui, o in futuro dallo scanner del codice a barre). Un alimento archiviato non compare più nei nuovi piani, ma i piani e le ricette che lo usano restano validi.
+    Gli alimenti di base provengono dalle tabelle <strong>CREA-INRAN</strong> e sono in sola lettura. Puoi ampliare il tuo database aggiungendo alimenti personalizzati (a mano qui, o con lo scanner del codice a barre per i prodotti confezionati). Un alimento archiviato non compare più nei nuovi piani, ma i piani e le ricette che lo usano restano validi.
   </div>
   <div class="sbar" style="flex-wrap:wrap;gap:.5rem">
     <input type="text" id="s-alim" placeholder="🔍 Cerca alimento..." oninput="renderAlimentiPage()" style="flex:2;min-width:180px">
     <select id="f-alim-cat" onchange="renderAlimentiPage()"><option value="">Tutte le categorie</option></select>
-    <select id="f-alim-fonte" onchange="renderAlimentiPage()"><option value="">Base + Personalizzati</option><option value="custom">Solo personalizzati</option><option value="crea">Solo base CREA-INRAN</option></select>
+    <select id="f-alim-fonte" onchange="renderAlimentiPage()"><option value="">Base + Personalizzati</option><option value="custom">Solo personalizzati</option><option value="off">Solo da barcode</option><option value="crea">Solo base CREA-INRAN</option></select>
     <select id="f-alim-stato" onchange="renderAlimentiPage()"><option value="attivi">Attivi</option><option value="archiviati">📦 Archiviati</option><option value="tutti">Tutti</option></select>
   </div>
   <div id="alim-lista"></div>
@@ -1653,10 +1653,35 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
   <div class="fg"><label>Allergeni / intolleranze <span style="color:var(--text3);font-weight:400">(separati da virgola, opzionale)</span></label><input type="text" id="ac-allergeni" placeholder="es. lattosio, glutine, frutta a guscio"></div>
+  <div id="ac-barcode-box" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;margin-bottom:.8rem;font-size:.7rem;color:var(--text2);line-height:1.45">
+    📷 Barcode <strong id="ac-barcode-val">—</strong> · dati precompilati da <strong>Open Food Facts</strong> (crowdsourced): <strong>verifica nome, categoria e valori con l'etichetta</strong> prima di confermare. Il salvataggio avviene solo nel database di NutriGest.
+  </div>
   <div id="ac-prev-box" style="display:none;margin-bottom:.8rem"><button class="btn btn-g btn-sm" style="width:100%" onclick="ripristinaValoriPrecedentiAlimento()">↺ Ripristina valori precedenti</button></div>
   <div class="mf">
     <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-alim-custom'))">Annulla</button>
     <button class="btn btn-v" style="flex:1" onclick="salvaAlimentoCustom()">Conferma</button>
+  </div>
+</div>
+</div>
+
+<!-- P110: SCANNER BARCODE (Open Food Facts) -->
+<div class="overlay" id="mo-barcode">
+<div class="modal" style="max-width:420px">
+  <h3>📷 Scansiona barcode</h3>
+  <div id="bc-cam-box" style="position:relative;background:#000;border-radius:10px;overflow:hidden;margin-bottom:.7rem;min-height:200px">
+    <video id="bc-video" playsinline muted style="width:100%;max-height:280px;display:block;object-fit:cover"></video>
+    <div style="position:absolute;left:12%;right:12%;top:38%;bottom:38%;border:2px solid rgba(255,255,255,.85);border-radius:8px;pointer-events:none"></div>
+  </div>
+  <div id="bc-status" style="font-size:.74rem;color:var(--text2);margin-bottom:.7rem;line-height:1.45">Avvio fotocamera…</div>
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:.6rem .7rem;margin-bottom:.8rem">
+    <label style="font-size:.68rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Oppure inserisci il codice a mano</label>
+    <div style="display:flex;gap:.4rem;margin-top:.35rem">
+      <input type="text" id="bc-manual" placeholder="es. 8001120000000" inputmode="numeric" style="flex:1" onkeydown="if(event.key==='Enter')cercaBarcodeManuale()">
+      <button class="btn btn-p btn-sm" onclick="cercaBarcodeManuale()">Cerca</button>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-r" style="flex:1" onclick="chiudiScannerBarcode()">Annulla</button>
   </div>
 </div>
 </div>
@@ -17287,6 +17312,9 @@ function modificaAlimentoCustom(nome){
   var a=(db.alimentiCustom||[]).find(function(x){return x.n===nome;});
   if(!a){alert('Alimento custom "'+nome+'" non trovato.');return;}
   window._alimEditNome=nome;
+  window._alimBarcodePrefill=null; // P110: nessun prefill residuo in modifica
+  var _bbE=document.getElementById('ac-barcode-box'); if(_bbE)_bbE.style.display=(a.barcode?'block':'none');
+  if(a.barcode)document.getElementById('ac-barcode-val').textContent=a.barcode;
   document.getElementById('ac-titolo').textContent='✎ Modifica: '+nome;
   var inp=document.getElementById('ac-nome');inp.value=a.n;inp.disabled=true;
   document.getElementById('ac-cat').value=a.cat||'Latte & Derivati';
@@ -17314,6 +17342,8 @@ function ripristinaValoriPrecedentiAlimento(){
 
 function _resetAlimModal(){
   window._alimEditNome=null;
+  window._alimBarcodePrefill=null; // P110
+  var _bb=document.getElementById('ac-barcode-box'); if(_bb)_bb.style.display='none';
   document.getElementById('ac-titolo').textContent='➕ Nuovo alimento';
   var inp=document.getElementById('ac-nome');inp.disabled=false;inp.value='';
   ['ac-g','ac-kcal','ac-prot','ac-carb','ac-gras','ac-allergeni'].forEach(function(id){document.getElementById(id).value='';});
@@ -17372,7 +17402,9 @@ function salvaAlimentoCustom(){
   // e un custom omonimo di un alimento base ne sovrascriveva silenziosamente i macros.
   if(risolviAlimento(nome)){alert('Esiste già un alimento chiamato "'+nome+'" (o un nome equivalente) nel database.');return;}
   // P108: il record nasce nel formato unificato, con id stabile; _migraRecordCustom completa i campi e gli alias legacy
-  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,allergeni:allergeni,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null)});
+  // P110: se il form arriva dallo scanner, il record porta barcode e fonte 'off'
+  const _bc=window._alimBarcodePrefill||null;
+  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,allergeni:allergeni,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null),barcode:(_bc?_bc.barcode:null),fonte:(_bc?'off':'custom')});
   db.alimentiCustom.push(alim);
   _catalogoIndicizza(alim);
   // Aggiorna ALIMENTI (vista legacy)
@@ -17452,6 +17484,7 @@ function renderAlimentiPage(){
     if(fStato==='attivi' && r.attivo===false) return false;
     if(fStato==='archiviati' && r.attivo!==false) return false;
     if(fFonte==='custom' && r.fonte==='crea') return false;
+    if(fFonte==='off' && r.fonte!=='off') return false;
     if(fFonte==='crea' && r.fonte!=='crea') return false;
     if(fCat && r.categoriaSem!==fCat) return false;
     if(q && String(r.nome||'').toLowerCase().indexOf(q)<0) return false;
@@ -17529,6 +17562,179 @@ function ripristinaAlimentoCustom(nome){
   pushAlimentiCustomSupabase();
   renderAlimentiPage();renderAlEditor();
   notif('✓ "'+nome+'" ripristinato');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// P110 — SCANNER BARCODE via Open Food Facts.
+// Flusso: inquadra (o digita) il barcode → fetch OFF → precompila il form P108
+// → L'UTENTE CONFERMA/CORREGGE SEMPRE prima di salvare (dati OFF crowdsourced,
+// mai auto-salvataggio). OFF è un rubinetto una-tantum: l'alimento salvato vive
+// solo nel database di NutriGest, nessuna dipendenza runtime.
+// Lettura: BarcodeDetector nativo (Chrome/Android) oppure ZXing via CDN
+// (Safari/iPhone, Firefox); in ogni caso resta l'inserimento manuale del codice.
+// ══════════════════════════════════════════════════════════════════════════
+var _bcStream=null, _bcZXReader=null, _bcLoopId=null, _bcBusy=false;
+
+function _bcSetStatus(msg){ var el=document.getElementById('bc-status'); if(el) el.innerHTML=msg; }
+
+function apriScannerBarcode(){
+  _bcBusy=false;
+  document.getElementById('bc-manual').value='';
+  document.getElementById('mo-barcode').classList.add('open');
+  _bcSetStatus('Avvio fotocamera…');
+  _bcAvviaCamera();
+}
+
+function chiudiScannerBarcode(){
+  _bcStopCamera();
+  closeM('mo-barcode');
+}
+
+function _bcStopCamera(){
+  if(_bcLoopId){ clearInterval(_bcLoopId); _bcLoopId=null; }
+  if(_bcZXReader){ try{_bcZXReader.reset();}catch(e){} _bcZXReader=null; }
+  if(_bcStream){ try{_bcStream.getTracks().forEach(function(t){t.stop();});}catch(e){} _bcStream=null; }
+  var v=document.getElementById('bc-video'); if(v){ try{v.srcObject=null;}catch(e){} }
+}
+
+// Se il modale viene chiuso da qualunque via (X automatica inclusa), la camera si spegne.
+function _bcModaleAperto(){ var m=document.getElementById('mo-barcode'); return !!(m&&m.classList.contains('open')); }
+
+function _bcAvviaCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    _bcSetStatus('⚠ Fotocamera non disponibile su questo dispositivo/browser. Usa l\'inserimento manuale qui sotto.');
+    document.getElementById('bc-cam-box').style.display='none';
+    return;
+  }
+  document.getElementById('bc-cam-box').style.display='block';
+  if('BarcodeDetector' in window){ _bcAvviaNativo(); } else { _bcAvviaZXing(); }
+}
+
+// ── Percorso 1: BarcodeDetector nativo (Chrome/Android, Chrome desktop) ──
+function _bcAvviaNativo(){
+  var det;
+  try{ det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']}); }
+  catch(e){ _bcAvviaZXing(); return; }
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false}).then(function(stream){
+    if(!_bcModaleAperto()){ stream.getTracks().forEach(function(t){t.stop();}); return; }
+    _bcStream=stream;
+    var v=document.getElementById('bc-video'); v.srcObject=stream; v.play().catch(function(){});
+    _bcSetStatus('Inquadra il codice a barre del prodotto…');
+    _bcLoopId=setInterval(function(){
+      if(!_bcModaleAperto()){ _bcStopCamera(); return; }
+      if(_bcBusy||!v.videoWidth) return;
+      det.detect(v).then(function(codes){
+        if(codes&&codes.length&&codes[0].rawValue) _barcodeTrovato(String(codes[0].rawValue).trim());
+      }).catch(function(){});
+    },350);
+  }).catch(function(err){ _bcErroreCamera(err); });
+}
+
+// ── Percorso 2: ZXing via CDN (Safari/iPhone, Firefox — piattaforma maggioritaria dichiarata) ──
+function _bcAvviaZXing(){
+  if(window.ZXing&&window.ZXing.BrowserMultiFormatReader){ _bcZXStart(); return; }
+  _bcSetStatus('Carico il lettore barcode…');
+  var s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  s.onload=function(){ if(_bcModaleAperto()) _bcZXStart(); };
+  s.onerror=function(){ _bcSetStatus('⚠ Impossibile caricare il lettore barcode (sei offline?). Usa l\'inserimento manuale qui sotto.'); };
+  document.head.appendChild(s);
+}
+function _bcZXStart(){
+  try{
+    _bcZXReader=new ZXing.BrowserMultiFormatReader();
+    _bcSetStatus('Inquadra il codice a barre del prodotto…');
+    _bcZXReader.decodeFromConstraints({video:{facingMode:'environment'},audio:false},document.getElementById('bc-video'),function(result){
+      if(!_bcModaleAperto()){ _bcStopCamera(); return; }
+      if(result&&result.getText&&!_bcBusy) _barcodeTrovato(String(result.getText()).trim());
+    });
+  }catch(err){ _bcErroreCamera(err); }
+}
+
+function _bcErroreCamera(err){
+  var msg='⚠ Fotocamera non accessibile';
+  if(err&&err.name==='NotAllowedError') msg='⚠ Permesso fotocamera negato. Consenti l\'accesso dalle impostazioni del browser, oppure';
+  else if(err&&err.name==='NotFoundError') msg='⚠ Nessuna fotocamera trovata:';
+  else msg+=' ('+((err&&err.name)||'errore')+'):';
+  _bcSetStatus(msg+' usa l\'inserimento manuale qui sotto.');
+}
+
+function cercaBarcodeManuale(){
+  var code=(document.getElementById('bc-manual').value||'').replace(/\s/g,'');
+  if(!/^\d{6,14}$/.test(code)){ alert('Inserisci un codice a barre valido (6–14 cifre).'); return; }
+  _barcodeTrovato(code);
+}
+
+function _barcodeTrovato(code){
+  if(_bcBusy) return; _bcBusy=true;
+  _bcStopCamera();
+  // Dedup: il barcode è già nel catalogo? Niente doppioni.
+  var esistente=null;
+  CATALOGO_ALIMENTI.forEach(function(r){ if(!esistente&&r.barcode===code) esistente=r; });
+  if(esistente){
+    chiudiScannerBarcode();
+    notif('ℹ Barcode '+code+' già presente: "'+esistente.nome+'"'+(esistente.attivo===false?' (archiviato)':''));
+    var s=document.getElementById('s-alim'); if(s){ s.value=esistente.nome; renderAlimentiPage(); }
+    return;
+  }
+  _bcSetStatus('🔎 Cerco il prodotto '+code+' su Open Food Facts…');
+  cercaBarcodeOFF(code);
+}
+
+function cercaBarcodeOFF(code){
+  var url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=product_name,product_name_it,brands,nutriments,serving_quantity';
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=ctrl?setTimeout(function(){ctrl.abort();},12000):null;
+  fetch(url,ctrl?{signal:ctrl.signal}:{}).then(function(r){
+    if(timer)clearTimeout(timer);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(data){
+    if(!data||data.status!==1||!data.product){ _bcProdottoNonTrovato(code); return; }
+    _bcPrecompilaForm(code,data.product);
+  }).catch(function(err){
+    if(timer)clearTimeout(timer);
+    _bcBusy=false;
+    _bcSetStatus('⚠ Open Food Facts non raggiungibile ('+((err&&err.name==='AbortError')?'timeout':'rete')+'). Riprova, oppure inserisci l\'alimento a mano da "+ Nuovo alimento".');
+  });
+}
+
+function _bcProdottoNonTrovato(code){
+  chiudiScannerBarcode();
+  // Il prodotto non è su OFF: apriamo comunque il form vuoto, ma agganciando il barcode
+  // al futuro record (utile per il dedup alla prossima scansione).
+  _resetAlimModal();
+  window._alimBarcodePrefill={barcode:code};
+  var box=document.getElementById('ac-barcode-box');
+  box.style.display='block';
+  document.getElementById('ac-barcode-val').textContent=code;
+  document.getElementById('mo-alim-custom').classList.add('open');
+  notif('ℹ Prodotto non presente su Open Food Facts — inserisci i valori dall\'etichetta');
+  document.getElementById('ac-nome').focus();
+}
+
+function _bcPrecompilaForm(code,prod){
+  chiudiScannerBarcode();
+  _resetAlimModal();
+  window._alimBarcodePrefill={barcode:code};
+  var nome=(prod.product_name_it||prod.product_name||'').trim();
+  var brand=(prod.brands||'').split(',')[0].trim();
+  if(brand&&nome&&nome.toLowerCase().indexOf(brand.toLowerCase())<0) nome=nome+' '+brand;
+  var n=prod.nutriments||{};
+  var kcal=n['energy-kcal_100g']; 
+  if(kcal==null&&n['energy_100g']!=null) kcal=Math.round(n['energy_100g']/4.184*10)/10; // kJ → kcal
+  function num(x){ return (x==null||isNaN(parseFloat(x)))?'':Math.round(parseFloat(x)*10)/10; }
+  document.getElementById('ac-nome').value=nome;
+  document.getElementById('ac-kcal').value=num(kcal);
+  document.getElementById('ac-prot').value=num(n['proteins_100g']);
+  document.getElementById('ac-carb').value=num(n['carbohydrates_100g']);
+  document.getElementById('ac-gras').value=num(n['fat_100g']);
+  var sq=parseFloat(prod.serving_quantity); if(sq&&sq>0) document.getElementById('ac-g').value=Math.round(sq);
+  var box=document.getElementById('ac-barcode-box');
+  box.style.display='block';
+  document.getElementById('ac-barcode-val').textContent=code;
+  document.getElementById('mo-alim-custom').classList.add('open');
+  notif('📷 Dati caricati da Open Food Facts — verifica e conferma');
 }
 
 function togAl(el,key,nome){
