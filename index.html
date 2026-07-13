@@ -568,6 +568,9 @@ main{flex:1;overflow-y:auto;}
     <button class="nav-item" onclick="goTo('ricette',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>Ricette
     </button>
+    <button class="nav-item" onclick="goTo('alimenti',this)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3z"/><path d="M6 8a3 3 0 00-3 3v3a3 3 0 006 0"/><path d="M18 8a3 3 0 013 3v3a3 3 0 01-6 0"/><line x1="12" y1="17" x2="12" y2="22"/></svg>Alimenti
+    </button>
     <button class="nav-item" onclick="goTo('concetti',this)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Concetti
     </button>
@@ -851,6 +854,24 @@ main{flex:1;overflow-y:auto;}
     </select>
   </div>
   <div class="ric-grid" id="ric-grid"></div>
+</div>
+
+<!-- ALIMENTI (P108 fase 1) — catalogo unico: base CREA-INRAN + personalizzati -->
+<div class="page" id="page-alimenti">
+  <div class="page-hd">
+    <div><h2>Alimenti</h2><p id="alim-count">—</p></div>
+    <button class="btn btn-p" onclick="apriNuovoAlimentoCustom()">+ Nuovo alimento</button>
+  </div>
+  <div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .85rem;margin-bottom:.9rem;font-size:.76rem;color:var(--teal2);line-height:1.5">
+    Gli alimenti di base provengono dalle tabelle <strong>CREA-INRAN</strong> e sono in sola lettura. Puoi ampliare il tuo database aggiungendo alimenti personalizzati (a mano qui, o in futuro dallo scanner del codice a barre). Un alimento archiviato non compare più nei nuovi piani, ma i piani e le ricette che lo usano restano validi.
+  </div>
+  <div class="sbar" style="flex-wrap:wrap;gap:.5rem">
+    <input type="text" id="s-alim" placeholder="🔍 Cerca alimento..." oninput="renderAlimentiPage()" style="flex:2;min-width:180px">
+    <select id="f-alim-cat" onchange="renderAlimentiPage()"><option value="">Tutte le categorie</option></select>
+    <select id="f-alim-fonte" onchange="renderAlimentiPage()"><option value="">Base + Personalizzati</option><option value="custom">Solo personalizzati</option><option value="crea">Solo base CREA-INRAN</option></select>
+    <select id="f-alim-stato" onchange="renderAlimentiPage()"><option value="attivi">Attivi</option><option value="archiviati">📦 Archiviati</option><option value="tutti">Tutti</option></select>
+  </div>
+  <div id="alim-lista"></div>
 </div>
 
 <!-- ENTRATE -->
@@ -1631,6 +1652,7 @@ main{flex:1;overflow-y:auto;}
       <div class="fg" style="margin:0"><label>Grassi (g)</label><input type="number" id="ac-gras" placeholder="es. 0.2" step="0.1" min="0"></div>
     </div>
   </div>
+  <div class="fg"><label>Allergeni / intolleranze <span style="color:var(--text3);font-weight:400">(separati da virgola, opzionale)</span></label><input type="text" id="ac-allergeni" placeholder="es. lattosio, glutine, frutta a guscio"></div>
   <div id="ac-prev-box" style="display:none;margin-bottom:.8rem"><button class="btn btn-g btn-sm" style="width:100%" onclick="ripristinaValoriPrecedentiAlimento()">↺ Ripristina valori precedenti</button></div>
   <div class="mf">
     <button class="btn btn-r" style="flex:1" onclick="ngChiudiModale(document.getElementById('mo-alim-custom'))">Annulla</button>
@@ -4729,6 +4751,7 @@ function goTo(name,btn){
   if(name==='entrate')renderEntrate();
   if(name==='dashboard')renderDashboard();
   if(name==='concetti')renderConcettiPage();
+  if(name==='alimenti')renderAlimentiPage();
   if(name==='piano')renderPianoPage();
   if(name==='storico-piani'){renderStoricoPiani();renderLibreriaTemplate();}
   if(name==='impostazioni'){initAntCard();}
@@ -11587,6 +11610,7 @@ function _migraRecordCustom(a){
   if(a.gDefault==null) a.gDefault=(a.g!=null?a.g:100);
   if(!a.per100g&&a.kcal!=null) a.per100g={kcal:a.kcal,p:a.p||0,c:a.c||0,g:a.g100||0};
   if(!a.tags) a.tags=[];
+  if(!a.allergeni) a.allergeni=[];
   if(a.barcode===undefined) a.barcode=null;
   if(a.fonte==null) a.fonte='custom';
   if(a.attivo==null) a.attivo=true;
@@ -11616,7 +11640,8 @@ function caricaAlimentiCustom(){
   // 2) migra e reinserisci
   (db.alimentiCustom||[]).forEach(function(a){
     _migraRecordCustom(a);
-    _catalogoIndicizza(a);
+    _catalogoIndicizza(a); // SEMPRE nel catalogo: gli archiviati restano risolvibili (piani/ricette esistenti tengono i macros)
+    if(a.attivo===false) return; // P108 fase 1: gli archiviati NON entrano nei picker dei nuovi piani
     var cat=a.categoriaSem||'Altro';
     if(!ALIMENTI[cat]) ALIMENTI[cat]={items:[]};
     ALIMENTI[cat].items.push({n:a.nome,g:a.gDefault,_custom:true});
@@ -17252,7 +17277,7 @@ function rinominaAlimentoCustom(vecchio){
   if(ricMod)pushRicetteSupabase();
   pazModIds.forEach(function(id){save(id);});
 
-  renderAlEditor();
+  renderAlEditor();renderAlimentiPage();
   if(typeof _aggiornaPianoBox==='function'&&window._pianoCorrente)_aggiornaPianoBox();
   notif('✓ "'+vecchio+'" rinominato in "'+nuovo+'" — aggiornati '+refs.tot+' riferimenti');
 }
@@ -17270,6 +17295,7 @@ function modificaAlimentoCustom(nome){
   document.getElementById('ac-prot').value=(a.p!=null?a.p:'');
   document.getElementById('ac-carb').value=(a.c!=null?a.c:'');
   document.getElementById('ac-gras').value=(a.g100!=null?a.g100:'');
+  document.getElementById('ac-allergeni').value=(a.allergeni&&a.allergeni.length?a.allergeni.join(', '):'');
   document.getElementById('ac-prev-box').style.display=a.prev&&a.prev.cat!==undefined?'block':'none';
   document.getElementById('mo-alim-custom').classList.add('open');
 }
@@ -17290,7 +17316,7 @@ function _resetAlimModal(){
   window._alimEditNome=null;
   document.getElementById('ac-titolo').textContent='➕ Nuovo alimento';
   var inp=document.getElementById('ac-nome');inp.disabled=false;inp.value='';
-  ['ac-g','ac-kcal','ac-prot','ac-carb','ac-gras'].forEach(function(id){document.getElementById(id).value='';});
+  ['ac-g','ac-kcal','ac-prot','ac-carb','ac-gras','ac-allergeni'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('ac-cat').value='Latte & Derivati';
   document.getElementById('ac-prev-box').style.display='none';
 }
@@ -17309,6 +17335,7 @@ function salvaAlimentoCustom(){
   const p=parseFloat(document.getElementById('ac-prot').value)||0;
   const c=parseFloat(document.getElementById('ac-carb').value)||0;
   const g100=parseFloat(document.getElementById('ac-gras').value)||0;
+  const allergeni=document.getElementById('ac-allergeni').value.split(',').map(function(x){return x.trim();}).filter(Boolean);
   if(!nome){alert('Inserisci il nome dell\'alimento');return;}
 
   // ── P82: ramo MODIFICA VALORI (nome invariato, {updated_at, prev} per undo singolo) ──
@@ -17326,7 +17353,7 @@ function salvaAlimentoCustom(){
       if(it)it.g=g;
     }
     // P108: aggiorna i campi nuovi, poi riallinea gli alias legacy (per100g resta condiviso con CREA_ALIMENTI)
-    a.categoriaSem=cat;a.gDefault=g;
+    a.categoriaSem=cat;a.gDefault=g;a.allergeni=allergeni;
     a.per100g=(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null);
     a.updated_at=new Date().toISOString();
     _syncAliasLegacy(a);
@@ -17336,7 +17363,7 @@ function salvaAlimentoCustom(){
     closeM('mo-alim-custom');
     _resetAlimModal();
     if(window.b3Attach)window.b3Attach();
-    renderAlEditor();
+    renderAlEditor();renderAlimentiPage();
     notif('✓ Valori di "'+a.n+'" aggiornati');
     return;
   }
@@ -17345,7 +17372,7 @@ function salvaAlimentoCustom(){
   // e un custom omonimo di un alimento base ne sovrascriveva silenziosamente i macros.
   if(risolviAlimento(nome)){alert('Esiste già un alimento chiamato "'+nome+'" (o un nome equivalente) nel database.');return;}
   // P108: il record nasce nel formato unificato, con id stabile; _migraRecordCustom completa i campi e gli alias legacy
-  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null)});
+  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,allergeni:allergeni,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null)});
   db.alimentiCustom.push(alim);
   _catalogoIndicizza(alim);
   // Aggiorna ALIMENTI (vista legacy)
@@ -17361,7 +17388,7 @@ function salvaAlimentoCustom(){
   // Riaggancia validazione B3
   if(window.b3Attach)window.b3Attach();
   // Ricarica editor alimenti se aperto
-  renderAlEditor();
+  renderAlEditor();renderAlimentiPage();
   notif('✓ Alimento "'+nome+'" aggiunto al database');
 }
 
@@ -17387,6 +17414,121 @@ function eliminaAlimentoCustom(nome){
   pushAlimentiCustomSupabase();
   renderAlEditor();
   notif('✓ "'+nome+'" rimosso');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// P108 FASE 1 — Sezione "Alimenti": catalogo unico (base CREA + personalizzati)
+// con lista/ricerca/filtri, form manuale (riusa mo-alim-custom), archivia/ripristina.
+// I record custom sono lo STESSO oggetto indicizzato in CATALOGO_ALIMENTI: mutarne
+// .attivo si riflette ovunque. Archiviare = attivo:false → fuori dai picker nuovi,
+// ma resta risolvibile (risolviAlimento) → piani/ricette esistenti tengono i macros.
+// ══════════════════════════════════════════════════════════════════════════
+function _alimFonteBadge(rec){
+  if(rec.fonte==='custom') return '<span style="font-size:.62rem;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--teal-bg);color:var(--teal2);border:1px solid var(--teal-light)">Personalizzato</span>';
+  if(rec.fonte==='off') return '<span style="font-size:.62rem;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--s2);color:var(--text2);border:1px solid var(--border)">Da barcode</span>';
+  return '<span style="font-size:.62rem;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--s2);color:var(--text3);border:1px solid var(--border)">Base CREA-INRAN</span>';
+}
+function renderAlimentiPage(){
+  var cont=document.getElementById('alim-lista');
+  if(!cont) return; // sezione non presente/attiva
+  function E(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // Popola il filtro categorie una sola volta, dalle categorie realmente presenti nel catalogo
+  var selCat=document.getElementById('f-alim-cat');
+  if(selCat && selCat.options.length<=1){
+    var cats={};
+    CATALOGO_ALIMENTI.forEach(function(r){ if(r.categoriaSem) cats[r.categoriaSem]=1; });
+    Object.keys(cats).sort(function(a,b){return a.localeCompare(b,'it');}).forEach(function(c){
+      var o=document.createElement('option'); o.value=c; o.textContent=c; selCat.appendChild(o);
+    });
+  }
+  var q=((document.getElementById('s-alim')||{}).value||'').toLowerCase().trim();
+  var fCat=(document.getElementById('f-alim-cat')||{}).value||'';
+  var fFonte=(document.getElementById('f-alim-fonte')||{}).value||'';
+  var fStato=(document.getElementById('f-alim-stato')||{}).value||'attivi';
+
+  var righe=[];
+  CATALOGO_ALIMENTI.forEach(function(r){ righe.push(r); });
+  righe=righe.filter(function(r){
+    if(fStato==='attivi' && r.attivo===false) return false;
+    if(fStato==='archiviati' && r.attivo!==false) return false;
+    if(fFonte==='custom' && r.fonte==='crea') return false;
+    if(fFonte==='crea' && r.fonte!=='crea') return false;
+    if(fCat && r.categoriaSem!==fCat) return false;
+    if(q && String(r.nome||'').toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  righe.sort(function(a,b){ return String(a.nome||'').localeCompare(String(b.nome||''),'it'); });
+
+  var cnt=document.getElementById('alim-count');
+  if(cnt) cnt.textContent=righe.length+' aliment'+(righe.length===1?'o':'i');
+
+  if(!righe.length){ cont.innerHTML='<div style="text-align:center;color:var(--text3);padding:2rem;font-size:.82rem">Nessun alimento corrisponde ai filtri.</div>'; return; }
+
+  var html='';
+  righe.forEach(function(r){
+    var nomeH=E(r.nome);
+    var nomeJs=String(r.nome).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var m=r.per100g;
+    var macros=m?('<strong>'+(m.kcal!=null?Math.round(m.kcal):'—')+'</strong> kcal · P '+(m.p!=null?m.p:'—')+' · C '+(m.c!=null?m.c:'—')+' · G '+(m.g!=null?m.g:'—')):'<span style="color:var(--text3)">valori non impostati</span>';
+    var chips='';
+    (r.allergeni||[]).forEach(function(al){ chips+='<span class="tag tag-red" style="font-size:.6rem;margin-right:3px">⚠ '+E(al)+'</span>'; });
+    var azioni='';
+    if(r.fonte==='crea'){
+      azioni='<span style="font-size:.66rem;color:var(--text3)">🔒 sola lettura</span>';
+    } else if(r.attivo===false){
+      azioni='<button class="btn btn-g btn-sm" onclick="ripristinaAlimentoCustom(\''+nomeJs+'\')">↺ Ripristina</button>';
+    } else {
+      azioni='<button class="btn btn-g btn-sm" onclick="modificaAlimentoCustom(\''+nomeJs+'\')" title="Modifica valori">✎</button>'
+           +'<button class="btn btn-g btn-sm" onclick="rinominaAlimentoCustom(\''+nomeJs+'\')" title="Rinomina ovunque">🏷</button>'
+           +'<button class="btn btn-r btn-sm" onclick="archiviaAlimentoCustom(\''+nomeJs+'\')" title="Archivia">📦</button>';
+    }
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem .7rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.4rem;background:var(--s1)'+(r.attivo===false?';opacity:.6':'')+'">'
+      +'<div style="flex:1;min-width:160px">'
+        +'<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap"><span style="font-weight:600;font-size:.82rem">'+nomeH+'</span>'+_alimFonteBadge(r)+(r.attivo===false?'<span style="font-size:.62rem;color:var(--text3)">📦 archiviato</span>':'')+'</div>'
+        +'<div style="font-size:.68rem;color:var(--text2);margin-top:2px">'+E(r.categoriaSem||'—')+(r.gDefault!=null?' · '+r.gDefault+'g':'')+'</div>'
+        +(chips?'<div style="margin-top:3px">'+chips+'</div>':'')
+      +'</div>'
+      +'<div style="font-size:.72rem;color:var(--text2);text-align:right;min-width:150px">'+macros+'</div>'
+      +'<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+azioni+'</div>'
+    +'</div>';
+  });
+  cont.innerHTML=html;
+}
+
+// Archivia un alimento personalizzato (mai elimina secco). attivo:false, fuori dai
+// picker nuovi; resta indicizzato nel catalogo → i riferimenti esistenti restano validi.
+function archiviaAlimentoCustom(nome){
+  var a=(db.alimentiCustom||[]).find(function(x){return x.n===nome;});
+  if(!a){alert('Alimento "'+nome+'" non trovato.');return;}
+  var refs=scanRiferimentiAlimento(nome);
+  var msg='Archiviare "'+nome+'"?\n\nNon comparirà più tra gli alimenti selezionabili nei nuovi piani.';
+  if(refs.tot>0) msg+='\n\nÈ attualmente usato in '+refs.tot+' punti: quei riferimenti restano validi e mantengono i macros.';
+  if(!confirm(msg))return;
+  a.attivo=false; a.updated_at=new Date().toISOString();
+  _syncAliasLegacy(a);
+  if(a.categoriaSem&&ALIMENTI[a.categoriaSem])ALIMENTI[a.categoriaSem].items=ALIMENTI[a.categoriaSem].items.filter(function(i){return !(i.n===a.nome&&i._custom);});
+  if(CREA_ALIMENTI[a.nome]===a.per100g)delete CREA_ALIMENTI[a.nome];
+  saveLocal();
+  pushAlimentiCustomSupabase();
+  renderAlimentiPage();renderAlEditor();
+  notif('📦 "'+nome+'" archiviato — i riferimenti esistenti restano validi');
+}
+
+// Ripristina un alimento archiviato: torna nei picker e nelle viste legacy.
+function ripristinaAlimentoCustom(nome){
+  var a=(db.alimentiCustom||[]).find(function(x){return x.n===nome;});
+  if(!a){alert('Alimento "'+nome+'" non trovato.');return;}
+  a.attivo=true; a.updated_at=new Date().toISOString();
+  _syncAliasLegacy(a);
+  _catalogoIndicizza(a);
+  var cat=a.categoriaSem||'Altro';
+  if(!ALIMENTI[cat])ALIMENTI[cat]={items:[]};
+  if(!ALIMENTI[cat].items.some(function(i){return i.n===a.nome&&i._custom;}))ALIMENTI[cat].items.push({n:a.nome,g:a.gDefault,_custom:true});
+  if(a.per100g)CREA_ALIMENTI[a.nome]=a.per100g;
+  saveLocal();
+  pushAlimentiCustomSupabase();
+  renderAlimentiPage();renderAlEditor();
+  notif('✓ "'+nome+'" ripristinato');
 }
 
 function togAl(el,key,nome){
