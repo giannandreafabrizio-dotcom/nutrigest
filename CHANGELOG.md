@@ -10,7 +10,173 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-13 LUGLIO 2026 — P108 fase 0 (catalogo unico alimenti) + P109 (valori
+13 LUGLIO 2026 (sessione notturna) — P107 verificata e bloccata (Leaked
+Password Protection), nessun codice toccato:
+
+  P107 — tentata attivazione del toggle "Prevent use of leaked passwords"
+  in Supabase → Authentication → Sign In / Providers → Email. Dashboard
+  mostra esplicitamente "Only available on Pro plan and above": la
+  feature richiede l'upgrade a Supabase Pro, non attivabile sul piano
+  attuale. Non è una svista di configurazione né un bug: limite del
+  piano tariffario, confermato dallo screenshot della dashboard. Voce
+  spostata da "Da fare" a "Bloccata — da fare quando si passa a Supabase
+  Pro" in Roadmap. Nessun impatto su codice o produzione.
+
+
+13 LUGLIO 2026 (sessione notturna) — P106 chiusa (blindatura
+`rls_auto_enable()`), operazione SQL diretta su Supabase, nessun commit
+Git (nessuna riga di `index.html` coinvolta):
+
+  P106 — la funzione `public.rls_auto_enable()` (SECURITY DEFINER)
+  risultava eseguibile da `public`/`authenticated` senza restrizioni
+  (2 warning Security Advisor, visti 12 lug 2026). Approccio (b) DROP
+  FUNCTION tentato per primo (RLS ormai stabile su tutte le tabelle
+  sync, sembrava codice ormai inerte) ma **fallito con errore Postgres
+  `2BP01`**: un **event trigger attivo `ensure_rls`** (su evento
+  `ddl_command_end`) dipende dalla funzione e la richiama in automatico
+  ogni volta che viene creata una nuova tabella in `public`, eseguendo
+  `alter table ... enable row level security` sulla tabella appena
+  creata. Ispezionato il codice sorgente della funzione (`prosrc`) per
+  confermare: loop su `pg_event_trigger_ddl_commands()`, filtro su
+  `CREATE TABLE`/`CREATE TABLE AS`/`SELECT INTO` in schema `public`,
+  RLS accesa in automatico con log (`RAISE LOG 'rls_auto_enable:
+  enabled RLS on %'`). Eliminarla avrebbe disattivato silenziosamente
+  questo automatismo, lasciando ogni tabella futura scoperta fino a
+  intervento manuale — rischio maggiore del warning originale.
+  Applicata quindi la soluzione (a) **REVOKE**, con un secondo
+  irrobustimento per il warning gemello (search_path mutabile):
+  ```sql
+  REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC;
+  REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon;
+  REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM authenticated;
+  ALTER FUNCTION public.rls_auto_enable() SET search_path = pg_catalog, public;
+  ```
+  Verificato sul campo con tabella usa-e-getta (`_test_rls_p106`)
+  creata DOPO la revoca dei permessi: `relrowsecurity = true` confermato
+  in `pg_class`, quindi l'automatismo del trigger funziona ancora
+  (event trigger non passa dai permessi EXECUTE dell'utente) — porta
+  manuale chiusa, rete di sicurezza automatica intatta. Tabella di test
+  rimossa subito dopo. Nessun file applicativo modificato.
+
+
+13 LUGLIO 2026 (sessione serale) — P111 chiusa (chiarezza UI medie
+settimanali su piano parziale), commit `737b790`:
+
+  P111 — origine: Fabrizio segnala macros "assurdi" (115 kcal per un
+  pasto pollo+pasta) in un piano di test con un solo pasto compilato su
+  6 giorni. Verificato: nessun bug di calcolo, `calcolaMacrosPiano`
+  divide correttamente per il totale dei giorni dell'array (`n =
+  giornalieri.length`), ma la UI non comunicava che la media fosse su
+  un piano incompleto. Soluzione minima secondo scheda (Sonnet,
+  Low/Medium, Thinking OFF, L1): aggiunto calcolo di
+  `giorniCompilati`/`giorniTotali`/`pianoParziale` dentro
+  `calcolaMacrosPiano` (giorno "compilato" = almeno un pasto con
+  kcal > 0 su prime scelte o ponderata), **senza alterare in alcun modo
+  il calcolo esistente della media** (resta diviso per il totale dei
+  giorni, `n`, come prima). In `renderBadgeMacrosReali`: etichetta
+  compatta "(parziale: N/M gg)" accanto al titolo del badge e un
+  avviso testuale giallo quando `pianoParziale === true` — "Piano
+  parziale: N di M giorni compilati. La media è comunque calcolata su
+  M giorni, quindi i valori sotto sono sottostimati finché non
+  completi il piano." Verificato con `node --check` su tutti gli
+  script inline e con test funzionale mirato (piano 6 giorni/1
+  compilato → `giorniCompilati:1, pianoParziale:true`; piano 6/6
+  compilato → `pianoParziale:false`), nessuna regressione sul calcolo
+  della media.
+
+
+barcode via Open Food Facts), modello Opus/Fable (Max, Thinking ON) per
+l'integrazione e il flusso di conferma, Sonnet per la UI camera, commit
+`689cfd8`, confermata funzionante in produzione da Fabrizio (incluso su
+Safari/iPhone, piattaforma dichiarata maggioritaria):
+
+  P110 — scanner barcode (sezione "Alimenti"):
+  1) Pulsante "📷 Scansiona barcode" nell'header di `#page-alimenti`,
+     accanto a "+ Nuovo alimento" → `apriScannerBarcode()`.
+  2) Modale dedicato `mo-barcode`: video con mirino, stato testuale,
+     campo di inserimento manuale del codice (fallback sempre disponibile,
+     anche senza camera o offline). Lettura a due percorsi: `BarcodeDetector`
+     nativo se presente (Chrome/Android), altrimenti libreria ZXing caricata
+     da CDN jsdelivr (versione pinnata 0.21.3) al primo utilizzo — copre
+     Safari/iPhone e Firefox. La camera si ferma sempre alla chiusura del
+     modale (X automatica inclusa), niente stream orfani.
+  3) Barcode trovato → `_barcodeTrovato()`: prima dedup contro
+     `CATALOGO_ALIMENTI` (stesso barcode già presente → niente doppione,
+     notifica e filtro sulla lista sull'alimento esistente); altrimenti
+     fetch a `world.openfoodfacts.org/api/v2/product/{barcode}.json`
+     (timeout 12s, nessuna chiave API).
+  4) Prodotto trovato → `_bcPrecompilaForm()`: riapre il form di P108
+     (`mo-alim-custom`) con nome+brand, kcal/P/C/G per 100g (conversione
+     kJ→kcal se manca il valore diretto), grammatura da porzione se
+     disponibile, e un box informativo con il barcode che invita a
+     verificare i valori sull'etichetta. **Nessun auto-salvataggio**:
+     l'utente conferma o corregge da `salvaAlimentoCustom()` come un
+     alimento manuale qualunque, poi Conferma per scrivere davvero.
+  5) Prodotto assente da Open Food Facts o servizio irraggiungibile →
+     messaggi dedicati (`_bcProdottoNonTrovato`, errore di rete/timeout)
+     che non bloccano il flusso: nel primo caso il form si apre comunque
+     vuoto con il barcode agganciato (utile per il dedup alla prossima
+     scansione), nel secondo si invita a riprovare o inserire a mano.
+  6) Il record salvato nasce con `fonte:'off'` e `barcode` valorizzato
+     (badge "Da barcode", già previsto da P108 fase 1) — vive SOLO nel
+     database di NutriGest da quel momento: Open Food Facts è un
+     rubinetto una-tantum in lettura, mai una dipendenza runtime, quindi
+     un piano già generato non muta se OFF cambia o è irraggiungibile in
+     futuro. Nuovo filtro fonte "Solo da barcode" nella pagina Alimenti.
+  Verifica: `node --check` pulito su tutti gli script inline; test
+  unitario del parsing Open Food Facts sui casi limite (nome IT/EN, brand
+  già contenuto nel nome, solo kJ senza kcal, nutrimenti mancanti, prodotto
+  vuoto). Con questa chiusura, l'intero blocco P108/P109/P110 (catalogo
+  alimenti unico, riempimento mirato CREA-INRAN, scanner barcode) è
+  completo.
+
+
+13 LUGLIO 2026 (sessione serale) — P108 fase 1 chiusa (sezione "Alimenti":
+catalogo unico con lista/ricerca/filtri, campo allergeni, archivia invece
+di elimina), modello Opus (High, Thinking ON), confermata funzionante in
+produzione da Fabrizio:
+
+  P108 fase 1 — sezione "Alimenti" (menu di sinistra, indipendente dal
+  paziente):
+  1) Nuova voce nav "Alimenti" → `#page-alimenti` + `renderAlimentiPage()`,
+     agganciata a `goTo('alimenti')`. Prima la gestione degli alimenti
+     custom viveva SOLO dentro le preferenze-cibi del singolo paziente
+     (`al-editor`, `_alStato=p.alimenti`) — non esisteva una vista
+     indipendente sull'intero catalogo.
+  2) Lista con ricerca (nome), filtro categoria (popolato dinamicamente
+     dalle categorie presenti in `CATALOGO_ALIMENTI`), filtro fonte
+     (Base CREA-INRAN / Personalizzati), filtro stato (Attivi/Archiviati/
+     Tutti). Ogni riga: nome, badge fonte, categoria/grammatura, macros/
+     100g, chip allergeni. Alimenti base in sola lettura (🔒), personalizzati
+     con azioni Modifica/Rinomina/Archivia.
+  3) Campo **allergeni** aggiunto al record (`allergeni:[]`, chip separate
+     da virgola nel form `mo-alim-custom`, riusata dalla Fase 0/P82) e letto/
+     scritto in entrambi i rami di `salvaAlimentoCustom` (aggiunta e
+     modifica). Non agganciato al validatore semaforo/P61 — resta un campo
+     informativo del record, non un input di validazione clinica (fuori
+     scope dichiarato di questa fase).
+  4) **Archivia invece di elimina secco** (coerente con l'archiviazione
+     pazienti già in app): `archiviaAlimentoCustom(nome)` imposta
+     `attivo:false`, rimuove l'alimento dalle proiezioni runtime
+     (`ALIMENTI[cat].items`, `CREA_ALIMENTI[nome]`) così sparisce dai
+     picker dei NUOVI piani, ma il record resta indicizzato in
+     `CATALOGO_ALIMENTI` → `risolviAlimento()` continua a trovarlo →
+     `getValoriCREA()` continua a restituirne i macros per piani/ricette
+     GIÀ esistenti che lo referenziano. `ripristinaAlimentoCustom(nome)`
+     inverte l'operazione. `caricaAlimentiCustom()` (P108 fase 0) adattata:
+     indicizza SEMPRE nel catalogo, ma proietta nei picker legacy solo se
+     `attivo!==false`.
+  5) `eliminaAlimentoCustom` (P82, elimina a riferimenti zero) resta
+     invariata e coesiste: elimina per chi vuole liberarsi definitivamente
+     di un alimento mai usato; archivia per chi vuole nasconderlo dai
+     nuovi piani senza perdere lo storico.
+  Verifica: controllo sintattico (`node --check`) su tutti gli script
+  inline del file; conferma a mano che `getValoriCREA`→`risolviAlimento`
+  passa dal catalogo (non da `CREA_ALIMENTI` diretto), quindi l'invariante
+  "un archiviato mantiene i macros nei piani esistenti" tiene anche dopo
+  la rimozione da `CREA_ALIMENTI`. Testato in produzione da Fabrizio.
+
+
 CREA-INRAN per alimenti privi di macros), modello Opus/Fable (Max/High,
 Thinking ON):
 
