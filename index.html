@@ -9069,8 +9069,15 @@ function calcolaMacros(){
   const obj=_offKcalEl&&_offKcalEl.value!==''?(parseFloat(_offKcalEl.value)||0):0;
   const prot=parseFloat(document.getElementById('mac-prot').value)||1.8;
   const grassi=parseFloat(document.getElementById('mac-grassi').value)||0.9;
-  const {laf,mb,peso}=calcolaTDEE(_macrosPaziente);
-  if(!mb||!peso){notif('⚠ Nessun dato InBody disponibile');return;}
+  const _ct=calcolaTDEE(_macrosPaziente);
+  const peso=_ct.peso;
+  // FIX-REGIME: usa lo stesso TDEE/MB ancorati allo slider (window._tdeeRegime) —
+  // prima calcolaMacros ricalcolava un proprio TDEE (mb×laf) che poteva divergere
+  // dal target mostrato sopra lo slider (es. 1806 kcal mostrati → 1441 calcolati)
+  const mb=window._mbRegime||_ct.mb;
+  const tdee=window._tdeeRegime||_ct.tdee||(_ct.mb&&_ct.laf?Math.round(_ct.mb*_ct.laf):null);
+  if(!mb||!peso||!tdee){notif('⚠ Nessun dato InBody disponibile');return;}
+  const laf=+(tdee/mb).toFixed(2);
   const lastIb=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
   const ffm=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
   const bmi=lastIb&&lastIb.bmi?parseFloat(lastIb.bmi):null;
@@ -9084,7 +9091,6 @@ function calcolaMacros(){
   const ref=useFFM?ffm:useIdeale?pesoIdeale:peso;
   const refLabel=useFFM?'FFM ('+ffm+'kg)':useIdeale?'Peso Ideale ('+pesoIdeale+'kg)':'Peso corporeo ('+peso+'kg)';
   const refColor=useFFM?'#185FA5':useIdeale?'#B8860B':'#3B6D11';
-  const tdee=+(mb*laf).toFixed(0);
   const kcalObj=tdee+obj;
   const protG=+(prot*ref).toFixed(0);
   const grassiG=+(grassi*ref).toFixed(0);
@@ -9233,7 +9239,9 @@ function _aggiornaRegimeSlider(origine){
   var strat=(document.getElementById('mac-strategia')||{}).value||'standard';
   if(!absMode){
     slider.value=pct; pctEl.value=pct;
-    if(tdee) kcalEl.value=Math.round(tdee*pct/100);
+    // FIX-REGIME: se l'utente ha digitato le kcal, NON riscriverle con il valore
+    // arrotondato al punto % — la kcal digitata resta esatta, la % è solo indicativa
+    if(tdee && origine!=='kcal') kcalEl.value=Math.round(tdee*pct/100);
   } else { pctEl.value=''; }
   if(lblEl) lblEl.textContent=_componiRegimeText(absMode?null:pct, strat)||'—';
   var offKcal=kcalEl.value!==''?(parseFloat(kcalEl.value)||0):0;
@@ -9279,6 +9287,9 @@ function ricalcolaLAF(){
   p.tipoAllenamento=gs('p-tipo-all');
   p.attivitaSpecifica=gs('p-attivita-spec');
   const ct=calcolaTDEE(p);
+  // FIX-REGIME: sincronizza _macrosPaziente con l'oggetto db aggiornato,
+  // così calcolaMacros legge gli stessi dati attività usati per ancorare lo slider
+  _macrosPaziente=p;
   // P-REGIME SLIDER — ri-ancora il target al nuovo TDEE mantenendo la % impostata
   window._tdeeRegime=ct.tdee||null; window._mbRegime=ct.mb||null;
   _aggiornaRegimeSlider('pct');
