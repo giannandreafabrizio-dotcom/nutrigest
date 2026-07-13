@@ -28,14 +28,14 @@
 | **P65** repo privato | — (manuale) | — | — | Operazione GitHub di Fabrizio, 5 minuti |
 | **P66c** chiusura trasporto diretto | Fable | Alto | ON | Rimozione chiave client, sicurezza — condizionata a uso stabile |
 | **P66d** proxy Fase 2 (quota) | Opus/Fable | High | ON | Costi per utente multi-tenant |
-| **P67** pacchetto GDPR | Opus/Fable | Max | ON | Conformità legale, testi + flussi + policy |
+| **P67** pacchetto GDPR | — | — | — | T1 chiusa (eu-west-1), T2 sospesa (da confermare con consulente), T3 bozza tecnica pronta, T4 da fare |
 | ~~**P68**~~ ✅ chiusa 9 lug 2026 (v. sopra) | — | — | — | — |
 | ~~**P105**~~ ✅ chiusa 12 lug 2026 (fix sessione, v. sopra) | — | — | — | — |
 | ~~**P106**~~ ✅ chiusa 13 lug 2026 (REVOKE su `rls_auto_enable()`, event trigger `ensure_rls` intatto, v. sotto) | — | — | — | — |
 | **P107** attivare Leaked Password Protection | — (manuale) | — | — | 🔴 Bloccata: richiede piano Supabase Pro (verificato 13 lug 2026) |
 | **P70** escaping XSS | Sonnet | Medium | OFF | Meccanico ma esteso (186 innerHTML), a lotti |
 | **P71** IndexedDB | Opus | High | ON | Migrazione storage, retrocompatibilità |
-| **P72** SRI CDN | Sonnet | Low | OFF | Due tag script |
+| **P72** SRI CDN | — | — | — | ✅ Chiusa 13 lug — self-hosting invece di SRI |
 | **P73** revisione linguaggio prescrittivo | Opus | High | ON | Rischio medico-legale, revisione con Fabrizio |
 | **P75** SMTP proprio | Sonnet | Low | OFF | Configurazione Supabase + DNS |
 | **P76** gestione errori visibile | Sonnet | Medium | OFF | Sostituzione catch vuoti, notifiche |
@@ -43,7 +43,7 @@
 | ~~**P108 Fase 0**~~ ✅ chiusa 13 lug 2026 (catalogo unico + id stabile, commit `f574bb5`) | — | — | — | — |
 | ~~**P108 Fase 1**~~ ✅ chiusa 13 lug 2026 sera (sezione Alimenti, v. sotto) | — | — | — | — |
 | ~~**P109**~~ ✅ chiusa 13 lug 2026 (valori CREA-INRAN, 68/95 buchi colmati, commit `937cf17`) | — | — | — | — |
-| **P111** chiarezza UI medie settimanali su piano parziale | Sonnet | Low/Medium | OFF | Solo testo/badge esplicativo, nessun calcolo tocca dati clinici |
+| ~~**P111**~~ ✅ chiusa 13 lug 2026 (badge piano parziale, commit `737b790`) | — | — | — | — |
 | ~~**P110**~~ ✅ chiusa 13 lug 2026 (scanner barcode Open Food Facts, commit `689cfd8`) | — | — | — | — |
 | ~~**P55**~~ ✅ chiusa 9 lug 2026 (`getTargetAttivi`, commit `85b18ea`) | — | — | — | — |
 | **P33b** aggancio auto alternative | Opus | High | ON | Evoluzione P33, decisione dopo uso sul campo |
@@ -68,7 +68,7 @@
 **F3 — Blocchi di esecuzione consigliati** (stato aggiornato):
 - **Blocco A — Rete clinica:** P78 ✅ → P61 ✅ + P62 ✅ + P77 ✅ + P55 ✅ (9 lug 2026). *(chiuso)*
 - **Blocco B — Integrità del dato:** tombstone + P64 ✅ → P68 ✅ (9 lug 2026) → P69 ✅ (9 lug 2026). *(chiuso)*
-- **Blocco C — Fondamenta SaaS:** P65 + P72 (mezz'ora) → P66 (Fase 0+1 ✅, resta Fase 2 quota + commit di chiusura) → P75 → P67 → P79. *(in corso)*
+- **Blocco C — Fondamenta SaaS:** P65 (scan storico fatto, resta decisione Vercel/GitHub a pagamento) + P72 ✅ → P66 (Fase 0+1 ✅, resta Fase 2 quota + commit di chiusura) → P75 → P67 (T1 ✅, T2 sospesa, T3/T4 in corso) → P79. *(in corso)*
 - **Blocco D — Prodotto:** P90 (riprogettato, vedi FOCUS) → ~~P82~~ ✅ chiusa 12 lug 2026 (v. archivio) → P37 → P84. *(aperto)*
 
 **F4 — "Aggiungi un avviso" dove serve "elimina la doppia fonte".** P55 e parte di P76: la soluzione non è notificare la divergenza ma renderla impossibile (funzione sorgente unica). Principio permanente (Scoperta tecnica #13).
@@ -123,19 +123,6 @@
 **Motivo:** il fallback automatico introdotto in Fase 1 è per design una fase di transizione, non lo stato finale — serve a non fermare l'ambulatorio se il proxy ha un problema, ma la chiave non deve restare indefinitamente esposta lato client.
 **SCHEDA:** Stato: Da fare (condizionata: NON eseguire finché non c'è evidenza di uso reale stabile attraverso il proxy) · Priorità: ALTA · Categoria: Sicurezza · Dipendenze: P66 Fase 1 (chiusa) + tempo di osservazione in produzione + **P105 (chiusa 12 lug 2026)**: prima del fix la sessione scadeva e rompeva il sync in silenzio, quindi "uso stabile in produzione" non era osservabile; ora osservabile normalmente.
 
-### P106 — Blindare/rimuovere `rls_auto_enable()` ✅ CHIUSA 13 luglio 2026
-**L'APPROCCIO ORIGINARIO:** la funzione `public.rls_auto_enable()` (SECURITY DEFINER) è eseguibile da `public` e da utenti loggati senza restrizioni (2 warning del Security Advisor Supabase, visti 12 lug 2026). È la funzione che ha acceso la RLS sulle tabelle in autonomia in passato. Da decidere con Fabrizio: (a) `REVOKE EXECUTE` a public/authenticated lasciandola solo per uso manuale da service_role, o (b) `DROP FUNCTION` se non serve più (RLS ormai stabile su tutte le tabelle sync).
-**Motivo:** una funzione SECURITY DEFINER eseguibile da chiunque loggato è superficie d'attacco non necessaria — se contiene logica che tocca lo schema/permessi, un utente autenticato potrebbe invocarla.
-**ESITO REALE E CHIUSURA:** (b) DROP scartata dopo verifica: `DROP FUNCTION` ha fallito con errore `2BP01` — un **event trigger attivo `ensure_rls`** (su evento `ddl_command_end`) dipende dalla funzione e la richiama automaticamente ogni volta che viene creata una nuova tabella in `public`, accendendole subito la RLS (`ispezione codice: EXECUTE format('alter table if exists %s enable row level security', ...)`). Eliminarla avrebbe disattivato questo automatismo, lasciando le tabelle future scoperte fino a intervento manuale — rischio peggiore del warning originale. Applicata quindi (a) **REVOKE**, con un irrobustimento aggiuntivo per il secondo warning (search_path mutabile):
-```sql
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM authenticated;
-ALTER FUNCTION public.rls_auto_enable() SET search_path = pg_catalog, public;
-```
-Verificato sul campo: creata una tabella di prova (`_test_rls_p106`) dopo la revoca, confermato `relrowsecurity = true` (l'automatismo funziona ancora, non passa dai permessi EXECUTE utente), poi tabella rimossa. Nessun file applicativo modificato (`index.html` non referenzia mai questa funzione) — operazione puramente lato Supabase, nessun commit Git.
-**SCHEDA:** Stato: **CHIUSA** · Priorità: Media · Categoria: Sicurezza · Modello: Opus/Fable (High), Thinking ON — permessi DB.
-
 ### P107 — Attivare Leaked Password Protection 🔴 BLOCCATA (piano a pagamento richiesto)
 **Descrizione:** toggle in Supabase → Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords", attualmente disabilitato (Info del Security Advisor, 12 lug 2026). Blocca password compromesse note (HaveIBeenPwned) in fase di signup/cambio password.
 **Motivo:** protezione minima per gli account di studio (utenti da 42 e da 2 righe), un solo click.
@@ -153,32 +140,9 @@ Verificato sul campo: creata una tabella di prova (`_test_rls_p106`) dopo la rev
 **L'APPROCCIO ORIGINARIO:** consenso versionato, informativa, registro trattamenti, DPA/ruoli Supabase, residency UE, retention, export/oblio, valutare DPIA.
 **LA CRITICA DEL CTO:** elenco giusto ma indistinto: mescola 30 minuti di verifica, modellazione dati, e deliverable legali che Claude non deve inventare. E ignora un dato imbarazzante già agli atti: **i backup CSV in chiaro sul Desktop (protocollo P29/P30) sono essi stessi un trattamento non protetto**.
 **LA SOLUZIONE OTTIMIZZATA:** spacchettare in 4 tracce con nature diverse. (T1 — verifica, 30 min: regione del progetto Supabase = UE? Se no, è LA priorità: migrare prima che i dati crescano). (T2 — modello dati, sviluppo: `p.consensi[] {tipo, versioneInformativa, data, revocaData?}` + blocco funzioni cliniche senza consenso attivo + provenienza import di P63; export fascicolo = quello di P64). (T3 — legale, NON si genera: informativa, registro, DPA, EULA → consulente; Claude prepara solo la bozza tecnica dei flussi di dati da consegnargli). (T4 — igiene: policy backup, cifratura o eliminazione dei CSV desktop, retention con promemoria — il job automatico server arriva con P74/pg_cron). DPIA: con dati art. 9 la si fa comunque, è anche un ottimo documento di design.
-**FOCUS COMPONENTI COINVOLTI:** Database (region check), Frontend (consensi UI + gate), Processi (T3/T4).
-**SCHEDA:** Stato: Da fare (T1 SUBITO) · Priorità: Alta pre-vendita · C: 3 (tecnico) | I: 5 | R: 2 · Modello: Fable 5 (Alto) per T2 e la mappa dati; umani per T3 · Autonomia: **L0** su testi legali (mai generarli come definitivi), L1 sul codice consensi.
-
-### P68 — Push incrementale (dirty tracking) ✅ CHIUSA (commit `5487754` + `97f0d53`, 9 lug 2026)
-**L'APPROCCIO ORIGINARIO:** set di id sporchi, push solo di quelli, reset a successo, coerenza con `_syncPendingFail`.
-**LA CRITICA DEL CTO:** giusto, ma sottovaluta il punto operativo: `save()` è chiamato in ~47 punti e molti non sanno QUALE paziente hanno toccato. Se si prova a istruire tutti i call-site in un colpo, si introduce il bug opposto (modifiche non pushate = perdita dati silenziosa: rischio peggiore del problema di partenza).
-**LA SOLUZIONE OTTIMIZZATA (implementata):** `save(pazId?)` retro-compatibile: senza argomento → comportamento storico invariato (push completo, ancora usato da `importa` e dall'eliminazione definitiva paziente); con argomento → marca dirty in `window._dirtyIds` e pusha il set dopo debounce 2s (raffiche di save → 1 POST per id coalescato). Meta-record (`meta_collections`, `__alimenti_custom`, `__modelli_rotazione`, `__concetti_educativi`) trattati come id sporchi normali via `_pushRigaPerId`. Reset del set SOLO a 2xx per-id (un fallimento non azzera gli altri). Migrati 44/47 call-site (parte 2, Sonnet Medio): i 3 rimasti anonimi sono voluti. Telemetria temporanea `p68SaveAnon` per censire eventuali save() anonimi residui non previsti.
-**NON INCLUSO (residuo, vedi F3 sotto):** retry automatico con backoff esponenziale sugli id falliti e indicatore "N modifiche in attesa" — questo pezzo resta la voce a sé stante più in basso nella roadmap (ex-P89, coda offline), che ora si appoggia al dirty-set già persistito in memoria da P68 invece di doverne creare uno nuovo.
-**FOCUS COMPONENTI COINVOLTI:** Frontend/sync. Zero DB.
-**SCHEDA:** Stato: ✅ Chiusa (meccanismo + migrazione call-site) · Priorità: Media (Alta >30 pazienti) · C: 3 | I: 4 | R: 3 (perdita dati se sbagliato) · Modello: Fable 5 (Alto, meccanismo) + Sonnet (Medio, migrazione call-site) · Autonomia: L0 sul meccanismo, L1 sui call-site.
-
-### P69 — Conflitti multi-dispositivo (updated_at) ✅ CHIUSA (commit `eb52ece`, 9 lug 2026)
-**L'APPROCCIO ORIGINARIO:** confrontare updated_at remoto vs ultimo pull; avvisare; scelta ricarica/sovrascrittura.
-**LA CRITICA DEL CTO:** il confronto con "l'ultimo pull" richiede una mappa etag locale che invecchia male (pull rari). Più robusto e più semplice: chiedere al server la verità un attimo prima di scrivere.
-**LA SOLUZIONE OTTIMIZZATA (implementata):** con P68 chiuso, il push per-id premette una `SELECT id,updated_at` dei soli id sporchi (una chiamata, payload minuscolo): se remoto > baseline locale (`p69Baseline` in localStorage, salvata a ogni pull/push riuscito per-record) → dialogo a tre vie: "ricarica loro / sovrascrivi (consapevole) / esporta la mia copia e ricarica". Niente merge per-campo (fuori scopo finché il blob è blob — onestà architetturale). Il caso "record assente remoto" con baseline nota = tombstone (P64) → non ricreato. Fail-open: un pre-check di rete fallito non blocca il salvataggio (torna al last-write-wins pre-P69, mai peggio). Record in conflitto restano "pending" fino a decisione (niente dialoghi ripetuti a ogni debounce).
-**FOCUS COMPONENTI COINVOLTI:** Frontend/sync. Zero DB.
-**SCHEDA:** Stato: ✅ Chiusa · Priorità: Media · C: 3 | I: 4 | R: 2 · Modello: Fable 5 (Alto) · Autonomia: L0.
-
-### P105 — Fix sessione: RLS 42501 su sincronizzazione ✅ CHIUSA (commit `d32f6aa`, 12 lug 2026)
-**Scoperta (non pianificata in roadmap, emersa da segnalazione utente):** `sincronizzaTutto()` falliva con `42501 — new row violates row-level security policy for table "pazienti"` dopo circa 1h di sessione aperta; i pull tornavano silenziosamente 0 righe. Verificato prima con query read-only su Supabase (`pg_tables`, `pg_policies`, `information_schema.columns`, `auth.users`) che lo schema NON era la causa: colonna `user_id` con `default auth.uid()` e `NOT NULL`, policy `owner_all_pazienti` (`ALL`, `USING`/`WITH CHECK` = `user_id = auth.uid()`) corrette e già presenti su tutte le tabelle sync. Escluso anche il sospetto iniziale (righe orfane su due `user_id` diversi): erano semplicemente due account distinti dello stesso Fabrizio (42 righe l'account principale, 2 righe un secondo account di test) — nessuna riga senza proprietario, tenuti volutamente separati, non uniti.
-**LA CAUSA REALE (nel client, non nel DB):** `getSessioneSalvata()` cancellava da `localStorage` la sessione appena il suo `expires_at` risultava scaduto — perdendo con essa il `refresh_token` necessario a rinnovarla. Il rinnovo periodico/pre-sync (`assicuraTokenValido`, P29) non aveva quindi più nulla da rinnovare; `supaHeaders()` ripiegava in silenzio sulla chiave anonima; la richiesta arrivava a Supabase con `auth.uid()` NULL e la RLS (correttamente) la respingeva. Concausa: `sincronizzaTutto()` (il bottone "Sincronizza" premuto dall'utente) non chiamava affatto `assicuraTokenValido()` prima di scrivere, a differenza di `syncNow()` e del flush incrementale P68; e questi ultimi due ne ignoravano comunque l'esito (`await` senza controllo del valore di ritorno).
-**LA SOLUZIONE (implementata):** (1) `getSessioneSalvata()` su token scaduto ritorna `null` ma NON cancella più il record in `localStorage` — il `refresh_token` resta disponibile al rinnovo; la sessione viene sovrascritta al login/rinnovo successivo e cancellata solo dal logout esplicito (`cancellaSessione`). (2) Nuovo guard `_garantiscoSessionePerSync()`: chiama `assicuraTokenValido()` e, se il rinnovo fallisce, avvisa l'utente ("Sessione scaduta — esci e rientra per sincronizzare") e ferma la scrittura invece di procedere in anonimo. (3) `syncNow`, `sincronizzaTutto` (che prima non aveva alcun controllo) e `_flushDirtyIds` (che ora libera correttamente `window._syncInFlight` se si ferma) chiamano il guard invece del vecchio `assicuraTokenValido()` non verificato. Verificato con `node --check` sul blocco script (17.651 righe, sintassi valida) + 9 asserzioni mirate in Node (sessione scaduta non cancellata/refresh_token preservato/guard ritorna false e avvisa se il rinnovo fallisce/ritorna true senza falsi allarmi se ok), tutte verdi. Confermato anche a mano dall'utente: uscire e rientrare ripristina il sync verde.
-**FOCUS COMPONENTI COINVOLTI:** Frontend/auth/sync. Zero DB (schema e policy Supabase già corretti, non toccati).
-**SCHEDA:** Stato: ✅ Chiusa · Priorità: Alta (bloccava la sincronizzazione multi-dispositivo) · C: 2 | I: 4 | R: 3 (autenticazione/dati pazienti) · Modello: Opus (High, Thinking ON) · Autonomia: L0.
-**Nota per P66c:** la precondizione "qualche giorno di uso stabile in produzione col proxy" ora è finalmente osservabile — prima di questo fix il sync si rompeva in silenzio ogni ~1h e avrebbe mascherato eventuali fallback anomali del proxy AI nello stesso modo.
-**Residui aperti dalla stessa sessione di scoperta (Security Advisor Supabase):** P106 (funzione `rls_auto_enable()` SECURITY DEFINER da blindare/rimuovere) e P107 (Leaked Password Protection da attivare) — vedi voci in PRIORITÀ 0b.
+**AGGIORNAMENTO 13 luglio 2026:** **T1 CHIUSA** — regione Supabase confermata `eu-west-1` (UE), nessuna migrazione necessaria. Prodotta la **bozza tecnica dei flussi di dati** per T3 (mappa dati/finalità/basi giuridiche/responsabili esterni/diritti interessato — da consegnare al consulente, non è un'informativa definitiva). **T2 (modello dati consensi + gate) SOSPESA**: Fabrizio in anni di attività non ha mai raccolto un consenso strutturato nel software (probabilmente gestito già su modulo cartaceo/informativa fuori app, come da prassi); inoltre se NutriGest diventa prodotto multi-tenant (P53), ogni nutrizionista cliente resterebbe verosimilmente titolare autonomo dei propri consensi — il software potrebbe non avere alcun obbligo di tracciarli. **Non si implementa T2 finché un consulente non conferma che serve.** Se il consulente conferma la necessità, si riapre come voce a sé stante.
+**FOCUS COMPONENTI COINVOLTI:** Database (region check — fatto), Frontend (bozza dati — fatta), Processi (T3/T4).
+**SCHEDA:** Stato: T1 ✅ Chiusa · T2 🟡 **Sospesa — da valutare con consulente** · T3 bozza tecnica pronta, testo legale da consulente · T4 da fare · Priorità: Alta pre-vendita · C: 3 (tecnico) | I: 5 | R: 2 · Modello: nessuno finché T2 non è confermata necessaria · Autonomia: **L0** su testi legali (mai generarli come definitivi).
 
 ### P70 — Escaping centralizzato (XSS)
 **L'APPROCCIO ORIGINARIO:** `esc()` applicata progressivamente ai ~186 innerHTML, partendo dai campi liberi.
@@ -200,14 +164,6 @@ Verificato sul campo: creata una tabella di prova (`_test_rls_p106`) dopo la rev
 **LA SOLUZIONE OTTIMIZZATA:** tre gradini, si sale solo se i numeri lo chiedono. (G1 — oggi, 20 min: gauge `JSON.stringify(db).length` in Impostazioni + warning non-silenzioso al 60% dei ~5MB + verifica: i base64 dei referti finiscono nel blob? Se sì, smettere subito di persistirli è la vera correzione). (G2 — se >2MB: compressione LZ-string sul valore localStorage: 3-5× di pista con 30 righe e zero cambi di architettura). (G3 — se cresce ancora o arriva P48: IndexedDB con wrapper async e boot rivisto). La roadmap parte da G3: si parte da G1.
 **FOCUS COMPONENTI COINVOLTI:** Frontend/storage; G3 tocca il boot (rischio init).
 **SCHEDA:** Stato: **Da verificare** (G1 decide) · Priorità: Bassa→Media (dato-dipendente) · C: 1/2/4 per gradino | I: 3 | R: 1/1/4 · Modello: Sonnet (Bassa) G1-G2; Fable (Alto) G3 · Autonomia: L1.
-
-### P72 — SRI + versioni pinnate CDN ⏸ TENTATA 9 LUG 2026, RIMANDATA
-**L'APPROCCIO ORIGINARIO:** integrity+crossorigin su Chart.js e jsPDF, versioni pinnate.
-**LA CRITICA DEL CTO:** giusto, ma c'è un'opzione più pulita che la roadmap non considera: **self-hosting**. Due file .min.js copiati nel repo = zero terze parti a runtime, funziona offline, niente SRI da mantenere. Col repo privato (P65) non ci sono controindicazioni.
-**COSA È SUCCESSO IL 9 LUG 2026:** tentativo di generare gli hash SRI (sha384) per i due tag `<script>` CDN. Bloccato da un limite d'ambiente, non da una decisione: `cdnjs.cloudflare.com` non è raggiungibile dalla rete del sandbox (403), e il tool di fetch web restituisce i JS come dato binario opaco, non hashabile localmente. Copiare un hash "riportato" da terzi è stato scartato come rischioso: esiste un bug noto e documentato (cdnjs/cdnjs discussion #14124) per cui l'hash pubblicato sul sito cdnjs a volte NON combacia col file realmente servito — un `integrity` sbagliato blocca silenziosamente lo script in produzione. Nessun codice modificato.
-**LA SOLUZIONE OTTIMIZZATA (invariata, da valutare alla ripresa):** self-host di chart.min.js e jspdf.min.js (versioni attuali, hash annotato nel Contesto); il CDN sparisce, il problema SRI diventa non-applicabile. Ripiego se si resta su CDN: generare l'hash da un ambiente con accesso di rete pieno (es. il PC di Fabrizio: `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`) e passarlo a Claude, oppure passare a jsDelivr che espone l'attributo `integrity` direttamente nella pagina del pacchetto.
-**FOCUS COMPONENTI COINVOLTI:** Frontend (2 tag script) + repo.
-**SCHEDA:** Stato: Rimandata (blocco tecnico ambientale) · Priorità: Bassa (ma immediata: costo nullo) · C: 1 | I: 2 | R: 1 · Modello: Sonnet (Bassa) · Autonomia: L1.
 
 ### P75 — SMTP proprio
 **L'APPROCCIO ORIGINARIO:** dominio email proprio con SPF/DKIM al posto del mittente Supabase Free; template personalizzati.
@@ -233,29 +189,6 @@ Verificato sul campo: creata una tabella di prova (`_test_rls_p106`) dopo la rev
 ---
 
 # PRIORITÀ 1 — Bug aperti
-
-### P59 — Marker 🍎 frutta per spuntini a sole celle ✅ CHIUSA — SCARTATA dopo test (commit `d3c50e0` → revert `177dce9`, 7 lug 2026)
-**L'APPROCCIO ORIGINARIO:** estendere l'aggancio del marker al pasto (prima riga disponibile o riga sintetica).
-**LA CRITICA DEL CTO:** la "riga sintetica" è vietata: inquinerebbe i DATI per aggirare un limite del RENDERER. Il flag frutta è per-pasto; è il disegno PDF che deve saperlo, non la struttura del piano.
-**COSA È SUCCESSO:** implementata (riga sintetica "+ frutta"/emoji sotto il blocco celle quando `!hasRicette`, riuso di `getFruttaMarker`) e verificata via screenshot reale. Fabrizio ha segnalato che la riga è ridondante e confonde la lettura quando la cella è già un alimento-frutta esplicito con propria emoji (es. "🍎 Frutta mista 150g"). **Decisione di prodotto, non errore tecnico:** il marker frutta resta agganciato SOLO alle righe ricetta testuali. Revert completo di `measurePasto`/`drawPasto` (commit `177dce9`), comportamento tornato identico a prima di P59.
-**FOCUS COMPONENTI COINVOLTI:** Frontend/PDF. Zero dati.
-**SCHEDA:** Stato: ✅ Chiusa (scartata dopo verifica clinica) · Modello usato: Sonnet (Bassa) · Autonomia: L1.
-
-### P60 — Separatore "+" tra ricetta ed emoji frutta ✅ CHIUSA (commit `17064c8`, 7 lug 2026)
-**L'APPROCCIO ORIGINARIO:** "+" grigio attenuato tra testo e emoji.
-**LA CRITICA DEL CTO:** nulla da criticare, solo da inchiodare i dettagli: colore = var testo terziario già in palette, allineamento con `baseline:'middle'` (Scoperta #9), e spaziatura che non sposti il wrapping delle righe lunghe.
-**LA SOLUZIONE OTTIMIZZATA (implementata):** "+" disegnato in GRIGIO3 (160,160,160, stesso tono di "Alternative:") prima dell'emoji stagionale, emoji spostata della larghezza reale del "+" misurata con `measure()`. Applicato nel ramo ricette testuali di `drawPasto`; l'estensione al blocco celle (P59) è stata rimossa insieme al suo revert.
-**FOCUS COMPONENTI COINVOLTI:** Frontend/PDF.
-**SCHEDA:** Stato: ✅ Chiusa · Modello usato: Sonnet (Bassa) · Autonomia: L1.
-
-### P55 — Sorgente unica target macros (`getTargetAttivi`) ✅ CHIUSA (commit `85b18ea`, 9 lug 2026)
-**L'APPROCCIO ORIGINARIO:** banner pre-generazione se si entra nel ramo fallback; allineare la logica duplicata in `costruisciContestoPaziente`.
-**LA CRITICA DEL CTO:** il banner cura il sintomo e "allineare la duplicazione" ammette di volerla mantenere. La causa è che funzioni multiple ricalcolano i target per conto proprio — pattern della Scoperta #13, già pagato una volta con P34.
-**LA SOLUZIONE OTTIMIZZATA (implementata):** in fase di implementazione l'audit ha trovato **6 sedi duplicate** (non 2 come stimato), già divergenti tra loro su riferimento peso/FFM e g/kg personalizzati. Estratta `getTargetAttivi(p)` come sorgente unica: priorità (1) target salvato dal medico (`_getActiveMacrosTarget`, vince il più recente tra FX/TDEE) → fonte `fx`/`tdee`; (2) fallback canonico unificato (FFM/BMI≥25 + g/kg personalizzati, mai più hardcoded 1.8/0.9 ignorando i custom) → fonte `fallback`. Le 6 sedi (`costruisciContestoPaziente`, `_aggiornaAnteprimaCiclizzazione`, box macros generatore, `calcolaTargetsCiclizzazione`, `_setupPianoTargets`, `costruisciPrompt`) ora consumano tutte `getTargetAttivi`. Il blocco generazione senza target (BUG3 STEP2) resta **bloccante**, non solo avviso — più severo di quanto proponesse la scheda originale, mantenuto perché già collaudato; `costruisciPrompt` mostra ora un avviso visibile (non solo console.log) quando cade nel fallback. 24 test unitari/coerenza in JSDOM (P78), tutti pass.
-**FOCUS COMPONENTI COINVOLTI:** Frontend (refactor 6 punti → 1 funzione). Zero dati modificati, solo lettura/calcolo.
-**SCHEDA:** Stato: ✅ Chiusa · Modello usato: Fable 5 (Alto), Thinking ON · Autonomia: L0.
-
----
 
 # PRIORITÀ 2 — Ricettario
 
@@ -494,16 +427,6 @@ Una "rotellina" sopra questo stato delle cose lucida la maniglia di una porta ch
 
 ---
 
-### P111 — Chiarezza UI: medie settimanali su piano parziale
-
-**Origine:** 13 luglio 2026, Fabrizio ha segnalato macros che sembravano assurdi in un piano di test (115 kcal per un pasto di pollo+pasta, −96% dal target). Verificato: nessun bug nei dati o nel calcolo — la tabella "PRIME SCELTE / MEDIA PONDERATA" divide sempre per 6 giorni, e il piano aveva un solo pasto compilato su 6. I conti tornavano esattamente, ma la UI non comunicava che si trattasse di una media settimanale su un piano incompleto, e il numero risultante sembrava un errore invece che un dato corretto ma parziale.
-
-**Il problema:** un nutrizionista che compila un piano un pasto alla volta (flusso normale di lavoro) vede numeri fortemente sottostimati finché non ha riempito tutti i giorni, senza alcun segnale che lo avvisi che è normale. Rischio concreto: prendere per buono (o rifiutare come bug) un numero che invece dipende solo da quanti giorni sono ancora vuoti.
-
-**Soluzione minima proposta:** aggiungere un'indicazione visibile accanto a "MEDIA POND." — es. "media su 6 giorni, N compilati" — o un badge quando meno del 100% dei giorni ha almeno un pasto. Nessun cambiamento al calcolo, solo comunicazione.
-
-**SCHEDA:** Stato: Da fare · C: 1 | I: 3 | R: 1 (solo testo/badge, nessun dato clinico toccato) · Modello: **Sonnet, Low/Medium, Thinking OFF** · Autonomia: L1 (può proporre dove posizionare il badge, non serve conferma preventiva sul layout).
-
 ---
 
 ### P91 — Modalità 7 slot (vista per-pasto)
@@ -715,6 +638,84 @@ Una "rotellina" sopra questo stato delle cose lucida la maniglia di una porta ch
 # ARCHIVIO — ragionamento CTO delle voci chiuse
 
 > Voci completate per intero e uscite dalla pianificazione attiva (REGOLA FONDAMENTALE). Il ragionamento CTO originale è conservato qui perché "c'è SEMPRE un modo di sapere perché è stata presa una decisione". Lo stato del codice, i commit e le note di sessione sono nel CHANGELOG e nel Contesto.
+
+### P111 — Chiarezza UI: medie settimanali su piano parziale ✅ CHIUSA 13 luglio 2026 (commit `737b790`)
+
+**Origine:** 13 luglio 2026, Fabrizio ha segnalato macros che sembravano assurdi in un piano di test (115 kcal per un pasto di pollo+pasta, −96% dal target). Verificato: nessun bug nei dati o nel calcolo — la tabella "PRIME SCELTE / MEDIA PONDERATA" divide sempre per 6 giorni, e il piano aveva un solo pasto compilato su 6. I conti tornavano esattamente, ma la UI non comunicava che si trattasse di una media settimanale su un piano incompleto, e il numero risultante sembrava un errore invece che un dato corretto ma parziale.
+
+**Il problema:** un nutrizionista che compila un piano un pasto alla volta (flusso normale di lavoro) vede numeri fortemente sottostimati finché non ha riempito tutti i giorni, senza alcun segnale che lo avvisi che è normale. Rischio concreto: prendere per buono (o rifiutare come bug) un numero che invece dipende solo da quanti giorni sono ancora vuoti.
+
+**Soluzione implementata (commit `737b790`):** come da soluzione minima proposta — `giorniCompilati`/`pianoParziale` calcolati dentro `calcolaMacrosPiano` senza alterare il calcolo della media; badge "(parziale: N/M gg)" e avviso giallo in `renderBadgeMacrosReali` quando il piano è incompleto. Dettaglio tecnico completo nel CHANGELOG (voce 13 lug 2026, sessione serale).
+
+**SCHEDA:** Stato: ✅ Chiusa (commit `737b790`) · C: 1 | I: 3 | R: 1 · Modello: Sonnet, Low/Medium, Thinking OFF · Autonomia: L1.
+
+### P106 — Blindare/rimuovere `rls_auto_enable()` ✅ CHIUSA 13 luglio 2026
+**L'APPROCCIO ORIGINARIO:** la funzione `public.rls_auto_enable()` (SECURITY DEFINER) è eseguibile da `public` e da utenti loggati senza restrizioni (2 warning del Security Advisor Supabase, visti 12 lug 2026). È la funzione che ha acceso la RLS sulle tabelle in autonomia in passato. Da decidere con Fabrizio: (a) `REVOKE EXECUTE` a public/authenticated lasciandola solo per uso manuale da service_role, o (b) `DROP FUNCTION` se non serve più (RLS ormai stabile su tutte le tabelle sync).
+**Motivo:** una funzione SECURITY DEFINER eseguibile da chiunque loggato è superficie d'attacco non necessaria — se contiene logica che tocca lo schema/permessi, un utente autenticato potrebbe invocarla.
+**ESITO REALE E CHIUSURA:** (b) DROP scartata dopo verifica: `DROP FUNCTION` ha fallito con errore `2BP01` — un **event trigger attivo `ensure_rls`** (su evento `ddl_command_end`) dipende dalla funzione e la richiama automaticamente ogni volta che viene creata una nuova tabella in `public`, accendendole subito la RLS (`ispezione codice: EXECUTE format('alter table if exists %s enable row level security', ...)`). Eliminarla avrebbe disattivato questo automatismo, lasciando le tabelle future scoperte fino a intervento manuale — rischio peggiore del warning originale. Applicata quindi (a) **REVOKE**, con un irrobustimento aggiuntivo per il secondo warning (search_path mutabile):
+```sql
+REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM authenticated;
+ALTER FUNCTION public.rls_auto_enable() SET search_path = pg_catalog, public;
+```
+Verificato sul campo: creata una tabella di prova (`_test_rls_p106`) dopo la revoca, confermato `relrowsecurity = true` (l'automatismo funziona ancora, non passa dai permessi EXECUTE utente), poi tabella rimossa. Nessun file applicativo modificato (`index.html` non referenzia mai questa funzione) — operazione puramente lato Supabase, nessun commit Git.
+**SCHEDA:** Stato: **CHIUSA** · Priorità: Media · Categoria: Sicurezza · Modello: Opus/Fable (High), Thinking ON — permessi DB.
+
+### P68 — Push incrementale (dirty tracking) ✅ CHIUSA (commit `5487754` + `97f0d53`, 9 lug 2026)
+**L'APPROCCIO ORIGINARIO:** set di id sporchi, push solo di quelli, reset a successo, coerenza con `_syncPendingFail`.
+**LA CRITICA DEL CTO:** giusto, ma sottovaluta il punto operativo: `save()` è chiamato in ~47 punti e molti non sanno QUALE paziente hanno toccato. Se si prova a istruire tutti i call-site in un colpo, si introduce il bug opposto (modifiche non pushate = perdita dati silenziosa: rischio peggiore del problema di partenza).
+**LA SOLUZIONE OTTIMIZZATA (implementata):** `save(pazId?)` retro-compatibile: senza argomento → comportamento storico invariato (push completo, ancora usato da `importa` e dall'eliminazione definitiva paziente); con argomento → marca dirty in `window._dirtyIds` e pusha il set dopo debounce 2s (raffiche di save → 1 POST per id coalescato). Meta-record (`meta_collections`, `__alimenti_custom`, `__modelli_rotazione`, `__concetti_educativi`) trattati come id sporchi normali via `_pushRigaPerId`. Reset del set SOLO a 2xx per-id (un fallimento non azzera gli altri). Migrati 44/47 call-site (parte 2, Sonnet Medio): i 3 rimasti anonimi sono voluti. Telemetria temporanea `p68SaveAnon` per censire eventuali save() anonimi residui non previsti.
+**NON INCLUSO (residuo, vedi F3 sotto):** retry automatico con backoff esponenziale sugli id falliti e indicatore "N modifiche in attesa" — questo pezzo resta la voce a sé stante più in basso nella roadmap (ex-P89, coda offline), che ora si appoggia al dirty-set già persistito in memoria da P68 invece di doverne creare uno nuovo.
+**FOCUS COMPONENTI COINVOLTI:** Frontend/sync. Zero DB.
+**SCHEDA:** Stato: ✅ Chiusa (meccanismo + migrazione call-site) · Priorità: Media (Alta >30 pazienti) · C: 3 | I: 4 | R: 3 (perdita dati se sbagliato) · Modello: Fable 5 (Alto, meccanismo) + Sonnet (Medio, migrazione call-site) · Autonomia: L0 sul meccanismo, L1 sui call-site.
+
+### P69 — Conflitti multi-dispositivo (updated_at) ✅ CHIUSA (commit `eb52ece`, 9 lug 2026)
+**L'APPROCCIO ORIGINARIO:** confrontare updated_at remoto vs ultimo pull; avvisare; scelta ricarica/sovrascrittura.
+**LA CRITICA DEL CTO:** il confronto con "l'ultimo pull" richiede una mappa etag locale che invecchia male (pull rari). Più robusto e più semplice: chiedere al server la verità un attimo prima di scrivere.
+**LA SOLUZIONE OTTIMIZZATA (implementata):** con P68 chiuso, il push per-id premette una `SELECT id,updated_at` dei soli id sporchi (una chiamata, payload minuscolo): se remoto > baseline locale (`p69Baseline` in localStorage, salvata a ogni pull/push riuscito per-record) → dialogo a tre vie: "ricarica loro / sovrascrivi (consapevole) / esporta la mia copia e ricarica". Niente merge per-campo (fuori scopo finché il blob è blob — onestà architetturale). Il caso "record assente remoto" con baseline nota = tombstone (P64) → non ricreato. Fail-open: un pre-check di rete fallito non blocca il salvataggio (torna al last-write-wins pre-P69, mai peggio). Record in conflitto restano "pending" fino a decisione (niente dialoghi ripetuti a ogni debounce).
+**FOCUS COMPONENTI COINVOLTI:** Frontend/sync. Zero DB.
+**SCHEDA:** Stato: ✅ Chiusa · Priorità: Media · C: 3 | I: 4 | R: 2 · Modello: Fable 5 (Alto) · Autonomia: L0.
+
+### P105 — Fix sessione: RLS 42501 su sincronizzazione ✅ CHIUSA (commit `d32f6aa`, 12 lug 2026)
+**Scoperta (non pianificata in roadmap, emersa da segnalazione utente):** `sincronizzaTutto()` falliva con `42501 — new row violates row-level security policy for table "pazienti"` dopo circa 1h di sessione aperta; i pull tornavano silenziosamente 0 righe. Verificato prima con query read-only su Supabase (`pg_tables`, `pg_policies`, `information_schema.columns`, `auth.users`) che lo schema NON era la causa: colonna `user_id` con `default auth.uid()` e `NOT NULL`, policy `owner_all_pazienti` (`ALL`, `USING`/`WITH CHECK` = `user_id = auth.uid()`) corrette e già presenti su tutte le tabelle sync. Escluso anche il sospetto iniziale (righe orfane su due `user_id` diversi): erano semplicemente due account distinti dello stesso Fabrizio (42 righe l'account principale, 2 righe un secondo account di test) — nessuna riga senza proprietario, tenuti volutamente separati, non uniti.
+**LA CAUSA REALE (nel client, non nel DB):** `getSessioneSalvata()` cancellava da `localStorage` la sessione appena il suo `expires_at` risultava scaduto — perdendo con essa il `refresh_token` necessario a rinnovarla. Il rinnovo periodico/pre-sync (`assicuraTokenValido`, P29) non aveva quindi più nulla da rinnovare; `supaHeaders()` ripiegava in silenzio sulla chiave anonima; la richiesta arrivava a Supabase con `auth.uid()` NULL e la RLS (correttamente) la respingeva. Concausa: `sincronizzaTutto()` (il bottone "Sincronizza" premuto dall'utente) non chiamava affatto `assicuraTokenValido()` prima di scrivere, a differenza di `syncNow()` e del flush incrementale P68; e questi ultimi due ne ignoravano comunque l'esito (`await` senza controllo del valore di ritorno).
+**LA SOLUZIONE (implementata):** (1) `getSessioneSalvata()` su token scaduto ritorna `null` ma NON cancella più il record in `localStorage` — il `refresh_token` resta disponibile al rinnovo; la sessione viene sovrascritta al login/rinnovo successivo e cancellata solo dal logout esplicito (`cancellaSessione`). (2) Nuovo guard `_garantiscoSessionePerSync()`: chiama `assicuraTokenValido()` e, se il rinnovo fallisce, avvisa l'utente ("Sessione scaduta — esci e rientra per sincronizzare") e ferma la scrittura invece di procedere in anonimo. (3) `syncNow`, `sincronizzaTutto` (che prima non aveva alcun controllo) e `_flushDirtyIds` (che ora libera correttamente `window._syncInFlight` se si ferma) chiamano il guard invece del vecchio `assicuraTokenValido()` non verificato. Verificato con `node --check` sul blocco script (17.651 righe, sintassi valida) + 9 asserzioni mirate in Node (sessione scaduta non cancellata/refresh_token preservato/guard ritorna false e avvisa se il rinnovo fallisce/ritorna true senza falsi allarmi se ok), tutte verdi. Confermato anche a mano dall'utente: uscire e rientrare ripristina il sync verde.
+**FOCUS COMPONENTI COINVOLTI:** Frontend/auth/sync. Zero DB (schema e policy Supabase già corretti, non toccati).
+**SCHEDA:** Stato: ✅ Chiusa · Priorità: Alta (bloccava la sincronizzazione multi-dispositivo) · C: 2 | I: 4 | R: 3 (autenticazione/dati pazienti) · Modello: Opus (High, Thinking ON) · Autonomia: L0.
+**Nota per P66c:** la precondizione "qualche giorno di uso stabile in produzione col proxy" ora è finalmente osservabile — prima di questo fix il sync si rompeva in silenzio ogni ~1h e avrebbe mascherato eventuali fallback anomali del proxy AI nello stesso modo.
+**Residui aperti dalla stessa sessione di scoperta (Security Advisor Supabase):** P106 (funzione `rls_auto_enable()` SECURITY DEFINER da blindare/rimuovere) e P107 (Leaked Password Protection da attivare) — vedi voci in PRIORITÀ 0b.
+
+### P72 — SRI + versioni pinnate CDN ✅ CHIUSA 13 LUG 2026 (self-hosting)
+**L'APPROCCIO ORIGINARIO:** integrity+crossorigin su Chart.js e jsPDF, versioni pinnate.
+**LA CRITICA DEL CTO:** giusto, ma c'è un'opzione più pulita che la roadmap non considera: **self-hosting**. Due file .min.js copiati nel repo = zero terze parti a runtime, funziona offline, niente SRI da mantenere. Col repo privato (P65) non ci sono controindicazioni.
+**COSA È SUCCESSO IL 9 LUG 2026:** tentativo di generare gli hash SRI (sha384) per i due tag `<script>` CDN. Bloccato da un limite d'ambiente, non da una decisione: `cdnjs.cloudflare.com` non è raggiungibile dalla rete del sandbox (403), e il tool di fetch web restituisce i JS come dato binario opaco, non hashabile localmente. Copiare un hash "riportato" da terzi è stato scartato come rischioso: esiste un bug noto e documentato (cdnjs/cdnjs discussion #14124) per cui l'hash pubblicato sul sito cdnjs a volte NON combacia col file realmente servito — un `integrity` sbagliato blocca silenziosamente lo script in produzione. Nessun codice modificato.
+**COSA È SUCCESSO IL 13 LUG 2026 — CHIUSURA:** stesso blocco di rete su cdnjs (403, confermato di nuovo). Soluzione: le stesse identiche versioni (Chart.js 4.4.1, jsPDF 2.5.1) scaricate via **npm registry** (dominio raggiungibile dal sandbox), verificate una per una: dimensione file, hash sha384 calcolato localmente, stringa di versione dichiarata dentro al file stesso (corrispondenza esatta). Confermato che l'app non usa plugin extra (nessun `chartjs-plugin-*`, nessun `jspdf-autotable`), quindi i due file bastano da soli. Copiati in `vendor/chart.umd.min.js` e `vendor/jspdf.umd.min.js`, i due tag `<script>` ora puntano ai file locali. Hash sha384 annotati come commento HTML sopra ciascun tag. Verificato `node --check` dopo la modifica.
+**FOCUS COMPONENTI COINVOLTI:** Frontend (2 tag script) + repo (nuova cartella `vendor/`).
+**SCHEDA:** Stato: ✅ Chiusa · Priorità: — · C: 1 | I: 2 | R: 1 · Modello: Sonnet (Bassa) · Autonomia: L1.
+
+### P59 — Marker 🍎 frutta per spuntini a sole celle ✅ CHIUSA — SCARTATA dopo test (commit `d3c50e0` → revert `177dce9`, 7 lug 2026)
+**L'APPROCCIO ORIGINARIO:** estendere l'aggancio del marker al pasto (prima riga disponibile o riga sintetica).
+**LA CRITICA DEL CTO:** la "riga sintetica" è vietata: inquinerebbe i DATI per aggirare un limite del RENDERER. Il flag frutta è per-pasto; è il disegno PDF che deve saperlo, non la struttura del piano.
+**COSA È SUCCESSO:** implementata (riga sintetica "+ frutta"/emoji sotto il blocco celle quando `!hasRicette`, riuso di `getFruttaMarker`) e verificata via screenshot reale. Fabrizio ha segnalato che la riga è ridondante e confonde la lettura quando la cella è già un alimento-frutta esplicito con propria emoji (es. "🍎 Frutta mista 150g"). **Decisione di prodotto, non errore tecnico:** il marker frutta resta agganciato SOLO alle righe ricetta testuali. Revert completo di `measurePasto`/`drawPasto` (commit `177dce9`), comportamento tornato identico a prima di P59.
+**FOCUS COMPONENTI COINVOLTI:** Frontend/PDF. Zero dati.
+**SCHEDA:** Stato: ✅ Chiusa (scartata dopo verifica clinica) · Modello usato: Sonnet (Bassa) · Autonomia: L1.
+
+### P60 — Separatore "+" tra ricetta ed emoji frutta ✅ CHIUSA (commit `17064c8`, 7 lug 2026)
+**L'APPROCCIO ORIGINARIO:** "+" grigio attenuato tra testo e emoji.
+**LA CRITICA DEL CTO:** nulla da criticare, solo da inchiodare i dettagli: colore = var testo terziario già in palette, allineamento con `baseline:'middle'` (Scoperta #9), e spaziatura che non sposti il wrapping delle righe lunghe.
+**LA SOLUZIONE OTTIMIZZATA (implementata):** "+" disegnato in GRIGIO3 (160,160,160, stesso tono di "Alternative:") prima dell'emoji stagionale, emoji spostata della larghezza reale del "+" misurata con `measure()`. Applicato nel ramo ricette testuali di `drawPasto`; l'estensione al blocco celle (P59) è stata rimossa insieme al suo revert.
+**FOCUS COMPONENTI COINVOLTI:** Frontend/PDF.
+**SCHEDA:** Stato: ✅ Chiusa · Modello usato: Sonnet (Bassa) · Autonomia: L1.
+
+### P55 — Sorgente unica target macros (`getTargetAttivi`) ✅ CHIUSA (commit `85b18ea`, 9 lug 2026)
+**L'APPROCCIO ORIGINARIO:** banner pre-generazione se si entra nel ramo fallback; allineare la logica duplicata in `costruisciContestoPaziente`.
+**LA CRITICA DEL CTO:** il banner cura il sintomo e "allineare la duplicazione" ammette di volerla mantenere. La causa è che funzioni multiple ricalcolano i target per conto proprio — pattern della Scoperta #13, già pagato una volta con P34.
+**LA SOLUZIONE OTTIMIZZATA (implementata):** in fase di implementazione l'audit ha trovato **6 sedi duplicate** (non 2 come stimato), già divergenti tra loro su riferimento peso/FFM e g/kg personalizzati. Estratta `getTargetAttivi(p)` come sorgente unica: priorità (1) target salvato dal medico (`_getActiveMacrosTarget`, vince il più recente tra FX/TDEE) → fonte `fx`/`tdee`; (2) fallback canonico unificato (FFM/BMI≥25 + g/kg personalizzati, mai più hardcoded 1.8/0.9 ignorando i custom) → fonte `fallback`. Le 6 sedi (`costruisciContestoPaziente`, `_aggiornaAnteprimaCiclizzazione`, box macros generatore, `calcolaTargetsCiclizzazione`, `_setupPianoTargets`, `costruisciPrompt`) ora consumano tutte `getTargetAttivi`. Il blocco generazione senza target (BUG3 STEP2) resta **bloccante**, non solo avviso — più severo di quanto proponesse la scheda originale, mantenuto perché già collaudato; `costruisciPrompt` mostra ora un avviso visibile (non solo console.log) quando cade nel fallback. 24 test unitari/coerenza in JSDOM (P78), tutti pass.
+**FOCUS COMPONENTI COINVOLTI:** Frontend (refactor 6 punti → 1 funzione). Zero dati modificati, solo lettura/calcolo.
+**SCHEDA:** Stato: ✅ Chiusa · Modello usato: Fable 5 (Alto), Thinking ON · Autonomia: L0.
+
+---
 
 ### P61 — Validatore clinico post-generazione AI
 **L'APPROCCIO ORIGINARIO:** dopo il parsing, scorrere celle e righe testuali contro allergie / alimenti rossi / esclusi; esito a 3 livelli (blocco/avviso/nota); pannello pre-salvataggio; riuso `NOMI_CANONICI`, `trovaChiaveAlimento`, semaforo.

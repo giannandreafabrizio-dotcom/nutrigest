@@ -10,6 +10,79 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+13 LUGLIO 2026 (sessione pomeridiana/serale) — Fix regime energetico
+(commit 878cb60), P65 scan storico Git, P67 T1/T3, protocollo
+fonte-di-verità in CLAUDE.md, P72 self-hosting CDN. Nessun modello
+richiesto per T1/scan/protocollo, Sonnet Bassa per P72, Opus (High,
+Thinking ON) per il fix regime:
+
+  Fix regime energetico (commit 878cb60) — bug: il target mostrato sopra
+  lo slider regime (ancorato a `window._tdeeRegime`, metodo MET additivo)
+  e il risultato di `calcolaMacros()` (che ricalcolava un proprio TDEE
+  con MB×LAF) potevano divergere (es. 1806 vs 1441 kcal). Tre fix:
+  1) `calcolaMacros` usa ora lo stesso TDEE/MB ancorati allo slider;
+  2) le kcal digitate manualmente non vengono più riscritte con
+  l'arrotondamento al punto percentuale; 3) `ricalcolaLAF` sincronizza
+  `_macrosPaziente` con l'oggetto db aggiornato. Verificato con
+  `node --check` sul blocco script.
+
+  P65 — scan storico Git (460 commit) per segreti prima di rendere il
+  repo privato: nessuna chiave reale trovata (solo placeholder UI
+  `sk-ant-...`), nessuna service_role/AWS key, nessun `.env` committato,
+  il file locale `password api keys.txt` non è mai stato tracciato.
+  Repo pronto per essere reso privato; resta da decidere GitHub a
+  pagamento vs migrazione a Vercel (P51).
+
+  P67 — T1 chiusa: regione Supabase confermata `eu-west-1` (UE), nessuna
+  migrazione necessaria. Prodotta la bozza tecnica dei flussi di dati
+  (mappa dati/finalità/basi giuridiche/responsabili esterni/diritti
+  interessato) per T3, da consegnare al consulente — non è un'informativa
+  definitiva, generarla come tale è stato rifiutato anche su richiesta
+  esplicita di Fabrizio (dati sanitari, rischio di falsa impressione di
+  completezza). T2 (modello dati consensi + gate) SOSPESA su richiesta
+  di Fabrizio: nessuna raccolta consensi strutturata mai esistita finora,
+  e se NutriGest diventa multi-tenant (P53) ogni nutrizionista cliente
+  resterebbe verosimilmente titolare autonomo dei propri consensi — il
+  software potrebbe non avere alcun obbligo di tracciarli. Non si
+  implementa finché un consulente non conferma la necessità.
+
+  Protocollo fonte-di-verità (CLAUDE.md) — formalizzato dopo un incidente
+  reale nella stessa sessione: due modifiche (Roadmap P67, CLAUDE.md
+  stesso) erano state preparate correttamente ma MAI arrivate su GitHub
+  nonostante commit+push riusciti, perché consegnate da una cartella di
+  lavoro locale diversa da quella editata — un errore di disciplina
+  nella sessione Claude, non un problema Git né un errore di Fabrizio.
+  Scoperto grazie al controllo di integrità prima di procedere con P72
+  (verifica contenuto, non solo conteggio righe). Nessun dato perso:
+  richiesto un backup locale completo (`nutrigest_BACKUP`, 187 file con
+  `.git`) prima di correggere, poi le modifiche sono state riapplicate
+  sul contenuto reale scaricato da GitHub, non da copie locali obsolete.
+  Aggiunta in CLAUDE.md la regola di lavorare sempre in un'unica cartella
+  per sessione e di verificare il contenuto (non solo la lunghezza) prima
+  di ogni consegna.
+
+  Riordino Roadmap (stessa sessione, su richiesta di Fabrizio): le 9
+  voci completamente chiuse che erano rimaste mescolate alle sezioni
+  attive (P106, P68, P69, P105, P72, P59, P60, P55, P111) sono state
+  spostate nell'ARCHIVIO in fondo al file — nessun contenuto eliminato,
+  solo riposizionato; verificato che ogni voce esista esattamente una
+  volta. Restano nelle sezioni attive P63 e P66 perché chiuse solo in
+  parte (portano residui aperti: InBody per P63, Fase 2 + commit di
+  chiusura per P66). Contestualmente allineata P111: risultava "Da fare"
+  in Roadmap nonostante fosse chiusa e documentata (commit 737b790,
+  sessione serale) — scheda aggiornata a chiusa e archiviata.
+
+  P72 — self-hosting Chart.js 4.4.1 e jsPDF 2.5.1 al posto del CDN
+  cdnjs.cloudflare.com (irraggiungibile dal sandbox, 403, stesso blocco
+  già visto il 9 luglio). Le stesse identiche versioni scaricate via npm
+  registry (dominio raggiungibile), verificate per dimensione, hash
+  sha384 e stringa di versione dichiarata nel file. Nessun plugin extra
+  in uso (niente chartjs-plugin-*/jspdf-autotable) quindi i due file
+  bastano da soli. File in `vendor/chart.umd.min.js` e
+  `vendor/jspdf.umd.min.js`, tag `<script>` aggiornati. Il problema SRI
+  (P72 originaria) diventa non-applicabile: niente più terze parti a
+  runtime per queste due librerie.
+
 13 LUGLIO 2026 (sessione notturna) — P107 verificata e bloccata (Leaked
 Password Protection), nessun codice toccato:
 

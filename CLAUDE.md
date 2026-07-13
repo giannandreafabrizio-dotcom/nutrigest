@@ -15,6 +15,27 @@ NutriGest è un'applicazione che voglio commercializzare e vendere.
 - **Browser**: Chrome su PC, Safari su iPhone
 - Dettagli completi di backend, tabelle e funzioni sync → sezione STRUTTURA DATI del Contesto (`NutriGest_Contesto_v18.txt`), non duplicati qui.
 
+## Protocollo fonte di verità e sicurezza (per ogni sessione Claude)
+GitHub `main` è la fonte di verità per TUTTO (codice + documentazione: `index.html`, `NutriGest_Roadmap_v4.md`, `CHANGELOG.md`, `INDEX.md`, `CLAUDE.md`). Fabrizio non modifica mai nulla in locale. I file caricati nei documenti del progetto Claude possono essere una foto vecchia: NON fidarsi, scaricare sempre da GitHub.
+
+**Procedura obbligatoria a inizio sessione (anti-cache, anti-conflitto):**
+1. Leggere lo SHA di HEAD: `git ls-remote https://github.com/giannandreafabrizio-dotcom/nutrigest.git refs/heads/main` (niente API REST: è rate-limitata dall'IP condiviso del sandbox; `ls-remote` no).
+2. Scaricare i file PINNATI a quello SHA: `raw.githubusercontent.com/giannandreafabrizio-dotcom/nutrigest/<SHA>/<file>` — mai dal ref `main` liscio, perché la CDN di raw può servire una versione in cache vecchia fino a ~5 minuti dopo un push.
+3. Dichiarare a Fabrizio su quale commit si sta lavorando ("basato su `<SHA corto>`").
+4. **Lavorare SEMPRE in un'unica cartella locale per l'intera sessione** — mai clonare/scaricare copie parallele in cartelle diverse. È la causa concreta di un incidente reale (13 lug 2026): due cartelle di lavoro diverse hanno portato a consegnare più volte un file più vecchio di quello appena editato, silenziosamente.
+
+**Procedura obbligatoria prima di consegnare un file modificato:**
+1. Rileggere lo SHA di HEAD con `ls-remote`. Se è cambiato rispetto alla baseline → main si è mosso durante la sessione: riscaricare, ri-applicare le modifiche sulla versione nuova, MAI consegnare un file basato su una baseline superata (cancellerebbe in silenzio i commit intermedi).
+2. **Verificare il CONTENUTO del file appena prima di consegnarlo** (grep su una stringa univoca della modifica appena fatta), non solo il conteggio righe o il diff di sessioni precedenti — un conteggio righe uguale non garantisce che il contenuto sia quello giusto.
+3. Per `index.html`: sempre `node --check` sul blocco script; se la modifica tocca funzioni coperte dalla test-suite (`test-suite/`), eseguire anche i test.
+4. Consegnare SEMPRE i file via present_files (un blocco commit senza i file allegati non è una consegna).
+
+**Regole git non negoziabili:**
+- Mai `git add -A` o `git add .` nel blocco commit: sempre i file espliciti.
+- Mai suggerire `push --force` o varianti. Se il push viene rifiutato (non-fast-forward), il rimedio è: `git pull` e rieseguire — e se compare un conflitto, fermarsi e portare il problema a Claude, non risolverlo a mano.
+- Una sola sessione di lavoro Claude alla volta sul repo: mai due chat in parallelo che modificano file.
+- Rollback: ogni commit è recuperabile con `git revert <sha>` — la storia di GitHub è il backup del progetto; non servono copie manuali.
+
 ## Ottimizzazione token — INDEX.md
 Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero prima di ogni modifica è costoso in token e va evitato.
 - **`INDEX.md`** (nella cartella del progetto) mappa ~530 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
