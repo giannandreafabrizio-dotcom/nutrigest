@@ -1,7 +1,35 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NUTRIGEST — Documento di Contesto
 Dott. Fabrizio Giannandrea · Studio Magic e Centro Curae · Matera
-Aggiornato: 12 luglio 2026 (sessione pomeridiana) — P82 alimenti custom: gestione
+Aggiornato: 13 luglio 2026 (sessione serale, dopo P108 fase 1) — P110 chiusa:
+  scanner barcode via Open Food Facts nella sezione "Alimenti". Pulsante
+  "📷 Scansiona barcode" → modale con camera (BarcodeDetector nativo su
+  Chrome/Android, libreria ZXing da CDN su Safari/iPhone e Firefox,
+  inserimento manuale sempre disponibile) → dedup sul catalogo → fetch
+  a Open Food Facts → precompila il form P108 (nome, kcal/P/C/G,
+  grammatura) → **l'utente conferma/corregge sempre prima di salvare**,
+  mai auto-salvataggio. Record salvato con `fonte:'off'` e `barcode`,
+  vive solo nel database NutriGest da quel momento. Confermato
+  funzionante in produzione da Fabrizio, incluso su iPhone/Safari. Con
+  questa si chiude per intero il blocco P108/P109/P110.
+
+Aggiornamento precedente: 13 luglio 2026 (sessione serale) — P108 fase 1 chiusa: sezione
+  "Alimenti" nel menu di sinistra, indipendente dal paziente (prima la
+  gestione custom viveva solo dentro le preferenze-cibi del singolo
+  paziente). `renderAlimentiPage()`: lista/ricerca/filtri (categoria, fonte
+  Base/Personalizzati, stato Attivi/Archiviati/Tutti) su tutto il catalogo
+  unico introdotto da P108 fase 0. Campo Allergeni/intolleranze aggiunto al
+  record (`allergeni[]`) e al form `mo-alim-custom`, condiviso con P82.
+  Archivia invece di elimina secco: `archiviaAlimentoCustom`/
+  `ripristinaAlimentoCustom` — `attivo:false` toglie l'alimento dai picker
+  dei nuovi piani ma lo lascia risolvibile via `risolviAlimento`, quindi
+  piani/ricette esistenti che lo referenziano mantengono i macros (verificato
+  che `getValoriCREA` passa sempre da lì, mai da `CREA_ALIMENTI` diretto).
+  `eliminaAlimentoCustom` (P82) resta invariata e coesiste per i casi a
+  riferimenti zero. Confermato funzionante in produzione da Fabrizio. Vedi
+  CHANGELOG.md per il dettaglio tecnico completo e la sezione STRUTTURA DATI
+  più sotto in questo documento per il record aggiornato.
+Aggiornamento precedente: 12 luglio 2026 (sessione pomeridiana) — P82 alimenti custom: gestione
   completa con identità sicura (commit 8edc873, fix 8ac585e). In sintesi:
   `scanRiferimentiAlimento(nome)` — funzione pura che cerca un alimento custom
   in celle piano (match esatto), righe testuali (regex a confini di parola,
@@ -703,14 +731,15 @@ getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiam
 p.dateCalendario: { visita, controllo, chiamata1, msg2 }  // generate da inizioPiano
 p.pesiIntermedi[] = { data, peso }  // futura — sblocca msg WA clinici (C4)
 
-CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0): Map id→record che avvolge
+CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0+1): Map id→record che avvolge
   ALIMENTI+CREA_ALIMENTI SENZA sostituirli — entrambe restano popolate e
   invariate per compatibilità con tutto il codice esistente. Ogni record:
   {id, nome, categoriaSem, categoriaFunz, gDefault, gl, per100g, tags,
-  barcode, fonte:'crea'|'custom', attivo}. Id deterministico
-  crea:<slug-nome> per i CREA-INRAN, cust:<ts>-<rnd> per i custom (assegnato
-  una volta, poi stabile — serve a far convivere in futuro due prodotti
-  diversi con lo stesso nome a schermo, es. scanner barcode P110).
+  allergeni[], barcode, fonte:'crea'|'custom'|'off', attivo}. Id
+  deterministico crea:<slug-nome> per i CREA-INRAN, cust:<ts>-<rnd> per i
+  custom (assegnato una volta, poi stabile — usato da P110/scanner
+  barcode per far convivere due prodotti diversi con lo stesso nome a
+  schermo, es. due letture con nome generico identico).
   risolviAlimento(rif): risoluzione UNICA per id o nome (esatto →
   case-insensitive → canonico). getValoriCREA ora è un involucro sottile su
   questa funzione — firma e fallback invariati per chi la chiama.
@@ -718,6 +747,43 @@ CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0): Map id→record che avvolge
   con kcal/P/C/G (prima avevano solo categoria/grammatura e cadevano nel
   fallback generico). 27 restano senza macros (spezie, esotici/integratori,
   voci composte di Fabrizio) — non presenti nelle tabelle CREA classiche.
+
+Sezione "Alimenti" (menu di sinistra, dal 13 lug 2026 sera, P108 fase 1):
+  voce di nav indipendente dal paziente (prima la gestione custom viveva
+  solo dentro le preferenze-cibi del singolo paziente). Lista con ricerca
+  per nome, filtro categoria (popolato dal catalogo), filtro fonte (Base
+  CREA-INRAN / Personalizzati), filtro stato (Attivi/Archiviati/Tutti).
+  Alimenti base in sola lettura (🔒); personalizzati con azioni Modifica
+  (✎), Rinomina ovunque (🏷, P82), Archivia (📦). Form di aggiunta/modifica
+  ora include campo Allergeni/intolleranze (chip libere separate da
+  virgola, salvate in record.allergeni[] — informativo, non collegato al
+  validatore semaforo/P61). Archivia (mai elimina secco, coerente con
+  eliminaAlimentoCustom di P82 che resta per i casi a riferimenti zero):
+  attivo:false rimuove l'alimento dai picker dei NUOVI piani ma lo lascia
+
+Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
+  barcode" nell'header della sezione Alimenti, accanto a "+ Nuovo
+  alimento". Modale dedicato con video e mirino: lettura via
+  `BarcodeDetector` nativo se disponibile (Chrome/Android), altrimenti
+  libreria ZXing caricata da CDN al primo uso (Safari/iPhone, Firefox);
+  inserimento manuale del codice sempre presente come fallback. Trovato
+  il codice: prima dedup contro `CATALOGO_ALIMENTI` (barcode già
+  presente → notifica sull'alimento esistente, niente doppioni),
+  altrimenti fetch a `world.openfoodfacts.org` (sola lettura, nessuna
+  chiave API, timeout 12s). Se il prodotto esiste su OFF, il form
+  `mo-alim-custom` di P108 si riapre precompilato (nome+brand, kcal/P/C/G
+  per 100g con conversione kJ→kcal se serve, grammatura da porzione) con
+  un avviso a verificare i valori sull'etichetta — **mai auto-salvato**:
+  l'utente conferma o corregge come per un alimento manuale. Se il
+  prodotto non è su OFF o il servizio è irraggiungibile, messaggi
+  dedicati che non bloccano il flusso (form vuoto con barcode agganciato,
+  o invito a riprovare/inserire a mano). Il record salvato nasce con
+  `fonte:'off'` — badge "Da barcode" nella lista, nuovo filtro fonte
+  dedicato. OFF è un rubinetto una-tantum in lettura: un piano già
+  generato non muta se OFF cambia o sparisce in futuro.
+  indicizzato nel catalogo → risolviAlimento continua a trovarlo →
+  getValoriCREA continua a restituirne i macros per piani/ricette GIÀ
+  esistenti. Pulsante ↺ Ripristina inverte l'operazione.
 
 CREA_ALIMENTI: ~230 voci kcal/P/C/G per 100g (dopo }; di ALIMENTI nel codice)
   Generici: Verdura mista {25,2,4,0.3} | Frutta mista {50,0.8,12,0.2} | Frutta secca {615,18,7,55}
