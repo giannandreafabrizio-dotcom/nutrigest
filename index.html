@@ -2505,6 +2505,10 @@ function calcolaMacrosPiano(piano) {
   });
 
   const n = giornalieri.length || 1;
+  // P111: giorni "compilati" = almeno un pasto con almeno un alimento (prima scelta > 0 kcal
+  // oppure ponderata > 0 kcal). Serve solo per comunicare in UI che la media è su un piano
+  // parziale — NON altera in alcun modo il calcolo sopra (che resta invariato, division by n).
+  const _giorniCompilati = giornalieri.filter(function(gd){ return (gd.kcal > 0) || (gd.psKcal > 0); }).length;
   return {
     giornalieri,
     settimanale: { kcal: Math.round(wKcal), p: Math.round(wP*10)/10, c: Math.round(wC*10)/10, g: Math.round(wG*10)/10 },
@@ -2514,6 +2518,10 @@ function calcolaMacrosPiano(piano) {
     alimentiNonTrovati: Array.from(nonTrovati),
     sabatoCenaStimata: _sabatoCenaStimata,
     kcalWeekendStimata: _kcalWeekend,
+    // P111: dati per il badge "piano parziale" — nessun impatto sul calcolo esistente
+    giorniTotali: n,
+    giorniCompilati: _giorniCompilati,
+    pianoParziale: _giorniCompilati < n,
   };
 }
 
@@ -2562,8 +2570,15 @@ function renderBadgeMacrosReali(piano, target) {
   const warnSabato = calc.sabatoCenaStimata
     ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#1e40af;background:#eff6ff;padding:0.3rem 0.6rem;border-radius:6px;">&#127371; Sabato cena libera inclusa come stima (~' + calc.kcalWeekendStimata + ' kcal). La media giornaliera include questa stima.</div>'
     : '';
+  // P111: piano parziale — la media resta divisa per il totale dei giorni (nessun cambio al calcolo),
+  // qui solo un avviso testuale per non far sembrare un errore un dato corretto ma parziale.
+  const warnParziale = calc.pianoParziale
+    ? '<div style="margin-top:0.4rem;font-size:0.72rem;color:#92400e;background:#fef3c7;padding:0.3rem 0.6rem;border-radius:6px;">&#9888; Piano parziale: ' + calc.giorniCompilati + ' di ' + calc.giorniTotali + ' giorni compilati. La media è comunque calcolata su ' + calc.giorniTotali + ' giorni, quindi i valori sotto sono sottostimati finché non completi il piano.</div>'
+    : '';
   return '<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:0.7rem 0.9rem;margin:0.6rem 0;">'
-    +'<div style="font-size:0.78rem;font-weight:600;color:#0f766e;margin-bottom:0.45rem;">&#128202; Macros reali del piano (media giornaliera)</div>'
+    +'<div style="font-size:0.78rem;font-weight:600;color:#0f766e;margin-bottom:0.45rem;">&#128202; Macros reali del piano (media giornaliera)'
+    + (calc.pianoParziale ? ' <span style="font-weight:400;color:#92400e;font-size:0.68rem;">(parziale: '+calc.giorniCompilati+'/'+calc.giorniTotali+' gg)</span>' : '')
+    + '</div>'
     + HDR
     + row('Kcal', ps.kcal, m.kcal, tKcal, 'kcal')
     + row('Proteine', ps.p, m.p, tP, 'g')
@@ -2572,6 +2587,7 @@ function renderBadgeMacrosReali(piano, target) {
     + FOOTER
     + warn
     + warnSabato
+    + warnParziale
     +'</div>';
 }
 
