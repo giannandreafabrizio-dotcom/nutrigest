@@ -13984,6 +13984,39 @@ function _aggiornaPianoBox() {
 
     pianoEl.innerHTML = '<div style="margin-top:1.5rem;">' + navHtml + dayHtml + '</div>';
 
+    // Giornate speciali (P94) anche nel Generatore AI: stessi bottoni-toggle e stessa
+    // logica dell'editor manuale (riuso GIORNI_SPECIALI_PRESET/_ngToggleGiornoSpeciale,
+    // che operano su window._pianoCorrente — la stessa variabile usata qui come pianoAI).
+    if (typeof GIORNI_SPECIALI_PRESET !== 'undefined') {
+      var boxSpecialiGen = document.createElement('div');
+      boxSpecialiGen.style.cssText = 'margin-top:1rem;';
+      var labelSpecialiGen = document.createElement('div');
+      labelSpecialiGen.style.cssText = 'font-size:.78rem;color:#64748b;margin-bottom:.35rem;font-weight:500;';
+      labelSpecialiGen.textContent = '🎉 Giornate speciali';
+      boxSpecialiGen.appendChild(labelSpecialiGen);
+      var rigaSpecialiGen = document.createElement('div');
+      rigaSpecialiGen.style.cssText = 'display:flex;gap:.4rem;flex-wrap:wrap;';
+      GIORNI_SPECIALI_PRESET.forEach(function(preset) {
+        var attivoGen = (window._pianoCorrente || []).some(function(gg) { return gg && gg.speciale && gg.temaKey === preset.key; });
+        var btnGen = document.createElement('button');
+        btnGen.type = 'button';
+        btnGen.style.cssText = 'padding:.4rem .75rem;border-radius:20px;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .15s;'
+          + (attivoGen
+            ? 'background:var(--teal2,#0d9488);border:1px solid var(--teal2,#0d9488);color:#fff;'
+            : 'background:#fff;border:1px solid var(--border,#cbd5e1);color:#475569;');
+        btnGen.innerHTML = preset.emoji + ' ' + preset.label;
+        btnGen.onclick = function() {
+          _ngToggleGiornoSpeciale(preset.key);
+          // _ngToggleGiornoSpeciale chiama _ngRenderPianoDestra (editor manuale); qui siamo
+          // nel Generatore AI, quindi il refresh corretto è _aggiornaPianoBox().
+          if (typeof _aggiornaPianoBox === 'function') _aggiornaPianoBox();
+        };
+        rigaSpecialiGen.appendChild(btnGen);
+      });
+      boxSpecialiGen.appendChild(rigaSpecialiGen);
+      pianoEl.appendChild(boxSpecialiGen);
+    }
+
     // Ripristina pulsante PDF dopo render
     if (window._pdfPaziente && window._pdfPiano) {
       var btnPdf = document.createElement('button');
