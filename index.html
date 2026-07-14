@@ -15041,29 +15041,38 @@ function _ngScrollTabGiorni(direzione){
 function _ngAbilitaDragScroll(el){
   if(!el || el._ngDragScrollInit) return; // evita doppio binding se richiamata sullo stesso nodo
   el._ngDragScrollInit = true;
-  let spostato=false, startX=0, startScroll=0;
+  let primed=false, dragging=false, startX=0, startScroll=0, activePointer=null;
   el.addEventListener('pointerdown', function(ev){
     if(ev.pointerType==='touch') return; // touch: scroll nativo, non serve il drag manuale
-    spostato=false;
-    startX=ev.clientX; startScroll=el.scrollLeft;
-    el.setPointerCapture(ev.pointerId);
-    el.style.cursor='grabbing';
+    // NB: NON catturiamo il pointer qui. Se lo facessimo su pointerdown, su desktop il
+    // click verrebbe deviato dalla barra e i bottoni-giorno non risponderebbero al click.
+    primed=true; dragging=false;
+    startX=ev.clientX; startScroll=el.scrollLeft; activePointer=ev.pointerId;
   });
   el.addEventListener('pointermove', function(ev){
-    if(!el.hasPointerCapture || !el.hasPointerCapture(ev.pointerId)) return;
+    if(!primed || ev.pointerId!==activePointer) return;
     const delta=ev.clientX-startX;
-    if(Math.abs(delta)>4) spostato=true; // soglia minima: sotto, resta un click normale sulla tab
+    if(!dragging){
+      if(Math.abs(delta)<=4) return; // sotto soglia: resta un click normale sulla tab
+      dragging=true;                 // oltre soglia: è un trascinamento vero
+      el.setPointerCapture(ev.pointerId);
+      el.style.cursor='grabbing';
+    }
     el.scrollLeft=startScroll-delta;
   });
-  el.addEventListener('pointerup', function(ev){
+  const fine=function(ev){
+    if(activePointer!==null && ev.pointerId!==activePointer) return;
     el.style.cursor='';
     if(el.hasPointerCapture && el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId);
-    if(spostato){
+    if(dragging){
       // Trascinamento vero: blocca il click che seguirebbe (evita di cambiare giorno per errore)
       const blocca=function(e){ e.stopPropagation(); e.preventDefault(); el.removeEventListener('click',blocca,true); };
       el.addEventListener('click', blocca, true);
     }
-  });
+    primed=false; dragging=false; activePointer=null;
+  };
+  el.addEventListener('pointerup', fine);
+  el.addEventListener('pointercancel', fine);
 }
 
 function _ngCambiaNumeroGiorni(nuovoN){
@@ -15205,8 +15214,8 @@ function _ngRenderPianoDestra(){
   }
   h+='</div>';
   h+='<button onclick="_ngScrollTabGiorni(1)" title="Scorri a destra" style="flex:0 0 auto;width:24px;height:26px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:.85rem;margin-bottom:6px">›</button>';
-  if(piano.length<14){
-    h+='<button onclick="_ngCambiaNumeroGiorni('+(piano.length+1)+')" title="Aggiungi giorno" style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:1rem;margin-bottom:6px">+</button>';
+  if(_ngIndiceInizioSpeciali(piano)<14){
+    h+='<button onclick="_ngCambiaNumeroGiorni('+(_ngIndiceInizioSpeciali(piano)+1)+')" title="Aggiungi giorno" style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:1rem;margin-bottom:6px">+</button>';
   }
   h+='</div>';
   setTimeout(function(){
