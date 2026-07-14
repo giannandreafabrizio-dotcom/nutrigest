@@ -49,7 +49,7 @@
 | ~~**P55**~~ ✅ chiusa 9 lug 2026 (`getTargetAttivi`, commit `85b18ea`) | — | — | — | — |
 | **P33b** aggancio auto alternative | Opus | High | ON | Evoluzione P33, decisione dopo uso sul campo |
 | **P33c** piano lungo a ricetta singola | Opus | High | ON | Tocca struttura piano + export |
-| P37, P80–P83 (ricettario) | Sonnet | Low/Medium | OFF | Contenuti e UI, rischio basso |
+| ~~P37~~ ❌ escluso, ~~P80~~ ✅ chiusa parziale, ~~P83~~ ❌ annullato (14 lug 2026) | — | — | — | — |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
 | P35, P43, P90–P101 (UX/pulizia) | Sonnet | Low/Medium | OFF | Meccaniche o estetiche, rischio basso |
@@ -207,12 +207,13 @@
 **FOCUS COMPONENTI COINVOLTI:** AI Layer (prompt mode) + Frontend/PDF (layout). Zero struttura dati.
 **SCHEDA:** Stato: Da fare (dopo rodaggio manuale) · Priorità: Media-Bassa · C: 3 | I: 3 | R: 2 · Modello: Fable (Alto) decisione, Sonnet stampa · Autonomia: L2 sul layout.
 
-### P37 — Caricamento graduale 1.256 ricette dagli appunti
+### P37 — Caricamento graduale 1.256 ricette dagli appunti ❌ ESCLUSO 14 luglio 2026
 **L'APPROCCIO ORIGINARIO:** batch da 20 con conferma t/s (~30s/batch), dopo che l'architettura è stabile; compilare gli attributi al caricamento.
 **LA CRITICA DEL CTO:** 63 batch × conferme manuali = ore del tempo più costoso del progetto (quello di Fabrizio) spese a dire "sì" a estrazioni ovvie. Il collo di bottiglia va spostato sulle eccezioni.
 **LA SOLUZIONE OTTIMIZZATA:** pipeline a 2 passate. (Pass 1 — macchina: estrazione integrale in JSON di staging con confidence per campo; dedupe fuzzy su titolo+ingredienti; attributi auto-derivati: categoria dallo slot d'origine nel piano sorgente, stagione da ingredienti-sentinella, tempoPrep euristico; kcal ricalcolate col motore deterministico del BLOCCO 17 e confrontate con l'eventuale valore dichiarato → mismatch = flag). (Pass 2 — umano: UI di revisione che mostra SOLO low-confidence, duplicati sospetti e mismatch kcal — realisticamente 100-200 voci, non 1.256). Import con `origin:'archivio-2026'` per poterle filtrare/ritirare in blocco. Stima costi AI dichiarata prima (principio di progetto). Prerequisiti: P82 (ingredienti ignoti → custom) e gauge P71-G1 (peso db).
 **FOCUS COMPONENTI COINVOLTI:** AI Layer (estrazione batch), Frontend (staging review), Database (tabella ricette, campo origin).
 **SCHEDA:** Stato: Da fare · Priorità: Bassa→Media (sblocca P3/P84/P80) · C: 3 | I: 4 | R: 2 · Modello: Fable (Alto) pipeline, Sonnet esecuzione · Autonomia: L1.
+**ESITO REALE:** Fabrizio ha deciso il 14 luglio 2026 di escludere definitivamente questa voce — caricare le 1.256 ricette dagli appunti valutato spreco di risorse rispetto al beneficio. Nessun codice toccato. Impatto sulle voci che la citavano come sblocco: P80 ripensato senza il dedupe fuzzy automatico (vedi P80 sotto, chiusa parziale con ordinamento alfabetico); P3/P84 restano da rivalutare quando/se affrontate.
 
 > **Nota:** lista ricette pendenti spostata dal Contesto (v17→v18, 8 luglio 2026) — persa per un attimo nel merge con l'Analisi Critica del passaggio successivo, reintegrata dopo il controllo di completezza.
 
@@ -247,12 +248,15 @@ CONDIMENTI ANTINFIAMMATORI (da aggiungere):
 SMOOTHIE BOWL: da valutare quando si decide di inserirle
 
 
-### P80 — Raggruppare ricette simili
+### P80 — Raggruppare ricette simili ✅ CHIUSA PARZIALE (Strada A) 14 luglio 2026, commit `bd1744f`
 **L'APPROCCIO ORIGINARIO:** vista raggruppata per "famiglia" (prefisso o tag/attributi).
 **LA CRITICA DEL CTO:** non inventare clustering: dopo P37 le famiglie emergono dal dedupe fuzzy già calcolato. Un campo esplicito batte ogni euristica.
-**LA SOLUZIONE OTTIMIZZATA:** campo opzionale `r.famiglia` (es. "Overnight"), assegnato in Pass 2 di P37 ai gruppi rilevati e editabile a chip; `renderRic` raggruppa per famiglia quando il filtro è attivo. 
-**FOCUS COMPONENTI COINVOLTI:** Frontend + un campo additivo.
-**SCHEDA:** Stato: Da fare (con/après P37) · Priorità: Bassa · C: 2 | I: 2 | R: 1 · Modello: Sonnet (Bassa) · Autonomia: L1.
+**LA SOLUZIONE OTTIMIZZATA (originaria, superata):** campo opzionale `r.famiglia` (es. "Overnight"), assegnato in Pass 2 di P37 ai gruppi rilevati e editabile a chip; `renderRic` raggruppa per famiglia quando il filtro è attivo.
+**RIPENSATA IL 14 LUGLIO 2026:** P37 (dedupe fuzzy automatico) è stato escluso dalla roadmap nella stessa sessione — l'assegnazione automatica del campo `famiglia` non è più disponibile senza tagging manuale. Fabrizio ha segnalato il problema concreto: ricette della stessa famiglia (es. due varianti di pancake) comparivano lontane nella lista perché l'ordine era solo quello di inserimento, nessun ordinamento esisteva nel codice. Proposte due strade: (A) ordinamento alfabetico puro, zero tagging; (B) campo `r.famiglia` manuale, editabile a chip, più flessibile ma richiede tagging di ogni ricetta. Scelta di Fabrizio: Strada A.
+**ESITO REALE:** aggiunto `ricette.sort(...)` con `localeCompare(..., 'it', {sensitivity:'base'})` su `r.nome` in due punti: `renderListaRicette` (modale a linguette Scrivi/Ricettario/Ricette parziali) e `_ngPescaRicetta` (popup "Pesca ricetta"). Zero struttura dati nuova, zero tagging manuale. `node --check` verificato su tutti i blocchi script prima della consegna. Confermato funzionante in produzione da Fabrizio.
+**FOCUS COMPONENTI COINVOLTI:** Frontend, due funzioni di rendering lista ricette.
+**SCHEDA:** Stato: ✅ Chiusa parziale (Strada A) · Priorità: Bassa · C: 1 | I: 2 | R: 1 · Modello: Sonnet (Low/Medium), Thinking OFF · Autonomia: L1.
+**NOTA APERTA:** se l'ordinamento alfabetico non basta a raggruppare ricette con nomi diversi che dovrebbero stare vicine (es. "French toast" vicino a "Pancake"), resta disponibile la Strada B (campo `r.famiglia` manuale) come estensione futura, non alternativa — le due tecniche coesistono senza conflitto.
 
 ### P81 — "Salva nel Ricettario" dal generatore
 **L'APPROCCIO ORIGINARIO:** pulsante sulla riga ricetta del piano che salva titolo+ingredienti+macro, categoria dallo slot.
@@ -261,12 +265,13 @@ SMOOTHIE BOWL: da valutare quando si decide di inserirle
 **FOCUS COMPONENTI COINVOLTI:** Frontend. Zero AI aggiuntiva.
 **SCHEDA:** Stato: Da fare · Priorità: Media-Bassa · C: 2 | I: 3 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
 
-### P83 — Caffè fitto operativo
+### P83 — Caffè fitto operativo ❌ ANNULLATO 14 luglio 2026
 **L'APPROCCIO ORIGINARIO:** collegarlo a valori nutrizionali reali e renderlo selezionabile nel piano.
 **LA CRITICA DEL CTO:** non merita codice: è UNA voce di contenuto. Se serve struttura, è quella di P82.
 **LA SOLUZIONE OTTIMIZZATA:** inserirlo come alimento custom (valori reali) + eventuale ricetta nel ricettario con tag. 15 minuti dentro un'altra sessione. Se entro P37 nessuno lo reclama, cade nella valutazione "ricette fit" (archiviare).
 **FOCUS COMPONENTI COINVOLTI:** Dati/contenuto. Zero codice.
-**SCHEDA:** Stato: Da fare · Priorità: Bassa · C: 1 | I: 1 | R: 1 · Modello: nessuno · Autonomia: L1.
+**SCHEDA:** Stato: ❌ Annullato · Priorità: Bassa · C: 1 | I: 1 | R: 1 · Modello: nessuno · Autonomia: L1.
+**ESITO REALE:** Fabrizio ha deciso il 14 luglio 2026 di annullare questa voce: la categoria "Fit" verrà rimossa dall'app, sostituita dalla composizione automatica delle celle a partire dal titolo ricetta (funzione già esistente e in uso). Nessun codice toccato.
 
 ---
 

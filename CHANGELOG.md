@@ -10,6 +10,54 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+14 LUGLIO 2026 — SERA — P80 (parziale, Strada A): ordinamento alfabetico
+ricette nel modale pasto e in Pesca ricetta (commit `bd1744f`). Sonnet
+Low/Medium, Thinking OFF:
+
+  Punto di partenza: Fabrizio ha notato che ricette della stessa
+  "famiglia" (es. "Pancake alla banana con mirtilli e miele" e
+  "Pancake proteico con mirtilli e cannella") comparivano lontane
+  nella lista ricette, perché l'ordine era semplicemente quello di
+  inserimento (nessun ordinamento esisteva nel codice).
+
+  Analisi: la roadmap prevedeva P80 come raggruppamento per campo
+  `r.famiglia`, assegnato automaticamente da P37 (dedupe fuzzy sulle
+  1.256 ricette d'archivio). In questa sessione P37 è stato escluso
+  dalla roadmap (valutato spreco di risorse da Fabrizio), quindi
+  l'assegnazione automatica della famiglia non è più disponibile.
+  Concordata con Fabrizio una soluzione più leggera in due possibili
+  strade: (A) ordinamento alfabetico puro, zero tagging manuale,
+  risolve i casi in cui le ricette simili condividono le prime parole
+  del nome; (B) campo "famiglia" editabile a mano, più flessibile ma
+  richiede tagging manuale di ogni ricetta. Scelta: Strada A.
+
+  Implementazione: aggiunto `ricette.sort(...)` con
+  `localeCompare(..., 'it', {sensitivity:'base'})` su `r.nome` in due
+  punti: (1) `renderListaRicette` (righe ~13527, modale a linguette
+  Scrivi/Ricettario/Ricette parziali, condiviso da tab Ricettario e
+  tab Ricette parziali); (2) `_ngPescaRicetta` (righe ~15874, popup
+  "Pesca ricetta" viola). Zero altre modifiche, zero struttura dati
+  nuova. Verificato `node --check` su tutti i blocchi script prima
+  della consegna. Confermato funzionante in produzione da Fabrizio.
+
+  Nota per il futuro: se l'ordinamento alfabetico non basta a
+  raggruppare ricette con nomi diversi che dovrebbero stare vicine,
+  resta aperta la Strada B (campo `r.famiglia` manuale) come
+  estensione, non alternativa — le due tecniche possono coesistere.
+
+  Altre decisioni di roadmap in questa sessione (nessun codice
+  toccato):
+  - P83 (caffè fit) → ANNULLATO. La categoria "Fit" verrà rimossa;
+    sostituita dalla composizione automatica delle celle dal titolo
+    ricetta (funzione già in uso per altre ricette).
+  - P37 (caricamento 1.256 ricette dagli appunti) → ESCLUSO
+    definitivamente dalla roadmap, giudicato spreco di risorse da
+    Fabrizio. Impatto: P80 e P3/P84, che lo citavano come sblocco,
+    vanno ripensati senza quel prerequisito (P80 già ripensato in
+    questa sessione, vedi sopra).
+  - P82 (alimenti custom) → solo verificato: già chiuso il 12 luglio
+    2026, nessuna azione necessaria.
+
 14 LUGLIO 2026 — SERA TARDI — Pannello alimenti unificato nel giorno gara
 + unificazione "Componi a mano" col Generatore AI (commit `2cd0230` →
 `5173a75` → `c421a07`). Opus High, Thinking ON:
