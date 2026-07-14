@@ -10490,6 +10490,36 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _appendTogglePromemoria(pianoEl);
     _appendToggleFruttaStile(pianoEl);
     _appendBtnConcetti(pianoEl);
+    // Giornate speciali (P94): mancavano qui — il Generatore AI usa _renderGiornoGen
+    // (questo ramo), non il vecchio _renderGiornoAttivo dentro _aggiornaPianoBox, che
+    // fa return prima di arrivarci quando è presente #piano-select-paz (come qui).
+    if (typeof GIORNI_SPECIALI_PRESET !== 'undefined') {
+      var boxSpecialiGen2 = document.createElement('div');
+      boxSpecialiGen2.style.cssText = 'margin-top:.6rem;margin-bottom:.4rem;';
+      var labelSpecialiGen2 = document.createElement('div');
+      labelSpecialiGen2.style.cssText = 'font-size:.78rem;color:#64748b;margin-bottom:.35rem;font-weight:500;';
+      labelSpecialiGen2.textContent = '🎉 Giornate speciali';
+      boxSpecialiGen2.appendChild(labelSpecialiGen2);
+      var rigaSpecialiGen2 = document.createElement('div');
+      rigaSpecialiGen2.style.cssText = 'display:flex;gap:.4rem;flex-wrap:wrap;';
+      GIORNI_SPECIALI_PRESET.forEach(function(preset) {
+        var attivoGen2 = (window._pianoCorrente || []).some(function(gg) { return gg && gg.speciale && gg.temaKey === preset.key; });
+        var btnGen2 = document.createElement('button');
+        btnGen2.type = 'button';
+        btnGen2.style.cssText = 'padding:.4rem .75rem;border-radius:20px;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .15s;'
+          + (attivoGen2
+            ? 'background:var(--teal2,#0d9488);border:1px solid var(--teal2,#0d9488);color:#fff;'
+            : 'background:#fff;border:1px solid var(--border,#cbd5e1);color:#475569;');
+        btnGen2.innerHTML = preset.emoji + ' ' + preset.label;
+        btnGen2.onclick = function() {
+          _ngToggleGiornoSpeciale(preset.key);
+          if (typeof _aggiornaPianoBox === 'function') _aggiornaPianoBox();
+        };
+        rigaSpecialiGen2.appendChild(btnGen2);
+      });
+      boxSpecialiGen2.appendChild(rigaSpecialiGen2);
+      pianoEl.appendChild(boxSpecialiGen2);
+    }
     var btnWa=document.createElement('button');
     btnWa.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
     btnWa.innerHTML='💬 WhatsApp';
