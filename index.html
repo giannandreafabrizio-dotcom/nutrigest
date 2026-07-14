@@ -10485,7 +10485,7 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     document.querySelectorAll('#gara-albero-lista .ng-cat-items').forEach(function(el){ if(el.style.display!=='none') _openCatsPrev.push(el.id); });
     var _listaPrevEl=document.getElementById('gara-albero-lista');
     var _scrollPrev=_listaPrevEl?_listaPrevEl.scrollTop:0;
-    pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+'<div style="display:flex;gap:14px;align-items:flex-start;">'+_alberoGaraHtml+'<div style="flex:1;min-width:0;">'+dH+'</div></div></div>';
+    pianoEl.innerHTML='<div style="margin-top:1.5rem;"><div style="display:flex;gap:14px;align-items:flex-start;">'+_alberoGaraHtml+'<div style="flex:1;min-width:0;">'+pillsHtml+dH+'</div></div></div>';
     setTimeout(function(){
       var _inp=document.getElementById('gara-albero-cerca');
       if(_inp&&_cercaPrev) _inp.value=_cercaPrev;
