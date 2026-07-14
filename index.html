@@ -10437,6 +10437,9 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
       var act=ii===idx;
       pillsHtml+='<button onclick="window._pianoGiornoCorrente='+ii+';window._renderGiornoGen();" style="padding:5px 13px;border-radius:20px;border:1px solid '+(act?'var(--green)':'var(--border)')+';background:'+(act?'var(--green)':'var(--bg)')+';color:'+(act?'#fff':'var(--text2)')+';font-size:.78rem;font-weight:'+(act?'700':'400')+';cursor:pointer;white-space:nowrap;">'+et+'</button>';
     });
+    if(typeof _ngIndiceInizioSpeciali==='function' && _ngIndiceInizioSpeciali(piano)<14){
+      pillsHtml+='<button onclick="_ngCambiaNumeroGiorni('+(_ngIndiceInizioSpeciali(piano)+1)+')" title="Aggiungi giorno" style="padding:5px 12px;border-radius:20px;border:1px dashed var(--border);background:var(--bg);color:var(--text2);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">+</button>';
+    }
     pillsHtml+='<button onclick="mostraRoutinePopup()" style="padding:5px 13px;border-radius:20px;border:1px solid var(--teal-light);background:var(--teal-bg);color:var(--teal2);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">🌿 Routine</button>';
     pillsHtml+='</div>';
     var dH='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;">';
@@ -10453,9 +10456,12 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
         // pulsante per aggiungerlo manualmente al volo, riusa apriPannelloRicette/applicaRicettaPasto già esistenti.
         dH+='<button onclick="ngAggiungiSpuntinoVuoto(\''+nomeGiorno+'\',\''+s.key+'\')" style="background:none;border:1px dashed var(--border);color:var(--text2);border-radius:6px;padding:.3rem .6rem;font-size:.8rem;cursor:pointer;">+ Aggiungi '+s.label.toLowerCase()+'</button>';
       } else {
-        dH+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">';
+        dH+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">';
+        dH+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
         dH+='<span style="font-weight:700;color:var(--green);cursor:pointer;" onclick="apriPannelloRicette(\''+nomeGiorno+'\',\''+s.key+'\')">'+s.label+'</span>';
         dH+=_fruttaCheckboxHtml(nomeGiorno, s.key, pasto);
+        dH+='</div>';
+        dH+='<button onclick="_ngPescaRicetta(\''+nomeGiorno.replace(/'/g,"\\'")+'\',\''+s.key+'\')" style="background:#f5f3ff;border:1px solid #ddd6fe;color:#7c3aed;border-radius:6px;padding:3px 10px;font-size:.72rem;font-weight:600;cursor:pointer">\uD83D\uDCD6 Pesca ricetta</button>';
         dH+='</div>';
         if(typeof pasto==='string'){dH+=' — '+pasto;}
         else if(pasto.celle){dH+='<div class="gara-dropzone" data-giorno="'+nomeGiorno.replace(/"/g,'&quot;')+'" data-slot="'+s.key+'" ondragover="_garaDragOver(event)" ondragleave="_garaDragLeave(event)" ondrop="_garaDrop(event)" style="border-radius:8px;transition:background .1s;">'+_renderCelleHtml(pasto,s.key,nomeGiorno)+'</div>';}
@@ -10472,8 +10478,25 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     });
     dH+='</div></div>';
     var _alberoGaraHtml=(typeof _garaRenderPannelloAlimenti==='function')?_garaRenderPannelloAlimenti():'';
+    // Snapshot stato pannello alimenti PRIMA di sovrascrivere il DOM (il render ricrea tutto):
+    // testo di ricerca, categorie aperte, posizione scroll — altrimenti ogni drop li azzererebbe.
+    var _cercaPrev=(document.getElementById('gara-albero-cerca')||{value:''}).value||'';
+    var _openCatsPrev=[];
+    document.querySelectorAll('#gara-albero-lista .ng-cat-items').forEach(function(el){ if(el.style.display!=='none') _openCatsPrev.push(el.id); });
+    var _listaPrevEl=document.getElementById('gara-albero-lista');
+    var _scrollPrev=_listaPrevEl?_listaPrevEl.scrollTop:0;
     pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+'<div style="display:flex;gap:14px;align-items:flex-start;">'+_alberoGaraHtml+'<div style="flex:1;min-width:0;">'+dH+'</div></div></div>';
-    if(typeof _garaFiltro==='function') setTimeout(_garaFiltro,0); // stato iniziale filtro (solo paziente)
+    setTimeout(function(){
+      var _inp=document.getElementById('gara-albero-cerca');
+      if(_inp&&_cercaPrev) _inp.value=_cercaPrev;
+      _openCatsPrev.forEach(function(cid){
+        var grp=document.getElementById(cid);
+        if(grp){ grp.style.display='block'; var row=grp.previousElementSibling; var c=row?row.querySelector('.ng-caret'):null; if(c) c.style.transform='rotate(0deg)'; }
+      });
+      if(typeof _garaFiltro==='function') _garaFiltro();
+      var _lista=document.getElementById('gara-albero-lista');
+      if(_lista) _lista.scrollTop=_scrollPrev;
+    },0);
     var btn=document.createElement('button');
     btn.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
     btn.innerHTML='⬇️ Scarica PDF';
@@ -15154,7 +15177,7 @@ function _ngToggleGiornoSpeciale(temaKey){
     window._pianoGiornoCorrente=piano.length-1;
   }
   if(window._pdfPiano) window._pdfPiano=piano;
-  _ngRenderPianoDestra();
+  if(typeof _aggiornaPianoBox==='function'){ _aggiornaPianoBox(); } else { _ngRenderPianoDestra(); }
 }
 
 // ── Fase 2 P94: pannello contesto + generazione AI di un singolo giorno speciale ──
@@ -15349,14 +15372,18 @@ function _ngCreaPianoManuale(n){
   for(let i=1;i<=n;i++){ piano.push(_ngCostruisciGiornoVuoto(i)); }
   window._pianoCorrente=piano;
   window._pianoGiornoCorrente=0;
-  window._ngModalitaManuale=true; // flag: stiamo componendo a mano
   // Collega il piano al PDF (come fa la generazione AI)
   const sel=document.getElementById('piano-select-paz');
   const id=sel?sel.value:'';
   const p=db.pazienti.find(x=>x.id===id);
   if(p){ window._pdfPaziente=p; window._pdfPiano=piano; }
   _ngChiudiModalita();
-  _ngRenderEditorManuale();
+  // Unificazione (lug 2026): il Componi a mano usa lo STESSO render del Generatore AI
+  // (pill tabs verdi + pannello alimenti semaforo + drag&drop), non più l'editor dedicato
+  // _ngRenderEditorManuale. inizializzaP2 mostra anche "Salva piano definitivo" e
+  // "Salva come template" (gli stessi bottoni del flusso AI) e azzera _ngModalitaManuale.
+  inizializzaP2(piano);
+  renderPianoConPillTabs(piano, document.getElementById('piano-piano-box'));
 }
 
 // Cambia il numero di giorni del piano in ogni momento (controllo vicino alla navigazione).
@@ -15426,15 +15453,20 @@ function _ngCambiaNumeroGiorni(nuovoN){
     const perdeContenuto=rimossi.some(_ngGiornoHaContenuto);
     if(perdeContenuto){
       const ok=confirm('Riducendo a '+nuovoN+' giorni verranno eliminati '+rimossi.length+' giorno/i con alimenti già inseriti. Continuare?');
-      if(!ok) { _ngRenderPianoDestra(); return; } // ripristina il valore corretto nel <select>
+      if(!ok) { if(typeof _aggiornaPianoBox==='function'){_aggiornaPianoBox();}else{_ngRenderPianoDestra();} return; } // ripristina la vista
     }
     piano.splice(nuovoN,idxSpeciali-nuovoN);
     if((window._pianoGiornoCorrente||0)>nuovoN-1 && (window._pianoGiornoCorrente||0)<idxSpeciali) window._pianoGiornoCorrente=nuovoN-1;
   }
   if(window._pdfPiano) window._pdfPiano=piano;
-  _ngRenderPianoDestra();
+  if(typeof _aggiornaPianoBox==='function'){ _aggiornaPianoBox(); } else { _ngRenderPianoDestra(); }
 }
 
+// LEGACY (unificazione lug 2026): NON più chiamato dal flusso "Componi a mano", che ora usa
+// il render unificato del Generatore AI (inizializzaP2 + renderPianoConPillTabs, vedi
+// _ngCreaPianoManuale). Mantenute anche _ngRenderAlbero/_ngFiltraAlbero/_ngRenderPianoDestra
+// e _ngDragOver/_ngDragLeave/_ngDrop solo come fallback: il percorso VIVO è _renderGiornoGen
+// col pannello _garaRenderPannelloAlimenti e gli handler _garaDragOver/_garaDragLeave/_garaDrop.
 // Render dell'editor manuale: albero alimenti a sinistra + piano (celle) a destra.
 function _ngRenderEditorManuale(){
   const box=document.getElementById('piano-piano-box');
@@ -16011,7 +16043,9 @@ function _ngRimuoviAlimento(giorno,slot,cellaId,idx){
 // Dopo ogni modifica: ridisegna il piano a destra e aggiorna badge/macros.
 function _ngDopoModifica(){
   if(window._pdfPiano) window._pdfPiano=window._pianoCorrente;
-  _ngRenderPianoDestra();
+  // Post-unificazione: il refresh passa da _aggiornaPianoBox, che instrada alla vista attiva
+  // (generatore/pill-tabs, oppure editor manuale legacy se il suo DOM è presente).
+  if(typeof _aggiornaPianoBox==='function'){ _aggiornaPianoBox(); } else { _ngRenderPianoDestra(); }
   if(typeof renderBadge75_20_5==='function') renderBadge75_20_5(window._pianoCorrente);
   if(typeof renderBadgeMacrosReali_DOM==='function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if(typeof renderRiepilogoSettimana==='function') renderRiepilogoSettimana(window._pianoCorrente);
@@ -16147,9 +16181,8 @@ function _garaDrop(ev){
   var cellaEl=ev.target.closest ? ev.target.closest('[data-ng-cell]') : null;
   var cellaId=cellaEl?cellaEl.getAttribute('data-ng-cell'):null;
   if(dato._fromCella && cellaId && cellaId===dato._fromCella){ window._ngDragData=null; return; }
-  _ngAggiungiAlimento(giorno,slot,dato,cellaId); // muta i dati + badge (render composer no-op qui)
+  _ngAggiungiAlimento(giorno,slot,dato,cellaId); // muta i dati; il refresh passa da _ngDopoModifica → _aggiornaPianoBox
   window._ngDragData=null;
-  if(typeof _aggiornaPianoBox==='function') _aggiornaPianoBox(); // rinfresca la vista generatore
 }
 
 // ── PRIORITA' 2C: MODALITA' SENZA BILANCIA ───────────────────────────────────
@@ -20708,6 +20741,13 @@ function _aggiornaLabelSalvaPiano(){
 
 document.getElementById('p2-save').onclick = async function() {
   var pazId = document.getElementById('piano-select-paz').value;
+  // P61 — stesso gate clinico del PDF e del vecchio salvataggio manuale: dopo l'unificazione
+  // del Componi a mano col render del generatore, TUTTI i salvataggi passano da qui.
+  // validaGateExport è silenzioso sui piani validi; blocca (con override) solo violazioni gravi.
+  var _pazGateP2 = window._pdfPaziente || ((db&&db.pazienti)||[]).find(function(x){return x.id===pazId;});
+  if (typeof validaGateExport==='function' && _pazGateP2 && window._pianoCorrente) {
+    if(!validaGateExport(_pazGateP2, window._pianoCorrente, function(){ document.getElementById('p2-save').onclick(); })) return;
+  }
   if (!db.piani) db.piani = [];
   // P27: se stiamo modificando un piano esistente → aggiorna (stesso id → upsert), altrimenti crea nuovo
   var editingId = window._pianoEditingId;
