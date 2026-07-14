@@ -14949,6 +14949,53 @@ function _ngCostruisciGiornoVuoto(numero){
   return { giorno:'Giorno '+numero, pasti:pasti };
 }
 
+// Giorno "speciale" (P94): stessa struttura di un giorno normale — conta in calorie,
+// lista spesa, validatore allergie e PDF come tutti gli altri — cambia solo il titolo/tema.
+// Il campo `speciale:true` + `temaKey` servono solo al toggle per sapere cosa è acceso/spento.
+const GIORNI_SPECIALI_PRESET = [
+  { key:'natale',   emoji:'🎄', label:'Natale' },
+  { key:'gara',     emoji:'🏆', label:'Giorno gara' },
+  { key:'viaggioAuto', emoji:'🚗', label:'Viaggio in macchina' },
+  { key:'viaggioAereo', emoji:'✈️', label:'Viaggio in aereo' }
+];
+
+function _ngCostruisciGiornoSpeciale(temaKey){
+  const preset=GIORNI_SPECIALI_PRESET.find(function(t){ return t.key===temaKey; });
+  const slots=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  const pasti={};
+  slots.forEach(function(s){ pasti[s]={celle:[]}; });
+  const titolo=preset?(preset.emoji+' '+preset.label):'Giorno speciale';
+  return { giorno:titolo, pasti:pasti, speciale:true, temaKey:temaKey };
+}
+
+// Indice del primo giorno speciale nel piano corrente (-1 se non ce ne sono).
+// Le giornate speciali restano sempre in coda: i giorni normali si inseriscono sempre PRIMA di questo indice.
+function _ngIndiceInizioSpeciali(piano){
+  for(let i=0;i<piano.length;i++){ if(piano[i]&&piano[i].speciale) return i; }
+  return piano.length;
+}
+
+// Attiva/disattiva un giorno speciale preimpostato (bottoni toggle nel footer editor manuale).
+function _ngToggleGiornoSpeciale(temaKey){
+  const piano=window._pianoCorrente||[];
+  const idxEsistente=piano.findIndex(function(g){ return g&&g.speciale&&g.temaKey===temaKey; });
+  if(idxEsistente>=0){
+    // Già presente: spegni. Se ha contenuto inserito, chiedi conferma come per gli altri giorni.
+    if(_ngGiornoHaContenuto(piano[idxEsistente])){
+      const ok=confirm('Questo giorno speciale contiene già alimenti inseriti. Rimuoverlo comunque?');
+      if(!ok) return;
+    }
+    piano.splice(idxEsistente,1);
+    if((window._pianoGiornoCorrente||0)>=piano.length) window._pianoGiornoCorrente=Math.max(0,piano.length-1);
+  } else {
+    // Non presente: accendi, sempre in fondo a tutto (dopo eventuali altri speciali già attivi).
+    piano.push(_ngCostruisciGiornoSpeciale(temaKey));
+    window._pianoGiornoCorrente=piano.length-1;
+  }
+  if(window._pdfPiano) window._pdfPiano=piano;
+  _ngRenderPianoDestra();
+}
+
 // Vero se un giorno ha già del contenuto inserito (celle con alimenti o ricette testuali).
 function _ngGiornoHaContenuto(g){
   if(!g||!g.pasti) return false;
@@ -15022,19 +15069,24 @@ function _ngAbilitaDragScroll(el){
 function _ngCambiaNumeroGiorni(nuovoN){
   if(!nuovoN || nuovoN<1 || nuovoN>14) return;
   const piano=window._pianoCorrente||[];
-  const attuale=piano.length;
+  // I giorni "normali" sono tutti quelli prima del primo giorno speciale (P94: le speciali restano sempre ultime).
+  const idxSpeciali=_ngIndiceInizioSpeciali(piano);
+  const attuale=idxSpeciali;
   if(nuovoN===attuale) return;
   if(nuovoN>attuale){
-    for(let i=attuale+1;i<=nuovoN;i++){ piano.push(_ngCostruisciGiornoVuoto(i)); }
+    // Inserisce i nuovi giorni normali PRIMA delle eventuali giornate speciali già presenti.
+    const nuovi=[];
+    for(let i=attuale+1;i<=nuovoN;i++){ nuovi.push(_ngCostruisciGiornoVuoto(i)); }
+    piano.splice(idxSpeciali,0,...nuovi);
   } else {
-    const rimossi=piano.slice(nuovoN);
+    const rimossi=piano.slice(nuovoN,idxSpeciali);
     const perdeContenuto=rimossi.some(_ngGiornoHaContenuto);
     if(perdeContenuto){
       const ok=confirm('Riducendo a '+nuovoN+' giorni verranno eliminati '+rimossi.length+' giorno/i con alimenti già inseriti. Continuare?');
       if(!ok) { _ngRenderPianoDestra(); return; } // ripristina il valore corretto nel <select>
     }
-    piano.length=nuovoN;
-    if((window._pianoGiornoCorrente||0)>nuovoN-1) window._pianoGiornoCorrente=nuovoN-1;
+    piano.splice(nuovoN,idxSpeciali-nuovoN);
+    if((window._pianoGiornoCorrente||0)>nuovoN-1 && (window._pianoGiornoCorrente||0)<idxSpeciali) window._pianoGiornoCorrente=nuovoN-1;
   }
   if(window._pdfPiano) window._pdfPiano=piano;
   _ngRenderPianoDestra();
@@ -15206,6 +15258,32 @@ function _ngRenderPianoDestra(){
   _appendTogglePromemoria(footer);
   if(typeof _appendToggleFruttaStile==='function') _appendToggleFruttaStile(footer);
   _appendBtnConcetti(footer);
+
+  // Giornate speciali (P94): bottoni-toggle preimpostati. Ogni bottone acceso aggiunge
+  // in fondo al piano un giorno normale a tema (compilabile come tutti gli altri);
+  // spegnendolo lo rimuove. Le giornate speciali restano sempre ultime nell'ordine.
+  var boxSpeciali=document.createElement('div');
+  boxSpeciali.style.cssText='margin-bottom:.8rem;';
+  var labelSpeciali=document.createElement('div');
+  labelSpeciali.style.cssText='font-size:.78rem;color:#64748b;margin-bottom:.35rem;font-weight:500;';
+  labelSpeciali.textContent='🎉 Giornate speciali';
+  boxSpeciali.appendChild(labelSpeciali);
+  var rigaSpeciali=document.createElement('div');
+  rigaSpeciali.style.cssText='display:flex;gap:.4rem;flex-wrap:wrap;';
+  GIORNI_SPECIALI_PRESET.forEach(function(preset){
+    var attivo=(window._pianoCorrente||[]).some(function(gg){ return gg&&gg.speciale&&gg.temaKey===preset.key; });
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.style.cssText='padding:.4rem .75rem;border-radius:20px;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .15s;'
+      +(attivo
+        ? 'background:var(--teal2,#0d9488);border:1px solid var(--teal2,#0d9488);color:#fff;'
+        : 'background:#fff;border:1px solid var(--border,#cbd5e1);color:#475569;');
+    btn.innerHTML=preset.emoji+' '+preset.label;
+    btn.onclick=function(){ _ngToggleGiornoSpeciale(preset.key); };
+    rigaSpeciali.appendChild(btn);
+  });
+  boxSpeciali.appendChild(rigaSpeciali);
+  footer.appendChild(boxSpeciali);
 
   // Riga Scarica PDF + WhatsApp
   var rigaEsport=document.createElement('div');
