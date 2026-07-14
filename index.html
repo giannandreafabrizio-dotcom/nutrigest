@@ -10458,7 +10458,7 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
         dH+=_fruttaCheckboxHtml(nomeGiorno, s.key, pasto);
         dH+='</div>';
         if(typeof pasto==='string'){dH+=' — '+pasto;}
-        else if(pasto.celle){dH+=_renderCelleHtml(pasto,s.key,nomeGiorno);}
+        else if(pasto.celle){dH+='<div class="gara-dropzone" data-giorno="'+nomeGiorno.replace(/"/g,'&quot;')+'" data-slot="'+s.key+'" ondragover="_garaDragOver(event)" ondragleave="_garaDragLeave(event)" ondrop="_garaDrop(event)" style="border-radius:8px;transition:background .1s;">'+_renderCelleHtml(pasto,s.key,nomeGiorno)+'</div>';}
         else{
           var nota=pasto.nota_descrittiva||pasto.nota||'';
           if(nota)dH+='<br><em style="color:var(--text2);font-size:.8rem;">'+nota+'</em>';
@@ -10471,7 +10471,9 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
       dH+='</div>';
     });
     dH+='</div></div>';
-    pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+dH+'</div>';
+    var _alberoGaraHtml=(typeof _garaRenderPannelloAlimenti==='function')?_garaRenderPannelloAlimenti():'';
+    pianoEl.innerHTML='<div style="margin-top:1.5rem;">'+pillsHtml+'<div style="display:flex;gap:14px;align-items:flex-start;">'+_alberoGaraHtml+'<div style="flex:1;min-width:0;">'+dH+'</div></div></div>';
+    if(typeof _garaFiltro==='function') setTimeout(_garaFiltro,0); // stato iniziale filtro (solo paziente)
     var btn=document.createElement('button');
     btn.style.cssText='flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;';
     btn.innerHTML='⬇️ Scarica PDF';
@@ -16016,6 +16018,139 @@ function _ngDopoModifica(){
 }
 
 
+
+// ── PANNELLO ALIMENTI UNIFICATO NEL GENERATORE (giorno gara + tutti i giorni) ──
+// Riusa l'estetica e i dati semaforo del compositore manuale, ma vive dentro il
+// render del Generatore AI (_renderGiornoGen). Trascinamento: riusa _ngDragStart
+// (sorgente) e _ngAggiungiAlimento (mutazione dati), poi rinfresca via
+// _aggiornaPianoBox() che instrada correttamente al generatore.
+// Costruisce il markup del pannello alimenti (colonna sinistra) come stringa.
+function _garaRenderPannelloAlimenti(){
+  var sel=document.getElementById('piano-select-paz');
+  var id=sel?sel.value:'';
+  var p=db.pazienti.find(function(x){return x.id===id;});
+  var al=(p&&p.alimenti)||{};
+  if(window._garaSoloPaz===undefined) window._garaSoloPaz=true; // default: solo alimenti del paziente
+  var soloPazChk=(window._garaSoloPaz!==false)?'checked':'';
+  var h='<div id="gara-albero" style="width:250px;flex:0 0 250px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 140px);position:sticky;top:16px;align-self:flex-start;">';
+  h+='<div style="padding:.55rem .7rem;border-bottom:1px solid #eef0f3;display:flex;align-items:center;gap:.4rem;">'
+    +'<span style="color:#94a3b8;font-size:.9rem">\uD83D\uDD0D</span>'
+    +'<input type="text" id="gara-albero-cerca" placeholder="cerca alimento…" oninput="_garaFiltro()" style="border:none;outline:none;font-size:.8rem;flex:1;background:transparent;color:#1e293b">'
+    +'</div>';
+  h+='<label style="padding:.45rem .7rem;border-bottom:1px solid #eef0f3;display:flex;align-items:center;gap:.45rem;font-size:.74rem;color:#475569;cursor:pointer;user-select:none;">'
+    +'<input type="checkbox" id="gara-solo-paz" '+soloPazChk+' onchange="window._garaSoloPaz=this.checked;_garaFiltro();" style="accent-color:#16a34a;"> Solo alimenti del paziente'
+    +'</label>';
+  h+='<div id="gara-albero-lista" style="overflow-y:auto;flex:1;padding:.3rem 0;font-size:.8rem;">';
+  Object.keys(ALIMENTI).forEach(function(cat,ci){
+    var data=ALIMENTI[cat];
+    if(!data||!data.items||!data.items.length) return;
+    var catId='garacat_'+ci;
+    h+='<div class="ng-cat-row" style="display:flex;align-items:center;gap:5px;padding:6px 10px;cursor:pointer;color:#475569;font-weight:600;user-select:none;" onclick="_ngToggleCat(\''+catId+'\',this)">'
+      +'<span class="ng-caret" style="font-size:.6rem;display:inline-block;transition:transform .15s;transform:rotate(-90deg)">\u25BC</span>'
+      +'<span style="flex:1">'+cat+'</span>'
+      +'<span style="font-size:.68rem;color:#94a3b8;font-weight:500">'+data.items.length+'</span>'
+      +'</div>';
+    h+='<div class="ng-cat-items" id="'+catId+'" style="display:none">';
+    data.items.forEach(function(item){
+      var key=cat+'__'+item.n;
+      var stato=al[key]||'';
+      var pref=(['si','verde','arancione','rosso'].indexOf(stato)!==-1)?'1':'0';
+      var colore=_ngColoreSemaforoNome(stato);
+      h+='<div class="ng-alimento" draggable="true"'
+        +' data-nome="'+item.n.replace(/"/g,'&quot;')+'"'
+        +' data-grammi="'+(item.g||100)+'"'
+        +' data-cat="'+cat.replace(/"/g,'&quot;')+'"'
+        +' data-pref="'+pref+'"'
+        +' ondragstart="_ngDragStart(event)"'
+        +' style="padding:4px 10px 4px 28px;cursor:grab;color:'+colore+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"'
+        +' title="Trascina nel pasto a destra">'+item.n+'</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div style="padding:.5rem .7rem;border-top:1px solid #eef0f3;font-size:.66rem;color:#64748b;line-height:1.6;">'
+    +'<span style="color:#16a34a">\u25CF</span> libero &nbsp;<span style="color:#ea580c">\u25CF</span> moderato &nbsp;<span style="color:#dc2626">\u25CF</span> limitato &nbsp;<span style="color:#94a3b8">\u25CF</span> non segnato'
+    +'</div>';
+  h+='</div>';
+  return h;
+}
+
+// Filtro combinato: testo di ricerca + toggle "solo alimenti del paziente".
+// Senza ricerca NON tocca l'apertura/chiusura manuale delle categorie: agisce
+// solo sulla visibilita' dei singoli alimenti.
+function _garaFiltro(){
+  var box=document.getElementById('gara-albero-cerca');
+  var q=(box?box.value:'').toLowerCase().trim();
+  var soloPaz=(window._garaSoloPaz!==false);
+  var lista=document.getElementById('gara-albero-lista');
+  if(!lista) return;
+  lista.querySelectorAll('.ng-cat-items').forEach(function(grp){
+    var nVis=0;
+    grp.querySelectorAll('.ng-alimento').forEach(function(a){
+      var okText=!q || (a.getAttribute('data-nome')||'').toLowerCase().indexOf(q)!==-1;
+      var okPref=!soloPaz || a.getAttribute('data-pref')==='1';
+      var vis=okText&&okPref;
+      a.style.display=vis?'block':'none';
+      if(vis) nVis++;
+    });
+    var row=grp.previousElementSibling;
+    if(q){
+      // In ricerca: espandi le categorie con risultati, collassa e nascondi le vuote
+      grp.style.display=nVis>0?'block':'none';
+      if(row){ var c=row.querySelector('.ng-caret'); if(c) c.style.transform=nVis>0?'rotate(0deg)':'rotate(-90deg)'; row.style.display=nVis>0?'flex':'none'; }
+    } else {
+      // Senza ricerca: ripristina la visibilita' delle intestazioni, non toccare il display del gruppo
+      if(row) row.style.display='flex';
+    }
+  });
+}
+
+// Drag over su una zona-pasto del giorno gara: evidenzia in verde e mostra
+// "rilascia qui: <nome> (<g> proposti)".
+function _garaDragOver(ev){
+  ev.preventDefault();
+  if(ev.dataTransfer) ev.dataTransfer.dropEffect='copy';
+  var z=ev.currentTarget;
+  z.style.outline='2px dashed #16a34a';
+  z.style.outlineOffset='-2px';
+  z.style.background='#e8f7f0';
+  var d=window._ngDragData;
+  var hint=z.querySelector('.gara-drop-hint');
+  if(!hint){
+    hint=document.createElement('div');
+    hint.className='gara-drop-hint';
+    hint.style.cssText='text-align:center;font-size:.74rem;color:#0f6e56;font-weight:600;padding:.4rem;pointer-events:none;';
+    z.insertBefore(hint, z.firstChild);
+  }
+  if(d) hint.textContent='\u2B07 rilascia qui: '+d.n+' ('+d.g+'g proposti)';
+}
+function _garaDragLeave(ev){
+  var z=ev.currentTarget;
+  if(z.contains(ev.relatedTarget)) return; // ancora dentro la zona (su un figlio)
+  z.style.outline='';
+  z.style.background='';
+  var h=z.querySelector('.gara-drop-hint');
+  if(h) h.remove();
+}
+function _garaDrop(ev){
+  ev.preventDefault();
+  var z=ev.currentTarget;
+  z.style.outline='';
+  z.style.background='';
+  var h=z.querySelector('.gara-drop-hint');
+  if(h) h.remove();
+  var dato=window._ngDragData;
+  if(!dato) return;
+  var giorno=z.getAttribute('data-giorno');
+  var slot=z.getAttribute('data-slot');
+  // Drop su una cella esistente -> alternativa; drop su zona vuota -> nuova cella
+  var cellaEl=ev.target.closest ? ev.target.closest('[data-ng-cell]') : null;
+  var cellaId=cellaEl?cellaEl.getAttribute('data-ng-cell'):null;
+  if(dato._fromCella && cellaId && cellaId===dato._fromCella){ window._ngDragData=null; return; }
+  _ngAggiungiAlimento(giorno,slot,dato,cellaId); // muta i dati + badge (render composer no-op qui)
+  window._ngDragData=null;
+  if(typeof _aggiornaPianoBox==='function') _aggiornaPianoBox(); // rinfresca la vista generatore
+}
 
 // ── PRIORITA' 2C: MODALITA' SENZA BILANCIA ───────────────────────────────────
 // Tabella conversione grammi -> misure casalinghe
