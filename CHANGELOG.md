@@ -10,6 +10,83 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+14 LUGLIO 2026 — SERA TARDI — Pannello alimenti unificato nel giorno gara
++ unificazione "Componi a mano" col Generatore AI (commit `2cd0230` →
+`5173a75` → `c421a07`). Opus High, Thinking ON:
+
+  Punto di partenza: nel giorno gara (e negli altri giorni generati
+  dall'AI) non esisteva un modo rapido di aggiungere un alimento dentro
+  una cella — solo il popup categoria→alimento di `apriAggiungiCella`.
+  Il "Componi a mano" invece aveva già un pannello alimenti a sinistra
+  con ricerca, colori semaforo e trascinamento (`_ngRenderAlbero` +
+  `_ngDrop`), ma viveva in un editor completamente separato
+  (`_ngRenderEditorManuale`/`_ngRenderPianoDestra`) con la sua estetica
+  (linguette blu, card separate per pasto) diversa da quella verde a
+  pillole del generatore AI.
+
+  MOCKUP PRIMA DEL CODICE: prima di toccare `index.html`, generati due
+  mockup (HTML statico, poi widget) mostrati a Fabrizio per validare
+  layout (pannello 250px a sinistra, ricerca+filtro+semaforo, zona di
+  rilascio evidenziata in verde con "rilascia qui: nome (Xg proposti)")
+  prima di scrivere qualunque riga di codice reale.
+
+  COMMIT `2cd0230` — Pannello alimenti nel giorno gara: nuove funzioni
+  `_garaRenderPannelloAlimenti` (colonna sinistra 250px, riusa
+  `ALIMENTI`/`_ngColoreSemaforoNome`, elenco COMPLETO — colorati per
+  semaforo paziente + non segnati in grigio), `_garaFiltro` (ricerca
+  testo + checkbox "Solo alimenti del paziente", default ON),
+  `_garaDragOver`/`_garaDragLeave`/`_garaDrop` (drop-zone che avvolge
+  `_renderCelleHtml` di ogni pasto in `_renderGiornoGen`; drop su cella
+  esistente → alternativa, su vuoto → nuova cella, via
+  `_ngAggiungiAlimento` — stessa mutazione dati del compositore
+  manuale, refresh via `_aggiornaPianoBox`). Sorgente drag: riusa
+  `_ngDragStart` esistente, nessuna duplicazione lì.
+
+  COMMIT `5173a75` — Unificazione "Componi a mano": invece di
+  ridipingere `_ngRenderEditorManuale` per farlo sembrare il
+  generatore (due copie da mantenere), `_ngCreaPianoManuale` ora
+  chiama `inizializzaP2` + `renderPianoConPillTabs` — lo STESSO
+  ingresso del flusso AI. Riportate nel generatore le due funzionalità
+  che aveva solo il manuale: pill "+" per aggiungere giorni (fino a
+  14, riusa `_ngCambiaNumeroGiorni`/`_ngIndiceInizioSpeciali`) e
+  bottone "📖 Pesca ricetta" per pasto (riusa `_ngPescaRicetta`
+  esistente). Salvataggio unificato sul bottone reale "💾 Salva piano
+  definitivo" (`p2-save`, upsert su Supabase) invece del vecchio
+  `_ngSalvaPianoManuale` (cache locale soltanto) — aggiunto il gate
+  clinico P61 (`validaGateExport`) anche lì, silenzioso sui piani
+  validi, prima assente sul percorso manuale-poi-generatore. Aggiunto
+  snapshot/ripristino dello stato del pannello alimenti (testo
+  ricerca, categorie aperte, scroll) attraverso i re-render innescati
+  da ogni drop, altrimenti si sarebbero azzerati a ogni alimento
+  trascinato. `_ngRenderEditorManuale`/`_ngRenderPianoDestra` e i loro
+  drag handler (`_ngDragOver`/`_ngDragLeave`/`_ngDrop`) restano nel
+  file marcati esplicitamente come LEGACY/fallback (commento in testa
+  alla funzione), non più nel percorso vivo — stessa disciplina già
+  applicata al bug P94 (rami di rendering morti).
+
+  COMMIT `c421a07` — Fix allineamento: le pill dei giorni (Lun/Mar/
+  Mer...) erano posizionate sopra l'INTERA riga (pannello alimenti
+  incluso), segnalato con screenshot da Fabrizio. Spostato `pillsHtml`
+  dentro la colonna destra del layout flex, sopra la card verde del
+  giorno — ora le pill partono da dove inizia la card, non dal bordo
+  del pannello alimenti.
+
+  Per ciascun commit: `node --check` sul blocco script, verifica del
+  contenuto (grep su stringa univoca della modifica) prima della
+  consegna, SHA di HEAD riverificato invariato prima di consegnare.
+
+  RIGENERATO INDEX.md per intero (non solo la sezione toccata) con
+  script Python automatico su tutte le `function`/`async function`
+  top-level (673 funzioni, prima l'estrazione ne perdeva 86 perché non
+  gestiva `async function` — corretto durante la rigenerazione stessa).
+  Sezioni ancorate ai titoli editoriali del vecchio indice; funzioni
+  nuove (`_gara*`) e legacy (`_ngRenderEditorManuale` e affini)
+  annotate esplicitamente riga per riga.
+
+  FOCUS COMPONENTI COINVOLTI: Frontend (Generatore AI + Compositore
+  manuale, ora stesso percorso di rendering). Nessun DB nuovo, nessuna
+  AI coinvolta in questo blocco.
+
 14 LUGLIO 2026 — P92 Consigli condizionali nel PDF (fatta, ridefinita
 in sessione) (commit c352514). Sonnet Bassa:
 

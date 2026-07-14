@@ -7,7 +7,7 @@ Non sono un tecnico informatico — spiegami sempre le cose in modo semplice e c
 
 ## Il progetto: NutriGest
 NutriGest è un'applicazione che voglio commercializzare e vendere.
-- **File principale**: `index.html` (unico file HTML self-contained, ~19.400+ righe)
+- **File principale**: `index.html` (unico file HTML self-contained, ~20.900+ righe)
 - **GitHub**: `github.com/giannandreafabrizio-dotcom/nutrigest`
 - **URL live**: `https://giannandreafabrizio-dotcom.github.io/nutrigest/`
 - **Database**: Supabase (progetto `zrhmspylnlklppvhgplp`) — i nomi di funzione legacy `pushToSheets`/`pullFromSheets` sono rimasti per compatibilità ma usano Supabase internamente. Google Sheets/Apps Script è backend STORICO, dismesso: non usarlo come riferimento per modifiche nuove.
