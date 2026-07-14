@@ -10,6 +10,40 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+14 LUGLIO 2026 — P95 Nomi giorni configurabili (fatta) + fix bug P94
+(commit ba5199f → 7aa3eb6 → 3f69f08). Sonnet Media:
+
+  P95 Nomi dei giorni configurabili — verifica preliminare (10 min, come
+  da scheda): i giorni NON sono chiavi ma array di oggetti, quindi
+  nessuna migrazione necessaria. Il nome del giorno però fa tre lavori
+  diversi nel codice: chiave di lookup (_trovaPasto e simili), rilevamento
+  semantico (weekend, ON/OFF ciclizzazione via regex), etichetta a
+  schermo/PDF. Richiesta reale di Fabrizio: solo il terzo punto, con due
+  varianti aggiuntive oltre al nome-settimana — "Giorno 1" e "Giorno A".
+
+  Implementazione (commit ba5199f): funzioni condivise
+  _ngEtichettaGiorno / _ngEtichettaGiornoBreve / _ngModalitaNomeGiorno
+  calcolano l'etichetta da mostrare senza mai toccare la stringa interna
+  del giorno (weekend/ON-OFF/lookup restano intatti). I giorni speciali
+  (P94) mantengono sempre il loro titolo a tema in ogni modalità. La
+  modalità scelta si salva su piano[0]._modoNomeGiorno — un campo di
+  oggetto normale, non una proprietà custom sull'array (che
+  JSON.stringify ignorerebbe silenziosamente al salvataggio su Supabase:
+  bug evitato in fase di test, prima della consegna).
+
+  Riposizionamento (commit 3f69f08): il selettore Sett/1/A, su richiesta
+  di Fabrizio dopo un primo mockup, è stato spostato dall'intestazione
+  verde alla riga delle linguette giorno, prima del primo tab.
+
+  Fix bug P94 (commit 7aa3eb6, stessa sessione): i bottoni-toggle delle
+  giornate speciali (Fase 1) non comparivano nel Generatore AI a
+  pillole — erano scritti dentro _renderGiornoAttivo, raggiungibile solo
+  dalla vista legacy, mentre il Generatore a pillole chiama
+  _renderGiornoGen e fa return prima di arrivarci. Aggiunto lo stesso
+  blocco bottoni dentro _renderGiornoGen (dopo _appendBtnConcetti).
+  Fase 1 di P94 va ricollaudata dal Generatore AI a pillole dopo questo
+  fix (non solo dall'editor manuale, dove funzionava già).
+
 14 LUGLIO 2026 — P94 Giornate speciali (fatta, 2 fasi)
 (commit 997d0ce → 36c377b → 58875eb → ca4137a). Sonnet Media per fase 1,
 Opus Alto + Thinking ON per fase 2:

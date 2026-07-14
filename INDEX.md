@@ -3,6 +3,8 @@
 Mappa funzioni → righe di `index.html`, organizzata per area funzionale.
 Generato via grep sul file scaricato da GitHub (raw main), rigenerato automaticamente (script Python su tutte le `function` top-level) il 2026-07-13 sera dopo P110. Righe totali file: 20214 (era 19439 il 12 lug; +427 per P108 fase 0/P109 del 13 lug mattina, +142 per P108 fase 1 del 13 lug sera, +206 per P110 scanner barcode del 13 lug sera tardi).
 
+⚠️ **Aggiornamento parziale 14 lug 2026 sera** (P95 + fix P94, commit ba5199f→7aa3eb6→3f69f08): righe totali ora 20686 (+472 dal 13 lug). Ho corretto solo la sezione COMPOSITORE MANUALE (nuove funzioni `_ng*NomeGiorno`/`_ngEtichettaGiorno*`) con i numeri di riga verificati oggi. Il resto dell'indice sotto questa nota NON è stato ri-shiftato riga per riga — i range restano indicativi, verificare con grep prima di aprire un view_range se la sessione precedente non torna esatta. Rigenerazione completa consigliata alla prossima modifica strutturale ampia.
+
 ## Come usarlo
 1. Trova l'area funzionale pertinente qui sotto (o cerca il nome funzione nella tabella).
 2. Usa `view` con `view_range` sul range indicato invece di leggere tutto il file.
@@ -515,13 +517,19 @@ Righe 14663-15850
 - `14841` — _ngColoreSemaforoNome
 - `14849` — apriSceltaModalitaPiano
 - `14884` — _ngChiudiModalita
-- `14887` — _ngCostruisciGiornoVuoto
-- `14895` — _ngGiornoHaContenuto
-- `14907` — _ngCreaPianoManuale
-- `14926` — _ngScrollTabGiorni
-- `14936` — _ngAbilitaDragScroll
-- `14964` — _ngCambiaNumeroGiorni
-- `14986` — _ngRenderEditorManuale
+- `15033` — _ngCostruisciGiornoVuoto
+- `15077` — _ngIndiceInizioSpeciali
+- `15088` — _ngModalitaNomeGiorno (P95: legge piano[0]._modoNomeGiorno, default 'sett')
+- `15094` — _ngImpostaModalitaNomeGiorno (P95: scrive piano[0]._modoNomeGiorno)
+- `15097` — _ngLettera (P95: converte indice 0/1/2... in A/B/C...)
+- `15104` — _ngEtichettaGiorno (P95: etichetta display completa — Lunedì/Giorno 1/Giorno A)
+- `15124` — _ngEtichettaGiornoBreve (P95: etichetta display abbreviata per le linguette — G1/GA)
+- `15332` — _ngGiornoHaContenuto
+- `15344` — _ngCreaPianoManuale
+- `15363` — _ngScrollTabGiorni
+- `15373` — _ngAbilitaDragScroll
+- `15410` — _ngCambiaNumeroGiorni
+- `15437` — _ngRenderEditorManuale
 - `15000` — _ngRenderAlbero
 - `15041` — _ngToggleCat
 - `15050` — _ngFiltraAlbero

@@ -80,6 +80,8 @@ La struttura di `db` (pazienti, ricette, piani, eventi, entrate, concetti, dispo
 5. **Null check**: usa sempre `document.getElementById(id)?.something` o verifica che l'elemento esista
 6. **Un solo file**: non creare mai file CSS o JS separati
 7. **Commit frequenti**: dopo ogni funzionalità che funziona, un blocco unico su una riga mirato su `index.html` (vedi Comandi utili)
+8. **Mai proprietà custom su array che vengono salvati** — `JSON.stringify` di un array ignora silenziosamente proprietà extra attaccate direttamente all'array (es. `piano._qualcosa = 'x'`); se il piano viene salvato su Supabase con `JSON.stringify(piano)`, quel dato sparisce al primo ricaricamento senza errori. Un flag/config va sempre su un campo di un oggetto dentro l'array (es. `piano[0].qualcosa`), mai sull'array stesso. (Scoperto e corretto durante P95, 14 lug 2026.)
+9. **Attenzione ai rami di rendering "morti"**: più punti del codice condividono la stessa logica (es. render del giorno) ma solo UNO è il percorso realmente usato dall'interfaccia in produzione — gli altri possono essere raggiungibili solo in modalità legacy/fallback che l'utente non usa più. Prima di aggiungere una funzionalità a una funzione di render, verificare quale `if`/`return` precoce decide il percorso attivo (es. presenza di un elemento DOM come `#piano-select-paz`), altrimenti il codice è corretto ma invisibile. (Bug trovato in P94, corretto 14 lug 2026, commit 7aa3eb6.)
 
 ## Flusso di lavoro preferito
 1. Modifica `index.html`
@@ -88,7 +90,7 @@ La struttura di `db` (pazienti, ricette, piani, eventi, entrate, concetti, dispo
 4. Il sito si aggiorna automaticamente su GitHub Pages in ~30 secondi
 
 ## Stato sviluppo e prossimi passi
-Il generatore automatico di piani alimentari (lettura dati paziente → ricette → piano settimanale nel mio stile → correzione manuale → PDF) è **già realizzato e in uso**, non più un obiettivo futuro. Lo stato attuale dello sviluppo (voci chiuse, in corso, da fare) vive SEMPRE in `NutriGest_Roadmap_Modifiche.md` — consultare quello, non questo file, per sapere cosa fare dopo.
+Il generatore automatico di piani alimentari (lettura dati paziente → ricette → piano settimanale nel mio stile → correzione manuale → PDF) è **già realizzato e in uso**, non più un obiettivo futuro. Lo stato attuale dello sviluppo (voci chiuse, in corso, da fare) vive SEMPRE in `NutriGest_Roadmap_v4.md` — consultare quello, non questo file, per sapere cosa fare dopo.
 
 ## Comandi utili
 ```bash
