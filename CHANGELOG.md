@@ -10,6 +10,41 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+14 LUGLIO 2026 — P92 Consigli condizionali nel PDF (fatta, ridefinita
+in sessione) (commit c352514). Sonnet Bassa:
+
+  P92 nella scheda originaria parlava di due consigli pre-pranzo/
+  anti-dolce nel footer promemoria. La richiesta reale, emersa mostrando
+  a Fabrizio uno screenshot del PDF, era diversa: ridisegnare la riga
+  "Prima/Durante/Dopo" (integratori/routine) che compare accanto al
+  nome del pasto, segnalata come resa "orribile".
+
+  Tre problemi trovati nel rendering originale (pastoBlocco, blocco
+  routineDelPasto): (1) la riga partiva schiacciata a destra del titolo
+  pasto, con poco spazio orizzontale — causava a-capo a metà parola;
+  (2) le emoji nei nomi routine (es. "Succo Verde 🟢") non sono gestite
+  dal font Helvetica di jsPDF e producevano glifi illeggibili tipo
+  "Ø=ßâ"; (3) spaziatura fra lettere anomala, artefatto della
+  compressione del testo nello spazio ristretto.
+
+  Fix: le voci sono raggruppate per momento (prima/durante/dopo) in
+  pillole colorate (verde chiaro/verde/ambra) accanto al titolo del
+  pasto, con l'etichetta Prima/Durante/Dopo in grassetto corsivo. Più
+  voci nello stesso momento si uniscono in un'unica pillola con " + "
+  (es. "Durante · Vitamina D3 2000 + Curcuma e pepe nero 1 cucchiaino").
+  Il wrap va a capo con pillole intere, mai spezzate a metà. Nuova
+  funzione locale stripEmojiPDF() rimuove emoji/simboli solo dal testo
+  stampato nel PDF — non tocca i dati salvati né la funzione globale
+  safe() usata altrove nel file (18 usi), per non avere impatti fuori
+  da questo blocco.
+
+  Prima di procedere sono state mostrate a Fabrizio due anteprime reali
+  generate con jsPDF (stesso motore di produzione) per validare stile
+  e comportamento di wrap/raggruppamento, incluse le scelte finali su
+  layout (pillole accanto al titolo, non sotto), stile testo (grassetto
+  corsivo, non simboli ▸◆◂) e raggruppamento (pillola unica per
+  momento, non una per voce).
+
 14 LUGLIO 2026 — P95 Nomi giorni configurabili (fatta) + fix bug P94
 (commit ba5199f → 7aa3eb6 → 3f69f08). Sonnet Media:
 
