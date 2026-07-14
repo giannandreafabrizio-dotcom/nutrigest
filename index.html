@@ -10421,7 +10421,11 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     }
     var panBg=semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
     var abbr={'Luneì':'Lun','Martedì':'Mar','Mercoledì':'Mer','Giovedì':'Gio','Venerdì':'Ven','Sabato':'Sab','Domenica':'Dom'};
-    var pillsHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem;">';
+    // P95: selettore Sett/1/A, ora nella riga delle linguette (prima del primo giorno), non più nell'intestazione.
+    var _modoAttuale=_ngModalitaNomeGiorno(piano);
+    var _segBtnTab=function(m,lbl){var on=(_modoAttuale===m);return '<button onclick="_ngImpostaModalitaNomeGiorno(window._pianoCorrente,\''+m+'\');window._renderGiornoGen();" style="border:none;padding:5px 9px;font-size:.72rem;font-weight:'+(on?'700':'400')+';cursor:pointer;background:'+(on?'var(--green)':'transparent')+';color:'+(on?'#fff':'var(--text2)')+';border-radius:16px;">'+lbl+'</button>';};
+    var segTabHtml='<span style="display:inline-flex;align-items:center;gap:1px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px;margin-right:2px;">'+_segBtnTab('sett','Sett')+_segBtnTab('num','1')+_segBtnTab('let','A')+'</span>';
+    var pillsHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">'+segTabHtml;
     var _idxNormaleCounter=0;
     piano.forEach(function(gg,ii){
       var nome=gg.giorno||gg.g||'G'+(ii+1),nb=nome.replace(/\s*(ON|OFF)\s*/gi,'').trim();
@@ -10436,10 +10440,7 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     pillsHtml+='<button onclick="mostraRoutinePopup()" style="padding:5px 13px;border-radius:20px;border:1px solid var(--teal-light);background:var(--teal-bg);color:var(--teal2);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">🌿 Routine</button>';
     pillsHtml+='</div>';
     var dH='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;">';
-    var _modoAttuale=_ngModalitaNomeGiorno(piano);
-    var _segBtn=function(m,lbl){var on=(_modoAttuale===m);return '<button onclick="event.stopPropagation();_ngImpostaModalitaNomeGiorno(window._pianoCorrente,\''+m+'\');window._renderGiornoGen();" style="border:none;padding:2px 8px;font-size:.68rem;font-weight:'+(on?'700':'400')+';cursor:pointer;background:'+(on?'#fff':'transparent')+';color:'+(on?'var(--green)':'rgba(255,255,255,.85)')+';border-radius:5px;">'+lbl+'</button>';};
-    var _segSel='<span style="display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,.18);border-radius:6px;padding:1px;margin-left:8px;vertical-align:middle;">'+_segBtn('sett','Sett')+_segBtn('num','1')+_segBtn('let','A')+'</span>';
-    dH+='<div onclick="var el=document.getElementById(\'mtp_g\');el.style.display=el.style.display===\'block\'?\'none\':\'block\';" style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;"><span>'+etichettaGiornoDisplay+_segSel+'</span><span style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;">'+semIcon+'</span></div>';
+    dH+='<div onclick="var el=document.getElementById(\'mtp_g\');el.style.display=el.style.display===\'block\'?\'none\':\'block\';" style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;"><span>'+etichettaGiornoDisplay+'</span><span style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;">'+semIcon+'</span></div>';
     dH+='<div id="mtp_g" style="display:none;padding:.65rem 1rem;background:'+panBg+';border-bottom:2px solid '+semColor+';"><div style="font-size:.68rem;text-transform:uppercase;color:'+semColor+';font-weight:700;margin-bottom:.45rem;">Verifica macros</div>'+macroPanel+'</div>';
     dH+='<div style="padding:.8rem 1rem;">';
     [{label:'COLAZIONE',key:'colazione'},{label:'SPUNTINO MATTINA',key:'spuntino_mattina'},{label:'PRANZO',key:'pranzo'},{label:'SPUNTINO POMERIGGIO',key:'spuntino_pomeriggio'},{label:'CENA',key:'cena'},{label:'PRE-NANNA',key:'pre_nanna'}].forEach(function(s){
