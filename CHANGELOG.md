@@ -10,6 +10,35 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+14 LUGLIO 2026 — P94 Giornate speciali (fatta, 2 fasi)
+(commit 997d0ce → 36c377b → 58875eb → ca4137a). Sonnet Media per fase 1,
+Opus Alto + Thinking ON per fase 2:
+
+  P94 Giornate speciali — implementazione più semplice del previsto:
+  il giorno speciale è un giorno IDENTICO agli altri (stessa struttura
+  pasti/celle), solo con etichetta a tema. Nessuna dipendenza da P3
+  (niente preset dietetico dedicato): essendo un giorno vero nell'array
+  del piano, entra da solo in medie kcal, lista spesa, validatore P61
+  e PDF.
+
+  Fase 1 (commit 997d0ce, 36c377b, 58875eb): bottoni-toggle preimpostati
+  (🎄 Natale · 🏆 Giorno gara · 🚗 Viaggio in macchina · ✈️ Viaggio in
+  aereo) nell'editor manuale e nel Generatore AI. Acceso → aggiunge
+  giorno vuoto in fondo (speciale:true, temaKey); spento → lo rimuove.
+  Le speciali restano sempre ultime: `_ngCambiaNumeroGiorni` inserisce
+  i nuovi giorni normali PRIMA di eventuali speciali (via
+  `_ngIndiceInizioSpeciali`). Nello stesso giro, fix di un bug preesistente
+  sul click delle tab giorni su desktop (drag-scroll, commit 36c377b).
+
+  Fase 2 (commit ca4137a): pannello contesto (campi guidati per tema +
+  note libere) + generazione AI del singolo giorno (`_generaGiornoSpecialeAI`),
+  una sola chiamata dedicata che riusa l'intera pipeline esistente
+  (costruisciPrompt, _pianoToolSchema(1), aiCall, espandiPiano) con
+  un'istruzione finale che vincola l'output a 1 giorno adattato al
+  contesto, rispettando comunque kcal/macro/allergie del paziente.
+  Costo stimato ~3-5 centesimi $ a chiamata (Sonnet) — verificato prima
+  di procedere. NON ANCORA COLLAUDATA su paziente reale.
+
 13 LUGLIO 2026 (sessione pomeridiana/serale) — Fix regime energetico
 (commit 878cb60), P65 scan storico Git, P67 T1/T3, protocollo
 fonte-di-verità in CLAUDE.md, P72 self-hosting CDN. Nessun modello
