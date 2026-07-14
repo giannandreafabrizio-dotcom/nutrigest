@@ -38,12 +38,18 @@ GitHub `main` è la fonte di verità per TUTTO (codice + documentazione: `index.
 
 ## Ottimizzazione token — INDEX.md
 Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero prima di ogni modifica è costoso in token e va evitato.
-- **`INDEX.md`** (nella cartella del progetto) mappa ~530 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
+- **`INDEX.md`** (nella cartella del progetto) mappa ~673 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
 - Prima di ogni modifica: apri `INDEX.md`, trova l'area/funzione pertinente, poi usa `view` con `view_range` mirato su `index.html` invece di leggere tutto il file.
 - Se il nome funzione non è chiaro o non è in tabella, fai prima `grep -n "nomeFunzione" index.html`.
 - Le righe in `INDEX.md` si spostano man mano che il file cresce/si modifica: sono indicative, non garantite. Se un `view_range` non corrisponde, fai grep di conferma prima di editare.
 - **Rigenera `INDEX.md`** dopo modifiche strutturali importanti (aggiunta di grosse sezioni, spostamento di blocchi di funzioni), non dopo ogni piccolo commit.
 - Usa `str_replace` per le modifiche puntuali quando la stringa target è già nota e univoca, senza bisogno di rileggere l'intero file.
+
+## Stile della documentazione — conciso ma completo
+Quando aggiorni CLAUDE.md, CHANGELOG.md, Roadmap o INDEX.md, punta al conciso-ma-completo: taglia il superfluo, non la sostanza.
+- **Conserva sempre:** root cause dei bug, il "perché" delle decisioni (non solo il "cosa"), gli incidenti e le lezioni imparate, i vincoli non ovvi. È la parte che ha valore mesi dopo — non sacrificarla per brevità.
+- **Taglia:** ripetizioni, ri-spiegazioni di cose scritte poche righe sopra, elenchi di funzioni/righe già presenti in INDEX.md, dettagli meccanici ricostruibili dal diff git o dal codice stesso.
+- In pratica: una voce di CHANGELOG/Roadmap dice cosa è cambiato, perché, e cosa sapere per non rifare l'errore — senza duplicare ciò che il codice o l'INDEX già dicono meglio.
 
 ## Secondo progetto: Patrimonio
 - **File**: `Patrimonio_GoogleSheets.html`
