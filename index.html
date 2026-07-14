@@ -13984,6 +13984,21 @@ function _aggiornaPianoBox() {
 
     pianoEl.innerHTML = '<div style="margin-top:1.5rem;">' + navHtml + dayHtml + '</div>';
 
+    // Fase 2 P94: se il giorno visualizzato è speciale, mostra sopra il contenuto
+    // il pannello contesto (campi guidati + note) + il bottone "Genera con AI".
+    if (g && g.speciale && typeof _ngRenderPannelloSpeciale === 'function') {
+      var _pannelloSpec = _ngRenderPannelloSpeciale(g);
+      if (_pannelloSpec) {
+        var _wrapInner = pianoEl.firstChild; // il div margin-top che contiene nav+day
+        if (_wrapInner && _wrapInner.firstChild) {
+          // inserisci dopo la barra navigazione (navHtml è il primo figlio)
+          _wrapInner.insertBefore(_pannelloSpec, _wrapInner.children[1] || null);
+        } else {
+          pianoEl.appendChild(_pannelloSpec);
+        }
+      }
+    }
+
     // Giornate speciali (P94) anche nel Generatore AI: stessi bottoni-toggle e stessa
     // logica dell'editor manuale (riuso GIORNI_SPECIALI_PRESET/_ngToggleGiornoSpeciale,
     // che operano su window._pianoCorrente — la stessa variabile usata qui come pianoAI).
@@ -14986,10 +15001,26 @@ function _ngCostruisciGiornoVuoto(numero){
 // lista spesa, validatore allergie e PDF come tutti gli altri — cambia solo il titolo/tema.
 // Il campo `speciale:true` + `temaKey` servono solo al toggle per sapere cosa è acceso/spento.
 const GIORNI_SPECIALI_PRESET = [
-  { key:'natale',   emoji:'🎄', label:'Natale' },
-  { key:'gara',     emoji:'🏆', label:'Giorno gara' },
-  { key:'viaggioAuto', emoji:'🚗', label:'Viaggio in macchina' },
-  { key:'viaggioAereo', emoji:'✈️', label:'Viaggio in aereo' }
+  { key:'natale',   emoji:'🎄', label:'Natale',
+    campi:[
+      { key:'orarioPranzo', label:'Orario pranzo', tipo:'time', ph:'13:00' },
+      { key:'orarioCena', label:'Orario cena', tipo:'time', ph:'20:00' }
+    ] },
+  { key:'gara',     emoji:'🏆', label:'Giorno gara',
+    campi:[
+      { key:'orarioGara', label:'Orario gara', tipo:'time', ph:'10:00' },
+      { key:'tipoSport', label:'Tipo / durata', tipo:'text', ph:'es. 10 km corsa' }
+    ] },
+  { key:'viaggioAuto', emoji:'🚗', label:'Viaggio in macchina',
+    campi:[
+      { key:'orarioPartenza', label:'Orario partenza', tipo:'time', ph:'08:00' },
+      { key:'durata', label:'Durata viaggio', tipo:'text', ph:'es. 4 ore' }
+    ] },
+  { key:'viaggioAereo', emoji:'✈️', label:'Viaggio in aereo',
+    campi:[
+      { key:'orarioVolo', label:'Orario volo', tipo:'time', ph:'11:00' },
+      { key:'durata', label:'Durata volo', tipo:'text', ph:'es. 2 ore' }
+    ] }
 ];
 
 function _ngCostruisciGiornoSpeciale(temaKey){
@@ -15027,6 +15058,179 @@ function _ngToggleGiornoSpeciale(temaKey){
   }
   if(window._pdfPiano) window._pdfPiano=piano;
   _ngRenderPianoDestra();
+}
+
+// ── Fase 2 P94: pannello contesto + generazione AI di un singolo giorno speciale ──
+// Costruisce (via DOM) il pannello mostrato in cima al contenuto di un giorno speciale:
+// campi guidati per tema + note libere + bottone "Genera con AI". Il contesto viene
+// salvato su g.contestoSpeciale così persiste col piano. Ritorna null se g non è speciale.
+function _ngRenderPannelloSpeciale(g){
+  if(!g || !g.speciale) return null;
+  const preset=GIORNI_SPECIALI_PRESET.find(function(t){ return t.key===g.temaKey; });
+  if(!g.contestoSpeciale) g.contestoSpeciale={};
+  const ctx=g.contestoSpeciale;
+
+  const box=document.createElement('div');
+  box.style.cssText='background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:.75rem .9rem;margin-bottom:.8rem;';
+
+  const titolo=document.createElement('div');
+  titolo.style.cssText='font-size:.8rem;font-weight:700;color:#6d28d9;margin-bottom:.5rem;';
+  titolo.textContent=(preset?preset.emoji+' ':'')+'Giornata speciale — contesto per l\u2019AI';
+  box.appendChild(titolo);
+
+  // Campi guidati per tema
+  const campi=(preset&&preset.campi)||[];
+  if(campi.length){
+    const grid=document.createElement('div');
+    grid.style.cssText='display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem;';
+    campi.forEach(function(campo){
+      const wrap=document.createElement('label');
+      wrap.style.cssText='display:flex;flex-direction:column;gap:2px;font-size:.72rem;color:#475569;flex:1;min-width:120px;';
+      const lab=document.createElement('span'); lab.textContent=campo.label; wrap.appendChild(lab);
+      const inp=document.createElement('input');
+      inp.type=campo.tipo==='time'?'time':'text';
+      if(campo.ph) inp.placeholder=campo.ph;
+      inp.value=ctx[campo.key]||'';
+      inp.style.cssText='border:1px solid #cbd5e1;border-radius:6px;padding:.35rem .5rem;font-size:.78rem;';
+      inp.oninput=function(){ ctx[campo.key]=this.value; };
+      wrap.appendChild(inp);
+      grid.appendChild(wrap);
+    });
+    box.appendChild(grid);
+  }
+
+  // Note libere
+  const noteWrap=document.createElement('label');
+  noteWrap.style.cssText='display:flex;flex-direction:column;gap:2px;font-size:.72rem;color:#475569;margin-bottom:.55rem;';
+  const noteLab=document.createElement('span'); noteLab.textContent='Note libere (opzionale)'; noteWrap.appendChild(noteLab);
+  const note=document.createElement('textarea');
+  note.rows=2;
+  note.placeholder='es. pranzo in famiglia abbondante, cena leggera; niente crostacei';
+  note.value=ctx.note||'';
+  note.style.cssText='border:1px solid #cbd5e1;border-radius:6px;padding:.4rem .5rem;font-size:.78rem;resize:vertical;font-family:inherit;';
+  note.oninput=function(){ ctx.note=this.value; };
+  noteWrap.appendChild(note);
+  box.appendChild(noteWrap);
+
+  // Bottone genera
+  const btn=document.createElement('button');
+  btn.type='button';
+  btn.style.cssText='display:inline-flex;align-items:center;gap:7px;padding:.5rem .9rem;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;';
+  btn.innerHTML='\u2728 Genera questo giorno con l\u2019AI';
+  btn.onclick=function(){ _generaGiornoSpecialeAI(g.temaKey, btn); };
+  box.appendChild(btn);
+
+  const hint=document.createElement('div');
+  hint.style.cssText='font-size:.68rem;color:#94a3b8;margin-top:.4rem;';
+  hint.textContent='L\u2019AI genera solo questo giorno, rispettando kcal, macro e allergie del paziente. Puoi comunque ritoccarlo a mano.';
+  box.appendChild(hint);
+
+  return box;
+}
+
+// Genera con l'AI SOLO il giorno speciale indicato (una chiamata dedicata, non
+// rigenera il resto del piano). Riusa l'intera pipeline del generatore (costruisciPrompt
+// per il contesto/vincoli paziente, _pianoToolSchema/espandiPiano per il formato), con
+// un'istruzione finale che vincola l'output a 1 solo giorno a tema adattato al contesto.
+async function _generaGiornoSpecialeAI(temaKey, btnEl){
+  const piano=window._pianoCorrente||[];
+  const idx=piano.findIndex(function(g){ return g&&g.speciale&&g.temaKey===temaKey; });
+  if(idx<0){ if(typeof notif==='function') notif('\u26a0 Giorno speciale non trovato'); return; }
+  const preset=GIORNI_SPECIALI_PRESET.find(function(t){ return t.key===temaKey; });
+
+  const sel=document.getElementById('piano-select-paz');
+  const pazId=sel?sel.value:'';
+  const p=(db.pazienti||[]).find(function(x){ return x.id===pazId; });
+  if(!p){ if(typeof notif==='function') notif('\u26a0 Seleziona prima un paziente'); return; }
+  if(typeof getAnthropicKey!=='function'){ if(typeof notif==='function') notif('\u26a0 Funzione chiave API non disponibile'); return; }
+
+  // Assicura i target macros impostati (stessa cintura del generatore normale)
+  if(typeof _setupPianoTargets==='function') _setupPianoTargets(p);
+
+  const g=piano[idx];
+  const ctx=g.contestoSpeciale||{};
+  const etichetta=g.giorno||(preset?preset.label:'Giorno speciale');
+
+  // Riepilogo contesto in testo per il prompt
+  var righeCtx=[];
+  ((preset&&preset.campi)||[]).forEach(function(campo){
+    if(ctx[campo.key]) righeCtx.push(campo.label+': '+ctx[campo.key]);
+  });
+  if(ctx.note) righeCtx.push('Note: '+ctx.note);
+  var ctxTxt=righeCtx.length?righeCtx.join(' | '):'(nessun dettaglio specificato)';
+
+  var promptBase=(typeof costruisciPrompt==='function')?costruisciPrompt(pazId):'';
+  if(!promptBase){ if(typeof notif==='function') notif('\u26a0 Impossibile costruire il contesto paziente'); return; }
+
+  var override='\n\n=== ISTRUZIONE PRIORITARIA — SOVRASCRIVE LA STRUTTURA SETTIMANALE SOPRA ===\n'
+    +'Ignora la richiesta di un piano settimanale. Genera ESATTAMENTE 1 (UN) solo giorno.\n'
+    +'Questo \u00e8 un GIORNO SPECIALE a tema: "'+etichetta+'".\n'
+    +'Nel campo "g" del giorno usa ESATTAMENTE questa etichetta: "'+etichetta+'".\n'
+    +'Contesto della giornata da tenere in considerazione: '+ctxTxt+'.\n'
+    +'Adatta i pasti e gli orari a questo contesto (es. colazione pre-gara digeribile prima dell\u2019orario indicato, pasto pi\u00f9 leggero se in viaggio, ecc.).\n'
+    +'DEVI comunque rispettare TUTTI i vincoli gi\u00e0 descritti sopra: kcal e macro target del paziente, allergie, alimenti autorizzati (mai usare esclusi), grammature fisse.\n'
+    +'Restituisci un array "giorni" con un unico elemento.';
+
+  var prompt=promptBase+override;
+
+  // Stato loading sul bottone
+  var _txtOrig=btnEl?btnEl.innerHTML:'';
+  if(btnEl){ btnEl.disabled=true; btnEl.style.opacity='.6'; btnEl.innerHTML='\u23f3 Genero\u2026'; }
+
+  try{
+    var apiKey=getAnthropicKey();
+    var data=await aiCall({
+      tipo:'piano',
+      apiKey:apiKey,
+      max_tokens:_pianoMaxTokens(1),
+      tools:[_pianoToolSchema(1)],
+      tool_choice:{ type:'tool', name:'genera_piano' },
+      messages:[{ role:'user', content:prompt }]
+    });
+    if(data && data.stop_reason==='max_tokens'){
+      console.warn('[P94] giorno speciale troncato per max_tokens');
+    }
+    var estratto=_estraiPianoDaRisposta(data);
+    var grezzo=estratto.grezzo;
+    if(grezzo && grezzo.length && grezzo[0] && (grezzo[0].pasti || grezzo[0].g)){
+      grezzo=_normalizzaPianoNuovo(grezzo);
+    }
+    var espanso=espandiPiano(grezzo);
+    if(!espanso || !espanso.length || !espanso[0]){ throw new Error('Risposta AI senza giorni'); }
+    var giornoGen=espanso[0];
+
+    // Rimuovi eventuali pasti non attivi per il paziente (coerenza col generatore normale)
+    var _cfgPasti=[
+      {key:'colazione',         attivo: p.colazione !== 'no'},
+      {key:'spuntino_mattina',  attivo: p.spuntM === 'si'},
+      {key:'pranzo',            attivo: p.pranzo !== 'no'},
+      {key:'spuntino_pomeriggio',attivo: p.spuntP === 'si'},
+      {key:'cena',              attivo: p.cena !== 'no'},
+      {key:'pre_nanna',         attivo: p.prenanna === 'si'}
+    ];
+    _cfgPasti.forEach(function(pc){
+      if(!pc.attivo){
+        if(giornoGen[pc.key]!==undefined) delete giornoGen[pc.key];
+        if(giornoGen.pasti && giornoGen.pasti[pc.key]!==undefined) delete giornoGen.pasti[pc.key];
+      }
+    });
+
+    // Sostituzione in-place: mantieni etichetta a tema, flag speciale e contesto
+    giornoGen.giorno=etichetta;
+    giornoGen.speciale=true;
+    giornoGen.temaKey=temaKey;
+    giornoGen.contestoSpeciale=g.contestoSpeciale||{};
+    piano[idx]=giornoGen;
+
+    if(window._pdfPiano) window._pdfPiano=piano;
+    window._pianoGiornoCorrente=idx;
+    if(typeof _aggiornaPianoBox==='function') _aggiornaPianoBox();
+    if(typeof notif==='function') notif('\u2705 Giorno "'+etichetta+'" generato dall\u2019AI', 3000);
+  }catch(e){
+    console.error('[P94] Errore generazione giorno speciale:', e);
+    if(typeof notif==='function') notif('\u26a0 Errore generazione AI: '+(e&&e.message?e.message:'sconosciuto'), 6000);
+    if(btnEl){ btnEl.disabled=false; btnEl.style.opacity='1'; btnEl.innerHTML=_txtOrig; }
+  }
 }
 
 // Vero se un giorno ha già del contenuto inserito (celle con alimenti o ricette testuali).
@@ -15279,6 +15483,21 @@ function _ngRenderPianoDestra(){
     h+='</div>';
   });
   destra.innerHTML=h;
+
+  // Fase 2 P94: se il giorno corrente è speciale, mostra il pannello contesto + "Genera con AI"
+  // sopra i pasti (subito dopo la barra tab dei giorni).
+  if(g && g.speciale && typeof _ngRenderPannelloSpeciale==='function'){
+    var _pannelloSpecNg=_ngRenderPannelloSpeciale(g);
+    if(_pannelloSpecNg){
+      // la prima riga di destra è la barra tab giorni: inserisci il pannello subito dopo
+      var _primoBlocco=destra.firstChild;
+      if(_primoBlocco && _primoBlocco.nextSibling){
+        destra.insertBefore(_pannelloSpecNg, _primoBlocco.nextSibling);
+      } else {
+        destra.insertBefore(_pannelloSpecNg, destra.firstChild);
+      }
+    }
+  }
 
   // ── Footer: stessi toggle e bottoni del generatore AI (riuso funzioni esistenti) ──
   var footer=document.createElement('div');
