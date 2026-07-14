@@ -16755,42 +16755,69 @@ async function generaPDF(paziente, giorni) {
     }));
     var hRoutineExtra = 0;
     if (routineDelPasto.length) {
-      var quandoLbl = { prima:'Prima:', durante:'Durante:', dopo:'Dopo:' };
+      // P92: rimuove emoji/simboli non gestiti dal font PDF (causa dei glifi rotti tipo "Ø=ßâ")
+      function stripEmojiPDF(s) {
+        if (s == null) return '';
+        return String(s)
+          .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\uFE0F\u200D]/gu, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+      var quandoLbl = { prima:'Prima', durante:'Durante', dopo:'Dopo' };
+      var quandoBg = { prima:[234,243,222], durante:[225,245,238], dopo:[250,238,218] };
+      var quandoFg = { prima:[59,109,17],   durante:[15,110,86],   dopo:[133,79,11] };
       var perQuando = { prima:[], durante:[], dopo:[] };
       routineDelPasto.forEach(function(v){
         var q = v.quandoRif || 'durante';
         if (perQuando[q]) perQuando[q].push(v);
       });
-      var righeRoutine = [];
+      // P92: una sola pillola per momento, voci multiple unite con " + "
+      var pilloleDati = [];
       ['prima','durante','dopo'].forEach(function(q){
         if (!perQuando[q].length) return;
-        perQuando[q].forEach(function(v){
-          var txt = '+ ' + quandoLbl[q] + ' ' + safe(v.nome);
-          if (v.dose) txt += ' ' + safe(v.dose);
-          righeRoutine.push(txt);
-        });
+        var testo = perQuando[q].map(function(v){
+          var t = safe(stripEmojiPDF(v.nome));
+          if (v.dose) t += ' ' + safe(stripEmojiPDF(v.dose));
+          return t;
+        }).join(' + ');
+        pilloleDati.push({ momento: q, testo: testo });
       });
-      setFont('bold', 8.5 * c, VERDE_MENTA_SCURO);
+
       var titoloW = doc.getTextWidth(titoloPasto) + slotEmojiOffset;
-      var xRoutineStart = M + slotEmojiOffset + titoloW + 6 * c;
-      var maxW = W - M - xRoutineStart;
-      var rigaCorrente = '';
-      var righeFinali = [];
-      righeRoutine.forEach(function(r){
-        var test = rigaCorrente ? (rigaCorrente + '   ' + r) : r;
-        if (doc.getTextWidth(test) <= maxW) {
-          rigaCorrente = test;
-        } else {
-          if (rigaCorrente) righeFinali.push(rigaCorrente);
-          rigaCorrente = r;
+      var xStart = M + slotEmojiOffset + titoloW + 4 * c;
+      var maxRight = W - M;
+      var sep = ' \u00B7 ';
+      var padX = 1.6 * c, hPill = 4.4 * c, gapPill = 2 * c, lineH = 5 * c;
+      var x = xStart, riga = 0;
+
+      pilloleDati.forEach(function(p){
+        var lab = quandoLbl[p.momento];
+        setFont('bolditalic', 8 * c);
+        var wLab = doc.getTextWidth(lab);
+        setFont('normal', 8 * c);
+        var wRest = doc.getTextWidth(sep + p.testo);
+        var wTot = wLab + wRest + padX * 2;
+
+        if (x + wTot > maxRight && x > xStart) {
+          riga++;
+          x = xStart;
         }
+        var py = y + riga * lineH;
+
+        doc.setFillColor.apply(doc, quandoBg[p.momento]);
+        doc.roundedRect(x, py - hPill + 1.1 * c, wTot, hPill, 0.8 * c, 0.8 * c, 'F');
+
+        var tx = x + padX;
+        var ty = py - 0.4 * c;
+        setFont('bolditalic', 8 * c, quandoFg[p.momento]);
+        doc.text(lab, tx, ty);
+        tx += wLab;
+        setFont('normal', 8 * c, quandoFg[p.momento]);
+        doc.text(sep + p.testo, tx, ty);
+
+        x += wTot + gapPill;
       });
-      if (rigaCorrente) righeFinali.push(rigaCorrente);
-      var righeStampate = righeFinali.slice(0, 3);
-      righeStampate.forEach(function(r, i){
-        doc.text(r, xRoutineStart, y + (i * 4.2 * c));
-      });
-      hRoutineExtra = Math.max(0, righeStampate.length * 4.2 * c - 5.6 * c);
+      hRoutineExtra = Math.max(0, riga * lineH);
     }
     y += 5.6 * c + hRoutineExtra;
 
