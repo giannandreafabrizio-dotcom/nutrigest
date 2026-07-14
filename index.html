@@ -10341,7 +10341,9 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
   window._renderGiornoGen = function() {
     var idx=window._pianoGiornoCorrente, piano=window._pianoCorrente, g=piano[idx];
     if (!g) return;
-    var nomeGiorno=g.giorno||g.g||'Giorno '+(idx+1);
+    var nomeGiorno=g.giorno||g.g||'Giorno '+(idx+1); // chiave interna: NON toccare, usata dai lookup/onclick
+    var _idxNormaleG=piano.slice(0,idx).filter(function(x){return !(x&&x.speciale);}).length;
+    var etichettaGiornoDisplay=_ngEtichettaGiorno(g, _idxNormaleG, piano); // P95: solo per mostrare a schermo
     var tgts=window._pianoTargets||{}, mac=g.macros||{};
     var hasMac=mac.kcal>0&&mac.proteine>0&&mac.carboidrati>0&&mac.grassi>0;
     var hasTgts=tgts.kcal>0&&tgts.p>0&&tgts.c>0&&tgts.g>0;
@@ -10420,17 +10422,24 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     var panBg=semColor==='#1D9E75'?'#eafaf4':semColor==='#e07840'?'#fff6f0':semColor==='#c0392b'?'#fdf2f2':'#f5f5f5';
     var abbr={'Luneì':'Lun','Martedì':'Mar','Mercoledì':'Mer','Giovedì':'Gio','Venerdì':'Ven','Sabato':'Sab','Domenica':'Dom'};
     var pillsHtml='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem;">';
+    var _idxNormaleCounter=0;
     piano.forEach(function(gg,ii){
       var nome=gg.giorno||gg.g||'G'+(ii+1),nb=nome.replace(/\s*(ON|OFF)\s*/gi,'').trim();
-      var et=abbr[nb]||nb.slice(0,3);
-      if(/ON/i.test(nome))et+=' ON';else if(/OFF/i.test(nome))et+=' OFF';
+      var et;
+      var _etBreve=_ngEtichettaGiornoBreve(gg,(gg&&gg.speciale)?null:_idxNormaleCounter,piano);
+      if(_etBreve!=null){ et=_etBreve; }
+      else { et=abbr[nb]||nb.slice(0,3); if(/ON/i.test(nome))et+=' ON';else if(/OFF/i.test(nome))et+=' OFF'; }
+      if(!(gg&&gg.speciale)) _idxNormaleCounter++;
       var act=ii===idx;
       pillsHtml+='<button onclick="window._pianoGiornoCorrente='+ii+';window._renderGiornoGen();" style="padding:5px 13px;border-radius:20px;border:1px solid '+(act?'var(--green)':'var(--border)')+';background:'+(act?'var(--green)':'var(--bg)')+';color:'+(act?'#fff':'var(--text2)')+';font-size:.78rem;font-weight:'+(act?'700':'400')+';cursor:pointer;white-space:nowrap;">'+et+'</button>';
     });
     pillsHtml+='<button onclick="mostraRoutinePopup()" style="padding:5px 13px;border-radius:20px;border:1px solid var(--teal-light);background:var(--teal-bg);color:var(--teal2);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;">🌿 Routine</button>';
     pillsHtml+='</div>';
     var dH='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;">';
-    dH+='<div onclick="var el=document.getElementById(\'mtp_g\');el.style.display=el.style.display===\'block\'?\'none\':\'block\';" style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;"><span>'+nomeGiorno+'</span><span style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;">'+semIcon+'</span></div>';
+    var _modoAttuale=_ngModalitaNomeGiorno(piano);
+    var _segBtn=function(m,lbl){var on=(_modoAttuale===m);return '<button onclick="event.stopPropagation();_ngImpostaModalitaNomeGiorno(window._pianoCorrente,\''+m+'\');window._renderGiornoGen();" style="border:none;padding:2px 8px;font-size:.68rem;font-weight:'+(on?'700':'400')+';cursor:pointer;background:'+(on?'#fff':'transparent')+';color:'+(on?'var(--green)':'rgba(255,255,255,.85)')+';border-radius:5px;">'+lbl+'</button>';};
+    var _segSel='<span style="display:inline-flex;align-items:center;gap:1px;background:rgba(255,255,255,.18);border-radius:6px;padding:1px;margin-left:8px;vertical-align:middle;">'+_segBtn('sett','Sett')+_segBtn('num','1')+_segBtn('let','A')+'</span>';
+    dH+='<div onclick="var el=document.getElementById(\'mtp_g\');el.style.display=el.style.display===\'block\'?\'none\':\'block\';" style="background:var(--green);color:#fff;padding:.6rem 1rem;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;"><span>'+etichettaGiornoDisplay+_segSel+'</span><span style="display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;font-size:.72rem;font-weight:800;background:'+semColor+';color:#fff;flex-shrink:0;">'+semIcon+'</span></div>';
     dH+='<div id="mtp_g" style="display:none;padding:.65rem 1rem;background:'+panBg+';border-bottom:2px solid '+semColor+';"><div style="font-size:.68rem;text-transform:uppercase;color:'+semColor+';font-weight:700;margin-bottom:.45rem;">Verifica macros</div>'+macroPanel+'</div>';
     dH+='<div style="padding:.8rem 1rem;">';
     [{label:'COLAZIONE',key:'colazione'},{label:'SPUNTINO MATTINA',key:'spuntino_mattina'},{label:'PRANZO',key:'pranzo'},{label:'SPUNTINO POMERIGGIO',key:'spuntino_pomeriggio'},{label:'CENA',key:'cena'},{label:'PRE-NANNA',key:'pre_nanna'}].forEach(function(s){
@@ -15039,6 +15048,61 @@ function _ngIndiceInizioSpeciali(piano){
   return piano.length;
 }
 
+// P95 — Nomi dei giorni configurabili.
+// La modalità scelta dal medico si salva sul piano (piano._modalitaNomeGiorno: 'sett'|'num'|'let').
+// IMPORTANTE: questa funzione produce SOLO l'etichetta da mostrare a schermo/PDF.
+// La stringa interna g.giorno resta sempre invariata (es. "Lunedì", "Sabato ON") perché
+// è la chiave usata da _trovaPasto/ngAggiungiSpuntinoVuoto/apriPannelloRicette e dal
+// rilevamento weekend/ciclizzazione: cambiarla romperebbe quei punti.
+function _ngModalitaNomeGiorno(piano){
+  // Salvata su piano[0]._modoNomeGiorno (campo di un oggetto normale, quindi sopravvive
+  // a JSON.stringify/salvataggio su Supabase) e non su una proprietà custom dell'array
+  // (quella andrebbe persa: JSON.stringify di un array ignora le proprietà extra).
+  return (piano && piano[0] && piano[0]._modoNomeGiorno) || 'sett';
+}
+function _ngImpostaModalitaNomeGiorno(piano, modo){
+  if (piano && piano[0]) piano[0]._modoNomeGiorno = modo;
+}
+function _ngLettera(n){
+  // 0->A, 1->B ... 25->Z, 26->AA ...
+  var s='';
+  n = n|0;
+  do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
+  return s;
+}
+function _ngEtichettaGiorno(giornoObj, idxNormale, piano){
+  // giornoObj: l'oggetto giorno corrente; idxNormale: posizione tra i giorni NON speciali (0-based);
+  // se non fornito viene ignorato il calcolo numerico/lettera (fallback al nome originale).
+  if (giornoObj && giornoObj.speciale) {
+    // I giorni speciali (P94) mantengono sempre il loro titolo a tema, in ogni modalità.
+    return giornoObj.giorno || 'Giorno speciale';
+  }
+  var nomeOriginale = (giornoObj && (giornoObj.giorno || giornoObj.g)) || '';
+  var modalita = _ngModalitaNomeGiorno(piano);
+  if (modalita === 'sett' || idxNormale == null) return nomeOriginale;
+  // Preserva il suffisso ON/OFF della ciclizzazione, che è informazione nutrizionale.
+  var suffissoCiclo = '';
+  if (/\bON\b/i.test(nomeOriginale)) suffissoCiclo = ' ON';
+  else if (/\bOFF\b/i.test(nomeOriginale)) suffissoCiclo = ' OFF';
+  if (modalita === 'num') return 'Giorno ' + (idxNormale + 1) + suffissoCiclo;
+  if (modalita === 'let') return 'Giorno ' + _ngLettera(idxNormale) + suffissoCiclo;
+  return nomeOriginale;
+}
+// Versione abbreviata per le linguette strette (G1, G2… / GA, GB…); i giorni in Settimana
+// restano abbreviati come già facevano (Lun, Mar…), quindi qui serve solo per num/let.
+function _ngEtichettaGiornoBreve(giornoObj, idxNormale, piano){
+  if (giornoObj && giornoObj.speciale) return giornoObj.giorno || 'Speciale';
+  var modalita = _ngModalitaNomeGiorno(piano);
+  if (modalita === 'sett' || idxNormale == null) return null; // segnala: usa l'abbreviazione esistente (Lun/Mar/...)
+  var nomeOriginale = (giornoObj && (giornoObj.giorno || giornoObj.g)) || '';
+  var suffissoCiclo = '';
+  if (/\bON\b/i.test(nomeOriginale)) suffissoCiclo = ' ON';
+  else if (/\bOFF\b/i.test(nomeOriginale)) suffissoCiclo = ' OFF';
+  if (modalita === 'num') return 'G' + (idxNormale + 1) + suffissoCiclo;
+  if (modalita === 'let') return 'G' + _ngLettera(idxNormale) + suffissoCiclo;
+  return null;
+}
+
 // Attiva/disattiva un giorno speciale preimpostato (bottoni toggle nel footer editor manuale).
 function _ngToggleGiornoSpeciale(temaKey){
   const piano=window._pianoCorrente||[];
@@ -16856,10 +16920,15 @@ async function generaPDF(paziente, giorni) {
   drawCopertina(_mediaSettimana);
 
   // Pagine giorni
+  var _idxNormalePdf = 0;
   giorni.forEach(function(g, idx) {
     doc.addPage();
-    var giornoLabel = (g.giorno || g.g || '').toUpperCase();
+    var _idxNormaleCorrente = (g && g.speciale) ? null : _idxNormalePdf;
+    var giornoLabel = (typeof _ngEtichettaGiorno === 'function'
+      ? _ngEtichettaGiorno(g, _idxNormaleCorrente, window._pianoCorrente || window._pdfPiano)
+      : (g.giorno || g.g || '')).toUpperCase();
     var giornoRaw = g.giorno || g.g; // FRUTTA: valore non normalizzato, deve combaciare con quello usato nell'editor
+    if (!(g && g.speciale)) _idxNormalePdf++;
 
     var pastiAttivi = [];
     slotKeys.forEach(function(k) {
