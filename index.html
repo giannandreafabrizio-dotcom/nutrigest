@@ -13534,6 +13534,7 @@ function _mostraPopupEditRicetta(giorno, slotKey, idx, valoreCorrente) {
       var f = filtro.toLowerCase();
       return (r.nome||'').toLowerCase().includes(f) || (r.ing||'').toLowerCase().includes(f);
     });
+    ricette.sort(function(a,b){ return (a.nome||'').localeCompare((b.nome||''), 'it', {sensitivity:'base'}); });
     if (!ricette.length) {
       var _msgTipo = tipoFiltro === 'contorno' ? 'ricette parziali (contorni)' : 'ricette';
       listEl.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.8rem">Nessuna ' + _msgTipo + ' nel ricettario per ' + catRic + '.<br>Aggiungile dalla sezione Ricette.</div>';
@@ -15880,6 +15881,7 @@ function _ngPescaRicetta(giorno, slotKey){
     var _rc=catArr(r).map(function(c){return (c||'').toLowerCase();});
     return _rc.indexOf(catRic)>-1 && tipo==='completo';
   });
+  ricette.sort(function(a,b){ return (a.nome||'').localeCompare((b.nome||''), 'it', {sensitivity:'base'}); });
 
   // Popup elenco ricette
   var vecchio=document.getElementById('ng-ric-bg'); if(vecchio) vecchio.remove();
