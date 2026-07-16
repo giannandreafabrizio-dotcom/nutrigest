@@ -10,7 +10,80 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-14 LUGLIO 2026 — SERA — P80 (parziale, Strada A): ordinamento alfabetico
+16 LUGLIO 2026 — P73 (revisione linguaggio prescrittivo) CHIUSA
+(commit `34dd1ae`) + disallineamento roadmap/CHANGELOG scoperto su
+P62/P77. Fable 5, Ragionamento Attivo Alto, Fabrizio in loop (L0 —
+nessuna riformulazione autonoma di contenuto clinico):
+
+  Punto di partenza: audit delle parole-sentinella (prescriv*,
+  posologia, mg/die, terapia) su tutti i contenuti hardcoded
+  dell'app, per rimuovere linguaggio da prescrizione medica che
+  espone a rischio legale/regolatorio (l'app non deve sostituirsi
+  a una prescrizione — sinergia con P53/classificazione MDR).
+
+  Audit: trovate 3 occorrenze critiche nella scheda Berberina
+  ("perché la prescrivo", "A chi la prescrivo", "PERCHE' LA
+  PRESCRIVO") con dosaggio diretto (500mg x3/die) e "prodotto
+  consigliato" (rischio doppio: prescrittivo + commerciale); 1
+  occorrenza media in Vitamina D ("Integrazione consigliata:
+  2.000 UI/giorno"); 2 occorrenze UI ("Spezie terapeutiche",
+  "Routine giornaliera terapeutica"). Zero occorrenze in
+  posologia, nei prompt AI (FX/WhatsApp), nei commenti di codice
+  (mg/die a righe 5451-5492 sono commenti, invisibili).
+
+  Riformulazione (approvata da Fabrizio voce per voce prima di
+  scrivere codice): principio guida "da prescrizione a evidenza
+  scientifica + rimando al medico". Berberina: titolo e
+  intestazione riformulati, "a chi la prescrivo"→"in quali
+  situazioni la ricerca ne ha studiato i benefici", dosaggi
+  attribuiti esplicitamente ai protocolli di ricerca (non a
+  Fabrizio), rimosso "prodotto consigliato", disclaimer finale
+  rafforzato con menzione esplicita delle interazioni
+  farmacologiche (metformina, insulina). Vitamina D: stesso
+  principio, dosaggio attribuito alle integrazioni comuni in
+  letteratura, non a un consiglio diretto. UI: "Spezie
+  terapeutiche"→"Spezie funzionali", "Routine giornaliera
+  terapeutica"→"...di benessere".
+
+  Nuovo componente `disclaimerClinico()` (~riga 3151, index.html):
+  stringa unica riusabile, oggi richiamata in coda alla sezione
+  "Consigli per te" del PDF (font 7.5 grigio). Fonte unica del
+  testo — nessuna copia sparsa da tenere allineata a mano.
+
+  Verifica: `node --check` sul blocco script (19.046+ righe) OK;
+  grep di conferma zero occorrenze residue di "prescriv*" nel
+  file dopo la modifica.
+
+  Lasciato invariato (deciso con Fabrizio): commenti di codice
+  con "TERAPEUTICA" (invisibili all'utente, tocco minimo); nota
+  "bersaglio terapeutico" nell'analisi del sangue (linguaggio
+  tecnico corretto in quel contesto, visibile solo al
+  professionista, non al paziente).
+
+  Resta DA FARE (spostato dentro P78, non ha senso come task
+  isolato prima che esista la suite): la lista sentinella come
+  test automatico (grep che fallisce se "prescrivo" ricompare in
+  un futuro contenuto incollato) — punto (4) della scheda P73
+  originaria.
+
+  DISALLINEAMENTO SCOPERTO — P62 e P77: durante la
+  pianificazione di questa sessione, la Roadmap segnava P62 e
+  P77 come "Da fare". Prima di iniziare a implementarle, il
+  CHANGELOG (questa sezione, voce del 7 luglio sessione serale)
+  ha rivelato che erano GIÀ state chiuse il 7 lug 2026 (commit
+  `676927e`): schema tool-use versionato, rigenerazione delta,
+  cache 90gg confermata non impattata, suite 61/61. La scheda
+  Roadmap era rimasta "Da fare" perché non era stata aggiornata
+  nello stesso commit di chiusura. Le tre schede (P73/P62/P77)
+  sono state corrette a "CHIUSA" in `NutriGest_Roadmap_v4.md`
+  con dettagli e riferimento ai commit. LEZIONE OPERATIVA (da
+  CLAUDE.md/prassi): incrociare sempre Roadmap+CHANGELOG prima di
+  dare per scontato che una voce sia da fare, per evitare di
+  rifare lavoro già esistente; idealmente la scheda Roadmap va
+  aggiornata a CHIUSA nello stesso commit in cui si chiude la
+  voce, non in un secondo momento separato.
+
+
 ricette nel modale pasto e in Pesca ricetta (commit `bd1744f`). Sonnet
 Low/Medium, Thinking OFF:
 

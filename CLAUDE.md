@@ -36,6 +36,18 @@ GitHub `main` è la fonte di verità per TUTTO (codice + documentazione: `index.
 - Una sola sessione di lavoro Claude alla volta sul repo: mai due chat in parallelo che modificano file.
 - Rollback: ogni commit è recuperabile con `git revert <sha>` — la storia di GitHub è il backup del progetto; non servono copie manuali.
 
+## Checklist documentazione — OBBLIGATORIA dopo ogni modifica
+Nata da un incidente reale (16 lug 2026): P62/P77 erano state implementate il 7 lug ma la Roadmap era rimasta "Da fare" — una sessione successiva stava per rifarle da zero; salvata solo dall'incrocio col CHANGELOG. La documentazione NON si aggiorna "dopo, con calma": si aggiorna nello stesso giro di consegna della modifica, e i file documentali entrano nello STESSO blocco commit del codice.
+
+Dopo ogni modifica, Claude passa in rassegna TUTTI questi file e aggiorna quelli toccati:
+1. **CHANGELOG.md** — SEMPRE, per ogni modifica reale (append in cima): cosa, perché, lezioni. È la rete di sicurezza che ha salvato la sessione del 16 lug.
+2. **NutriGest_Roadmap_v4.md** — se la modifica chiude, avanza, blocca o riclassifica una voce: aggiornare la scheda (Stato + commit + data + nota di chiusura) SUBITO, non in un momento separato.
+3. **NutriGest_Contesto_v18.txt** — se cambia il funzionamento attuale del software: nuove funzioni riusabili, flussi, strutture dati, decisioni architetturali.
+4. **CLAUDE.md** (questo file) — solo se cambiano regole operative, di sviluppo o emergono lezioni permanenti da codificare.
+5. **INDEX.md** — solo dopo modifiche strutturali importanti a `index.html` (grosse sezioni nuove, blocchi di funzioni spostati), non dopo ogni piccolo commit.
+
+Il blocco commit di consegna include il codice E i file documentali aggiornati, elencati esplicitamente. Una consegna senza CHANGELOG aggiornato è una consegna incompleta.
+
 ## Ottimizzazione token — INDEX.md
 Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero prima di ogni modifica è costoso in token e va evitato.
 - **`INDEX.md`** (nella cartella del progetto) mappa ~673 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.

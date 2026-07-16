@@ -1160,6 +1160,13 @@ PDF: + nome + frase motivazionale casuale (4 frasi)
     in tutti i 3 punti export del piano — riga-impostazione con badge conteggio,
     NON bottone pieno (vedi UX bottoni export sotto).
     Default: paziente senza selezione → nessuna pagina concetti nel PDF (scelta esplicita).
+  DISCLAIMER CLINICO STANDARD (P73, 16 lug 2026):
+    disclaimerClinico() → stringa unica, riusabile ovunque servano contenuti educativi
+    (oggi: in coda alla pagina "Consigli per te" del PDF, font 7.5 grigio). Nasce da
+    P73 (revisione linguaggio prescrittivo): prima le schede (es. Berberina) usavano
+    linguaggio da prescrizione medica ("la prescrivo", dosaggi diretti); ora attribuiti
+    agli studi, con rimando esplicito al medico. Fonte UNICA del testo — se cambia,
+    cambia ovunque sia richiamata (nessuna copia sparsa nei singoli export).
   UX BOTTONI EXPORT — opzione "Gerarchia" (24 giu 2026, in tutti i 3 punti export):
     Salva piano definitivo = azione primaria piena (teal, #p2-save)
     Scarica PDF + WhatsApp = secondari, affiancati in riga, bordo sottile, sfondo bianco
