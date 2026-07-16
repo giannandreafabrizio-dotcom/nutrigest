@@ -496,8 +496,20 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
     più la telemetria interna). Telemetria temporanea in localStorage
     (p68SaveAnon, retention 30gg) traccia eventuali save() anonimi residui non
     ancora migrati, da rimuovere quando la migrazione sarà considerata completa.
-    pullFromSheets() SOSTITUISCE db.pazienti con le righe del server; guardia: se il
-    server restituisce 0 righe i dati locali NON vengono toccati. Il client non invia
+    pullFromSheets() — DAL 16 LUG 2026 (P74 fase 0.5, variante B2) il pull dei
+    pazienti è LEGGERO: scarica la sola proiezione dei campi di lista
+    (window._pazIndex, vedi STRUTTURA DATI), NON più i blob interi. Subito dopo,
+    _pazIdrataCambiati scarica il blob completo dei SOLI pazienti nuovi o cambiati
+    (updated_at ≠ baseline P69) e li sostituisce al volo in db.pazienti: i non
+    cambiati non viaggiano (taglio payload), ma il dispositivo resta completo
+    (offline ok, generatore/dashboard completi). La presenza remota comanda come
+    prima (un paziente assente da remoto esce dalla cache locale, salvo dirty/in
+    uso); le copie SUPERATE NON vengono espulse — restano e le aggiorna
+    l'idratazione (niente flicker nel generatore). Le baseline P69 NON si allineano
+    più dal pull: solo da _pazFetchBlob o dal push. Il meta record arriva con un
+    fetch dedicato (_pazFetchMeta). Guardia invariata: se il server restituisce 0
+    righe i dati locali NON vengono toccati (ora esplicita anche nel pull inline di
+    sincronizzaTutto). Il client non invia
     mai user_id nei payload: la valorizzazione avviene lato Supabase (setup P29/P30,
     vedi STORICO). eliminaPaz(id): rimuove paziente + eventi collegati (locale e
     Supabase); i PIANI e le ENTRATE collegati al paziente NON vengono rimossi
@@ -559,6 +571,26 @@ STRUTTURA DATI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 db = { pazienti:[], ricette:[], eventi:[], entrate:[], piani:[], concetti:[], disponibilita:{}, _deleted:{} }
+
+window._pazIndex[] = { id, updated_at, nome, cognome, tel, nascita, stato,
+  regime, controlloData, inizioAlim }  // P74 fase 0.5 (variante B2), 16 lug 2026
+  // INDICE LEGGERO della lista pazienti, popolato dal pull "shallow"
+  // (proiezione PostgREST select=id,updated_at,nome:data->>nome,...).
+  // Persistito in localStorage 'pazIndexP74'; al primo avvio si semina
+  // dalla cache blob locale (_pazIndexLoad). REGOLA DI SICUREZZA: le righe
+  // leggere NON entrano MAI in db.pazienti (pushToSheets invia l'intero
+  // db.pazienti: una riga leggera pushata sovrascriverebbe il blob clinico
+  // sul server). La lista si disegna da _pazMergedList() = blob idratati +
+  // righe leggere (marcate _shallowRow: solo scaffolding transitorio — a
+  // regime, col download B2, la lista viene tutta dai blob). Il blob
+  // completo si scarica con _pazFetchBlob: subito dopo ogni pull, per i soli
+  // pazienti NUOVI o CAMBIATI (_pazIdrataCambiati — B2: updated_at ≠
+  // baseline P69, i non cambiati non viaggiano), e come rete di sicurezza
+  // all'apertura scheda (_pazAssicuraBlob in openPaz/ripristinaPaz, async:
+  // ritorna subito se il blob è fresco). Serve tenere i blob in db.pazienti
+  // perché generatore/dashboard/calendario leggono da lì. _pazApplicaIndice
+  // NON espelle le copie superate (niente flicker): le sostituisce
+  // l'idratazione. Dettagli e motivazioni nel CHANGELOG (16 lug 2026).
 
 db._deleted = { '<pazId>': timestamp_ms, ... }  // P64, 8 lug 2026 — registro tombstone
   // Scritto da _registraTombstone() quando un paziente viene eliminato (eliminaPaz).
@@ -813,6 +845,39 @@ Pazienti attivi: Francesca Bia | Carmelo Lazzaro | Roberto Cifarelli | Floriana 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DECISIONI ARCHITETTURALI (con motivazione)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+P74 SCHEMA TARGET — LA FORMA FINALE DEI DATI, FISSATA "SU CARTA" (16 lug 2026,
+  fase 0 di P74; richiesta esplicita della roadmap: P63/P25/P88 e ogni voce
+  futura che tocca i dati NON devono inventare forme incompatibili con questa).
+  Stato di partenza: 1 riga Supabase per paziente {id, user_id, data:<blob
+  intero>, updated_at} + 4 "finti pazienti" meta nella stessa tabella
+  (meta_collections, __alimenti_custom, __modelli_rotazione, __concetti_educativi).
+  FORMA TARGET, per fasi:
+  · Fase 0.5 (fatta, in collaudo — variante B2): nessun cambio di schema — pull
+    leggero via proiezione PostgREST + download del blob dei soli pazienti
+    cambiati/nuovi; il blob resta com'è.
+  · Fase 1 — tabella `collections` {key text, user_id uuid, data jsonb,
+    updated_at timestamptz, PK (key, user_id)}, RLS row-owner identica alle
+    altre (user_id = auth.uid()): ci migrano i 4 meta-record, e i finti
+    pazienti spariscono dalla tabella pazienti. Transizione: dual-read una
+    sessione, poi cutover; i tombstone P64 (oggi dentro meta_collections,
+    chiave 'deleted') migrano con il loro meta. Rischio principe: dispositivo
+    con versione vecchia in cache che scrive ancora nel vecchio posto →
+    finestra di dual-write + reload forzato su PC e iPhone al cutover.
+  · Fase 2 — una entità per sessione FUORI dal blob (ordine: analisiSangue →
+    inbody → note), ognuna in tabella dedicata {id, pazId text, user_id uuid,
+    data jsonb, updated_at, PK (id, user_id)} con stessa RLS. Dual-write
+    (blob + tabella) finché il diff blob↔tabella è pulito; segnale di versione
+    minima nel dato per impedire a un client vecchio di ri-pushare un blob
+    "senza analisi" cancellando l'estratto. Solo a diff pulito il campo esce
+    dal blob.
+  · Fase 3 — pazId/pazienteId diventano FK reali con ON DELETE CASCADE: la
+    cascata di eliminazione passa al DB e il codice client P64 (tombstone
+    inclusi) si ritira. PRIMA: bonifica delle righe orfane storiche
+    (piani/entrate di pazienti eliminati prima della cascata P64 dell'8 lug).
+  Disciplina per OGNI fase: backup/export prima di toccare; test P78 verdi
+  prima e dopo; collaudo reale su PC E iPhone; una fase per sessione;
+  autonomia L0 (si decide insieme fase per fase).
 
 P66 TRASPORTO PROXY CON FALLBACK, NON TAGLIO NETTO (8 lug 2026): al posto
   di sostituire il trasporto diretto in un colpo solo, aiCall prova prima

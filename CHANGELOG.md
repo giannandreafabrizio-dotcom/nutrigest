@@ -10,6 +10,108 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+16 LUGLIO 2026 (sessione serale) — P74 FASE 0.5 (pull "shallow" lista
+pazienti + download differenziale, variante B2) IN COLLAUDO + schema
+target P74 nel Contesto (fase 0) + fix scheda P78 in Roadmap. Sessione
+iniziata su Fable 5 (claude-fable-5, effort medio), rifinitura B2 su
+Opus (claude-opus-4-8). Autonomia L0 — variante scelta da Fabrizio tra
+tre proposte (B1 lazy vs B2 pull differenziale vs A solo-percezione),
+baseline commit 59a8f64:
+
+  Nota di percorso: la prima stesura era B1 lazy; Fabrizio ha poi scelto
+  il B2. La differenza pratica era piccola (il B1 che avevo scritto già
+  scaricava in sottofondo i blob mancanti), ma il B2 è stato reso "pulito"
+  con tre rifiniture — vedi sotto — così il codice e i documenti dicono
+  davvero B2.
+
+  Cosa: i pull dei pazienti (pullFromSheets e tappa 1 di sincronizzaTutto)
+  non scaricano più il blob intero di ogni paziente ma una PROIEZIONE
+  leggera PostgREST (select=id,updated_at,nome:data->>nome,...: solo i
+  campi mostrati in lista) → la lista appare subito. Subito dopo,
+  _pazIdrataCambiati scarica il blob completo dei SOLI pazienti nuovi o
+  cambiati dall'ultima volta (updated_at ≠ baseline P69) e li sostituisce
+  al volo in db.pazienti. I pazienti NON cambiati (il caso normale) non
+  viaggiano mai più: era il grosso del payload a ogni sync. Il dispositivo
+  resta però SEMPRE completo — tutti i blob in cache (offline ok,
+  generatore/dashboard completi, scheda istantanea).
+
+  Le tre rifiniture B2 rispetto alla prima stesura B1:
+  1. NIENTE evict-then-refetch: le copie superate non vengono più espulse
+     dalla cache e riscaricate (c'era un istante a blob assente → un
+     paziente poteva "lampeggiare via" dal menu generatore). Ora restano
+     in cache e vengono sostituite al volo dalla versione nuova.
+  2. Il download dei cambiati è il PASSO PRINCIPALE garantito dopo ogni
+     pull (_pazIdrataCambiati), non un'aggiunta in secondo piano.
+  3. Apertura scheda istantanea: legge la cache (_pazAssicuraBlob torna
+     subito se il blob è fresco); il download al volo resta solo come rete
+     di sicurezza per i casi limite (dispositivo nuovo, apertura durante
+     l'idratazione).
+
+  Architettura e sicurezza (il perché delle scelte):
+  - Le righe leggere vivono SOLO in window._pazIndex (localStorage
+    'pazIndexP74'), MAI in db.pazienti: pushToSheets invia l'intero
+    contenuto di db.pazienti, e una riga leggera pushata avrebbe
+    sovrascritto il blob clinico completo sul server. REGOLA NON
+    NEGOZIABILE per tutte le fasi successive di P74.
+  - La lista si disegna da _pazMergedList() = blob idratati + righe
+    leggere (marcate _shallowRow, mai salvate né pushate). Con l'idratazione
+    B2 le righe leggere sono solo scaffolding transitorio (primo caricamento
+    su un dispositivo nuovo / finestra di idratazione): a regime la lista
+    viene tutta dai blob.
+  - _pazApplicaIndice riconcilia la cache: la presenza remota comanda
+    (stessa semantica del pull storico); esce dalla cache SOLO chi è
+    sparito da remoto (e non è dirty o in uso). Le copie superate restano
+    e le aggiorna l'idratazione. MAI espulsi pazienti dirty o in uso
+    (scheda aperta / generatore): il conflitto resta competenza di P69.
+  - _pazIdrataCambiati seleziona per differenza baseline↔indice: scarica
+    id mai visti (nessuna baseline) e id con updated_at diverso dalla
+    baseline (cambiati altrove); salta i dirty (P69 al push). updated_at
+    è la stessa colonna letta dal pull leggero e dal fetch del blob →
+    dopo l'idratazione baseline===indice, quindi nessun ri-download degli
+    invariati (transizione dolce: le baseline dei client aggiornati
+    esistono già dal push/pull pre-P74).
+  - Baseline P69: NON più allineata in blocco dal pull
+    (_p69SetBaselineFromRows rimossa dai 2 call-site; funzione lasciata
+    nel codice). Si aggiorna SOLO quando il blob viene davvero scaricato
+    (_pazFetchBlob) o pushato: allinearla dal pull leggero avrebbe
+    "accecato" il rilevamento conflitti (baseline nuova + blob vecchio →
+    flush che sovrascrive senza avviso).
+  - Meta record (disponibilita + tombstone + migrazioni legacy): non
+    arriva più col pull unico → fetch dedicato _pazFetchMeta(); se
+    fallisce, il pull prosegue (i tombstone vengono comunque rifusi
+    prima di ogni push del meta da _mergeTombstonesRemoti).
+  - Tombstone P64: filtrati dall'indice in _pazApplicaIndice;
+    _applicaTombstones ed eliminaPaz ripuliscono anche l'indice.
+  - Offline: al primo avvio post-aggiornamento l'indice si semina dalla
+    cache blob locale (_pazIndexLoad, chiamata dopo loadLocal); scheda
+    mai scaricata su un dispositivo nuovo → messaggio dedicato, nessun
+    crash; copia locale presente ma superata + offline → si apre la
+    copia locale con avviso.
+  - Guardia "0 righe = non toccare i dati locali" replicata; in
+    sincronizzaTutto ora è esplicita (prima il pull inline avrebbe
+    azzerato db.pazienti su risposta vuota).
+
+  Verifica: node --check sul blocco script OK; test-suite completa
+  63/63 verdi; smoke JSDOM dedicato B2 (niente espulsione dei superati,
+  merge lista, download differenziale = solo cambiati/nuovi mai gli
+  invariati, dirty-guard, rimozione-da-remoto, filtro tombstone) OK.
+
+  DA COLLAUDARE IN PRODUZIONE prima di dichiarare chiusa la fase:
+  avvio e Sincronizza su PC e iPhone; apertura scheda dopo una modifica
+  fatta sull'altro dispositivo; creazione paziente su un dispositivo e
+  comparsa sull'altro (lista + menu generatore); archivia/ripristina
+  dalla lista; verifica payload ridotto (Network tab: il GET pazienti di
+  lista non porta più la colonna data; solo i cambiati fanno il GET del
+  blob completo).
+
+  Documentazione: Roadmap — scheda P74 avanzata a "In corso (0.5 in
+  collaudo, variante B2)"; scheda P78 corretta (risultava "Da fare" ma è
+  chiusa dal 7 lug 2026, commit ba5c109 — stesso tipo di disallineamento
+  dell'incidente P62/P77). Contesto — nuova sezione "P74 SCHEMA TARGET"
+  nelle Decisioni architetturali (fase 0 "su carta", chiesta dalla
+  roadmap per non far inventare a P63/P25/P88 forme incompatibili) e
+  semantica sync aggiornata al pull leggero + download differenziale.
+
 16 LUGLIO 2026 — P73 (revisione linguaggio prescrittivo) CHIUSA
 (commit `34dd1ae`) + disallineamento roadmap/CHANGELOG scoperto su
 P62/P77. Fable 5, Ragionamento Attivo Alto, Fabrizio in loop (L0 —

@@ -370,7 +370,7 @@ SMOOTHIE BOWL: da valutare quando si decide di inserirle
 **LA CRITICA DEL CTO:** piano giusto ma manca il gradino a costo zero (F5) e la disciplina di transizione: senza finestra di dual-write e senza P68/P69 fatti prima, la migrazione multi-dispositivo è roulette.
 **LA SOLUZIONE OTTIMIZZATA:** fasi rinumerate: **(0.5)** proiezione lista pazienti via `select=id,updated_at,data->>nome,data->>cognome,...` — pull "shallow" per la lista, blob completo solo all'apertura scheda: taglia il payload dell'80% SENZA migrare nulla; **(1)** `collections` per i 4 meta-record (dual-read 1 sessione, poi cutover); **(2)** una entità per sessione (ordine: analisiSangue → inbody → note) in tabelle `{pazId, user_id, data jsonb}` con stessa RLS, dual-write finché il diff notturno è pulito; **(3)** FK reali → la cascata P64 passa al DB e il codice client si ritira. Ogni fase: backup + test P78 verdi prima/dopo. Definire ORA lo schema target su carta (mezza pagina nel Contesto) così P63/P25/P88 non inventano forme incompatibili.
 **FOCUS COMPONENTI COINVOLTI:** Database (migrazioni), Frontend (sync/lettura), tutto dietro P68/P69/P78.
-**SCHEDA:** Stato: Da fare (0.5 subito) · Priorità: Media-Alta · C: 5 | I: 5 | R: 4 · Modello: Fable 5 (Ragionamento Attivo Massimo) · Autonomia: **L0**.
+**SCHEDA:** Stato: **In corso — fase 0.5 implementata il 16 lug 2026, IN COLLAUDO** (variante **B2 pull differenziale** scelta da Fabrizio: pull leggero per la lista + download del blob completo dei soli pazienti nuovi o cambiati, `_pazIdrataCambiati`; il dispositivo resta sempre completo/offline-ready. Righe leggere SOLO in `window._pazIndex`, mai in `db.pazienti` — regola di sicurezza anti-sovrascrittura, dettagli nel CHANGELOG; prossimo passo dopo il collaudo: fase 1 `collections`) · Priorità: Media-Alta · C: 5 | I: 5 | R: 4 · Modello: Fable 5 (Ragionamento Attivo Massimo) · Autonomia: **L0**.
 
 ---
 
@@ -753,12 +753,14 @@ Verificato sul campo: creata una tabella di prova (`_test_rls_p106`) dopo la rev
 **FOCUS COMPONENTI COINVOLTI:** AI Layer (contratto), Frontend (parser), cache (strategia hash).
 **SCHEDA:** Stato: **CHIUSA** (commit `676927e`, 7 lug 2026 sessione serale) · Priorità: Media (Alta se accorpata a P62) · C: 3 | I: 4 | R: 3 (cache/costi) · Modello: Fable 5 (Alto) · Autonomia: L0 sul contratto. — *Nota di chiusura: schema tool-use versionato (`PIANO_SCHEMA_VERSION`), estrazione schema-first con fallback legacy testo+parseJSONSicuro (doppio parser mantenuto), max_tokens dimensionato dinamicamente sui giorni richiesti (`_pianoMaxTokens`). Cache 90gg confermata NON impattata: `_pianoCacheKey` non include il prompt e salva il piano già espanso — nessuna invalidazione, il rischio paventato in scheda non si è materializzato. schemaVersion e viaSchema persistiti nel meta piano. Suite invariata 61/61 dopo P77 (nessun golden test nuovo: la copertura di struttura arriva indirettamente dai 10 test P62).*
 
-### P78 — Suite test automatica minima
+### P78 — Suite test automatica minima ✅ CHIUSA 7 luglio 2026 (commit `ba5c109`)
+> **Nota 16 lug 2026:** questa scheda risultava ancora "Da fare" benché la suite fosse chiusa e in CI dal 7 luglio (63 test verdi, usata da allora come gate di ogni consegna) — stesso tipo di disallineamento roadmap/CHANGELOG dell'incidente P62/P77. Corretta in questa data; dettaglio tecnico completo nel CHANGELOG (voce 7 luglio 2026).
+
 **L'APPROCCIO ORIGINARIO:** consolidare l'harness jsdom/Node in `npm test` con casi su funzioni critiche.
 **LA CRITICA DEL CTO:** classificarla MEDIA è l'errore di priorità più costoso della roadmap (vedi F2). E "locale" non basta: il valore è il gate automatico.
 **LA SOLUZIONE OTTIMIZZATA:** tre strati in mezza giornata: (S1) smoke: lo script estratto da index.html si carica in JSDOM senza ReferenceError — il test anti-febf056; (S2) unit sui puri: getValoriCREA, NOMI_CANONICI/trovaChiaveAlimento, _ngScomponiIngredienti, parseJSONSicuro, semaforo, getTargetAttivi (P55), validaPiano (P61, golden set di piani con violazioni note); (S3) render smoke jsPDF headless (un giorno-tipo → nessuna eccezione). GitHub Actions su push (2 min). Regola sociale nei Principi: bug clinico trovato = caso di test aggiunto.
 **FOCUS COMPONENTI COINVOLTI:** Tooling (repo: /test, workflow). Zero runtime app.
-**SCHEDA:** Stato: Da fare · Priorità: **ALTA (per prima)** · C: 2 | I: 5 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
+**SCHEDA:** Stato: ✅ Chiusa (7 lug 2026, commit `ba5c109`; scheda corretta il 16 lug 2026) · Priorità: **ALTA (per prima)** · C: 2 | I: 5 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
 
 ### P82 — Alimenti custom: gestione completa ✅ CHIUSA 12 luglio 2026
 **L'APPROCCIO ORIGINARIO:** sezione con lista/modifica/duplica/elimina/log; aggiunta rapida dal generatore; verificare se l'eliminazione singola esiste già.

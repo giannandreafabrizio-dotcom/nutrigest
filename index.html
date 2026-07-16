@@ -3733,6 +3733,158 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const META_KEY = 'meta_collections';
 
 // ═══════════════════════════════════════════════════════════════════
+// P74 FASE 0.5 (B2 pull differenziale) — Pull "shallow" della lista
+// pazienti + download dei soli blob NUOVI o CAMBIATI.
+// Il pull scarica una PROIEZIONE leggera (id, updated_at e i soli campi
+// mostrati in lista) → la lista appare subito. Subito dopo,
+// _pazIdrataCambiati scarica il blob completo dei soli pazienti nuovi o
+// cambiati dall'ultima volta (updated_at ≠ baseline P69) e li sostituisce
+// AL VOLO in db.pazienti: i pazienti non cambiati (il caso normale) non
+// viaggiano mai → payload tagliato, ma il dispositivo resta SEMPRE
+// completo (tutti i blob in cache, consultabili offline; generatore e
+// dashboard completi; scheda che si apre istantanea). Il download al volo
+// all'apertura scheda (_pazAssicuraBlob) resta solo come rete di sicurezza
+// per i casi limite (dispositivo nuovo, apertura durante l'idratazione).
+// REGOLA DI SICUREZZA (non negoziabile): le righe leggere vivono SOLO in
+// window._pazIndex e non entrano MAI in db.pazienti — pushToSheets invia
+// l'intero contenuto di db.pazienti, e una riga leggera pushata
+// sovrascriverebbe il blob clinico completo sul server.
+// ═══════════════════════════════════════════════════════════════════
+const _PAZ_INDEX_LS_KEY = 'pazIndexP74';
+const _PAZ_SHALLOW_SELECT = 'id,updated_at,nome:data->>nome,cognome:data->>cognome,tel:data->>tel,nascita:data->>nascita,stato:data->>stato,regime:data->>regime,controlloData:data->>controlloData,inizioAlim:data->>inizioAlim';
+window._pazIndex = [];
+
+function _pazIndexLoad(){
+  try{ window._pazIndex = JSON.parse(localStorage.getItem(_PAZ_INDEX_LS_KEY)||'[]')||[]; }
+  catch(e){ window._pazIndex = []; }
+  // Primo avvio dopo l'aggiornamento (o offline): semina l'indice dalla cache
+  // locale dei blob, così la lista è completa anche senza rete.
+  if(!window._pazIndex.length && (db.pazienti||[]).length){
+    window._pazIndex = db.pazienti.map(p=>_pazRigaIndice(p, null));
+  }
+}
+function _pazIndexStore(){
+  try{ localStorage.setItem(_PAZ_INDEX_LS_KEY, JSON.stringify(window._pazIndex||[])); }catch(e){}
+}
+function _pazRigaIndice(src, updatedAt){
+  return { id:src.id, updated_at:updatedAt||src.updated_at||null,
+    nome:src.nome||'', cognome:src.cognome||'', tel:src.tel||'',
+    nascita:src.nascita||'', stato:src.stato||'', regime:src.regime||'',
+    controlloData:src.controlloData||'', inizioAlim:src.inizioAlim||'' };
+}
+function _pazIndexRow(id){ return (window._pazIndex||[]).find(r=>r&&r.id===id); }
+
+// Lista per il RENDER (solo viste elenco/card/kanban): blob idratati + righe
+// leggere per gli id non ancora idratati. Le righe leggere sono marcate
+// _shallowRow e NON vanno mai salvate né pushate.
+function _pazMergedList(){
+  const full = db.pazienti||[];
+  const fullIds = new Set(full.map(p=>p&&p.id));
+  const shallow = (window._pazIndex||[]).filter(r=>r&&r.id&&!fullIds.has(r.id))
+    .map(r=>Object.assign({_shallowRow:true}, r));
+  return full.concat(shallow);
+}
+
+// Scarica il blob COMPLETO di un singolo paziente e lo idrata in db.pazienti.
+// Non tocca mai un paziente con modifiche locali non ancora confermate (dirty):
+// quel caso è competenza del flusso conflitti P69 al momento del push.
+async function _pazFetchBlob(id){
+  if(window._dirtyIds && window._dirtyIds.has(id)){
+    return (db.pazienti||[]).find(x=>x&&x.id===id)||null;
+  }
+  try{
+    const r = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+encodeURIComponent(id)+'&select=id,data,updated_at',{headers:supaHeaders()});
+    if(!r.ok) throw new Error('status '+r.status);
+    const rows = await r.json();
+    const row = rows && rows[0];
+    if(!row || !row.data || !row.data.id || !row.data.nome) return null;
+    const i = db.pazienti.findIndex(x=>x&&x.id===id);
+    if(i>=0) db.pazienti[i]=row.data; else db.pazienti.push(row.data);
+    _p69SetBaseline(id, row.updated_at); // versione server ora vista da questo dispositivo
+    const idx=_pazIndexRow(id); if(idx){ idx.updated_at=row.updated_at; _pazIndexStore(); }
+    saveLocal();
+    return row.data;
+  }catch(e){
+    console.error('[P74] fetch blob paziente fallito:', id, e);
+    return null;
+  }
+}
+
+// Garantisce il blob completo prima di usare la scheda: cache fresca → subito;
+// cache superata o assente → riscarica; offline → cache locale se esiste.
+async function _pazAssicuraBlob(id){
+  const loc=(db.pazienti||[]).find(x=>x&&x.id===id);
+  if(window._dirtyIds && window._dirtyIds.has(id)) return loc||null;
+  const idx=_pazIndexRow(id);
+  if(loc){
+    if(!idx || !idx.updated_at) return loc;
+    const base=_p69LoadBaseline()[id];
+    if(base && base===idx.updated_at) return loc; // fresco: nessuna rete
+    const fresh=await _pazFetchBlob(id);
+    if(!fresh) notif('⚠ Offline: mostro l\'ultima copia locale della scheda',3000);
+    return fresh||loc;
+  }
+  return await _pazFetchBlob(id);
+}
+
+// P74 0.5 (B2) — applica l'esito del pull leggero: aggiorna l'indice e
+// riconcilia la cache dei blob. La presenza remota comanda: esce dalla cache
+// SOLO chi è sparito da remoto (e non è dirty o in uso). Le copie SUPERATE da
+// un altro dispositivo NON vengono espulse — restano in cache e vengono
+// sostituite AL VOLO da _pazIdrataCambiati (nessun momento a blob assente →
+// niente "flicker" nel generatore o nella dashboard). La freschezza la
+// ripristina l'idratazione, non l'espulsione.
+function _pazApplicaIndice(rows){
+  const tomb=new Set(Object.keys(_tombstoneAttivi()));
+  window._pazIndex=(rows||[]).filter(r=>r&&r.id&&!tomb.has(r.id)).map(r=>_pazRigaIndice(r, r.updated_at));
+  _pazIndexStore();
+  const remoti=new Set(window._pazIndex.map(r=>r.id));
+  const inUso=new Set([currentPazId, (typeof _ragPazId!=='undefined'?_ragPazId:null)].filter(Boolean));
+  const dirty=window._dirtyIds||new Set();
+  db.pazienti=(db.pazienti||[]).filter(p=>{
+    if(!p||!p.id) return false;
+    if(dirty.has(p.id)||inUso.has(p.id)) return true; // mai perdere lavoro in corso
+    if(!remoti.has(p.id)){ _p69DropBaseline(p.id); return false; } // rimosso da remoto → via
+    return true; // presente da remoto: si tiene (fresco o superato); l'idratazione aggiorna
+  });
+}
+
+// P74 0.5 (B2) — PASSO PRINCIPALE dopo ogni pull (sempre eseguito, non
+// opzionale): scarica i blob NUOVI o CAMBIATI e li sostituisce AL VOLO in
+// db.pazienti (in place, nessun buco). "Cambiato" = updated_at dell'indice
+// diverso dalla baseline P69 già vista da questo dispositivo. I pazienti NON
+// cambiati (il caso normale) non viaggiano: è il taglio di payload del B2.
+// I dirty non si toccano (il conflitto è competenza di P69 al push). Gira in
+// sottofondo per non bloccare la lista, che è già a schermo dall'indice; a
+// download finito ridisegna lista e menu generatore così tutto è completo.
+async function _pazIdrataCambiati(){
+  const dirty=window._dirtyIds||new Set();
+  const presenti={}; (db.pazienti||[]).forEach(p=>{ if(p&&p.id) presenti[p.id]=true; });
+  const base=_p69LoadBaseline();
+  const daScaricare=(window._pazIndex||[]).filter(r=>{
+    if(!r||!r.id||dirty.has(r.id)) return false;
+    if(!presenti[r.id]) return true;          // mai scaricato su questo dispositivo
+    return base[r.id]!==r.updated_at;         // versione locale superata
+  }).map(r=>r.id);
+  for(const id of daScaricare){ await _pazFetchBlob(id); }
+  if(daScaricare.length){
+    console.log('[P74] B2 — idratati', daScaricare.length, 'blob paziente (nuovi o cambiati)');
+    try{ renderPaz(); if(typeof renderPianoPage==='function'&&document.getElementById('piano-select-paz'))renderPianoPage(); }catch(e){}
+  }
+}
+
+// Meta record (disponibilità + tombstone + eventuali migrazioni legacy):
+// col pull leggero non arriva più insieme ai pazienti — fetch dedicato.
+async function _pazFetchMeta(){
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+encodeURIComponent(META_KEY)+'&select=id,data',{headers:supaHeaders()});
+    if(!r.ok) return null;
+    const rows=await r.json();
+    return (rows&&rows[0])||null;
+  }catch(e){ console.error('[P74] fetch meta fallito:', e); return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // P64 — Registro tombstone (anti-"resurrezione" multi-dispositivo)
 // Un id paziente eliminato viene marcato qui e propagato nel meta record
 // (già sincronizzato). Push e pull consultano il registro per non
@@ -3797,6 +3949,8 @@ async function _applicaTombstones(){
   const eventiRisorti   = (db.eventi||[]).filter(e=>e&&set.has(e.pazId));
   // Ripulitura copie locali
   db.pazienti = (db.pazienti||[]).filter(p=>!(p&&set.has(p.id)));
+  // P74 0.5 — via anche dall'indice leggero della lista (tombstone arrivati dal meta DOPO il pull leggero)
+  if(window._pazIndex&&window._pazIndex.length){ window._pazIndex=window._pazIndex.filter(r=>!(r&&set.has(r.id))); _pazIndexStore(); }
   db.piani    = (db.piani||[]).filter(pl=>!(pl&&set.has(pl.pazienteId)));
   db.entrate  = (db.entrate||[]).filter(e=>!(e&&set.has(e.pazId)));
   db.eventi   = (db.eventi||[]).filter(e=>!(e&&set.has(e.pazId)));
@@ -3941,16 +4095,19 @@ async function pushToSheets(){
 async function pullFromSheets(){
   console.log('[Supabase] pull iniziato...');
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data,updated_at',{method:'GET',headers:supaHeaders()});
+    // P74 0.5 (B1): pull LEGGERO — solo i campi mostrati in lista; i blob
+    // completi non viaggiano più qui (si scaricano all'apertura scheda).
+    // Le baseline P69 NON si allineano dal pull leggero: si aggiornano solo
+    // quando il blob viene davvero scaricato (_pazFetchBlob) o pushato.
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select='+_PAZ_SHALLOW_SELECT,{method:'GET',headers:supaHeaders()});
     if(!r.ok) throw new Error('status '+r.status);
     const rows=await r.json();
-    console.log('[Supabase] pull — righe ricevute:', rows.length);
+    console.log('[Supabase] pull leggero — righe ricevute:', rows.length);
     if(!rows||!rows.length) return false;
-    const pr=rows.filter(row=>row.id!==META_KEY);
-    _p69SetBaselineFromRows(pr); // P69 — allinea la baseline updated_at per-record a questo pull
-    const mr=rows.find(row=>row.id===META_KEY);
+    const pr=rows.filter(row=>row.id!==META_KEY&&!String(row.id||'').startsWith('__')&&row.nome);
     if(!pr.length){ console.warn('[Supabase] pull — nessun paziente trovato'); return false; }
-    db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
+    _pazApplicaIndice(pr);
+    const mr=await _pazFetchMeta(); // meta: fetch dedicato (non arriva più col pull unico)
     if(mr&&mr.data){
       // Ricette NON più nel meta — usa tabella dedicata
       db.disponibilita=mr.data.disponibilita||{};
@@ -4006,7 +4163,8 @@ async function pullFromSheets(){
     if(!db.disponibilita)db.disponibilita={};
     await _applicaTombstones(); // P64 — scarta resurrezioni, ripulisci locale + remoto
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
-    console.log('[Supabase] pull COMPLETATO — pazienti:', db.pazienti.length, '— ricette:', db.ricette.length);
+    _pazIdrataCambiati(); // P74 0.5 (B2) — scarica in sottofondo i blob nuovi o cambiati
+    console.log('[Supabase] pull COMPLETATO — pazienti (lista):', _pazMergedList().length, '— ricette:', db.ricette.length);
     return true;
   }catch(e){
     console.error('[Supabase] pull ERRORE FATALE:',e);setSyncStatus(false);return false;
@@ -4065,13 +4223,13 @@ async function sincronizzaTutto(){
   try{
     // Tappa 1 — Pazienti
     stpSet('stp-paz','active',null);stpMsg('Download pazienti…');
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,data,updated_at',{method:'GET',headers:supaHeaders()});
+    // P74 0.5 (B1): pull LEGGERO come in pullFromSheets — vedi commenti là.
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select='+_PAZ_SHALLOW_SELECT,{method:'GET',headers:supaHeaders()});
     if(!r.ok)throw new Error('status '+r.status);
     const rows=await r.json();
-    const pr=(rows||[]).filter(row=>row.id!==META_KEY);
-    _p69SetBaselineFromRows(pr); // P69 — allinea la baseline updated_at per-record a questa sincronizzazione
-    const mr=(rows||[]).find(row=>row.id===META_KEY);
-    db.pazienti=pr.map(row=>row.data).filter(p=>p&&p.id&&p.nome);
+    const pr=(rows||[]).filter(row=>row.id!==META_KEY&&!String(row.id||'').startsWith('__')&&row.nome);
+    if(pr.length)_pazApplicaIndice(pr); // guardia: 0 righe = non toccare i dati locali
+    const mr=await _pazFetchMeta(); // meta: fetch dedicato (non arriva più col pull unico)
     if(mr&&mr.data){
       db.disponibilita=mr.data.disponibilita||{};
       _fondiTombstones(mr.data.deleted); // P64 — carica registro tombstone dal meta
@@ -4087,7 +4245,7 @@ async function sincronizzaTutto(){
         if(rcV.length>0){db.ricette=[...RICETTE_DEFAULT,...rcV];await pushRicetteSupabase();}
       }
     }
-    stpSet('stp-paz','done',0);stpMsg(db.pazienti.length+' pazienti');
+    stpSet('stp-paz','done',0);stpMsg(_pazMergedList().length+' pazienti');
 
     // Tappa 2 — Ricette
     stpSet('stp-ric','active',1);stpMsg('Download ricette…');
@@ -4114,6 +4272,7 @@ async function sincronizzaTutto(){
     saveLocal();localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
     stpSet('stp-extra','done',3);stpMsg('Entrate OK');
     renderPaz();renderRic();renderCal();renderEntrate();
+    _pazIdrataCambiati(); // P74 0.5 (B2) — scarica in sottofondo i blob nuovi o cambiati
     pullOk=true;
   }catch(e){
     // marca come errore la prima tappa non completata
@@ -4135,7 +4294,7 @@ async function sincronizzaTutto(){
   // Aggiorna timestamp
   const tsEl=document.getElementById('ss-ts');
   if(tsEl){const now=new Date();tsEl.textContent=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' — '+now.toLocaleDateString('it-IT');}
-  const recEl=document.getElementById('ss-rec');if(recEl)recEl.textContent=db.pazienti.length+' pazienti';
+  const recEl=document.getElementById('ss-rec');if(recEl)recEl.textContent=_pazMergedList().length+' pazienti';
 
   // Stato finale bottone
   if(wrap)wrap.classList.remove('is-loading');if(btn)btn.disabled=false;
@@ -4910,7 +5069,7 @@ function _pazStatoTagHtml(p){
 function _pazAggiornaFiltroRegimi(){
   const sel=document.getElementById('f-paz-regime'); if(!sel) return;
   const cur=sel.value;
-  const regimi=[...new Set(db.pazienti.map(p=>p.regime).filter(Boolean))].sort();
+  const regimi=[...new Set(_pazMergedList().map(p=>p.regime).filter(Boolean))].sort(); // P74 0.5 — include anche le righe leggere
   sel.innerHTML='<option value="">Tutti i regimi</option>'+regimi.map(r=>`<option value="${r}">${r}</option>`).join('');
   if(regimi.includes(cur)) sel.value=cur;
 }
@@ -4924,7 +5083,9 @@ function renderPaz(){
   const sortMode=document.getElementById('sort-paz')?.value||'cognome';
   const view=getPazView();
 
-  let list=[...db.pazienti].sort((a,b)=>{
+  // P74 0.5 — la lista si disegna dalla fusione blob idratati + righe leggere
+  const tutti=_pazMergedList();
+  let list=[...tutti].sort((a,b)=>{
     if(sortMode==='recenti')return (b.id||'').localeCompare(a.id||'');
     if(sortMode==='nome')return (a.nome||'').localeCompare(b.nome||'');
     return (a.cognome||'').localeCompare(b.cognome||'');
@@ -4937,7 +5098,7 @@ function renderPaz(){
   if(fRegime) list=list.filter(p=>p.regime===fRegime);
   if(fControllo) list=list.filter(p=>_pazUrgenzaControllo(p)===fControllo);
 
-  const attivi=db.pazienti.filter(p=>p.stato!=='archiviato').length;
+  const attivi=tutti.filter(p=>p.stato!=='archiviato').length;
   document.getElementById('paz-count').textContent=attivi+' pazienti';
 
   // Sincronizza i pulsanti vista e la classe del contenitore anche al primo render
@@ -4948,7 +5109,7 @@ function renderPaz(){
   if(!list.length){
     // P30 — Onboarding: utente nuovo senza alcun paziente → benvenuto guidato.
     // Se invece ci sono pazienti ma il filtro/ricerca non trova nulla → messaggio semplice.
-    if(db.pazienti.length===0){
+    if(tutti.length===0){
       grid.innerHTML='<div class="empty" style="grid-column:1/-1;padding:2.5rem 1.2rem;max-width:520px;margin:0 auto;">'
         +'<div style="font-size:2.4rem;margin-bottom:.6rem">👋</div>'
         +'<p style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:.4rem">Benvenuto in NutriGest!</p>'
@@ -5715,8 +5876,11 @@ function salvaPaz(){
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
 
-function openPaz(id){
-  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+async function openPaz(id){
+  // P74 0.5 — la lista può contenere righe leggere: garantisce il blob completo
+  // (cache fresca → nessuna rete; superata/assente → riscarica; offline → cache)
+  const p=await _pazAssicuraBlob(id);
+  if(!p){notif('⚠ Scheda non ancora scaricata su questo dispositivo: serve la connessione',3500);return;}
   currentPazId=id;
   document.getElementById('pd-title').textContent=p.nome+' '+p.cognome;
   const eta=p.nascita?Math.floor((new Date()-new Date(p.nascita))/31557600000):null;
@@ -20032,8 +20196,10 @@ function archiviaPaz(id){
   renderPaz();
   notif('📦 Paziente archiviato');
 }
-function ripristinaPaz(id){
-  const p=db.pazienti.find(x=>x.id===id);if(!p)return;
+async function ripristinaPaz(id){
+  // P74 0.5 — dalla lista può arrivare una riga leggera: prima il blob completo
+  const p=await _pazAssicuraBlob(id);
+  if(!p){notif('⚠ Serve la connessione per ripristinare questo paziente',3000);return;}
   p.stato='attivo';
   save(id);renderPaz();
   notif('✓ Paziente ripristinato');
@@ -20062,6 +20228,8 @@ async function eliminaPaz(id){
   }
   // P64 — rimozione locale a cascata (paziente + piani + entrate + eventi)
   db.pazienti = db.pazienti.filter(x=>x.id!==id);
+  // P74 0.5 — via subito anche dall'indice leggero (non aspettare il prossimo pull)
+  if(window._pazIndex&&window._pazIndex.length){ window._pazIndex=window._pazIndex.filter(r=>!(r&&r.id===id)); _pazIndexStore(); }
   db.piani    = (db.piani||[]).filter(pl=>!(pl && pl.pazienteId===id));
   db.entrate  = (db.entrate||[]).filter(e=>!(e && e.pazId===id));
   db.eventi   = (db.eventi||[]).filter(e=>!(e && e.pazId===id));
@@ -20482,6 +20650,7 @@ function gestisciRitornoAuth(){
 window._alStato={};
 window._alGroupStato={};
 loadLocal();
+_pazIndexLoad(); // P74 0.5 — indice leggero lista pazienti (dopo loadLocal: può seminarsi dalla cache blob)
 // Carica modelli rotazione custom dal localStorage (saranno poi aggiornati dal pull Supabase)
 if(typeof caricaModelliCustomLocal === 'function') caricaModelliCustomLocal();
 // Aggiungi ricette precaricate se non già presenti
