@@ -3171,6 +3171,7 @@ async function pushConcetiSupabase(){
     const resp=await fetch(url,{method,headers:supaHeaders(),body:JSON.stringify(payload)});
     if(!resp.ok&&resp.status!==200&&resp.status!==201){console.error('[CONCETTI] push ERRORE — status:',resp.status);return false;}
     console.log('[CONCETTI] push OK —',db.concetti.length,'concetti sincronizzati');
+    _collectionsUpsert(_CONCETTI_META_KEY, payload.data); // P74 1b — scrittura ombra, best-effort
     return true;
   }catch(e){console.error('[CONCETTI] push failed',e);return false;}
 }
@@ -3885,6 +3886,37 @@ async function _pazFetchMeta(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// P74 FASE 1b — Doppia scrittura verso `collections` (tabella nuova,
+// SQL Editor Supabase, 16 lug 2026). Ogni push dei 4 meta-record
+// (meta_collections, __alimenti_custom, __modelli_rotazione,
+// __concetti_educativi) scrive gli STESSI dati anche nella riga
+// corrispondente di `collections` (chiave = la stessa stringa di oggi).
+// NESSUN CAMBIO DI LETTURA in questa fase: il client legge ancora
+// SOLO dalla vecchia posizione (righe finte in `pazienti`). La scrittura
+// verso `collections` è "ombra": best-effort, non blocca né altera
+// l'esito della push legacy — un suo fallimento non deve mai far
+// fallire il salvataggio vero. Serve solo a popolare la tabella nuova
+// nel tempo d'uso reale, in vista della fase 1c (doppia lettura).
+async function _collectionsUpsert(key, data){
+  try{
+    const payload={key, data, updated_at:new Date().toISOString()};
+    const r=await fetch(SUPA_URL+'/rest/v1/collections',{
+      method:'POST',
+      headers:{...supaHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify(payload)
+    });
+    if(!r.ok && r.status!==200 && r.status!==201){
+      console.error('[P74 1b] collections upsert ERRORE —', key, '— status:', r.status, await r.text());
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error('[P74 1b] collections upsert ECCEZIONE —', key, e);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // P64 — Registro tombstone (anti-"resurrezione" multi-dispositivo)
 // Un id paziente eliminato viene marcato qui e propagato nel meta record
 // (già sincronizzato). Push e pull consultano il registro per non
@@ -4075,6 +4107,7 @@ async function pushToSheets(){
       console.error('[Supabase] push ERRORE meta — status:', rm.status, '— body:', metaBody);
       throw new Error('err meta status '+rm.status);
     }
+    _collectionsUpsert(META_KEY, meta); // P74 1b — scrittura ombra, best-effort
     // Push ricette, entrate, eventi su tabelle dedicate
     await pushRicetteSupabase();
     await pushEntrateSupabase();
@@ -4382,7 +4415,9 @@ async function _pushRigaPerId(id){
       await _mergeTombstonesRemoti(); // P64 — non perdere tombstone remoti
       const meta={disponibilita:db.disponibilita||{}, deleted:_tombstoneAttivi()};
       const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:META_KEY,data:meta,updated_at:new Date().toISOString()})});
-      return r.ok||r.status===200||r.status===201;
+      const ok=r.ok||r.status===200||r.status===201;
+      if(ok) _collectionsUpsert(META_KEY, meta); // P74 1b — scrittura ombra, best-effort
+      return ok;
     }
     if(id===_ALIM_CUSTOM_KEY) return (await pushAlimentiCustomSupabase())===true;
     if(id===_MODELLI_META_KEY) return (await pushModelliSupabase())===true;
@@ -11954,6 +11989,7 @@ async function pushAlimentiCustomSupabase(){
     const resp=await fetch(url,{method,headers:supaHeaders(),body:JSON.stringify(payload)});
     // P68 — esito esplicito: serve al push per-id per svuotare il set solo a 2xx
     if(!resp.ok&&resp.status!==200&&resp.status!==201){console.error('[ALIM_CUSTOM] push ERRORE — status:',resp.status);return false;}
+    _collectionsUpsert(_ALIM_CUSTOM_KEY, payload.data); // P74 1b — scrittura ombra, best-effort
     return true;
   }catch(e){console.error('[ALIM_CUSTOM] push failed',e);return false;}
 }
@@ -11989,6 +12025,7 @@ async function pushModelliSupabase(){
       return false;
     }
     console.log('[MODELLI] push OK —', Object.keys(toSave).length, 'modelli sincronizzati');
+    _collectionsUpsert(_MODELLI_META_KEY, payload.data); // P74 1b — scrittura ombra, best-effort
     return true;
   } catch(e){ console.error('[MODELLI] push ECCEZIONE:', e); return false; }
 }

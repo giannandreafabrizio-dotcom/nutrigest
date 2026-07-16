@@ -10,6 +10,64 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+16 LUGLIO 2026 (notte) — P74 FASE 1a+1b (tabella `collections` + doppia
+scrittura) IN CORSO — piano fase 1 in 4 sotto-passi (1a tabella, 1b
+doppia scrittura, 1c doppia lettura, 1d cutover) concordato con
+Fabrizio dopo la chiusura della 0.5. Sessione avviata su Opus
+(claude-opus-4-8), rifinitura 1b su Sonnet (claude-sonnet-5). Autonomia
+L0, baseline commit 6ec732e:
+
+  1a — Tabella `collections` creata da Fabrizio via SQL Editor Supabase
+  (script fornito da Claude, non eseguibile lato client): schema
+  `{key text, user_id uuid default auth.uid(), data jsonb, updated_at
+  timestamptz, PK(key,user_id)}`, RLS row-owner identica alle 5 tabelle
+  esistenti (policy unica FOR ALL, `user_id = auth.uid()`). Verificato
+  da Fabrizio: rls_attivo=true, numero_policy=1. Nessun dato esistente
+  toccato — tabella nuova e vuota.
+
+  1b — Doppia scrittura (SOLO scrittura, nessun cambio di lettura):
+  nuovo helper `_collectionsUpsert(key, data)` (upsert POST con
+  `Prefer: resolution=merge-duplicates`, stesso pattern già in uso per
+  `pushModelliSupabase`). Agganciato ai 5 punti che scrivono i 4
+  meta-record: `pushConcetiSupabase`, `pushAlimentiCustomSupabase`,
+  `pushModelliSupabase`, la sezione meta di `pushToSheets` (push
+  completo) e il ramo `META_KEY` di `_pushRigaPerId` (push incrementale
+  P68). Ogni chiamata scrive in `collections` la STESSA identica
+  chiave e lo STESSO identico `data` già scritto nella vecchia riga
+  `pazienti` — nessuna trasformazione, mapping 1:1.
+
+  Scelta di sicurezza deliberata: la scrittura ombra parte SOLO se la
+  scrittura legacy è andata a buon fine (gate esplicito su ogni sito:
+  dopo il controllo di errore, prima del `return true`/`return ok`). Un
+  fallimento della scrittura ombra non altera mai l'esito della
+  funzione chiamante (nessun await bloccante sul suo esito, solo
+  log console in caso di errore) — la fase 1b non deve MAI poter
+  peggiorare l'affidabilità del salvataggio reale, che oggi dipende
+  solo dalla vecchia posizione. Nessuna lettura da `collections` in
+  questa fase: il comportamento visibile dell'app è invariato al 100%.
+
+  Verifica: node --check sul blocco script OK; test-suite completa
+  63/63 verdi; smoke JSDOM dedicato con fetch mockato — copre i 4
+  meta-record (chiavi e contenuto scritti in `collections` corretti,
+  spot-check su alimenti custom e su meta_collections/disponibilita) e
+  il caso di fallimento legacy (scrittura ombra NON deve avvenire se
+  la legacy fallisce), verificato sia per un push diretto
+  (pushAlimentiCustomSupabase) sia per il push incrementale
+  (_pushRigaPerId su META_KEY).
+
+  DA FARE prima della 1c: uso reale per qualche giorno (push naturali
+  dell'app, PC+iPhone) per lasciare che `collections` si popoli con
+  tutti e 4 i meta-record; poi verifica manuale nel dashboard Supabase
+  (Table Editor → collections) che le 4 righe esistano con contenuto
+  plausibile, PRIMA di introdurre la lettura preferenziale.
+
+16 LUGLIO 2026 (tardo) — P74 FASE 0.5 ✅ CHIUSA: collaudo in produzione
+confermato da Fabrizio (commit `6ec732e`, push riuscito). Verificato su
+PC e iPhone: sincronizzazione, apertura scheda dopo modifica su altro
+dispositivo, creazione paziente con comparsa cross-device, archivia/
+ripristina dalla lista — tutto ok, nessuna regressione. Prossimo passo:
+fase 1 (`collections` per i 4 meta-record) in discussione, autonomia L0.
+
 16 LUGLIO 2026 (sessione serale) — P74 FASE 0.5 (pull "shallow" lista
 pazienti + download differenziale, variante B2) IN COLLAUDO + schema
 target P74 nel Contesto (fase 0) + fix scheda P78 in Roadmap. Sessione
