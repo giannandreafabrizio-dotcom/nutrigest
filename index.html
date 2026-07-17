@@ -1412,7 +1412,7 @@ main{flex:1;overflow-y:auto;}
     <div class="fr">
       <div class="fg"><label>Giorni vegetariani/settimana</label><input type="number" id="p-veg" min="0" max="7" placeholder="0"></div>
       <div class="fg"><label>Piano su 6 o 7 giorni</label><select id="p-giorni"><option value="7">7 giorni</option><option value="6">6 giorni</option></select></div>
-      <div class="fg"><label>Sabato sera</label>
+      <div class="fg"><label>Sabato sera (principale — stima kcal)</label>
         <select id="p-weekend">
           <option value="Pizza">Pizza (~900 kcal)</option>
           <option value="Pizza con condimenti">Pizza con condimenti (~1100 kcal)</option>
@@ -1421,6 +1421,29 @@ main{flex:1;overflow-y:auto;}
           <option value="Pesce al ristorante">Pesce al ristorante (~600 kcal)</option>
           <option value="Carne rossa al ristorante">Carne rossa al ristorante (~750 kcal)</option>
           <option value="Libero (non specificato)">Libero (~800 kcal)</option>
+        </select>
+      </div>
+    </div>
+    <!-- P93: pasto libero del sabato configurabile — alternative concesse + alcol (stampate nel PDF) -->
+    <div class="fr">
+      <div class="fg" style="flex:2 1 60%">
+        <label>Sabato sera — altre opzioni concesse (oltre alla principale)</label>
+        <div class="chip-group" id="p-weekend-altre" style="flex-wrap:wrap;gap:6px;margin-top:.3rem">
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Pizza"> Pizza</label>
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Pizza con condimenti"> Pizza cond.</label>
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Panino"> Panino</label>
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Sushi o Poke"> Sushi/Poke</label>
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Pesce al ristorante"> Pesce rist.</label>
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Carne rossa al ristorante"> Carne rossa</label>
+          <label class="chip-pill"><input type="checkbox" class="p-we-alt" data-opt="Libero (non specificato)"> Libero</label>
+        </div>
+      </div>
+      <div class="fg"><label>Alcol concesso (sabato)</label>
+        <select id="p-weekend-alcol">
+          <option value="">Nessuno</option>
+          <option value="1 calice di vino">1 calice di vino</option>
+          <option value="1 birra">1 birra</option>
+          <option value="1 drink">1 drink / cocktail</option>
         </select>
       </div>
     </div>
@@ -2389,6 +2412,20 @@ function getKcalWeekend(paziente){
     if(scelta&&scelta.toLowerCase().includes(key.toLowerCase()))return val;
   }
   return scelta?800:0; // default 800 se scelta non riconosciuta
+}
+// P93: opzioni del pasto libero del sabato = principale (p.weekend) + alternative (p.weekendAltre), dedup, senza vuoti
+function getWeekendOpzioni(paziente){
+  if(!paziente) return [];
+  var arr=[];
+  if(paziente.weekend) arr.push(paziente.weekend);
+  (paziente.weekendAltre||[]).forEach(function(o){ if(o) arr.push(o); });
+  var out=[];
+  arr.forEach(function(o){ if(out.indexOf(o)<0) out.push(o); });
+  return out;
+}
+// P93: true se il sabato sera libero è attivo per questo paziente (regola non disattivata)
+function isWeekendLiberoAttivo(paziente){
+  return !!paziente && (!paziente.regolePiano || paziente.regolePiano.sabatolibero !== false);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5295,6 +5332,9 @@ function editPaz(){
   s('p-farmaci',p.farmaci);s('p-allergie',p.allergie);
   s('p-dove',p.dove);setDove(p.dove);s('p-veg',p.veg);
   s('p-cibi-pref',p.cibiPref);s('p-no-rinuncia',p.noRinuncia);s('p-weekend',p.weekend);
+  // P93: carica alternative pasto libero (checkbox) + alcol concesso (select)
+  document.querySelectorAll('#p-weekend-altre .p-we-alt').forEach(function(cb){ cb.checked = (p.weekendAltre||[]).indexOf(cb.getAttribute('data-opt'))>=0; });
+  s('p-weekend-alcol', p.weekendAlcol);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
   s('p-crisi',p.crisi);
   s('p-cheto-note',p.chetoNote);
@@ -5886,7 +5926,10 @@ function salvaPaz(){
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
     pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prenanna:gs('p-prenanna'),
-    weekend:gs('p-weekend'),crisi:g('p-crisi'),
+    weekend:gs('p-weekend'),
+    weekendAltre:(()=>{ return Array.prototype.slice.call(document.querySelectorAll('#p-weekend-altre .p-we-alt:checked')).map(function(cb){return cb.getAttribute('data-opt');}); })(),
+    weekendAlcol:gs('p-weekend-alcol'),
+    crisi:g('p-crisi'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
     seduteSettimana:gn('p-sedute'),minutiSeduta:gn('p-minuti-seduta'),attivitaSpecifica:gs('p-attivita-spec'),
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
@@ -11712,7 +11755,7 @@ ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
   var isON=(p.giorniAllenamento||[]).includes(abbr[n]);
   return _ciclizzato ? n+(isON?' ON':' OFF') : n;
 }).join(', ')}
-Sabato cena: ${p.weekend||'Pizza/panino/sushi (libero)'} — nessuna alternativa, nessuna ricetta
+Sabato cena: PASTO LIBERO — ${(function(){var o=getWeekendOpzioni(p);return o.length?o.join(' oppure '):'Pizza/panino/sushi (libero)';})()}${p.weekendAlcol?(' (alcol concesso: '+p.weekendAlcol+')'):''} — non generare nulla per la cena del sabato: nessuna ricetta, nessuna alternativa
 ${!_ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di carico ('+( p.giorniAllenamento||[]).join(', ')+') e OFF agli altri giorni. I giorni ON e OFF hanno target di carboidrati DIVERSI (vedi blocco CICLIZZAZIONE sopra).'}
 
 REGOLE PERSONALIZZATE MEDICO
@@ -11737,7 +11780,7 @@ ${(function(){
   righe.push('Pesce conservato: '+pesceconsv+'x/settimana');
   var r2=p.regolePiano||{};
   if(r2.legumi135!==false && !r2.modello)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
-  if(r2.sabatolibero!==false)righe.push('Sabato cena libera: '+(p.weekend||'pizza'));
+  if(r2.sabatolibero!==false)righe.push('Sabato cena libera: '+(getWeekendOpzioni(p).join(', ')||p.weekend||'pizza')+(p.weekendAlcol?(' — alcol: '+p.weekendAlcol):''));
   if(r2.rotazione!==false && !r2.modello)righe.push('Rotazione proteine: non ripetere la stessa proteina due giorni di fila');
   if(r2.verdura200!==false)righe.push('Verdura sempre 200g a pranzo e cena');
   if(r2.frsecca)righe.push('Frutta secca 20g ogni giorno');
@@ -17375,10 +17418,62 @@ async function generaPDF(paziente, giorni) {
     doc.text(dataGen, W - M, H - 18, { align: 'right' });
   }
 
+  // ---------- P93: BLOCCO SABATO SERA LIBERO ----------
+  // Altezza del riquadro (deve combaciare tra misura e disegno per non sforare il layout)
+  function _cenaLiberaHeight(wl, c) {
+    var nOpz = (wl && wl.opzioni && wl.opzioni.length) ? wl.opzioni.length : 1;
+    var h = 6 * c + 2 * c;            // titolo + gap
+    if (nOpz > 1) h += 4.6 * c;       // sottotitolo "A scelta tra:"
+    h += nOpz * 5 * c;                // righe opzioni
+    if (wl && wl.alcol) h += 5 * c;   // riga alcol
+    h += 4 * c;                       // padding inferiore
+    return h;
+  }
+  // Disegna il riquadro colorato evidenziato del pasto libero. Ritorna la y in fondo al box.
+  function drawCenaLibera(wl, y, c) {
+    wl = wl || { opzioni: [], alcol: '' };
+    var opzioni = (wl.opzioni && wl.opzioni.length) ? wl.opzioni : ['Pizza, panino, sushi o simili'];
+    var alcol = wl.alcol || '';
+    var boxH = _cenaLiberaHeight({ opzioni: opzioni, alcol: alcol }, c);
+    var boxX = M, boxW = W - M * 2;
+    doc.setFillColor(255, 248, 235);   // crema/ambra chiaro
+    doc.setDrawColor(232, 168, 80);    // bordo ambra
+    doc.setLineWidth(0.5 * c);
+    doc.roundedRect(boxX, y, boxW, boxH, 2.2 * c, 2.2 * c, 'FD');
+    // titolo con emoji hamburger
+    var tBase = y + 6 * c;
+    var tX = boxX + 5 * c;
+    var emo = loadEmojiSync('1f354');
+    if (emo) { try { doc.addImage(emo, 'PNG', tX, tBase - 4 * c, 4.5 * c, 4.5 * c); tX += 6 * c; } catch (e) {} }
+    setFont('bold', 11 * c, [166, 96, 20]);
+    doc.text('SABATO SERA - PASTO LIBERO', tX, tBase);
+    var oY = tBase + 2 * c;
+    if (opzioni.length > 1) {
+      oY += 4.6 * c;
+      setFont('italic', 9 * c, [150, 110, 60]);
+      doc.text('A scelta tra:', boxX + 6 * c, oY - 0.5 * c);
+    }
+    setFont('normal', 10.5 * c, NERO);
+    opzioni.forEach(function (op) {
+      oY += 5 * c;
+      doc.text('• ' + safe(op), boxX + 8 * c, oY);
+    });
+    if (alcol) {
+      oY += 5 * c;
+      var ew = loadEmojiSync('1f377');
+      var aX = boxX + 6 * c;
+      if (ew) { try { doc.addImage(ew, 'PNG', aX, oY - 3.6 * c, 4 * c, 4 * c); aX += 5.5 * c; } catch (e) {} }
+      setFont('italic', 9.5 * c, [120, 80, 30]);
+      doc.text('Concesso: ' + safe(alcol), aX, oY);
+    }
+    return y + boxH;
+  }
+
   // ---------- MISURAZIONE altezza pasto ----------
   function measurePasto(slotKey, pasto, compr, giornoNome) {
     if (!pasto) return 0;
     var c = (compr == null) ? 1 : compr; // scala unica font+gap (0.85 compressione .. 1.15 espansione)
+    if (pasto._cenaLibera) return _cenaLiberaHeight(pasto._wl || { opzioni: [], alcol: '' }, c); // P93
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
@@ -17462,6 +17557,7 @@ async function generaPDF(paziente, giorni) {
   function drawPasto(slotKey, pasto, y, compr, giornoNome) {
     if (!pasto) return y;
     var c = (compr == null) ? 1 : compr; // P12a: fattore compressione gap (1 = normale, min 0.85)
+    if (pasto._cenaLibera) return drawCenaLibera(pasto._wl || { opzioni: [], alcol: '' }, y, c); // P93
     var hasCelle = pasto.celle && pasto.celle.length;
     var hasRicette = pasto.ricette && pasto.ricette.length;
     var notaTesto = (typeof pasto === 'string') ? pasto : '';
@@ -17721,6 +17817,12 @@ async function generaPDF(paziente, giorni) {
 
   // Pagine giorni
   var _idxNormalePdf = 0;
+  // P93: config pasto libero del sabato (blocco dedicato nel PDF)
+  var _weekendLibero = {
+    attivo: isWeekendLiberoAttivo(paziente),
+    opzioni: getWeekendOpzioni(paziente),
+    alcol: (paziente && paziente.weekendAlcol) || ''
+  };
   giorni.forEach(function(g, idx) {
     doc.addPage();
     var _idxNormaleCorrente = (g && g.speciale) ? null : _idxNormalePdf;
@@ -17730,9 +17832,15 @@ async function generaPDF(paziente, giorni) {
     var giornoRaw = g.giorno || g.g; // FRUTTA: valore non normalizzato, deve combaciare con quello usato nell'editor
     if (!(g && g.speciale)) _idxNormalePdf++;
 
+    // P93: rileva sabato con pasto libero attivo (esclude i giorni speciali P94)
+    var _isSabPdf = !(g && g.speciale) && /sab/i.test(String(giornoRaw || ''));
     var pastiAttivi = [];
     slotKeys.forEach(function(k) {
       var p = pastoOf(g, k);
+      // P93: se sabato sera libero e la cena non ha contenuto reale, sostituisci con il blocco dedicato
+      if (k === 'cena' && _isSabPdf && _weekendLibero.attivo && measurePasto(k, p, null, giornoRaw) <= 0) {
+        p = { _cenaLibera: true, _wl: _weekendLibero };
+      }
       var h = measurePasto(k, p, null, giornoRaw);
       if (h > 0) pastiAttivi.push({ key: k, pasto: p, h: h });
     });
@@ -18111,6 +18219,8 @@ async function generaPDF(paziente, giorni) {
   ['2600','26a1','1f37d','1f552','1f319','1f4a4'].forEach(function(cp){ cpSet.add(cp); });
   // P23-estetica: emoji pillole promemoria footer (sempre pre-caricate)
   ['1f4a7','1f45f','1f634','1f3cb','1f3c3','1f48a'].forEach(function(cp){ cpSet.add(cp); });
+  // P93: emoji blocco sabato sera libero (hamburger) + calice vino (alcol)
+  ['1f354','1f377'].forEach(function(cp){ cpSet.add(cp); });
   // FRUTTA: tutti i codepoint del pool stagionale (sempre pre-caricati, indipendentemente
   // dallo stile attivo per questo paziente — evita disallineamenti cache/mese al draw-time)
   FRUTTA_STAGIONE_TUTTI_CP.forEach(function(cp){ cpSet.add(cp); });
