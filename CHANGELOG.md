@@ -10,6 +10,67 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+17 LUGLIO 2026 — P93 PASTO LIBERO SABATO CONFIGURABILE (fatta, in
+produzione) + P96 ETICHETTA WE (verificata, chiusa senza codice). Sessione
+Cowork con Fabrizio, modello Opus (claude-opus-4-8). Baseline e874174 →
+HEAD 4d50d15 (1 commit, index.html: +114 / -4). Autonomia L1, 3 scelte di
+design confermate da Fabrizio prima di implementare.
+
+P93 — PASTO LIBERO DEL SABATO CONFIGURABILE (commit 4d50d15). Scelte di
+Fabrizio: (1) più opzioni alternative, (2) alcol con menu preimpostato,
+(3) blocco PDF a riquadro colorato evidenziato.
+  - MODELLO DATI (additivo, retrocompatibile, sull'oggetto paziente):
+    `p.weekend` (stringa) resta l'opzione PRINCIPALE e continua a guidare
+    stima kcal (getKcalWeekend), vincolo AI e spunti calendario — zero
+    regressione sui consumer esistenti. Aggiunti `p.weekendAltre` (array
+    di alternative concesse, checkbox nel form) e `p.weekendAlcol`
+    (stringa da select: nessuno / 1 calice di vino / 1 birra / 1 drink).
+    Nessuna proprietà custom su array salvati (regola 8 rispettata: sono
+    campi dell'oggetto paziente, non attaccati a un array).
+  - HELPER PURI top-level: getWeekendOpzioni(paziente) (principale +
+    alternative, dedup, ordine preservato) e isWeekendLiberoAttivo(paziente)
+    (regola `sabatolibero !== false`).
+  - FORM PAZIENTE: sotto "Sabato sera (principale — stima kcal)", nuova
+    riga con chip-checkbox "altre opzioni concesse" (classe .p-we-alt,
+    data-opt) + select "Alcol concesso" (#p-weekend-alcol). Load: spunta
+    le checkbox da p.weekendAltre e carica p.weekendAlcol. Save: raccoglie
+    le checked in array + valore select.
+  - PDF (blocco dedicato): nel loop giorni, se il giorno è sabato (non
+    speciale) col libero attivo e la cena non ha contenuto reale, la cena
+    è sostituita da un pasto sintetico {_cenaLibera:true, _wl:...} che
+    scorre nel normale motore di layout (compressione/espansione) grazie
+    ai branch dedicati in measurePasto/drawPasto. drawCenaLibera disegna
+    il riquadro ambra (roundedRect 'FD', fill 255,248,235 · bordo
+    232,168,80) con titolo 🍔 "SABATO SERA - PASTO LIBERO", elenco opzioni
+    ("A scelta tra:" se >1) e riga alcol 🍷. Altezza condivisa tra misura
+    e disegno (_cenaLiberaHeight) per non sforare il layout. Emoji 1f354 e
+    1f377 aggiunte al preload cpSet. Fallback pulito solo-testo se le PNG
+    Twemoji non sono in cache.
+  - AI LAYER: la riga di vincolo del prompt ora elenca opzioni + alcol
+    ("Sabato cena: PASTO LIBERO — <opzioni> (alcol concesso: ...) — non
+    generare nulla per la cena del sabato"). Aggiornata anche la riga
+    "Sabato cena libera" del blocco REGOLE PERSONALIZZATE.
+  - COMPORTAMENTO: se il sabato ha una cena reale inserita a mano, il
+    riquadro NON compare (rispetta l'override); se la regola sabatolibero
+    è disattivata, sparisce del tutto. Il tracking di cosa è stato
+    realmente bevuto resta FUORI (materia del diario, P85), come da roadmap.
+  - VERIFICA: node --check ok sul blocco script; suite automatica
+    test-suite/ 63/63 verde sul file modificato (S1 smoke JSDOM + S2 puri
+    + S3 jsPDF); PDF di prova generato con lo stesso motore jsPDF 2.5.1 e
+    reso con pdftoppm, controllato a video nelle tre casistiche
+    (multi-opzione+alcol / opzione singola / vuoto). SHA HEAD ricontrollato
+    prima della consegna (main non mosso durante l'edit).
+
+P96 — ESTETICA TAG WE NEL PDF (verificata, chiusa senza codice proprio).
+Controllato tutto il motore di generazione PDF: il tag "WE" NON esiste più
+(zero occorrenze), assorbito dai lavori PDF di giugno (P72/P60/P92) come
+previsto dal CTO. Nessuna estetica da correggere. La verifica ha però fatto
+emergere che il sabato sera libero non veniva stampato affatto nel PDF (slot
+cena vuoto → measurePasto 0 → non disegnato): buco chiuso contestualmente
+da P93. Voce chiusa; il valore aggiunto è confluito nel blocco PDF di P93.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 17 LUGLIO 2026 — P84 LISTA DELLA SPESA (chiusa, in produzione) + FIX
 max_tokens GENERATORE PIANI. Sessione con Fabrizio, alternanza Opus
 (claude-opus-4-8, decisioni + implementazione) e Sonnet (claude-sonnet-5,
