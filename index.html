@@ -10760,6 +10760,12 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     _rigaSecondaria1.appendChild(btn);
     _rigaSecondaria1.appendChild(btnWa);
     pianoEl.appendChild(_rigaSecondaria1);
+    // P84 — Lista della spesa (legge il piano, non modifica dati)
+    var btnSpesa=document.createElement('button');
+    btnSpesa.style.cssText='width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:.65rem .8rem;background:var(--color-background-primary,#fff);color:var(--color-text-primary,#1e293b);border:1px solid var(--border,#cbd5e1);border-radius:8px;font-size:.85rem;font-weight:500;cursor:pointer;margin-top:.6rem;';
+    btnSpesa.innerHTML='🛒 Lista della spesa';
+    btnSpesa.onclick=function(){ mostraListaSpesa(); };
+    pianoEl.appendChild(btnSpesa);
     // Aggiorna pannello laterale macros
     if (typeof renderPanelMacrosGiorno === 'function') renderPanelMacrosGiorno(g);
   };
@@ -15037,6 +15043,198 @@ function apriWhatsApp(){
   const tel=p.tel.replace(/\D/g,'');
   const prefix=tel.startsWith('39')?'':tel.startsWith('+')?'':'+39';
   window.open('https://wa.me/'+prefix+tel+'?text='+msg,'_blank');
+}
+
+// ═══════════════ P84 — LISTA DELLA SPESA AUTOMATICA ═══════════════
+// Motore PURO: legge un piano (giorni → pasti → celle) e produce una lista
+// della spesa aggregata e raggruppata per categoria. Nessun accesso al DOM,
+// nessun side effect, niente salvataggio: si ricalcola sempre dal piano.
+// Predisposto al riuso futuro (app paziente / link piano): ogni voce porta con
+// sé il codice alimento (id catalogo) e il codice a barre quando disponibile.
+var _SPESA_CAT_ORDINE = ['verdura','frutta','carbo','proteine','legumi','grasso','olio','fit','condimento'];
+var _SPESA_CAT_LABEL = {
+  verdura:'Verdura',
+  frutta:'Frutta',
+  carbo:'Carboidrati e cereali',
+  proteine:'Proteine (carne, pesce, uova, latticini)',
+  legumi:'Legumi',
+  grasso:'Frutta secca e semi',
+  olio:'Condimenti',
+  fit:'Integratori e prodotti fit',
+  condimento:'Spezie e altro'
+};
+function _spesaNorm(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+function _spesaEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// Esclusioni volute: sale e olio (si danno per scontati in dispensa). Spezie incluse.
+function _spesaEsclusa(nome){
+  var n=_spesaNorm(nome);
+  if(!n) return true;
+  if(/\bsale\b/.test(n)) return true;
+  if(/\bolio\b/.test(n)) return true;
+  return false;
+}
+function _spesaFormattaQta(grammi){
+  var g=Math.round(parseFloat(grammi)||0);
+  if(g>=1000){ var kg=Math.round((g/1000)*100)/100; return kg+' kg'; }
+  return g+' g';
+}
+// MOTORE PURO. Ritorna:
+// { categorie:[{chiave,label,items:[{nome,id,barcode,categoria,grammi,volte}]}], totaleVoci, nonInclusi:[str] }
+function costruisciListaSpesa(piano, paziente){
+  var out={categorie:[],totaleVoci:0,nonInclusi:[]};
+  if(!piano||!piano.length) return out;
+  var SLOTS=['colazione','spuntino_mattina','pranzo','spuntino_pomeriggio','cena','pre_nanna'];
+  var sabatoLibero=!(paziente&&paziente.regolePiano&&paziente.regolePiano.sabatolibero===false);
+  var mappa={};
+  function aggiungi(nome, grammi){
+    if(!nome||_spesaEsclusa(nome)) return;
+    var rec=(typeof risolviAlimento==='function')?risolviAlimento(nome):null;
+    var cat=(typeof getCategoriaFunzionale==='function')?getCategoriaFunzionale(nome):'condimento';
+    if(!_SPESA_CAT_LABEL[cat]) cat='condimento';
+    var chiave=(rec&&rec.id)?rec.id:_spesaNorm(nome);
+    if(!mappa[chiave]){
+      mappa[chiave]={nome:(rec&&rec.nome)?rec.nome:nome, id:rec?rec.id:null,
+        barcode:rec?(rec.barcode||null):null, categoria:cat, grammi:0, volte:0};
+    }
+    mappa[chiave].grammi+=(parseFloat(grammi)||0);
+    mappa[chiave].volte++;
+  }
+  piano.forEach(function(g){
+    if(!g) return;
+    var isSab=_spesaNorm(g.giorno||g.g||'').indexOf('sab')>=0;
+    SLOTS.forEach(function(slot){
+      if(isSab&&slot==='cena'&&sabatoLibero) return; // sabato sera libero escluso
+      var pasto=(g.pasti&&g.pasti[slot])?g.pasti[slot]:g[slot];
+      if(!pasto) return;
+      // A) Celle: solo l'alimento principale (indice 0), niente alternative
+      (pasto.celle||[]).forEach(function(cella){
+        var princ=(cella&&cella.alimenti&&cella.alimenti.length)?cella.alimenti[0]:null;
+        if(!princ) return;
+        var nome=princ.n||princ.nome;
+        if(nome) aggiungi(nome, princ.g!=null?princ.g:princ.grammi);
+      });
+      // B) Ricette testuali: includo gli ingredienti con grammatura leggibile; le righe
+      //    non scomponibili le segnalo (nessun dato scartato in silenzio).
+      (pasto.ricette||[]).forEach(function(r){
+        var testo=(typeof r==='string')?r:((r&&r.ing)?r.ing:'');
+        testo=(testo||'').trim();
+        if(!testo) return;
+        var ings=(typeof _ngScomponiIngredienti==='function')?_ngScomponiIngredienti(testo):[];
+        var usati=0;
+        ings.forEach(function(ing){
+          if(ing&&ing.n&&(parseFloat(ing.g)||0)>0){ aggiungi(ing.n, ing.g); usati++; }
+        });
+        if(!usati){
+          var et=testo.length>70?testo.slice(0,67)+'…':testo;
+          if(out.nonInclusi.indexOf(et)<0) out.nonInclusi.push(et);
+        }
+      });
+    });
+  });
+  _SPESA_CAT_ORDINE.forEach(function(cat){
+    var items=Object.keys(mappa).map(function(k){return mappa[k];}).filter(function(v){return v.categoria===cat;});
+    if(!items.length) return;
+    items.sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'it');});
+    out.categorie.push({chiave:cat, label:_SPESA_CAT_LABEL[cat], items:items});
+    out.totaleVoci+=items.length;
+  });
+  return out;
+}
+// Testo pronto da incollare in WhatsApp
+function _spesaTestoWhatsApp(lista, paziente){
+  var intest='🛒 LISTA DELLA SPESA'+((paziente&&paziente.nome)?(' — '+paziente.nome):'');
+  var righe=[intest,''];
+  lista.categorie.forEach(function(cat){
+    righe.push(cat.label.toUpperCase());
+    cat.items.forEach(function(it){
+      righe.push('• '+it.nome+' — '+(it.grammi>0?_spesaFormattaQta(it.grammi):'q.b.'));
+    });
+    righe.push('');
+  });
+  if(!lista.categorie.length) righe.push('(nessun alimento nel piano)');
+  return righe.join('\n').trim();
+}
+// HTML della lista (usato sia a schermo sia nella stampa)
+function _spesaHtml(lista, paziente){
+  var titolo='Lista della spesa'+((paziente&&paziente.nome)?(' — '+paziente.nome):'');
+  var h='<div style="font-family:system-ui,-apple-system,Arial,sans-serif;color:#1e293b;">';
+  h+='<h2 style="margin:0 0 .15rem;font-size:1.15rem;">🛒 '+_spesaEsc(titolo)+'</h2>';
+  h+='<div style="font-size:.75rem;color:#64748b;margin-bottom:.8rem;">Calcolata dal piano della settimana · '+lista.totaleVoci+' voci</div>';
+  if(!lista.categorie.length){
+    h+='<div style="color:#64748b;">Nessun alimento trovato nel piano.</div>';
+  }
+  lista.categorie.forEach(function(cat){
+    h+='<div style="margin-bottom:.7rem;">';
+    h+='<div style="font-weight:700;font-size:.85rem;color:#0d9488;border-bottom:1px solid #e2e8f0;padding-bottom:.15rem;margin-bottom:.3rem;">'+_spesaEsc(cat.label)+'</div>';
+    cat.items.forEach(function(it){
+      var q=it.grammi>0?_spesaFormattaQta(it.grammi):'q.b.';
+      h+='<div style="display:flex;justify-content:space-between;gap:1rem;font-size:.85rem;padding:.12rem 0;"><span>'+_spesaEsc(it.nome)+'</span><span style="color:#475569;white-space:nowrap;">'+_spesaEsc(q)+'</span></div>';
+    });
+    h+='</div>';
+  });
+  if(lista.nonInclusi&&lista.nonInclusi.length){
+    h+='<div style="margin-top:.8rem;font-size:.72rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:.4rem .6rem;">';
+    h+='<b>Non inseriti automaticamente</b> (righe descritte a testo, senza grammi leggibili) — da aggiungere a mano se servono:<br>';
+    h+=lista.nonInclusi.map(function(t){return '• '+_spesaEsc(t);}).join('<br>');
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+// Apre la finestra con la lista + azioni (stampa / copia WhatsApp)
+function mostraListaSpesa(){
+  var piano=window._pdfPiano||window._pianoCorrente;
+  var paz=window._pdfPaziente||(typeof getCurrentPaziente==='function'?getCurrentPaziente():null);
+  if(!piano||!piano.length){ if(typeof notif==='function') notif('⚠ Nessun piano da cui calcolare la lista'); return; }
+  var lista=costruisciListaSpesa(piano, paz);
+  window._spesaListaCorrente=lista;
+  window._spesaPazCorrente=paz;
+  var vecchio=document.getElementById('spesa-overlay'); if(vecchio) vecchio.remove();
+  var ov=document.createElement('div');
+  ov.id='spesa-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow:auto;';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;max-width:640px;width:100%;padding:1.2rem 1.4rem;box-shadow:0 20px 60px rgba(0,0,0,.3);';
+  var azioni='<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">'
+    +'<button onclick="stampaListaSpesa()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">🖨️ Stampa / PDF</button>'
+    +'<button onclick="copiaListaSpesa()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">💬 Copia per WhatsApp</button>'
+    +'<button onclick="var o=document.getElementById(\'spesa-overlay\');if(o)o.remove();" style="padding:.55rem .8rem;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-size:.85rem;cursor:pointer;">Chiudi</button>'
+    +'</div>';
+  box.innerHTML=azioni+'<div id="spesa-contenuto">'+_spesaHtml(lista, paz)+'</div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+function stampaListaSpesa(){
+  var lista=window._spesaListaCorrente, paz=window._spesaPazCorrente;
+  if(!lista) return;
+  var w=window.open('','_blank');
+  if(!w){ if(typeof notif==='function') notif('⚠ Consenti i popup per stampare'); return; }
+  var titolo='Lista della spesa'+((paz&&paz.nome)?(' - '+paz.nome):'');
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+_spesaEsc(titolo)+'</title></head><body style="margin:24px;">'+_spesaHtml(lista, paz)+'</body></html>');
+  w.document.close();
+  setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 300);
+}
+function copiaListaSpesa(){
+  var lista=window._spesaListaCorrente, paz=window._spesaPazCorrente;
+  if(!lista) return;
+  var testo=_spesaTestoWhatsApp(lista, paz);
+  function fatto(){ if(typeof notif==='function') notif('✓ Lista copiata — incollala in WhatsApp'); }
+  function fallback(){
+    try{
+      var ta=document.createElement('textarea'); ta.value=testo;
+      ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); fatto();
+    }catch(e){ if(typeof notif==='function') notif('⚠ Copia non riuscita'); }
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(testo).then(fatto).catch(fallback);
+  } else { fallback(); }
 }
 
 async function generaPiano(forceRegen){
