@@ -14543,10 +14543,13 @@ function _pianoToolSchema(nGiorni){
 }
 
 // max_tokens dinamico sul numero di giorni richiesti.
-// 7 giorni = 12000 (identico al valore fisso pre-P77: nessuna regressione).
+// Margine allargato (2200/giorno + 2000, tetto 16000) per evitare i troncamenti
+// per max_tokens sui piani ricchi: 6 giorni = 15200, 7 giorni = 16000.
+// NB: è un TETTO massimo, non l'uso reale — non aumenta il costo dei piani che
+// già stavano dentro, permette solo a quelli lunghi di completarsi.
 function _pianoMaxTokens(nGiorni){
   var n = (+nGiorni > 0) ? +nGiorni : 7;
-  return Math.min(1500*n + 1500, 16000);
+  return Math.min(2200*n + 2000, 16000);
 }
 
 // Estrae il piano grezzo (array giorni) dalla risposta API.
