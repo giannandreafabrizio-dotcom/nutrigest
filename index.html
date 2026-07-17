@@ -777,7 +777,7 @@ main{flex:1;overflow-y:auto;}
     <button class="pd-tab" onclick="pdTab('macros',this)">TDEE</button>
     <button class="pd-tab" onclick="pdTab('note',this)">Note cliniche</button>
     <button class="pd-tab" onclick="pdTab('routine',this)">🌿 Routine</button>
-    <button class="pd-tab" onclick="pdTab('sabato',this)">🍔 Sabato</button>
+    <button class="pd-tab" onclick="pdTab('cibo',this)">🍽️ Cibo</button>
     <button class="pd-tab" onclick="pdTab('ragionamento',this)">💭 Ragionamento</button>
     <button class="pd-tab" onclick="pdTab('riepilogo',this)">📞 Riepilogo chiamata</button>
   </div>
@@ -790,7 +790,7 @@ main{flex:1;overflow-y:auto;}
   <div class="pd-panel" id="pd-ragionamento"></div>
   <div class="pd-panel" id="pd-riepilogo"></div>
   <div class="pd-panel" id="pd-routine"></div>
-  <div class="pd-panel" id="pd-sabato"></div>
+  <div class="pd-panel" id="pd-cibo"></div>
 </div>
 
 <!-- CALENDARIO -->
@@ -5981,7 +5981,7 @@ async function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
-  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdSabato(p);
+  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdCibo(p);
   renderPdNote(p);
   renderPdRiepilogo(p);
   document.querySelectorAll('.pd-tab')[0].click();
@@ -7277,6 +7277,10 @@ function costruisciContestoPaziente(p){
   }
 
   if(p.ragionamentoClinico)ctx+='\n\nRagionamento clinico precedente ('+p.ragionamentoClinico.data+'):\n'+p.ragionamentoClinico.testo;
+
+  // P93 estesa: aderenza riferita dal paziente (resoconto del mese + sabati) → guida l'interpretazione del controllo
+  var _aderTxt=(typeof aderenzaSintesiTesto==='function')?aderenzaSintesiTesto(p):'';
+  if(_aderTxt) ctx+='\n\n'+_aderTxt+'\nUsa questa aderenza per interpretare i risultati (es. peso fermo ma sgarri frequenti) e calibrare "Cosa proporre".';
 
   return ctx;
 }
@@ -8756,11 +8760,118 @@ function _recapSabatoHtml(p){
   return '<div style="'+box+'"><strong>'+reg.length+'/'+nTot+' sabati registrati</strong> · '+top
     +' · alcol '+conAlcol+'/'+reg.length+(kcalMedia?(' · media ~'+kcalMedia+' kcal'):'')+'</div>';
 }
-function renderPdSabato(p){
-  var cont=document.getElementById('pd-sabato'); if(!cont) return;
+// ── P93 estesa: RESOCONTO MENSILE DI ADERENZA (scheda "Cibo") ──
+// Storico su p.aderenza=[{id,data,voci:{pastoKey:{s,n}},generale}]. Il più recente
+// è il resoconto "corrente" (mostrato + inviato all'AI "Cosa proporre" del controllo).
+var VOCI_ADERENZA=[
+  {k:'colazione',lbl:'Colazione'},
+  {k:'spuntino_mattina',lbl:'Spuntino mattina'},
+  {k:'pranzo',lbl:'Pranzo'},
+  {k:'spuntino_pom',lbl:'Merenda'},
+  {k:'cena',lbl:'Cena'},
+  {k:'pre_nanna',lbl:'Pre-nanna'},
+  {k:'sabato',lbl:'Sabato sera libero'}
+];
+var STATI_ADERENZA=['','Rispettato','Più del previsto','Meno del previsto','Altro / fuori piano'];
+function _aderenzaCorrente(p, crea){
+  if(!p.aderenza) p.aderenza=[];
+  if(p.aderenza.length){ return p.aderenza.slice().sort(function(a,b){return (b.data||'').localeCompare(a.data||'');})[0]; }
+  if(crea){ var r={id:uid(),data:p.controlloData||today(),voci:{},generale:''}; p.aderenza.push(r); return r; }
+  return null;
+}
+function nuovoResocontoAderenza(){
+  var p=db.pazienti.find(function(x){return x.id===currentPazId;}); if(!p) return;
+  if(!p.aderenza) p.aderenza=[];
+  p.aderenza.push({id:uid(),data:today(),voci:{},generale:''});
+  save(p.id); renderPdCibo(p);
+}
+function delResocontoAderenza(id){
+  if(!confirm('Eliminare questo resoconto del mese?')) return;
+  var p=db.pazienti.find(function(x){return x.id===currentPazId;}); if(!p) return;
+  p.aderenza=(p.aderenza||[]).filter(function(x){return x.id!==id;});
+  save(p.id); renderPdCibo(p);
+}
+function salvaAderenza(key, sub, val){
+  var p=db.pazienti.find(function(x){return x.id===currentPazId;}); if(!p) return;
+  var r=_aderenzaCorrente(p,true);
+  if(key==='__generale') r.generale=val;
+  else if(key==='__data'){ if(val) r.data=val; }
+  else { if(!r.voci[key]) r.voci[key]={s:'',n:''}; r.voci[key][sub]=val; }
+  save(p.id);
+  var el=document.getElementById('ader-recap'); if(el) el.innerHTML=_recapAderenzaHtml(p);
+}
+function _recapAderenzaHtml(p){
+  var box='background:var(--teal-bg,#edfaf5);border:1px solid #a7d8c8;border-radius:8px;padding:.6rem .9rem;font-size:.82rem;color:#0f5c42;margin-bottom:.5rem';
+  var r=_aderenzaCorrente(p,false);
+  if(!r) return '<div style="'+box+'">Nessun resoconto ancora. Compila qui sotto com\'è andato il mese: entra nell\'analisi del controllo (💡 Cosa proporre).</div>';
+  var voci=r.voci||{};
+  var comp=VOCI_ADERENZA.filter(function(v){return voci[v.k]&&voci[v.k].s;}).length;
+  var risp=VOCI_ADERENZA.filter(function(v){return voci[v.k]&&voci[v.k].s==='Rispettato';}).length;
+  return '<div style="'+box+'"><strong>Resoconto del '+fData(r.data)+'</strong> · '+comp+'/'+VOCI_ADERENZA.length+' voci compilate · '+risp+' rispettate · <span style="opacity:.85">entra nell\'analisi 💡 Cosa proporre</span></div>';
+}
+// sintesi testuale del resoconto + sabati, per il contesto AI del controllo
+function aderenzaSintesiTesto(p){
+  if(!p) return '';
+  var out=[];
+  var r=_aderenzaCorrente(p,false);
+  if(r){
+    var voci=r.voci||{};
+    var righe=VOCI_ADERENZA.filter(function(v){return voci[v.k]&&(voci[v.k].s||voci[v.k].n);}).map(function(v){
+      var c=voci[v.k]; return v.lbl+': '+(c.s||'—')+(c.n?(' ('+c.n+')'):'');
+    });
+    if(righe.length||r.generale){
+      out.push('ADERENZA RIFERITA DAL PAZIENTE (resoconto del '+fData(r.data)+'):');
+      righe.forEach(function(x){out.push('- '+x);});
+      if(r.generale) out.push('- Note generali: '+r.generale);
+    }
+  }
+  var sab=(p.diarioSabato||[]).filter(function(x){return x.scelta;});
+  if(sab.length){
+    var cnt={}; sab.forEach(function(x){cnt[x.scelta]=(cnt[x.scelta]||0)+1;});
+    var top=Object.keys(cnt).map(function(k){return k+' ×'+cnt[k];}).join(', ');
+    var alc=sab.filter(function(x){return x.alcol;}).length;
+    out.push('Sabato sera (registrati): '+top+' · con alcol '+alc+'/'+sab.length);
+  }
+  return out.join('\n');
+}
+function _htmlAderenzaMese(p){
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');};
+  var r=_aderenzaCorrente(p,false);
+  var GRID='display:grid;grid-template-columns:150px 190px minmax(0,1fr);gap:8px;align-items:center';
+  var rows='';
+  VOCI_ADERENZA.forEach(function(v){
+    var c=(r&&r.voci&&r.voci[v.k])||{s:'',n:''};
+    var opt=STATI_ADERENZA.map(function(s){return '<option value="'+esc(s)+'"'+((c.s||'')===s?' selected':'')+'>'+(s||'— non indicato')+'</option>';}).join('');
+    rows+='<div style="'+GRID+';padding:.35rem 0;border-bottom:1px solid var(--border,#eee)">'
+      +'<div style="font-size:.82rem;font-weight:600;color:var(--text2)">'+v.lbl+'</div>'
+      +'<select onchange="salvaAderenza(\''+v.k+'\',\'s\',this.value)" class="fg-inp" style="font-size:.82rem;min-width:0">'+opt+'</select>'
+      +'<input value="'+esc(c.n||'')+'" onchange="salvaAderenza(\''+v.k+'\',\'n\',this.value)" class="fg-inp" placeholder="dettaglio (es. cosa ha mangiato)" style="font-size:.82rem;min-width:0">'
+      +'</div>';
+  });
+  var dataVal=r?r.data:(p.controlloData||today());
+  var generale=r?(r.generale||''):'';
+  var altri=(p.aderenza||[]).filter(function(x){return !r||x.id!==r.id;}).sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+  var storico='';
+  if(altri.length){
+    storico='<div style="margin-top:.6rem;font-size:.72rem;color:var(--text3)"><strong>Resoconti precedenti:</strong> '
+      + altri.map(function(x){var voci=x.voci||{};var comp=VOCI_ADERENZA.filter(function(v){return voci[v.k]&&voci[v.k].s;}).length;return fData(x.data)+' ('+comp+' voci) <span onclick="delResocontoAderenza(\''+x.id+'\')" style="cursor:pointer;color:#c0392b" title="elimina">✕</span>';}).join(' · ')
+      + '</div>';
+  }
+  return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">'
+    +'<h3 style="margin:0;font-size:.95rem">🍽️ Resoconto del mese</h3>'
+    +'<button onclick="nuovoResocontoAderenza()" style="font-size:.75rem;padding:.28rem .7rem;background:var(--teal,#1D9E75);color:#fff;border:none;border-radius:6px;cursor:pointer">+ Nuovo resoconto</button></div>'
+    +'<div style="font-size:.8rem;color:var(--text2);margin-bottom:.5rem">Al controllo, segna com\'è andato ogni pasto nel mese: rispettato o mangiato altro. Entra nell\'analisi 💡 Cosa proporre del controllo.</div>'
+    +'<div id="ader-recap">'+_recapAderenzaHtml(p)+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin:.3rem 0 .5rem;font-size:.8rem;color:var(--text2)">Data resoconto: <input type="date" value="'+esc(dataVal)+'" onchange="salvaAderenza(\'__data\',\'\',this.value)" class="fg-inp" style="width:auto;font-size:.8rem"></div>'
+    +'<div style="'+GRID+';font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:700;margin-bottom:.2rem"><div>Pasto</div><div>Com\'è andato</div><div>Dettaglio</div></div>'
+    +rows
+    +'<div style="margin-top:.5rem"><label style="font-size:.75rem;color:var(--text2)">Note generali sul mese</label>'
+    +'<textarea onchange="salvaAderenza(\'__generale\',\'\',this.value)" class="fg-inp" rows="2" style="width:100%;font-size:.82rem" placeholder="fame, energia, difficoltà, eventi...">'+esc(generale)+'</textarea></div>'
+    +storico;
+}
+function _htmlDiarioSabato(p){
   if(!p.inizioAlim){
-    cont.innerHTML='<div class="empty"><p>Nessuna data di inizio piano</p><span>Imposta "Inizio alimentazione" nella scheda Dati per elencare i sabati del periodo.</span></div>';
-    return;
+    return '<div class="empty"><p>Nessuna data di inizio piano</p><span>Imposta "Inizio alimentazione" nella scheda Dati per elencare i sabati del periodo.</span></div>';
   }
   var sabati=_sabatiPeriodo(p);
   var opz=(typeof getWeekendOpzioni==='function'?getWeekendOpzioni(p):[]);
@@ -8784,11 +8895,17 @@ function renderPdSabato(p){
       +'<input value="'+esc(r.nota||'')+'" onchange="salvaDiarioSabato(\''+data+'\',\'nota\',this.value)" class="fg-inp" placeholder="nota (facoltativa)" style="font-size:.82rem;min-width:0">'
       +'</div>';
   });
-  cont.innerHTML=
-    '<div style="font-size:.82rem;color:var(--text2);margin-bottom:.7rem">Sabato sera libero — registra cosa ha scelto il paziente, settimana per settimana. Le kcal stimate compaiono da sole; al controllo hai il quadro dell\'aderenza.</div>'
+  return '<div style="font-size:.82rem;color:var(--text2);margin-bottom:.7rem">Sabato sera libero — cosa ha scelto il paziente, settimana per settimana. Le kcal stimate compaiono da sole.</div>'
     +'<div id="sab-recap">'+_recapSabatoHtml(p)+'</div>'
     +'<div style="'+GRID+';font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:700;margin:.5rem 0 .2rem"><div>Sabato</div><div>Scelta</div><div>Alcol</div><div style="text-align:right">Kcal</div><div>Nota</div></div>'
     +rows;
+}
+function renderPdCibo(p){
+  var cont=document.getElementById('pd-cibo'); if(!cont) return;
+  cont.innerHTML=_htmlAderenzaMese(p)
+    +'<div style="height:1px;background:var(--border,#e5e7eb);margin:1.1rem 0"></div>'
+    +'<h3 style="margin:0 0 .3rem;font-size:.95rem">🍔 Sabato sera — settimana per settimana</h3>'
+    +_htmlDiarioSabato(p);
 }
 
 function renderPdInbody(p){
