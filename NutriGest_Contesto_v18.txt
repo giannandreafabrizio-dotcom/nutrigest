@@ -1532,12 +1532,24 @@ PASTO LIBERO SABATO CONFIGURABILE (P93, 17 lug 2026 · commit 4d50d15):
                      | '1 birra' | '1 drink'
   Helper puri: getWeekendOpzioni(p) (principale+alternative, dedup, ordine) ·
     isWeekendLiberoAttivo(p) (regola sabatolibero !== false).
-  PDF: blocco dedicato "SABATO SERA - PASTO LIBERO" (riquadro ambra, 🍔 + elenco opzioni
-    "A scelta tra:" se >1 + riga alcol 🍷). Disegnato solo se sabato (non speciale) col
-    libero attivo e cena senza contenuto reale: pasto sintetico {_cenaLibera:true,_wl:...}
+  PDF: blocco dedicato "SABATO SERA - PASTO LIBERO". Disegnato solo se sabato (non speciale)
+    col libero attivo e cena senza contenuto reale: pasto sintetico {_cenaLibera:true,_wl:...}
     che scorre nel layout via branch in measurePasto/drawPasto (_cenaLiberaHeight/
-    drawCenaLibera). Emoji 1f354/1f377 nel preload cpSet. Se cena reale inserita a mano →
-    niente riquadro (override rispettato). Tracking del bevuto FUORI (diario P85).
+    drawCenaLibera). Se cena reale inserita a mano → niente riquadro (override rispettato).
+  ESTETICA (redesign 17 lug 2026 · commit 7ddffdf) — layout A2, palette VERDE ACQUA/TEAL
+    (bordo 29,158,117 · fondo 237,250,245 · titolo 15,92,66), coordinata col colore primario
+    dell'app; l'arancione della prima versione è stato scartato. Griglia a 2 COLONNE: ogni
+    opzione = pillola bianca con EMOJI CIBO (mappa _WEEKEND_FOOD_CP: pizza 1f355, panino
+    1f96a, sushi 1f363, pesce 1f41f, carne 1f969, libero 1f193) + 4 CASELLINE allineate a
+    destra = le 4 settimane fino al controllo, che il paziente spunta a MANO sulla sua copia
+    (auto-monitoraggio su carta, stessa logica delle caselle Acqua/Passi/Sonno del footer).
+    Riga alcol (🍷, condizionale) con le sue 4 caselline. Caselle vettoriali via _drawBoxes4
+    (doc.rect). Preload cpSet: 1f354/1f377 + le 6 emoji cibo. Quali opzioni compaiono è
+    per-paziente (p.weekendAltre): chi non ama sushi/pizza non le vede.
+  TRACKING: il PDF fa solo auto-monitoraggio su CARTA. Il dato salvato (scelta nel tempo)
+    vivrà nel PANNELLO APP — passo 2 pianificato da Fabrizio ~fine lug/inizio ago 2026:
+    versione leggera del diario P85; in futuro con l'app paziente (P50) sarà il paziente a
+    confermare pasto per pasto e generare il report kcal. NON ancora implementato.
 
 STIMA KCAL CENA LIBERA SABATO (per badge macros reali; usa p.weekend = opzione principale):
   Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750

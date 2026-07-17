@@ -10,6 +10,48 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+17 LUGLIO 2026 — P93 REDESIGN BLOCCO SABATO (estetica + auto-monitoraggio
+su carta). Sessione Cowork con Fabrizio, modello Opus. HEAD 6a91d07 →
+7ddffdf (index.html: +75 / -37). Autonomia L1, scelte confermate via
+mockup renderizzati (mock visivo prima di implementare).
+
+Contesto: dopo aver visto P93 v1 (riquadro ambra a elenco puntato) nel PDF
+reale, Fabrizio ha chiesto di renderlo più bello E di trasformarlo in uno
+strumento di auto-monitoraggio: il paziente segna la scelta fatta, così al
+controllo lui verifica l'aderenza (come già con le caselle Acqua/Passi/Sonno
+del footer PDF). Deciso insieme, via mockup, con varianti a confronto.
+
+REDESIGN (commit 7ddffdf):
+  - LAYOUT A2 (scelto tra A1 pillole-a-flusso e A2 griglia): griglia a 2
+    colonne, ogni opzione = pillola bianca con EMOJI DEL CIBO (pizza/panino/
+    sushi/pesce/carne/libero) + 4 caselline allineate a destra = le 4
+    settimane fino al controllo, che il paziente spunta a mano. Riga alcol
+    con le sue 4 caselline. Didascalia "4 caselle = 4 settimane · spunta la
+    settimana in cui hai scelto". Boxes vettoriali con doc.rect (come le
+    pillole promemoria footer).
+  - COLORE: verde acqua/teal, coordinato col colore primario dell'app
+    (bordo 29,158,117 · fondo 237,250,245 · titolo 15,92,66). L'arancione
+    della v1 è stato scartato da Fabrizio.
+  - CODICE PDF: nuove `_WEEKEND_FOOD_CP` (mappa opzione→codepoint emoji) e
+    `_drawBoxes4`; `_cenaLiberaHeight`/`drawCenaLibera` riscritte (altezza
+    da nOpz→2 colonne, riga alcol condizionale). Emoji cibo 1f355/1f96a/
+    1f363/1f41f/1f969/1f193 aggiunte al preload cpSet.
+  - PER-PAZIENTE invariato: quali opzioni mostrare si spunta nel form
+    (p.weekendAltre) — chi non ama sushi/pizza non le vede nel PDF.
+  - VERIFICA: node --check ok; suite 63/63; render dal CODICE REALE estratto
+    dal file (non dal mock) in 3 scenari: 7 opzioni+alcol, 2 opzioni senza
+    alcol, con compressione c=0.9. SHA HEAD ricontrollato + diff vs HEAD
+    (solo il blocco cambiato) prima della consegna.
+
+SEGUITO PIANIFICATO (Fabrizio, ~2 settimane → fine lug/inizio ago 2026):
+  Passo 2 = pannello app per registrare le scelte nel tempo (versione che
+  usa Fabrizio al controllo; in futuro, con l'app paziente P50, sarà il
+  paziente a confermare pasto per pasto e generare il report kcal). È la
+  versione leggera del diario P85, tocca i dati salvati → a tappe con
+  approvazione. NON ancora iniziato.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 17 LUGLIO 2026 — P93 PASTO LIBERO SABATO CONFIGURABILE (fatta, in
 produzione) + P96 ETICHETTA WE (verificata, chiusa senza codice). Sessione
 Cowork con Fabrizio, modello Opus (claude-opus-4-8). Baseline e874174 →
