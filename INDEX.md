@@ -653,6 +653,26 @@ Righe 15012-16510
 
 ---
 
+### LISTA DELLA SPESA (P84) — motore, vista a riquadri, PDF diretto, condivisione
+Righe ~15057-15410. NB: l'aggiunta di P84 ha spostato IN GIÙ di ~280 righe tutte le sezioni successive (EXPORT, ecc.): i numeri sotto qui sono aggiornati, quelli delle sezioni seguenti no — fare grep di conferma.
+
+- `15057` — _SPESA_CAT_ORDINE / _SPESA_CAT_LABEL / _SPESA_CAT_GENERICHE / _SPESA_CAT_COLORE (config categorie: ordine, etichette, quali sono "generiche", colori riquadri)
+- `15079` — _spesaTagliaFrutta (taglia frutta: 50=piccoli, 100=medi, 150=interi — valori fissi)
+- `15084` — _spesaNorm · `15087` — _spesaEsc · `15091` — _spesaEsclusa (esclude sale e olio) · `15098` — _spesaFormattaQta · `15105` — _spesaQtaVoce
+- `15110` — costruisciListaSpesa (MOTORE PURO: piano → lista aggregata per categoria; solo principali, no alternative; esclude sabato cena libera; frutta/verdura/frutta secca come voci a porzioni raggruppate per grammatura)
+- `15198` — _spesaTestoWhatsApp
+- `15214` — _spesaHtml (vista a riquadri colorati, due colonne bilanciate LPT + ordine canonico)
+- `15259` — mostraListaSpesa (overlay + pulsanti Scarica PDF / Condividi PDF)
+- `15282` — stampaListaSpesa (LEGACY window.print, non più collegata) · `15292` — copiaListaSpesa (LEGACY clipboard, non più collegata)
+- `15310` — _spesaHexRgb · `15315` — _spesaCostruisciPDF (disegna il PDF con jsPDF, due colonne)
+- `15370` — scaricaListaSpesaPDF (download diretto, un click)
+- `15378` — whatsappListaSpesa (LEGACY wa.me testo, non più collegata)
+- `15390` — condividiListaSpesaPDF (navigator.share col PDF allegato; fallback download su desktop)
+
+Pulsante d'ingresso: `🛒 Lista della spesa` in renderPianoConPillTabs (ramo attivo _renderGiornoGen), sotto ai pulsanti del piano.
+
+---
+
 ### EXPORT — generazione PDF piano (generaPDF)
 Righe 16520-17544
 

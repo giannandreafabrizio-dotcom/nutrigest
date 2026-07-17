@@ -10,6 +10,60 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+17 LUGLIO 2026 — P84 LISTA DELLA SPESA (chiusa, in produzione) + FIX
+max_tokens GENERATORE PIANI. Sessione con Fabrizio, alternanza Opus
+(claude-opus-4-8, decisioni + implementazione) e Sonnet (claude-sonnet-5,
+ritocchi/commit). Baseline 3d67bc4 → HEAD c75df24. Autonomia L1.
+
+P84 — LISTA DELLA SPESA AUTOMATICA (commit 919dce6, 85f5fd7, f1495ff,
+4f7d511, 1171aea, f0e1ebe, c75df24). Nuovo pulsante "🛒 Lista della spesa"
+sotto al piano (ramo attivo _renderGiornoGen del Generatore). Motore puro
+`costruisciListaSpesa(piano, paziente)` — nessun DOM, non salva nulla, si
+ricalcola sempre dal piano:
+  - Aggrega SOLO i pasti principali (cella.alimenti[0]), niente
+    alternative; salta la cena libera del sabato; esclude sale e olio
+    (spezie incluse). Le righe-ricetta con grammatura leggibile vengono
+    scomposte (riuso _ngScomponiIngredienti) e sommate.
+  - Categorie da getCategoriaFunzionale; le voci dettagliate portano id
+    catalogo + barcode (P108) per il riuso futuro (app paziente / link).
+  - Frutta / verdura / frutta secca NON elencate per alimento ma come
+    voce generica con numero di porzioni raggruppate per grammatura; la
+    frutta con la taglia (50g piccoli / 100g medi / 150g interi, valori
+    fissi di Fabrizio). Le altre categorie dettagliate con i grammi.
+  - Nota in testa: "Lista calcolata in base alle prime scelte di ogni
+    pasto".
+  Vista `_spesaHtml`: riquadri colorati per categoria su due colonne
+  bilanciate (LPT + ordine canonico), testo ingrandito (iterazioni: prima
+  due colonne piccole, poi colonna unica mobile — scartata su richiesta —
+  infine due colonne fisse con font più grande, leggibile anche sul PDF
+  rimpicciolito dal telefono).
+  Export (semplificato su richiesta di Fabrizio):
+  - 📄 Scarica PDF = PDF vero disegnato con jsPDF (_spesaCostruisciPDF,
+    stesso motore del PDF piano), scaricato con un click, SENZA dialogo di
+    stampa (prima usava window.print, scomodo).
+  - 📤 Condividi PDF = navigator.share({files:[pdf]}): sul telefono apre
+    il menù nativo → WhatsApp con il PDF ALLEGATO; sul computer (share di
+    file non supportato) fallback a download. Sostituisce il vecchio
+    pulsante WhatsApp-testo.
+  Funzioni legacy lasciate ma non più collegate: stampaListaSpesa
+  (window.print), copiaListaSpesa (clipboard), whatsappListaSpesa (wa.me
+  testo). Verifica: node --check ad ogni consegna; test logico del motore
+  (aggregazione, esclusioni, sabato, taglie frutta, porzioni); prove nel
+  browser headless con DB reale (categorizzazione corretta) e PDF
+  renderizzato (pdftoppm) per il controllo visivo.
+
+FIX max_tokens GENERATORE PIANI (commit 2eec7bc). Bug reale visto in
+console da Fabrizio: "Errore generazione AI: Risposta AI senza blocco
+tool_use né testo" su un piano ricco da 6 giorni. Causa: `_pianoMaxTokens`
+dava un tetto troppo stretto (1500/giorno+1500 → 10500 per 6 giorni), la
+risposta AI si troncava per max_tokens a metà del tool_use e
+`_estraiPianoDaRisposta` lanciava PRIMA che il recupero P62 potesse
+partire. Fix minimale: tetto allargato a 2200/giorno+2000 (6gg=15200,
+7gg=16000, cap invariato 16000). È solo un tetto: non aumenta il costo dei
+piani che già rientravano. NB residuo: se un piano superasse anche i 16000
+si ripresenterebbe — resta come possibile lavoro futuro rendere il
+recupero robusto al troncamento totale.
+
 16 LUGLIO 2026 (notte) — P74 FASE 1a+1b (tabella `collections` + doppia
 scrittura) IN CORSO — piano fase 1 in 4 sotto-passi (1a tabella, 1b
 doppia scrittura, 1c doppia lettura, 1d cutover) concordato con

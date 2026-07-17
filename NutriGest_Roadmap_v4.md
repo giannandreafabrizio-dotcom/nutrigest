@@ -70,7 +70,7 @@
 - **Blocco A — Rete clinica:** P78 ✅ → P61 ✅ + P62 ✅ + P77 ✅ + P55 ✅ (9 lug 2026). *(chiuso)*
 - **Blocco B — Integrità del dato:** tombstone + P64 ✅ → P68 ✅ (9 lug 2026) → P69 ✅ (9 lug 2026). *(chiuso)*
 - **Blocco C — Fondamenta SaaS:** P65 (scan storico fatto, resta decisione Vercel/GitHub a pagamento) + P72 ✅ → P66 (Fase 0+1 ✅, resta Fase 2 quota + commit di chiusura) → P75 → P67 (T1 ✅, T2 sospesa, T3/T4 in corso) → P79. *(in corso)*
-- **Blocco D — Prodotto:** P90 (riprogettato, vedi FOCUS) → ~~P82~~ ✅ chiusa 12 lug 2026 (v. archivio) → P37 → P84. *(aperto)*
+- **Blocco D — Prodotto:** P90 (riprogettato, vedi FOCUS) → ~~P82~~ ✅ chiusa 12 lug 2026 (v. archivio) → P37 → ~~P84~~ ✅ chiusa 17 lug 2026. *(aperto)*
 
 **F4 — "Aggiungi un avviso" dove serve "elimina la doppia fonte".** P55 e parte di P76: la soluzione non è notificare la divergenza ma renderla impossibile (funzione sorgente unica). Principio permanente (Scoperta tecnica #13).
 
@@ -305,12 +305,20 @@ SMOOTHIE BOWL: da valutare quando si decide di inserirle
 **FOCUS COMPONENTI COINVOLTI:** Frontend (regole piano) + AI Layer (una sezione prompt generica "PROTOCOLLO ATTIVO"). Zero DB.
 **SCHEDA:** Stato: Da fare · Priorità: Bassa-Media · C: 3 | I: 4 | R: 2 · Modello: Fable (Alto) per il modello preset, Sonnet per i preset concreti · Autonomia: L1 (L0 sui contenuti clinici dei preset).
 
-### P84 — Lista della spesa automatica
+### P84 — Lista della spesa automatica ✅ CHIUSA (17 lug 2026)
 **L'APPROCCIO ORIGINARIO:** lista categorizzata dal piano, aggregazione per settimana, pagina PDF + testo WhatsApp, predisposta per app paziente.
 **LA CRITICA DEL CTO:** la roadmap ignora la domanda che decide tutto: **le alternative contano?** Se ogni cella ha 3 alternative, aggregare tutto = lista gonfiata ×3, inutilizzabile; solo il principale = lista che "manca" ciò che il paziente sceglierà. Non è un dettaglio, è la feature.
 **LA SOLUZIONE OTTIMIZZATA:** decisione: aggregare i SOLI principali, con nota a piè di lista ("le alternative non sono incluse") — semplice, onesto, corrispondente all'uso reale. Motore: funzione pura `listaSpesa(piano) → [{categoria, voci:[{alimento, g|q}]}]` che somma celle + scomposizione delle righe testuali (riuso P33); arrotondamenti commerciali (g→ettogrammi, uova→pezzi) via mini-mappa unità; categorie da ALIMENTI. Output: pagina PDF + copia-testo (wa.me). Pure function → 3 test in P78.
 **FOCUS COMPONENTI COINVOLTI:** Frontend (motore + PDF + share). Zero AI, zero DB.
-**SCHEDA:** Stato: Da fare · Priorità: Media · C: 2 | I: 4 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
+**ESITO REALE (17 lug 2026, commit `919dce6`→`c75df24`):** implementata e in produzione. Il motore `costruisciListaSpesa(piano, paziente)` è puro (nessun DOM, non salva nulla: si ricalcola sempre dal piano). Decisioni effettive, alcune diverse dal piano originario:
+- Solo pasti principali (niente alternative) — come previsto. Esclusa la **cena libera del sabato**; esclusi **sale e olio** (spezie incluse). Le righe-ricetta con grammatura leggibile vengono scomposte e sommate.
+- **Frutta / verdura / frutta secca NON elencate per singolo alimento** ma come voce generica con il numero di porzioni raggruppate per grammatura; la **frutta con la taglia** (50g piccoli / 100g medi / 150g interi, valori fissi di Fabrizio). Le altre categorie restano dettagliate con i grammi. *(Deviazione voluta da Fabrizio: la lista dettagliata di frutta/verdura era dispersiva.)*
+- Nota in testa "**Lista calcolata in base alle prime scelte di ogni pasto**" (al posto della nota "alternative non incluse").
+- Vista a **riquadri colorati su due colonne bilanciate** (LPT + ordine canonico), testo ingrandito per leggersi bene anche sul PDF rimpicciolito dal telefono (dopo iterazioni: la colonna singola mobile è stata scartata su richiesta, tornati a due colonne fisse + font grande).
+- Export **semplificato**: `📄 Scarica PDF` = PDF vero disegnato con **jsPDF** (`_spesaCostruisciPDF`, riuso del motore PDF del piano), scaricato con un click **senza dialogo di stampa**; `📤 Condividi PDF` = `navigator.share({files:[pdf]})` → sul telefono apre il menù nativo con il **PDF allegato** (→ WhatsApp), sul computer fallback a download.
+- Predisposizione app futura mantenuta: le voci dettagliate portano **id catalogo + barcode** (P108); la lista non si salva mai.
+Verifica: `node --check`, test logico del motore, prove browser con DB reale + PDF renderizzato.
+**SCHEDA:** Stato: ✅ **Fatta 17 lug 2026** · Priorità: Media · C: 2 | I: 4 | R: 1 · Modello: Opus (decisioni) / Sonnet (esecuzione) · Autonomia: L1.
 
 ### P85 — Diario paziente
 **L'APPROCCIO ORIGINARIO:** decidere interno vs esterno; se interno: voci giornaliere commentabili dal medico.
