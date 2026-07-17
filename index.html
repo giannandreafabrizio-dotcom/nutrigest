@@ -15272,7 +15272,7 @@ function mostraListaSpesa(){
   box.style.cssText='background:#fff;border-radius:12px;max-width:640px;width:100%;padding:1.2rem 1.4rem;box-shadow:0 20px 60px rgba(0,0,0,.3);';
   var azioni='<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">'
     +'<button onclick="scaricaListaSpesaPDF()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">📄 Scarica PDF</button>'
-    +'<button onclick="whatsappListaSpesa()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">💬 WhatsApp</button>'
+    +'<button onclick="condividiListaSpesaPDF()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">📤 Condividi PDF</button>'
     +'<button onclick="var o=document.getElementById(\'spesa-overlay\');if(o)o.remove();" style="padding:.55rem .8rem;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-size:.85rem;cursor:pointer;">Chiudi</button>'
     +'</div>';
   box.innerHTML=azioni+'<div id="spesa-contenuto">'+_spesaHtml(lista, paz)+'</div>';
@@ -15384,6 +15384,24 @@ function whatsappListaSpesa(){
   if(tel){ var prefix=(tel.indexOf('39')===0)?'':'39'; url='https://wa.me/'+prefix+tel+'?text='+msg; }
   else { url='https://wa.me/?text='+msg; }
   window.open(url,'_blank');
+}
+// Condivide il PDF col menù nativo del telefono (→ WhatsApp con allegato).
+// Sul computer, dove la condivisione di file non è supportata, scarica il PDF.
+function condividiListaSpesaPDF(){
+  var lista=window._spesaListaCorrente, paz=window._spesaPazCorrente;
+  if(!lista||!lista.categorie.length){ if(typeof notif==='function') notif('⚠ Nessuna lista'); return; }
+  var doc=_spesaCostruisciPDF(lista, paz);
+  if(!doc){ if(typeof notif==='function') notif('⚠ PDF non disponibile'); return; }
+  var nome='Lista della spesa'+((paz&&paz.nome)?(' - '+paz.nome):'')+'.pdf';
+  var titolo=(paz&&paz.nome)?('Lista della spesa — '+paz.nome):'Lista della spesa';
+  var file=null;
+  try{ file=new File([doc.output('blob')], nome, {type:'application/pdf'}); }catch(e){ file=null; }
+  if(file && navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+    navigator.share({ files:[file], title:titolo, text:titolo }).catch(function(){ /* annullato: nulla */ });
+  } else {
+    doc.save(nome); // computer / non supportato: scarica e si allega a mano
+    if(typeof notif==='function') notif('📄 PDF scaricato — allegalo in WhatsApp o email');
+  }
 }
 
 async function generaPiano(forceRegen){
