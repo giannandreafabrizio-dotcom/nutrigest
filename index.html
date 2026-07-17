@@ -3217,13 +3217,18 @@ async function pushConcetiSupabase(){
 
 async function pullConcetiSupabase(){
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_CONCETTI_META_KEY+'&select=id,data',{method:'GET',headers:supaHeaders()});
+    // P74 1c — doppia lettura: legacy + collections, preferenza al nuovo
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_CONCETTI_META_KEY+'&select=id,data,updated_at',{method:'GET',headers:supaHeaders()});
     if(!r.ok)return false;
     const rows=await r.json();
-    if(!rows||!rows[0]||!rows[0].data||!rows[0].data.concetti)return false;
-    db.concetti=rows[0].data.concetti;
-    if(rows[0].data.migrato===true)db.concettiMigrato=true;
-    console.log('[CONCETTI] pull OK —',db.concetti.length,'concetti');
+    const legRow=(rows&&rows[0])||null;
+    const legData=(legRow&&legRow.data)||null;
+    const neo=await _collectionsFetch(_CONCETTI_META_KEY);
+    const data=_preferNuovo(neo, legData, legRow&&legRow.updated_at, d=>d&&d.concetti);
+    if(!data||!data.concetti)return false;
+    db.concetti=data.concetti;
+    if(data.migrato===true)db.concettiMigrato=true;
+    console.log('[CONCETTI] pull OK —',db.concetti.length,'concetti',(data===legData?'(legacy)':'(collections)'));
     return true;
   }catch(e){console.error('[CONCETTI] pull failed',e);return false;}
 }
@@ -3917,10 +3922,16 @@ async function _pazIdrataCambiati(){
 // col pull leggero non arriva più insieme ai pazienti — fetch dedicato.
 async function _pazFetchMeta(){
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+encodeURIComponent(META_KEY)+'&select=id,data',{headers:supaHeaders()});
+    // P74 1c — doppia lettura: legacy + collections, preferenza al nuovo
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+encodeURIComponent(META_KEY)+'&select=id,data,updated_at',{headers:supaHeaders()});
     if(!r.ok) return null;
     const rows=await r.json();
-    return (rows&&rows[0])||null;
+    const legRow=(rows&&rows[0])||null;
+    const legData=(legRow&&legRow.data)||null;
+    const neo=await _collectionsFetch(META_KEY);
+    const data=_preferNuovo(neo, legData, legRow&&legRow.updated_at, d=>d&&typeof d==='object');
+    if(data==null) return legRow; // né nuovo valido né legacy: restituisci ciò che c'era
+    return {id:META_KEY, data:data};
   }catch(e){ console.error('[P74] fetch meta fallito:', e); return null; }
 }
 
@@ -3953,6 +3964,59 @@ async function _collectionsUpsert(key, data){
     console.error('[P74 1b] collections upsert ECCEZIONE —', key, e);
     return false;
   }
+}
+
+// P74 FASE 1c — Lettura dalla tabella nuova `collections`, con RETE DI
+// SICUREZZA. La 1c introduce la "doppia lettura con preferenza al nuovo":
+// per ognuno dei 4 meta-record si legge SIA la posizione nuova
+// (`collections`) SIA quella vecchia (righe finte in `pazienti`), e si
+// sceglie il dato nuovo SOLO se è presente, valido e non più vecchio del
+// legacy (confronto `updated_at`). In ogni altro caso — riga nuova
+// mancante, vuota, non valida, o dimostrabilmente più vecchia del legacy
+// (es. una scrittura ombra 1b fallita per un blip di rete) — si ricade sul
+// legacy. Conseguenza: la 1c non può MAI servire un dato più vecchio di
+// quello che l'app leggerebbe oggi. Quando la fiducia sarà piena, un passo
+// successivo potrà togliere del tutto la lettura legacy.
+async function _collectionsFetch(key){
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/collections?key=eq.'+encodeURIComponent(key)+'&select=data,updated_at',{headers:supaHeaders()});
+    if(!r.ok) return null;
+    const rows=await r.json();
+    if(!rows||!rows[0]||rows[0].data==null) return null;
+    return {data:rows[0].data, updated_at:rows[0].updated_at||null};
+  }catch(e){ console.error('[P74 1c] fetch collections fallito —', key, e); return null; }
+}
+
+// Normalizza un timestamp Postgres/PostgREST in millisecondi, a prova di
+// formato e di browser severo (Safari/iPhone): accetta separatore spazio o
+// "T", offset "+00" o "+00:00" o "Z", e microsecondi (troncati a ms).
+// Ritorna NaN se non interpretabile.
+function _tsMs(s){
+  if(!s) return NaN;
+  var t=String(s).trim().replace(' ','T');   // spazio → T
+  t=t.replace(/([+-]\d{2})$/,'$1:00');        // +00 → +00:00
+  t=t.replace(/(\.\d{3})\d+/,'$1');           // microsecondi → millisecondi
+  return Date.parse(t);
+}
+
+// Sceglie fra dato NUOVO (collections) e VECCHIO (legacy) con preferenza al
+// nuovo, ma mai se dimostrabilmente più vecchio del legacy.
+// - neo: {data, updated_at} da _collectionsFetch, oppure null
+// - legData: l'oggetto data del legacy (o null)
+// - legUpd: l'updated_at del legacy (o null/undefined)
+// - isValido: predicato che dice se il data nuovo ha la forma attesa
+// Ritorna l'oggetto data da usare (può essere legData, anche null).
+function _preferNuovo(neo, legData, legUpd, isValido){
+  if(neo && isValido(neo.data)){
+    if(legData && legUpd && neo.updated_at){
+      var lm=_tsMs(legUpd), nm=_tsMs(neo.updated_at);
+      // Solo se entrambe leggibili e il legacy è più recente del nuovo
+      // (scrittura ombra 1b fallita) → il nuovo è stale: usa il legacy.
+      if(!isNaN(lm) && !isNaN(nm) && lm>nm) return legData;
+    }
+    return neo.data; // preferenza al nuovo
+  }
+  return legData; // fallback sicuro (può essere null)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -12256,10 +12320,15 @@ async function pushAlimentiCustomSupabase(){
 
 async function pullAlimentiCustomSupabase(){
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_ALIM_CUSTOM_KEY+'&select=id,data',{method:'GET',headers:supaHeaders()});
+    // P74 1c — doppia lettura: legacy + collections, preferenza al nuovo
+    const r=await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_ALIM_CUSTOM_KEY+'&select=id,data,updated_at',{method:'GET',headers:supaHeaders()});
     const rows=await r.json();
-    if(rows&&rows[0]&&rows[0].data&&rows[0].data.alimenti){
-      db.alimentiCustom=rows[0].data.alimenti;
+    const legRow=(rows&&rows[0])||null;
+    const legData=(legRow&&legRow.data)||null;
+    const neo=await _collectionsFetch(_ALIM_CUSTOM_KEY);
+    const data=_preferNuovo(neo, legData, legRow&&legRow.updated_at, d=>d&&d.alimenti);
+    if(data&&data.alimenti){
+      db.alimentiCustom=data.alimenti;
       caricaAlimentiCustom();
     }
   }catch(e){console.error('[ALIM_CUSTOM] pull failed',e);}
@@ -12292,18 +12361,21 @@ async function pushModelliSupabase(){
 
 async function pullModelliSupabase(){
   try {
-    const r = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_MODELLI_META_KEY+'&select=id,data', {method:'GET',headers:supaHeaders()});
+    // P74 1c — doppia lettura: legacy + collections, preferenza al nuovo
+    const r = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+_MODELLI_META_KEY+'&select=id,data,updated_at', {method:'GET',headers:supaHeaders()});
     if(!r.ok) return false;
     const rows = await r.json();
-    if(!rows || !rows.length) return false;
-    const data = rows[0].data;
+    const legRow=(rows&&rows[0])||null;
+    const legData=(legRow&&legRow.data)||null;
+    const neo=await _collectionsFetch(_MODELLI_META_KEY);
+    const data=_preferNuovo(neo, legData, legRow&&legRow.updated_at, d=>d&&d.modelli);
     if(!data || !data.modelli) return false;
     // Reset al default poi applica i salvati
     MODELLI_ROTAZIONE = JSON.parse(JSON.stringify(MODELLI_ROTAZIONE_DEFAULT));
     Object.entries(data.modelli).forEach(([k,v])=>{ if(v && v.nome && v.griglia) MODELLI_ROTAZIONE[k] = v; });
     // Sincronizza anche localStorage
     salvaModelliCustomLocal();
-    console.log('[MODELLI] pull OK —', Object.keys(data.modelli).length, 'modelli caricati da Supabase');
+    console.log('[MODELLI] pull OK —', Object.keys(data.modelli).length, 'modelli caricati',(data===legData?'(legacy)':'(collections)'));
     return true;
   } catch(e){ console.error('[MODELLI] pull ECCEZIONE:', e); return false; }
 }
