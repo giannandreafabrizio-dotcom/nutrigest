@@ -777,6 +777,7 @@ main{flex:1;overflow-y:auto;}
     <button class="pd-tab" onclick="pdTab('macros',this)">TDEE</button>
     <button class="pd-tab" onclick="pdTab('note',this)">Note cliniche</button>
     <button class="pd-tab" onclick="pdTab('routine',this)">🌿 Routine</button>
+    <button class="pd-tab" onclick="pdTab('sabato',this)">🍔 Sabato</button>
     <button class="pd-tab" onclick="pdTab('ragionamento',this)">💭 Ragionamento</button>
     <button class="pd-tab" onclick="pdTab('riepilogo',this)">📞 Riepilogo chiamata</button>
   </div>
@@ -789,6 +790,7 @@ main{flex:1;overflow-y:auto;}
   <div class="pd-panel" id="pd-ragionamento"></div>
   <div class="pd-panel" id="pd-riepilogo"></div>
   <div class="pd-panel" id="pd-routine"></div>
+  <div class="pd-panel" id="pd-sabato"></div>
 </div>
 
 <!-- CALENDARIO -->
@@ -5979,7 +5981,7 @@ async function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
-  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);
+  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdSabato(p);
   renderPdNote(p);
   renderPdRiepilogo(p);
   document.querySelectorAll('.pd-tab')[0].click();
@@ -8695,6 +8697,98 @@ function _ibSilhouetteSegmentale(ib){
       </div>
     </div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// P93 — PASSO 2: DIARIO SABATO (scelte del paziente nel tempo)
+// Storico salvato su p.diarioSabato = [{data, scelta, alcol, nota, kcal}]
+// Stessa disciplina di p.inbody: array sull'oggetto paziente + save(p.id).
+// ══════════════════════════════════════════════════════════════════
+// Elenco dei sabati tra inizio piano e controllo (UTC-safe, coerente con today()/addDays)
+function _sabatiPeriodo(p){
+  var out=[]; if(!p||!p.inizioAlim) return out;
+  var d=new Date(p.inizioAlim+'T00:00:00Z');
+  var fine=new Date((p.controlloData||addDays(p.inizioAlim,28))+'T00:00:00Z');
+  while(d.getUTCDay()!==6){ d.setUTCDate(d.getUTCDate()+1); }   // 6 = sabato
+  var guard=0;
+  while(d.getTime()<=fine.getTime() && guard<26){ out.push(d.toISOString().slice(0,10)); d.setUTCDate(d.getUTCDate()+7); guard++; }
+  return out;
+}
+// kcal stimate di una scelta (riusa la tabella KCAL_WEEKEND, match parziale sul nome)
+function _kcalScelta(scelta){
+  if(!scelta) return 0;
+  if(scelta==='Non fatto (saltato)') return 0;
+  for(var k in KCAL_WEEKEND){ if(scelta.toLowerCase().indexOf(k.toLowerCase())>=0) return KCAL_WEEKEND[k]; }
+  return 800;
+}
+// trova/crea il record del sabato in p.diarioSabato
+function _diarioSabatoRec(p, data){
+  if(!p.diarioSabato) p.diarioSabato=[];
+  var r=p.diarioSabato.find(function(x){return x.data===data;});
+  if(!r){ r={data:data,scelta:'',alcol:'',nota:'',kcal:0}; p.diarioSabato.push(r); }
+  return r;
+}
+// salva un campo di un sabato + persiste; aggiorna kcal e recap senza ridisegnare tutto
+function salvaDiarioSabato(data, campo, val){
+  var p=db.pazienti.find(function(x){return x.id===currentPazId;}); if(!p) return;
+  var r=_diarioSabatoRec(p, data);
+  r[campo]=val;
+  if(campo==='scelta') r.kcal=_kcalScelta(val);
+  // pulizia: se il record resta del tutto vuoto, non sporcare i dati salvati
+  if(!r.scelta && !r.alcol && !(r.nota||'').trim()){ p.diarioSabato=p.diarioSabato.filter(function(x){return x!==r;}); }
+  save(p.id);
+  if(campo==='scelta'){ var c=document.getElementById('sab-kcal-'+data); if(c) c.textContent = r.kcal? ('~'+r.kcal+' kcal'):''; }
+  _aggiornaRecapSabato(p);
+}
+function _aggiornaRecapSabato(p){ var el=document.getElementById('sab-recap'); if(el) el.innerHTML=_recapSabatoHtml(p); }
+// riquadro riassuntivo per il controllo: quanti registrati, scelte più frequenti, alcol, media kcal
+function _recapSabatoHtml(p){
+  var arr=(p.diarioSabato||[]).filter(function(x){return x.scelta||x.alcol;});
+  var nTot=_sabatiPeriodo(p).length;
+  var reg=arr.filter(function(x){return x.scelta;});
+  var box='background:var(--teal-bg,#edfaf5);border:1px solid #a7d8c8;border-radius:8px;padding:.6rem .9rem;font-size:.82rem;color:#0f5c42;margin-bottom:.5rem';
+  if(!reg.length) return '<div style="'+box+'">Nessun sabato ancora registrato'+(nTot?(' ('+nTot+' nel periodo).'):'.')+'</div>';
+  var conAlcol=arr.filter(function(x){return x.alcol;}).length;
+  var conKcal=reg.filter(function(x){return x.kcal;});
+  var kcalMedia=conKcal.length?Math.round(conKcal.reduce(function(s,x){return s+x.kcal;},0)/conKcal.length):0;
+  var cnt={}; reg.forEach(function(x){ cnt[x.scelta]=(cnt[x.scelta]||0)+1; });
+  var top=Object.keys(cnt).map(function(k){return [k,cnt[k]];}).sort(function(a,b){return b[1]-a[1];}).map(function(e){return e[0]+' ×'+e[1];}).join(' · ');
+  return '<div style="'+box+'"><strong>'+reg.length+'/'+nTot+' sabati registrati</strong> · '+top
+    +' · alcol '+conAlcol+'/'+reg.length+(kcalMedia?(' · media ~'+kcalMedia+' kcal'):'')+'</div>';
+}
+function renderPdSabato(p){
+  var cont=document.getElementById('pd-sabato'); if(!cont) return;
+  if(!p.inizioAlim){
+    cont.innerHTML='<div class="empty"><p>Nessuna data di inizio piano</p><span>Imposta "Inizio alimentazione" nella scheda Dati per elencare i sabati del periodo.</span></div>';
+    return;
+  }
+  var sabati=_sabatiPeriodo(p);
+  var opz=(typeof getWeekendOpzioni==='function'?getWeekendOpzioni(p):[]);
+  var opzSel=opz.length?opz:Object.keys(KCAL_WEEKEND);
+  var alcolOpz=['','1 calice di vino','1 birra','1 drink','Di più'];
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');};
+  var GRID='display:grid;grid-template-columns:110px minmax(0,1fr) 120px 82px minmax(0,1fr);gap:8px;align-items:center';
+  var rows='';
+  sabati.forEach(function(data){
+    var r=(p.diarioSabato||[]).find(function(x){return x.data===data;})||{};
+    var optHtml='<option value="">— non registrato</option>'
+      + opzSel.map(function(o){return '<option value="'+esc(o)+'"'+(r.scelta===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')
+      + '<option value="Altro"'+(r.scelta==='Altro'?' selected':'')+'>Altro</option>'
+      + '<option value="Non fatto (saltato)"'+(r.scelta==='Non fatto (saltato)'?' selected':'')+'>Non fatto (saltato)</option>';
+    var alcHtml=alcolOpz.map(function(o){return '<option value="'+esc(o)+'"'+((r.alcol||'')===o?' selected':'')+'>'+(o||'— niente')+'</option>';}).join('');
+    rows+='<div style="'+GRID+';padding:.4rem 0;border-bottom:1px solid var(--border,#eee)">'
+      +'<div style="font-size:.8rem;font-weight:600;color:var(--text2)">'+fData(data)+'</div>'
+      +'<select onchange="salvaDiarioSabato(\''+data+'\',\'scelta\',this.value)" class="fg-inp" style="font-size:.82rem;min-width:0">'+optHtml+'</select>'
+      +'<select onchange="salvaDiarioSabato(\''+data+'\',\'alcol\',this.value)" class="fg-inp" style="font-size:.82rem;min-width:0">'+alcHtml+'</select>'
+      +'<div id="sab-kcal-'+data+'" style="font-size:.78rem;color:var(--teal);text-align:right">'+(r.kcal?('~'+r.kcal+' kcal'):'')+'</div>'
+      +'<input value="'+esc(r.nota||'')+'" onchange="salvaDiarioSabato(\''+data+'\',\'nota\',this.value)" class="fg-inp" placeholder="nota (facoltativa)" style="font-size:.82rem;min-width:0">'
+      +'</div>';
+  });
+  cont.innerHTML=
+    '<div style="font-size:.82rem;color:var(--text2);margin-bottom:.7rem">Sabato sera libero — registra cosa ha scelto il paziente, settimana per settimana. Le kcal stimate compaiono da sole; al controllo hai il quadro dell\'aderenza.</div>'
+    +'<div id="sab-recap">'+_recapSabatoHtml(p)+'</div>'
+    +'<div style="'+GRID+';font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:700;margin:.5rem 0 .2rem"><div>Sabato</div><div>Scelta</div><div>Alcol</div><div style="text-align:right">Kcal</div><div>Nota</div></div>'
+    +rows;
 }
 
 function renderPdInbody(p){
