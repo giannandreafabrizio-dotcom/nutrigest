@@ -15208,21 +15208,23 @@ function _spesaTestoWhatsApp(lista, paziente){
   if(!lista.categorie.length) righe.push('(nessun alimento nel piano)');
   return righe.join('\n').trim();
 }
-// HTML della lista (usato sia a schermo sia nella stampa) — COLONNA UNICA,
-// pensata per il cellulare: riquadri a tutta larghezza, testo leggibile,
-// centrati con una larghezza massima (bene anche su computer). Senza data.
+// HTML della lista (usato sia a schermo sia nella stampa) — SEMPRE due colonne
+// bilanciate, riquadri colorati, testo ingrandito per leggersi bene anche quando
+// il PDF viene rimpicciolito sul telefono. Senza data.
 function _spesaHtml(lista, paziente){
   var titolo='Lista della spesa'+((paziente&&paziente.nome)?(' — '+paziente.nome):'');
   var css='<style>'
-    +'.sps-wrap{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1e293b;max-width:540px;margin:0 auto;}'
-    +'.sps-h{font-size:1.2rem;font-weight:800;margin:0 0 .12rem;}'
-    +'.sps-nota{font-size:.8rem;color:#64748b;font-style:italic;margin:0 0 .9rem;}'
-    +'.sps-card{border:1px solid #e2e8f0;border-left:5px solid #0d9488;border-radius:9px;padding:8px 12px 9px;background:#fcfdfe;margin-bottom:9px;}'
-    +'.sps-ch{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}'
-    +'.sps-row{display:flex;justify-content:space-between;gap:10px;font-size:.95rem;padding:2px 0;line-height:1.3;}'
+    +'.sps-wrap{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1e293b;}'
+    +'.sps-h{font-size:1.3rem;font-weight:800;margin:0 0 .12rem;}'
+    +'.sps-nota{font-size:.86rem;color:#64748b;font-style:italic;margin:0 0 .85rem;}'
+    +'.sps-cols{display:flex;gap:10px;align-items:flex-start;}'
+    +'.sps-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:9px;}'
+    +'.sps-card{border:1px solid #e2e8f0;border-left:5px solid #0d9488;border-radius:9px;padding:8px 11px 9px;background:#fcfdfe;}'
+    +'.sps-ch{font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px;}'
+    +'.sps-row{display:flex;justify-content:space-between;gap:8px;font-size:.94rem;padding:1.5px 0;line-height:1.3;}'
     +'.sps-nm{min-width:0;}'
     +'.sps-nm.p{font-weight:700;}'
-    +'.sps-q{color:#475569;font-weight:600;white-space:nowrap;}'
+    +'.sps-q{color:#475569;font-weight:700;white-space:nowrap;}'
     +'.sps-empty{color:#64748b;}'
     +'</style>';
   var testa='<div class="sps-h">🛒 '+_spesaEsc(titolo)+'</div>'
@@ -15230,6 +15232,17 @@ function _spesaHtml(lista, paziente){
   if(!lista.categorie.length){
     return css+'<div class="sps-wrap">'+testa+'<div class="sps-empty">Nessun alimento trovato nel piano.</div></div>';
   }
+  // Bilancia le categorie sulle due colonne (LPT: la più "alta" va nella colonna
+  // più corta), poi rimette ogni colonna in ordine canonico per leggibilità.
+  var cards=lista.categorie.map(function(cat){
+    return {cat:cat, peso:1.6+(cat.items?cat.items.length:0)};
+  }).sort(function(a,b){return b.peso-a.peso;});
+  var colL=[], colR=[], hL=0, hR=0;
+  cards.forEach(function(c){
+    if(hL<=hR){ colL.push(c.cat); hL+=c.peso; } else { colR.push(c.cat); hR+=c.peso; }
+  });
+  function ordCanon(a,b){ return _SPESA_CAT_ORDINE.indexOf(a.chiave)-_SPESA_CAT_ORDINE.indexOf(b.chiave); }
+  colL.sort(ordCanon); colR.sort(ordCanon);
   function cardHtml(cat){
     var col=_SPESA_CAT_COLORE[cat.chiave]||'#0d9488';
     var s='<div class="sps-card" style="border-left-color:'+col+'"><div class="sps-ch" style="color:'+col+'">'+_spesaEsc(cat.label)+'</div>';
@@ -15239,7 +15252,8 @@ function _spesaHtml(lista, paziente){
     });
     return s+'</div>';
   }
-  return css+'<div class="sps-wrap">'+testa+lista.categorie.map(cardHtml).join('')+'</div>';
+  function colHtml(arr){ return '<div class="sps-col">'+arr.map(cardHtml).join('')+'</div>'; }
+  return css+'<div class="sps-wrap">'+testa+'<div class="sps-cols">'+colHtml(colL)+colHtml(colR)+'</div></div>';
 }
 // Apre la finestra con la lista + azioni (stampa / copia WhatsApp)
 function mostraListaSpesa(){
