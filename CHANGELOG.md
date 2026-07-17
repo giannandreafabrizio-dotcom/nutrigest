@@ -10,6 +10,67 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+17 LUGLIO 2026 — P93 ESTENSIONE: SCHEDA "CIBO" — RESOCONTO MENSILE DI
+ADERENZA AGGANCIATO ALL'AI DEL CONTROLLO. Sessione Cowork con Fabrizio,
+modello Opus. HEAD 3f32163 → 28675c3 (index.html). Autonomia L1, 3 scelte
+di design confermate da Fabrizio prima di implementare.
+
+Contesto: Fabrizio ha chiesto se la scheda "Sabato" (appena chiusa nel
+passo precedente) potesse diventare la sezione dove, al controllo mensile,
+annota nel dettaglio come riferisce il paziente di aver seguito il piano
+(pasto per pasto: rispettato / più / meno / altro) — e se questo resoconto
+potesse influenzare l'interpretazione AI del controllo ("Cosa proporre").
+Risposta: sì, con un modello a voci strutturate (non testo libero) che si
+aggancia in coda al contesto già inviato all'AI.
+
+SCELTE DI DESIGN (confermate da Fabrizio):
+  - FORMATO: strutturato per pasto/abitudine (7 voci fisse con stato +
+    nota), non un campo di testo libero unico.
+  - DOVE: si amplia la scheda "Sabato" esistente (rinominata "🍽️ Cibo"),
+    non se ne crea una nuova — il diario sabato resta come sotto-sezione.
+  - AGGANCIO: il resoconto entra nel contesto AI che genera "Cosa
+    proporre" nel Riepilogo chiamata.
+
+IMPLEMENTAZIONE (commit 28675c3):
+  - TAB/PANNELLO: bottone rinominato "🍽️ Cibo" (`pdTab('cibo',this)`),
+    pannello `pd-cibo`, funzione `renderPdCibo(p)` che compone: form
+    resoconto mensile + separatore + diario sabato (`_htmlDiarioSabato`,
+    logica invariata, solo estratta in funzione propria).
+  - DATI: p.aderenza = [{id, data, voci:{chiave:{s,n}}, generale}], array
+    di resoconti (uno per mese/controllo) sull'oggetto paziente; il più
+    recente per data è quello attivo in editing (`_aderenzaCorrente`,
+    get-or-create). Nessuna proprietà custom su array (regola 8 rispettata).
+  - VOCI FISSE (VOCI_ADERENZA): colazione, spuntino mattina, pranzo,
+    merenda, cena, pre-nanna, sabato sera libero. Per ciascuna: stato
+    (STATI_ADERENZA: Rispettato / Più del previsto / Meno del previsto /
+    Altro-fuori piano) + nota libera facoltativa. Più un campo note
+    generali sul mese e una data (default: oggi).
+  - UI: `_htmlAderenzaMese` renderizza le 7 righe (select stato + input
+    nota), data picker, textarea note generali, bottone "+ Nuovo
+    resoconto", elenco resoconti precedenti con eliminazione (✕,
+    conferma). `salvaAderenza(key, sub, val)` gestisce i tre casi
+    (__generale, __data, voci[key][sub]) con save(p.id) e refresh mirato
+    del riquadro recap (`_recapAderenzaHtml`: "Resoconto del [data] · N/7
+    voci compilate · N rispettate", o messaggio stato-vuoto).
+  - AGGANCIO AI (il cuore della richiesta): nuova funzione
+    `aderenzaSintesiTesto(p)` compone un testo che riassume il resoconto
+    corrente (stato+nota per voce, note generali) più il riepilogo del
+    diario sabato (frequenza scelte, quante volte con alcol). Questo testo
+    viene iniettato in coda a `costruisciContestoPaziente(p)` — la
+    funzione che prepara il contesto per `avviaFX`/l'analisi AI del
+    controllo — con un'istruzione esplicita: "Usa questa aderenza per
+    interpretare i risultati (es. peso fermo ma sgarri frequenti) e
+    calibrare Cosa proporre." Da questo commit, ogni "💡 Cosa proporre"
+    generato tiene conto di ciò che il paziente riferisce a voce, non solo
+    dei dati clinici numerici.
+
+VERIFICA: node --check sul blocco <script> estratto ok; suite automatica
+63/63 verde; test JSDOM end-to-end che inietta un paziente con resoconto
+aderenza + diario sabato e conferma che la stringa di contesto AI generata
+contiene letteralmente "ADERENZA RIFERITA DAL PAZIENTE", le note digitate
+e il riepilogo sabato. Diff contro HEAD fresco confermato: solo le righe
+attese modificate.
+
 17 LUGLIO 2026 — P93 PASSO 2: SCHEDA "SABATO" NEL PAZIENTE (diario scelte
 + recap controllo). Sessione Cowork con Fabrizio, modello Opus. HEAD
 7a6d060 → e981772 (index.html: +95 / -1). Autonomia L1, 3 scelte di design

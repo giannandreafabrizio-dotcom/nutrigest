@@ -1561,6 +1561,30 @@ PASTO LIBERO SABATO CONFIGURABILE (P93, 17 lug 2026 · commit 4d50d15):
     FUTURO (app paziente P50): sarà il paziente a confermare pasto per pasto e generare il
     report kcal; il pannello attuale è la versione manuale compilata da Fabrizio al controllo.
     Questa scheda è la prima fetta concreta del diario P85.
+  ESTENSIONE "CIBO" — RESOCONTO MENSILE DI ADERENZA + AGGANCIO AI (FATTO 17 lug 2026 ·
+    commit 28675c3): la scheda "🍔 Sabato" è stata ampliata e rinominata "🍽️ Cibo" (tab
+    onclick pdTab('cibo',this), pannello pd-cibo, renderPdCibo(p)); il diario sabato resta
+    come sotto-sezione (logica invariata, estratta in _htmlDiarioSabato). Nuovo modello dati:
+    p.aderenza = [{id, data:'YYYY-MM-DD', voci:{chiave:{s,n}}, generale}] — array di
+    resoconti (uno per mese/controllo), il più recente per data è quello attivo in editing
+    (_aderenzaCorrente, get-or-create). No proprietà custom su array (regola 8).
+    VOCI_ADERENZA (7 fisse): colazione, spuntino_mattina, pranzo, spuntino_pom, cena,
+    pre_nanna, sabato. Per ciascuna: stato da STATI_ADERENZA ('' | Rispettato | Più del
+    previsto | Meno del previsto | Altro / fuori piano) + nota libera facoltativa. Più
+    campo generale (note testo libero sul mese) e data (default oggi).
+    Funzioni: nuovoResocontoAderenza/delResocontoAderenza (crea/elimina con conferma) ·
+    salvaAderenza(key,sub,val) (gestisce __generale/__data/voci[key][sub], save(p.id),
+    refresh mirato) · _recapAderenzaHtml (riquadro "Resoconto del [data] · N/7 voci
+    compilate · N rispettate", o stato-vuoto) · _htmlAderenzaMese (form 7 righe + data +
+    note generali + storico resoconti precedenti con ✕).
+    AGGANCIO AI (punto centrale della richiesta di Fabrizio): aderenzaSintesiTesto(p)
+    compone un testo che riassume il resoconto corrente (stato+nota per voce, note
+    generali) + il riepilogo del diario sabato (frequenza scelte, conteggio alcol). Questo
+    testo è iniettato in coda a costruisciContestoPaziente(p) — la funzione che prepara il
+    contesto per avviaFX/l'analisi AI del controllo ("💡 Cosa proporre" + percorso 5-7
+    mesi) — con istruzione esplicita di usarlo per calibrare l'interpretazione (es. peso
+    fermo ma sgarri frequenti). Da questo commit ogni analisi AI del controllo considera
+    anche ciò che il paziente riferisce a voce, non solo i dati clinici numerici.
 
 STIMA KCAL CENA LIBERA SABATO (per badge macros reali; usa p.weekend = opzione principale):
   Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750
