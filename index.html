@@ -17418,53 +17418,91 @@ async function generaPDF(paziente, giorni) {
     doc.text(dataGen, W - M, H - 18, { align: 'right' });
   }
 
-  // ---------- P93: BLOCCO SABATO SERA LIBERO ----------
+  // ---------- P93: BLOCCO SABATO SERA LIBERO (layout A2 teal, griglia 2 col + caselle-settimana) ----------
+  // Mappa opzione → emoji cibo (Twemoji) per il blocco sabato
+  var _WEEKEND_FOOD_CP = {
+    'Pizza': '1f355', 'Pizza con condimenti': '1f355', 'Panino': '1f96a',
+    'Sushi o Poke': '1f363', 'Pesce al ristorante': '1f41f',
+    'Carne rossa al ristorante': '1f969', 'Libero (non specificato)': '1f193'
+  };
+  // Disegna 4 caselline (settimane) vuote, ritorna la larghezza totale
+  function _drawBoxes4(x, y, bs, gap, col) {
+    for (var i = 0; i < 4; i++) {
+      doc.setDrawColor.apply(doc, col);
+      doc.setLineWidth(0.25);
+      doc.rect(x + i * (bs + gap), y, bs, bs);
+    }
+    return 4 * bs + 3 * gap;
+  }
   // Altezza del riquadro (deve combaciare tra misura e disegno per non sforare il layout)
   function _cenaLiberaHeight(wl, c) {
     var nOpz = (wl && wl.opzioni && wl.opzioni.length) ? wl.opzioni.length : 1;
-    var h = 6 * c + 2 * c;            // titolo + gap
-    if (nOpz > 1) h += 4.6 * c;       // sottotitolo "A scelta tra:"
-    h += nOpz * 5 * c;                // righe opzioni
-    if (wl && wl.alcol) h += 5 * c;   // riga alcol
-    h += 4 * c;                       // padding inferiore
-    return h;
+    var perCol = Math.ceil(nOpz / 2);
+    var titleH = 8, rowH = 6.6, bodyH = perCol * rowH;
+    var alcolH = (wl && wl.alcol) ? 9 : 3;
+    return (titleH + bodyH + alcolH + 4) * c;
   }
-  // Disegna il riquadro colorato evidenziato del pasto libero. Ritorna la y in fondo al box.
+  // Disegna il riquadro (teal) del pasto libero: griglia 2 colonne, emoji cibo, 4 caselle-settimana
+  // per opzione + riga alcol. Ritorna la y in fondo al box.
   function drawCenaLibera(wl, y, c) {
     wl = wl || { opzioni: [], alcol: '' };
     var opzioni = (wl.opzioni && wl.opzioni.length) ? wl.opzioni : ['Pizza, panino, sushi o simili'];
     var alcol = wl.alcol || '';
     var boxH = _cenaLiberaHeight({ opzioni: opzioni, alcol: alcol }, c);
     var boxX = M, boxW = W - M * 2;
-    doc.setFillColor(255, 248, 235);   // crema/ambra chiaro
-    doc.setDrawColor(232, 168, 80);    // bordo ambra
-    doc.setLineWidth(0.5 * c);
-    doc.roundedRect(boxX, y, boxW, boxH, 2.2 * c, 2.2 * c, 'FD');
-    // titolo con emoji hamburger
-    var tBase = y + 6 * c;
-    var tX = boxX + 5 * c;
-    var emo = loadEmojiSync('1f354');
-    if (emo) { try { doc.addImage(emo, 'PNG', tX, tBase - 4 * c, 4.5 * c, 4.5 * c); tX += 6 * c; } catch (e) {} }
-    setFont('bold', 11 * c, [166, 96, 20]);
-    doc.text('SABATO SERA - PASTO LIBERO', tX, tBase);
-    var oY = tBase + 2 * c;
-    if (opzioni.length > 1) {
-      oY += 4.6 * c;
-      setFont('italic', 9 * c, [150, 110, 60]);
-      doc.text('A scelta tra:', boxX + 6 * c, oY - 0.5 * c);
-    }
-    setFont('normal', 10.5 * c, NERO);
-    opzioni.forEach(function (op) {
-      oY += 5 * c;
-      doc.text('• ' + safe(op), boxX + 8 * c, oY);
+    // palette teal (coordinata con l'app)
+    var COL_BORDER = [29, 158, 117], COL_FILL = [237, 250, 245], COL_TITLE = [15, 92, 66];
+    var COL_CAP = [110, 150, 135], COL_PILLB = [175, 216, 202], COL_LABEL = [40, 88, 72];
+    var COL_BOX = [95, 170, 142], COL_SEP = [205, 232, 222], COL_ALCOL = [130, 70, 110];
+    doc.setFillColor.apply(doc, COL_FILL);
+    doc.setDrawColor.apply(doc, COL_BORDER);
+    doc.setLineWidth(0.6 * c);
+    doc.roundedRect(boxX, y, boxW, boxH, 2.5 * c, 2.5 * c, 'FD');
+    // titolo con emoji hamburger + didascalia a destra
+    var titleY = y + 6 * c;
+    var burger = loadEmojiSync('1f354');
+    if (burger) { try { doc.addImage(burger, 'PNG', boxX + 6 * c, titleY - 4 * c, 4.8 * c, 4.8 * c); } catch (e) {} }
+    setFont('bold', 11 * c, COL_TITLE);
+    doc.text('SABATO SERA - PASTO LIBERO', boxX + 12.5 * c, titleY);
+    setFont('italic', 8 * c, COL_CAP);
+    var cap = '4 caselle = 4 settimane · spunta la settimana in cui hai scelto';
+    doc.text(cap, boxX + boxW - 6 * c - measure(cap, 8 * c, 'italic'), titleY);
+    // griglia 2 colonne
+    var colGap = 12 * c, colW = (boxW - 12 * c - colGap) / 2;
+    var bs = 2.7 * c, bgap = 1.4 * c, boxesW = 4 * bs + 3 * bgap;
+    var perCol = Math.ceil(opzioni.length / 2), rowH = 6.6 * c;
+    var sy = titleY + 8 * c;
+    opzioni.forEach(function (op, i) {
+      var col = (i < perCol) ? 0 : 1;
+      var row = (i < perCol) ? i : (i - perCol);
+      var cx = boxX + 6 * c + col * (colW + colGap);
+      var cy = sy + row * rowH;
+      var tw = measure(op, 9.5 * c, 'normal');
+      var cp = _WEEKEND_FOOD_CP[op];
+      var emo = cp ? loadEmojiSync(cp) : null;
+      var textX = emo ? (cx + 8 * c) : (cx + 3 * c);
+      var pillW = (emo ? 13.5 * c : 6 * c) + tw;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor.apply(doc, COL_PILLB);
+      doc.setLineWidth(0.35 * c);
+      doc.roundedRect(cx, cy - 4.6 * c, pillW, 6.2 * c, 3 * c, 3 * c, 'FD');
+      if (emo) { try { doc.addImage(emo, 'PNG', cx + 2.5 * c, cy - 3.7 * c, 4 * c, 4 * c); } catch (e) {} }
+      setFont('normal', 9.5 * c, COL_LABEL);
+      doc.text(safe(op), textX, cy);
+      _drawBoxes4(cx + colW - boxesW, cy - 3.4 * c, bs, bgap, COL_BOX);
     });
+    // riga alcol (solo se impostato)
     if (alcol) {
-      oY += 5 * c;
-      var ew = loadEmojiSync('1f377');
-      var aX = boxX + 6 * c;
-      if (ew) { try { doc.addImage(ew, 'PNG', aX, oY - 3.6 * c, 4 * c, 4 * c); aX += 5.5 * c; } catch (e) {} }
-      setFont('italic', 9.5 * c, [120, 80, 30]);
-      doc.text('Concesso: ' + safe(alcol), aX, oY);
+      var ay = sy + perCol * rowH + 2.5 * c;
+      doc.setDrawColor.apply(doc, COL_SEP);
+      doc.setLineWidth(0.3 * c);
+      doc.line(boxX + 6 * c, ay - 3 * c, boxX + boxW - 6 * c, ay - 3 * c);
+      ay += 3.5 * c;
+      var wine = loadEmojiSync('1f377');
+      if (wine) { try { doc.addImage(wine, 'PNG', boxX + 6 * c, ay - 3.4 * c, 4 * c, 4 * c); } catch (e) {} }
+      setFont('bold', 9.5 * c, COL_ALCOL);
+      doc.text('Alcol: ' + safe(alcol), boxX + 11.5 * c, ay);
+      _drawBoxes4(boxX + boxW - 6 * c - boxesW, ay - 3.4 * c, bs, bgap, COL_BOX);
     }
     return y + boxH;
   }
@@ -18219,8 +18257,8 @@ async function generaPDF(paziente, giorni) {
   ['2600','26a1','1f37d','1f552','1f319','1f4a4'].forEach(function(cp){ cpSet.add(cp); });
   // P23-estetica: emoji pillole promemoria footer (sempre pre-caricate)
   ['1f4a7','1f45f','1f634','1f3cb','1f3c3','1f48a'].forEach(function(cp){ cpSet.add(cp); });
-  // P93: emoji blocco sabato sera libero (hamburger) + calice vino (alcol)
-  ['1f354','1f377'].forEach(function(cp){ cpSet.add(cp); });
+  // P93: emoji blocco sabato sera libero — hamburger + calice vino + icone cibo per opzione
+  ['1f354','1f377','1f355','1f96a','1f363','1f41f','1f969','1f193'].forEach(function(cp){ cpSet.add(cp); });
   // FRUTTA: tutti i codepoint del pool stagionale (sempre pre-caricati, indipendentemente
   // dallo stile attivo per questo paziente — evita disallineamenti cache/mese al draw-time)
   FRUTTA_STAGIONE_TUTTI_CP.forEach(function(cp){ cpSet.add(cp); });
