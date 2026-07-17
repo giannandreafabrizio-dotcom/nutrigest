@@ -15063,6 +15063,10 @@ var _SPESA_CAT_LABEL = {
   fit:'Integratori e prodotti fit',
   condimento:'Spezie e altro'
 };
+// Categorie "generiche": non si elencano i singoli alimenti, ma una voce unica
+// con il numero di porzioni della settimana (una porzione = una comparsa nel piano).
+// Frutta e verdura fresca si scelgono al momento, quindi il dettaglio è dispersivo.
+var _SPESA_CAT_GENERICHE = { verdura:'Verdura fresca', frutta:'Frutta fresca', grasso:'Frutta secca' };
 function _spesaNorm(s){
   return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
@@ -15081,6 +15085,11 @@ function _spesaFormattaQta(grammi){
   var g=Math.round(parseFloat(grammi)||0);
   if(g>=1000){ var kg=Math.round((g/1000)*100)/100; return kg+' kg'; }
   return g+' g';
+}
+// Valore mostrato a destra di una voce: porzioni per le voci generiche, grammi per le altre.
+function _spesaQtaVoce(it){
+  if(it&&it.generico){ var n=it.porzioni||0; return n+' '+(n===1?'porzione':'porzioni'); }
+  return (it&&it.grammi>0)?_spesaFormattaQta(it.grammi):'q.b.';
 }
 // MOTORE PURO. Ritorna:
 // { categorie:[{chiave,label,items:[{nome,id,barcode,categoria,grammi,volte}]}], totaleVoci, nonInclusi:[str] }
@@ -15138,9 +15147,19 @@ function costruisciListaSpesa(piano, paziente){
   _SPESA_CAT_ORDINE.forEach(function(cat){
     var items=Object.keys(mappa).map(function(k){return mappa[k];}).filter(function(v){return v.categoria===cat;});
     if(!items.length) return;
-    items.sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'it');});
-    out.categorie.push({chiave:cat, label:_SPESA_CAT_LABEL[cat], items:items});
-    out.totaleVoci+=items.length;
+    if(_SPESA_CAT_GENERICHE[cat]){
+      // Voce unica: somma le porzioni (comparse) di tutti gli alimenti della categoria
+      var porzioni=items.reduce(function(s,v){return s+(v.volte||0);},0);
+      var grammiTot=items.reduce(function(s,v){return s+(v.grammi||0);},0);
+      var voce={nome:_SPESA_CAT_GENERICHE[cat], id:null, barcode:null, categoria:cat,
+        grammi:grammiTot, volte:porzioni, porzioni:porzioni, generico:true};
+      out.categorie.push({chiave:cat, label:_SPESA_CAT_LABEL[cat], generico:true, items:[voce]});
+      out.totaleVoci+=1;
+    } else {
+      items.sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'it');});
+      out.categorie.push({chiave:cat, label:_SPESA_CAT_LABEL[cat], items:items});
+      out.totaleVoci+=items.length;
+    }
   });
   return out;
 }
@@ -15151,7 +15170,7 @@ function _spesaTestoWhatsApp(lista, paziente){
   lista.categorie.forEach(function(cat){
     righe.push(cat.label.toUpperCase());
     cat.items.forEach(function(it){
-      righe.push('• '+it.nome+' — '+(it.grammi>0?_spesaFormattaQta(it.grammi):'q.b.'));
+      righe.push('• '+it.nome+' — '+_spesaQtaVoce(it));
     });
     righe.push('');
   });
@@ -15171,7 +15190,7 @@ function _spesaHtml(lista, paziente){
     h+='<div style="margin-bottom:.7rem;">';
     h+='<div style="font-weight:700;font-size:.85rem;color:#0d9488;border-bottom:1px solid #e2e8f0;padding-bottom:.15rem;margin-bottom:.3rem;">'+_spesaEsc(cat.label)+'</div>';
     cat.items.forEach(function(it){
-      var q=it.grammi>0?_spesaFormattaQta(it.grammi):'q.b.';
+      var q=_spesaQtaVoce(it);
       h+='<div style="display:flex;justify-content:space-between;gap:1rem;font-size:.85rem;padding:.12rem 0;"><span>'+_spesaEsc(it.nome)+'</span><span style="color:#475569;white-space:nowrap;">'+_spesaEsc(q)+'</span></div>';
     });
     h+='</div>';
