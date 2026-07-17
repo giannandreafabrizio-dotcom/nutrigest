@@ -1,7 +1,18 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NUTRIGEST — Documento di Contesto
 Dott. Fabrizio Giannandrea · Studio Magic e Centro Curae · Matera
-Aggiornato: 13 luglio 2026 (sessione serale, dopo P108 fase 1) — P110 chiusa:
+Aggiornato: 17 luglio 2026 — P84 Lista della spesa chiusa (in produzione, commit
+  919dce6→c75df24) + fix max_tokens generatore piani (commit 2eec7bc). Lista della
+  spesa: pulsante 🛒 sotto al piano, motore puro costruisciListaSpesa (solo prime
+  scelte, no alternative; niente sabato sera libero; senza sale e olio; frutta/verdura/
+  frutta secca come porzioni, la frutta con la taglia 50/100/150 = piccoli/medi/interi).
+  Vista a riquadri colorati su due colonne; export semplificato: 📄 Scarica PDF (jsPDF,
+  download diretto senza dialogo di stampa) e 📤 Condividi PDF (navigator.share → menù
+  nativo del telefono → WhatsApp con il PDF ALLEGATO; su desktop fallback a download).
+  Fix max_tokens: _pianoMaxTokens allargato a 2200/giorno+2000 (cap 16000 invariato) per
+  evitare il troncamento dei piani ricchi che dava "Risposta AI senza blocco tool_use né
+  testo". Dettaglio nella sezione FUNZIONALITÀ IMPLEMENTATE più sotto e in CHANGELOG.md.
+Aggiornamento precedente: 13 luglio 2026 (sessione serale, dopo P108 fase 1) — P110 chiusa:
   scanner barcode via Open Food Facts nella sezione "Alimenti". Pulsante
   "📷 Scansiona barcode" → modale con camera (BarcodeDetector nativo su
   Chrome/Android, libreria ZXing da CDN su Safari/iPhone e Firefox,
@@ -425,7 +436,7 @@ Commit attuale:  85fc8cd — P66 Fase 0+1 (8 lug 2026): client AI unificato
                  unificata, barra giorni a tab, popup categoria/alimento
                  ridisegnato)
 Cartella locale: C:\Users\giann\Desktop\nutrigest
-Modello AI:      claude-sonnet-4-5 | max_tokens piano:12000 | FX (ex-F1+F3):2000
+Modello AI:      claude-sonnet-4-5 | max_tokens piano: dinamico 2200/gg+2000 (cap 16000) | FX (ex-F1+F3):2000
                  (dal proxy P66 il modello è deciso lato server nel
                  MODEL_REGISTRY di ai-proxy/index.ts — cambio modello senza
                  deploy del client)
@@ -929,9 +940,13 @@ CACHE PIANI 90 GIORNI (non 30): struttura piano è stabile, cambiano solo
   grammature e ricette specifiche → cache lunga ha senso. Hash chiave da
   pazienteId + regime + kcal + P/C/G + alimenti + giorni vegetariani.
 
-MAX_TOKENS PIANO 12000 (non 8000): margine sicurezza, output reale 4-6k.
-  Abbassare non riduce costi (si paga output effettivo), evita output troppo
-  lunghi in caso di bug prompt.
+MAX_TOKENS PIANO dinamico: _pianoMaxTokens = 2200/giorno+2000, cap 16000
+  (6gg=15200, 7gg=16000). Allargato il 17 lug 2026 (prima 1500/gg+1500 → 10500
+  per 6gg) perché i piani ricchi si troncavano per max_tokens ("Risposta AI senza
+  blocco tool_use né testo"). È un TETTO massimo: non aumenta il costo dei piani
+  che già rientravano (si paga l'output effettivo, tipico 4-10k), evita solo che i
+  piani lunghi vengano tagliati. Residuo noto: un piano oltre i 16000 si
+  troncherebbe ancora (recupero robusto al troncamento totale = lavoro futuro).
 
 AI RICETTE USA CREA DAL TRAINING (non CREA_ALIMENTI codice): valori molto
   simili (stessa fonte) ma non identici. Eccezioni personalizzate non considerate.
@@ -1105,6 +1120,31 @@ GENERATORE PIANO:
     "Ciao [Nome]! Ti invio il tuo piano alimentare personalizzato — prenditi un po'
     di tempo per leggerlo con calma. Quando sei libero/a, chiamami così lo commentiamo
     insieme: ti spiego i concetti chiave e rispondo a tutte le tue domande. A presto! 💪"
+
+LISTA DELLA SPESA (P84, 17 lug 2026): pulsante "🛒 Lista della spesa" sotto al piano
+  (ramo attivo _renderGiornoGen del Generatore). costruisciListaSpesa(piano, paziente) —
+  funzione PURA: nessun DOM, non salva nulla, si ricalcola sempre dal piano. Aggrega SOLO
+  i pasti principali (cella.alimenti[0], niente alternative); salta la cena libera del
+  sabato; esclude sale e olio (spezie incluse); le righe-ricetta con grammatura leggibile
+  sono scomposte (_ngScomponiIngredienti) e sommate. Categorie da getCategoriaFunzionale;
+  le voci dettagliate portano id catalogo + barcode (P108) per il riuso futuro (app
+  paziente / link piano). Frutta/verdura/frutta secca NON per singolo alimento ma come
+  voci a porzioni raggruppate per grammatura; la frutta con la taglia (_spesaTagliaFrutta:
+  50g piccoli / 100g medi / 150g interi, valori fissi). Le altre categorie restano
+  dettagliate con i grammi. Nota in testa: "Lista calcolata in base alle prime scelte di
+  ogni pasto". Vista _spesaHtml: riquadri colorati per categoria (_SPESA_CAT_COLORE) su
+  due colonne bilanciate (LPT + ordine canonico), testo ingrandito per leggersi anche sul
+  PDF rimpicciolito dal telefono (dopo iterazioni: colonna singola mobile scartata su
+  richiesta). Finestra mostraListaSpesa con due pulsanti:
+    - 📄 Scarica PDF (scaricaListaSpesaPDF → _spesaCostruisciPDF): PDF vero disegnato con
+      jsPDF (stesso motore del PDF piano), download diretto con un click, SENZA dialogo di
+      stampa (prima usava window.print).
+    - 📤 Condividi PDF (condividiListaSpesaPDF): navigator.share({files:[pdf]}) → sul
+      telefono apre il menù nativo con il PDF ALLEGATO (→ WhatsApp); su desktop, dove la
+      condivisione di file non è supportata, fallback a doc.save (download).
+  Legacy definite ma NON più collegate: stampaListaSpesa (window.print), copiaListaSpesa
+  (clipboard), whatsappListaSpesa (wa.me testo). Vedi INDEX.md sezione "LISTA DELLA SPESA
+  (P84)" per i numeri di riga e CHANGELOG.md per il dettaglio.
 
 COMPOSITORE MANUALE (P33, nato 30 giu 2026 — allineato al generatore AI il 5 lug 2026, BLOCCO 16):
   Bivio a monte: "Genera con AI" / "Componi a mano" (apriSceltaModalitaPiano). Cliccando
