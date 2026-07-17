@@ -15271,8 +15271,8 @@ function mostraListaSpesa(){
   var box=document.createElement('div');
   box.style.cssText='background:#fff;border-radius:12px;max-width:640px;width:100%;padding:1.2rem 1.4rem;box-shadow:0 20px 60px rgba(0,0,0,.3);';
   var azioni='<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;">'
-    +'<button onclick="stampaListaSpesa()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">🖨️ Stampa / PDF</button>'
-    +'<button onclick="copiaListaSpesa()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">💬 Copia per WhatsApp</button>'
+    +'<button onclick="scaricaListaSpesaPDF()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">📄 Scarica PDF</button>'
+    +'<button onclick="whatsappListaSpesa()" style="flex:1;min-width:130px;padding:.55rem .8rem;background:#25D366;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;">💬 WhatsApp</button>'
     +'<button onclick="var o=document.getElementById(\'spesa-overlay\');if(o)o.remove();" style="padding:.55rem .8rem;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-size:.85rem;cursor:pointer;">Chiudi</button>'
     +'</div>';
   box.innerHTML=azioni+'<div id="spesa-contenuto">'+_spesaHtml(lista, paz)+'</div>';
@@ -15305,6 +15305,85 @@ function copiaListaSpesa(){
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(testo).then(fatto).catch(fallback);
   } else { fallback(); }
+}
+// ── P84 — PDF diretto (jsPDF, scaricato con un click, senza dialogo di stampa) ──
+function _spesaHexRgb(h){
+  h=String(h||'').replace('#',''); if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];}
+  return [parseInt(h.slice(0,2),16)||0, parseInt(h.slice(2,4),16)||0, parseInt(h.slice(4,6),16)||0];
+}
+// Disegna la lista (due colonne, riquadri colorati) in un documento jsPDF e lo ritorna.
+function _spesaCostruisciPDF(lista, paz){
+  var jsPDF=(window.jspdf&&window.jspdf.jsPDF)?window.jspdf.jsPDF:null;
+  if(!jsPDF||!lista||!lista.categorie.length) return null;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var PW=210, PH=297, M=14, GAP=7;
+  var colW=(PW-2*M-GAP)/2, xL=M, xR=M+colW+GAP;
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(30,41,59);
+  doc.text('Lista della spesa'+((paz&&paz.nome)?(' - '+paz.nome):''), M, M+3);
+  doc.setFont('helvetica','italic'); doc.setFontSize(9.5); doc.setTextColor(100,116,139);
+  doc.text('Lista calcolata in base alle prime scelte di ogni pasto.', M, M+9);
+  var top=M+15;
+  var HDR=6.4, ROW=5.3, PADT=1.2, PADB=2.6, CGAP=4;
+  function cardH(cat){ return PADT+HDR + cat.items.length*ROW + PADB; }
+  var arr=lista.categorie.map(function(c){return {cat:c,h:cardH(c)+CGAP};}).sort(function(a,b){return b.h-a.h;});
+  var Lc=[],Rc=[],hL=0,hR=0;
+  arr.forEach(function(o){ if(hL<=hR){Lc.push(o.cat);hL+=o.h;}else{Rc.push(o.cat);hR+=o.h;} });
+  function ordCanon(a,b){return _SPESA_CAT_ORDINE.indexOf(a.chiave)-_SPESA_CAT_ORDINE.indexOf(b.chiave);}
+  Lc.sort(ordCanon); Rc.sort(ordCanon);
+  // Se serve, rimpicciolisce un po' per stare in una pagina (liste molto lunghe).
+  var avail=PH-top-M, need=Math.max(hL,hR), s=need>avail?avail/need:1; if(s<0.62)s=0.62;
+  var hdr=HDR*s, row=ROW*s, padt=PADT*s, padb=PADB*s, cgap=CGAP*s;
+  var fsHdr=Math.max(6.5, 9*s), fsRow=Math.max(7, 10*s);
+  function truncFit(t, maxW){
+    if(doc.getTextWidth(t)<=maxW) return t;
+    var r=t; while(r.length>1 && doc.getTextWidth(r+'…')>maxW) r=r.slice(0,-1);
+    return r+'…';
+  }
+  function drawCol(cats, x){
+    var y=top;
+    cats.forEach(function(cat){
+      var col=_spesaHexRgb(_SPESA_CAT_COLORE[cat.chiave]||'#0d9488');
+      var ch=padt+hdr+cat.items.length*row+padb;
+      doc.setFillColor(252,253,254); doc.setDrawColor(226,232,240); doc.setLineWidth(0.2);
+      doc.roundedRect(x, y, colW, ch, 1.6, 1.6, 'FD');
+      doc.setFillColor(col[0],col[1],col[2]);
+      doc.roundedRect(x, y, 1.6, ch, 0.8, 0.8, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(fsHdr); doc.setTextColor(col[0],col[1],col[2]);
+      doc.text(cat.label.toUpperCase(), x+3.4, y+padt+hdr-1.8);
+      var ry=y+padt+hdr+row-1.6;
+      cat.items.forEach(function(it){
+        var q=_spesaQtaVoce(it);
+        doc.setFont('helvetica', it.generico?'bold':'normal'); doc.setFontSize(fsRow);
+        doc.setTextColor(71,85,105);
+        var qw=doc.getTextWidth(q);
+        doc.text(q, x+colW-3.4, ry, {align:'right'});
+        if(it.generico){ doc.setTextColor(col[0],col[1],col[2]); } else { doc.setTextColor(30,41,59); }
+        doc.text(truncFit(it.nome, colW-3.4-3.4-qw-2.5), x+3.4, ry);
+        ry+=row;
+      });
+      y+=ch+cgap;
+    });
+  }
+  drawCol(Lc, xL); drawCol(Rc, xR);
+  return doc;
+}
+function scaricaListaSpesaPDF(){
+  var lista=window._spesaListaCorrente, paz=window._spesaPazCorrente;
+  if(!lista||!lista.categorie.length){ if(typeof notif==='function') notif('⚠ Nessuna lista da scaricare'); return; }
+  var doc=_spesaCostruisciPDF(lista, paz);
+  if(!doc){ if(typeof notif==='function') notif('⚠ PDF non disponibile'); return; }
+  doc.save('Lista della spesa'+((paz&&paz.nome)?(' - '+paz.nome):'')+'.pdf');
+}
+// Apre WhatsApp col testo della lista già pronto (al numero del paziente, se c'è).
+function whatsappListaSpesa(){
+  var lista=window._spesaListaCorrente, paz=window._spesaPazCorrente;
+  if(!lista||!lista.categorie.length){ if(typeof notif==='function') notif('⚠ Nessuna lista'); return; }
+  var msg=encodeURIComponent(_spesaTestoWhatsApp(lista, paz));
+  var tel=(paz&&paz.tel)?String(paz.tel).replace(/\D/g,''):'';
+  var url;
+  if(tel){ var prefix=(tel.indexOf('39')===0)?'':'39'; url='https://wa.me/'+prefix+tel+'?text='+msg; }
+  else { url='https://wa.me/?text='+msg; }
+  window.open(url,'_blank');
 }
 
 async function generaPiano(forceRegen){
