@@ -10,6 +10,55 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+17 LUGLIO 2026 — P93 PASSO 2: SCHEDA "SABATO" NEL PAZIENTE (diario scelte
++ recap controllo). Sessione Cowork con Fabrizio, modello Opus. HEAD
+7a6d060 → e981772 (index.html: +95 / -1). Autonomia L1, 3 scelte di design
+confermate da Fabrizio prima di implementare. Anticipato rispetto alla
+stima "~2 settimane": fatto subito nella stessa sessione.
+
+Contesto: seconda metà di P93. Il PDF (passo 1) fa auto-monitoraggio su
+CARTA (il paziente spunta); questo passo dà una CASA DIGITALE al dato —
+Fabrizio registra al controllo cosa ha scelto il paziente ogni sabato, e
+lo rivede come storico. È la prima fetta concreta del diario P85; in
+futuro (app paziente P50) sarà il paziente a compilarlo.
+
+SCELTE DI DESIGN (confermate da Fabrizio):
+  - DOVE: nuova scheda "🍔 Sabato" nella scheda paziente (accanto a InBody/
+    TDEE), non sotto al piano né dentro una scheda esistente.
+  - COSA: scelta + alcol + kcal automatiche (dalla tabella KCAL_WEEKEND) +
+    nota facoltativa.
+  - COME: i sabati del periodo sono PRE-ELENCATI (tra inizio piano e
+    controllo); Fabrizio riempie solo le caselle.
+
+IMPLEMENTAZIONE (commit e981772):
+  - DATI: p.diarioSabato = [{data, scelta, alcol, nota, kcal}] sull'oggetto
+    paziente. Stessa disciplina di p.inbody (array + save(p.id)); nessuna
+    proprietà custom su array (regola 8). Record vuoti ripuliti in automatico.
+  - UI: tab + pannello pd-sabato; renderPdSabato(p) elenca i sabati
+    (helper _sabatiPeriodo, UTC-safe coerente con today()/addDays: primo
+    sabato ≥ inizioAlim, passo +7, cap 26). Ogni riga = data + select scelta
+    (opzioni per-paziente da getWeekendOpzioni + Altro + "Non fatto") +
+    select alcol + cella kcal auto + nota. Recap in cima (_recapSabatoHtml):
+    "N/tot sabati registrati · scelte più frequenti · alcol X/N · media kcal".
+  - KCAL: _kcalScelta riusa KCAL_WEEKEND (match parziale sul nome), 0 se
+    "Non fatto", 800 se scelta non riconosciuta.
+  - SALVATAGGIO: salvaDiarioSabato(data, campo, val) → _diarioSabatoRec
+    (find-or-create) → set campo → save(p.id) → refresh MIRATO di recap +
+    cella kcal (niente ridisegno completo, non perde focus). Copia fedele
+    del pattern salvaInbody/delInbody (già in produzione).
+  - Se manca p.inizioAlim: messaggio che invita a impostare la data.
+  - VERIFICA: node --check ok; suite 63/63; test JSDOM end-to-end via
+    _loadApp — elenco 4 sabati corretto su periodo reale, salvataggio su
+    db.pazienti[0].diarioSabato, kcal auto (Pizza 900/Sushi 750), recap
+    aggiornato ("2/4 · Pizza ×1 · Sushi ×1 · alcol 1/2 · media ~825"),
+    pulizia record svuotato. SHA HEAD + diff vs HEAD (solo il blocco nuovo)
+    ricontrollati prima della consegna.
+
+Con questo P93 è chiusa completamente: PDF (v1 4d50d15 → redesign 7ddffdf)
++ pannello app (e981772).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 17 LUGLIO 2026 — P93 REDESIGN BLOCCO SABATO (estetica + auto-monitoraggio
 su carta). Sessione Cowork con Fabrizio, modello Opus. HEAD 6a91d07 →
 7ddffdf (index.html: +75 / -37). Autonomia L1, scelte confermate via

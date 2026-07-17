@@ -1546,10 +1546,21 @@ PASTO LIBERO SABATO CONFIGURABILE (P93, 17 lug 2026 · commit 4d50d15):
     Riga alcol (🍷, condizionale) con le sue 4 caselline. Caselle vettoriali via _drawBoxes4
     (doc.rect). Preload cpSet: 1f354/1f377 + le 6 emoji cibo. Quali opzioni compaiono è
     per-paziente (p.weekendAltre): chi non ama sushi/pizza non le vede.
-  TRACKING: il PDF fa solo auto-monitoraggio su CARTA. Il dato salvato (scelta nel tempo)
-    vivrà nel PANNELLO APP — passo 2 pianificato da Fabrizio ~fine lug/inizio ago 2026:
-    versione leggera del diario P85; in futuro con l'app paziente (P50) sarà il paziente a
-    confermare pasto per pasto e generare il report kcal. NON ancora implementato.
+  TRACKING (passo 2, FATTO 17 lug 2026 · commit e981772): il PDF fa auto-monitoraggio su
+    CARTA; il dato salvato vive nel PANNELLO APP "Diario Sabato". Nuova scheda "🍔 Sabato"
+    nella scheda paziente (tab/pannello pd-sabato, accanto a InBody/TDEE). Storico su
+    p.diarioSabato = [{data:'YYYY-MM-DD', scelta, alcol, nota, kcal}] (stessa disciplina di
+    p.inbody: array sull'oggetto paziente + save(p.id); no proprietà custom su array).
+    renderPdSabato(p) PRE-ELENCA i sabati tra p.inizioAlim e p.controlloData (_sabatiPeriodo,
+    UTC-safe, primo sabato ≥ inizio, +7, cap 26); per ogni sabato: select scelta (opzioni
+    per-paziente da getWeekendOpzioni + Altro + "Non fatto") · select alcol · kcal AUTO
+    (_kcalScelta riusa KCAL_WEEKEND) · nota. Recap in cima (_recapSabatoHtml): registrati/tot,
+    scelte frequenti, conteggio alcol, media kcal. Salvataggio: salvaDiarioSabato(data,campo,
+    val) → _diarioSabatoRec (find-or-create) → save(p.id) → refresh mirato recap+cella (copia
+    del pattern salvaInbody). Record vuoti auto-ripuliti. Se manca p.inizioAlim → messaggio.
+    FUTURO (app paziente P50): sarà il paziente a confermare pasto per pasto e generare il
+    report kcal; il pannello attuale è la versione manuale compilata da Fabrizio al controllo.
+    Questa scheda è la prima fetta concreta del diario P85.
 
 STIMA KCAL CENA LIBERA SABATO (per badge macros reali; usa p.weekend = opzione principale):
   Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750
