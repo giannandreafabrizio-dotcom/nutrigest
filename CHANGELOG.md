@@ -10,6 +10,54 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+17 LUGLIO 2026 — P74 FASE 1c: DOPPIA LETTURA `collections` CON PREFERENZA
+AL NUOVO E RETE DI SICUREZZA SUL LEGACY. Sessione Cowork con Fabrizio,
+modello Opus. HEAD dcaec68 → e88e0fb (index.html). Autonomia L0 (ogni
+passo approvato da Fabrizio). Collaudato in produzione da Fabrizio (PC +
+iPhone) subito dopo il push: pazienti, concetti, alimenti custom e modelli
+di rotazione si caricano regolarmente.
+
+Contesto: la fase 1b (16 lug, notte) aveva attivato la scrittura "ombra"
+verso la tabella nuova `collections` senza toccare la lettura. Il 1c è il
+gradino che sposta la LETTURA dei 4 meta-record verso la tabella nuova, in
+modo transitorio e reversibile.
+
+VERIFICA PRELIMINARE (prima di scrivere codice): Fabrizio ha aperto il
+Table Editor di Supabase e confermato che tutte e 4 le righe si popolano
+con l'uso reale — `meta_collections`, `__concetti_educativi`,
+`__alimenti_custom`, `__modelli_rotazione` — tutte con `updated_at` recente
+e stesso `user_id` (RLS ok). Le due righe alimenti/modelli sono state
+attivate con una modifica-e-salva mirata per confermare i 5 punti di
+scrittura della 1b.
+
+IMPLEMENTAZIONE: due helper puri nuovi accanto a `_collectionsUpsert`:
+  - `_collectionsFetch(key)` → legge `collections?key=eq.<key>&select=data,
+    updated_at`, ritorna `{data, updated_at}` o null (RLS scopa per utente).
+  - `_preferNuovo(neo, legData, legUpd, isValido)` → sceglie il dato nuovo
+    solo se presente, valido e non più vecchio del legacy; altrimenti
+    ricade sul legacy. Non può MAI restituire un dato più vecchio del
+    legacy corrente → nel peggiore dei casi si comporta come prima del 1c.
+  - `_tsMs(s)` → normalizza il timestamp Postgres a prova di Safari/iPhone
+    (separatore spazio o `T`, offset `+00`/`+00:00`/`Z`, microsecondi → ms).
+I 4 read-point (`pullConcetiSupabase`, `_pazFetchMeta`,
+`pullAlimentiCustomSupabase`, `pullModelliSupabase`) ora leggono legacy +
+collections e passano per `_preferNuovo`; i `select` legacy includono
+`updated_at` per il confronto. Nessun cambio ai punti di SCRITTURA (1b) né
+alle GET del push che scelgono POST/PATCH. Un log finale segnala se il
+dato servito viene da `(collections)` o `(legacy)`.
+
+VERIFICA: `node --check` sul blocco script ok; 7 test unitari sulla logica
+`_preferNuovo`/`_tsMs` (preferenza al nuovo, ricaduta sul legacy quando più
+recente o quando il nuovo manca/è invalido, casi limite di parsing date)
+tutti verdi; diff contenuto a 86 inserimenti / 14 rimozioni sui soli 4
+read-point + 2 helper; collaudo in produzione di Fabrizio.
+
+PROSSIMO PASSO (fase 1d, non in questa sessione): dopo qualche giorno di
+1c stabile, ritirare del tutto la lettura legacy dei meta-record (lettura
+sola da `collections`), poi fase 2 (entità pesanti in tabelle tipizzate).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 17 LUGLIO 2026 — P93 ESTENSIONE: SCHEDA "CIBO" — RESOCONTO MENSILE DI
 ADERENZA AGGANCIATO ALL'AI DEL CONTROLLO. Sessione Cowork con Fabrizio,
 modello Opus. HEAD 3f32163 → 28675c3 (index.html). Autonomia L1, 3 scelte
