@@ -12283,9 +12283,14 @@ function costruisciPrompt(pazienteId) {
   };
   var carbGr = _carbGrPerKcal(kcalTarget);
 
+  // P-KETO: isCeto definito QUI (prima di ciclizzazione e filtro ricette) — un
+  // piano chetogenico disattiva la ciclizzazione carboidrati (quella è la CKD,
+  // eventualmente da agganciare in futuro) e filtra il pool di ispirazione.
+  var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
+
   // ── P34 — ciclizzazione carboidrati: due target (ON/OFF), carbo per pasto distinti ──
   var _cicP = calcolaTargetsCiclizzazione(p);
-  var _ciclizzato = _cicP.attiva && !!_cicP.on;
+  var _ciclizzato = _cicP.attiva && !!_cicP.on && !isCeto;
   var carbGrON  = _ciclizzato ? _carbGrPerKcal(_cicP.on.kcal)  : carbGr;
   var carbGrOFF = _ciclizzato ? _carbGrPerKcal(_cicP.off.kcal) : carbGr;
   var _giorniCarico = (p.giorniAllenamento||[]);
@@ -12360,10 +12365,26 @@ function costruisciPrompt(pazienteId) {
     console.log('[Prompt] Filtro stagionale DISATTIVATO per sicurezza (solo '+_ricetteStagione.length+' ricette per '+_stagioneCorrente+', soglia '+_sogliaMinima+') — uso pool completo');
   }
 
+  // ── P-KETO: filtro CONSERVATIVO del pool per tag chetogenica/low-carb ──
+  // Stessa filosofia del filtro stagionale: se le ricette taggate keto sono
+  // poche (<8) si rinuncia al filtro — il blocco PROTOCOLLO CHETOGENICO nel
+  // prompt esclude comunque i piatti con carboidrati.
+  if(isCeto){
+    var _ricKeto=_ricetteFinali.filter(function(r){
+      var tg=(r.tags||[]).concat((r.attributi&&r.attributi.profili)||[]).map(function(t){return String(t).toLowerCase().trim();});
+      return tg.indexOf('chetogenica')>=0||tg.indexOf('cheto')>=0||tg.indexOf('keto')>=0||tg.indexOf('low-carb')>=0||tg.indexOf('lowcarb')>=0;
+    });
+    if(_ricKeto.length>=8){
+      _ricetteFinali=_ricKeto;
+      console.log('[Prompt] Filtro KETO attivo: '+_ricKeto.length+' ricette taggate');
+    } else {
+      console.log('[Prompt] Filtro KETO disattivato ('+_ricKeto.length+' ricette taggate, soglia 8) — pool completo, ci pensa il blocco protocollo nel prompt');
+    }
+  }
+
   var ricetteDB = _ricetteFinali.map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
   if(ricetteDB.length>80) ricetteDB=ricetteDB.slice(0,80); // tetto token
 
-  var isCeto = p.regime && (p.regime.toLowerCase().includes('chetogen') || p.regime.toLowerCase().includes('cetogen'));
   var nGiorni = isCeto ? 7 : 6;
   var nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
 
@@ -12415,6 +12436,22 @@ function costruisciPrompt(pazienteId) {
     return '\n\nVINCOLI CLINICI — rispetta nella SCELTA degli alimenti. Sono vincoli operativi: applicali e basta, NON commentarli e NON aggiungere testo descrittivo al piano.\n'+righe.join('\n');
   })();
 
+  // ── P-KETO: blocco PROTOCOLLO CHETOGENICO per il prompt (tetto carbo dal
+  // target salvato dal medico; regole da position paper ADI 2014 + AME) ──
+  var _pkPrompt=(typeof PROTOCOLLI_KETO!=='undefined'&&p.strategia&&PROTOCOLLI_KETO[p.strategia])?PROTOCOLLI_KETO[p.strategia]:null;
+  var _tettoCarboPrompt=(carbG!==null&&carbG!==undefined)?carbG:(_pkPrompt?_pkPrompt.tetto:30);
+  var ketoBlock='';
+  if(isCeto){
+    ketoBlock='\n\nPROTOCOLLO CHETOGENICO'+(_pkPrompt?(' — '+_pkPrompt.nome):'')+' — REGOLE ASSOLUTE, priorità su tutto il resto\n'
+      +'• Carboidrati TOTALI giornalieri: MAX '+_tettoCarboPrompt+' g/die (somma di TUTTI i pasti). Il paziente deve restare in chetosi.\n'
+      +'• VIETATI in ogni pasto: pasta, pane, riso, farro, orzo, avena e ogni altro cereale; patate; legumi; zuccheri e dolci; frutta (unica eccezione: frutti di bosco max 50g, solo se i carbo totali restano nel tetto).\n'
+      +'• NON generare celle "carbo" (cat "ca"): al loro posto più verdura o una fonte grassa in cella "oi"/"gx".\n'
+      +'• Fonti caloriche: proteine (carne, pesce, uova, formaggi) e GRASSI (olio EVO, avocado, frutta secca, semi, olive)'+(p.strategia==='keto-mediterranea'?' — impronta MEDITERRANEA: privilegia olio EVO, pesce azzurro e frutta secca':'')+'.\n'
+      +(p.strategia==='keto-psmf'?'• PSMF: priorità assoluta a proteine magre (petto di pollo/tacchino, pesce bianco, albumi, latticini magri); grassi al minimo indispensabile.\n':'')
+      +'• Verdure — gruppo LIBERO (anche oltre 200g): foglia verde, bietole, broccoli, cavolfiori, cavoli, cetrioli, cime di rapa, finocchi, peperoni verdi, ravanelli, radicchio, sedano, spinaci, zucchine. Gruppo A QUANTITÀ (max 150g/pasto): asparagi, carciofi, cavolini di Bruxelles, cipolle, fagiolini, melanzane, peperoni gialli/rossi, pomodori, porri, rape, zucca. VIETATE: barbabietole, patate, carote cotte.\n'
+      +'• Nel campo "macros" di ogni giorno i carboidrati devono risultare ≤ '+_tettoCarboPrompt+'g: verifica la somma prima di chiudere il giorno.';
+  }
+
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.
 Per ispirazione attingi a: ${ricetteDB.length ? ricetteDB.join(', ') : 'cucina italiana tradizionale'}.
 Siamo in ${_stagioneCorrente}: prediligi ingredienti e preparazioni di stagione (verdura e frutta di ${_stagioneCorrente}), senza forzare se un alimento non è adatto al paziente.
@@ -12430,7 +12467,7 @@ ${_ciclizzato ? `Giorni di carico (ON): ${(p.giorniAllenamento||[]).join(', ')||
 ${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}${blocoCiclizzazione}
 
 GRAMMATURE FISSE
-Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${_ciclizzato ? `giorni ON ${carbGrON}g · giorni OFF ${carbGrOFF}g` : `${carbGr}g`} | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g
+${isCeto ? `Olio EVO: ${olioG}g/pasto (aumentabile: in keto i grassi chiudono le kcal) | Verdura: 200g (gruppo libero anche di più) | Frutta secca: 20g | NIENTE cereali, legumi o frutta — vedi PROTOCOLLO CHETOGENICO` : `Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${_ciclizzato ? `giorni ON ${carbGrON}g · giorni OFF ${carbGrOFF}g` : `${carbGr}g`} | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g`}${ketoBlock}
 
 ALIMENTI AUTORIZZATI — usa SOLO questi, mai inventarne altri
 Verdi (${alimentiVerdi.length}): ${alimentiVerdi.join(', ')||'nessuno specificato'}
@@ -12440,7 +12477,7 @@ Esclusi (mai usare): ${alimentiEsclusi.join(', ')||'nessuno'}
 
 REGOLA VARIETÀ ALIMENTI — IMPORTANTE
 Ogni slot di ogni pasto deve avere alimenti DIVERSI dagli altri pasti della stessa giornata.
-Esempio: se a pranzo hai pasta/riso/farro nel slot carbo, a cena usa altri cereali o nessun carbo.
+${isCeto ? 'Esempio: se a pranzo la proteina è salmone, a cena usa una fonte proteica diversa; varia anche le verdure tra i pasti.' : 'Esempio: se a pranzo hai pasta/riso/farro nel slot carbo, a cena usa altri cereali o nessun carbo.'}
 Mai copiare lo stesso set di alternative da un pasto all'altro. Ogni slot è indipendente.
 
 REGOLA DISTRIBUZIONE COLORI — CRITICA
@@ -12457,7 +12494,7 @@ ${nGiorni} giorni: ${nomiGiorni.slice(0,nGiorni).map(function(n){
   var isON=(p.giorniAllenamento||[]).includes(abbr[n]);
   return _ciclizzato ? n+(isON?' ON':' OFF') : n;
 }).join(', ')}
-Sabato cena: PASTO LIBERO — ${(function(){var o=getWeekendOpzioni(p);return o.length?o.join(' oppure '):'Pizza/panino/sushi (libero)';})()}${p.weekendAlcol?(' (alcol concesso: '+p.weekendAlcol+')'):''} — non generare nulla per la cena del sabato: nessuna ricetta, nessuna alternativa
+Sabato cena: ${isCeto ? 'PASTO LIBERO KETO — cena fuori consentita ma SENZA carboidrati: carne o pesce con verdure; al sushi solo sashimi; niente pizza, pane, dolci o alcol' : 'PASTO LIBERO — '+(function(){var o=getWeekendOpzioni(p);return o.length?o.join(' oppure '):'Pizza/panino/sushi (libero)';})()+(p.weekendAlcol?(' (alcol concesso: '+p.weekendAlcol+')'):'')} — non generare nulla per la cena del sabato: nessuna ricetta, nessuna alternativa
 ${!_ciclizzato ? 'IMPORTANTE: NON aggiungere mai ON o OFF ai nomi dei giorni. Usa SOLO: Lunedi, Martedi, Mercoledi, Giovedi, Venerdi, Sabato, Domenica.' : 'Piano ciclizzato: aggiungi ON ai giorni di carico ('+( p.giorniAllenamento||[]).join(', ')+') e OFF agli altri giorni. I giorni ON e OFF hanno target di carboidrati DIVERSI (vedi blocco CICLIZZAZIONE sopra).'}
 
 REGOLE PERSONALIZZATE MEDICO
@@ -12478,11 +12515,11 @@ ${(function(){
   righe.push('Uova: '+uova+'x/settimana');
   righe.push('Affettati magri: '+affettati+'x/settimana');
   righe.push('Latticini: '+latticini+'x/settimana');
-  righe.push(legumi===0?'LEGUMI: mai':'Legumi: '+legumi+'x/settimana');
+  righe.push(isCeto?'LEGUMI: mai (protocollo chetogenico)':(legumi===0?'LEGUMI: mai':'Legumi: '+legumi+'x/settimana'));
   righe.push('Pesce conservato: '+pesceconsv+'x/settimana');
   var r2=p.regolePiano||{};
-  if(r2.legumi135!==false && !r2.modello)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
-  if(r2.sabatolibero!==false)righe.push('Sabato cena libera: '+(getWeekendOpzioni(p).join(', ')||p.weekend||'pizza')+(p.weekendAlcol?(' — alcol: '+p.weekendAlcol):''));
+  if(r2.legumi135!==false && !r2.modello && !isCeto)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
+  if(r2.sabatolibero!==false)righe.push(isCeto?'Sabato cena libera KETO: carne o pesce con verdure, zero carboidrati (al sushi: sashimi)':'Sabato cena libera: '+(getWeekendOpzioni(p).join(', ')||p.weekend||'pizza')+(p.weekendAlcol?(' — alcol: '+p.weekendAlcol):''));
   if(r2.rotazione!==false && !r2.modello)righe.push('Rotazione proteine: non ripetere la stessa proteina due giorni di fila');
   if(r2.verdura200!==false)righe.push('Verdura sempre 200g a pranzo e cena');
   if(r2.frsecca)righe.push('Frutta secca 20g ogni giorno');
@@ -12499,7 +12536,7 @@ ${(function(){
     var catLabel=function(c){return c.replace(' (Cena)','').replace(' (Pranzo)',' conservato').replace('Latte & Derivati','Latticini');};
     righe.push('');
     righe.push('⚠️ SCHEMA PROTEICO OBBLIGATORIO — modello '+mod.nome+' — SEGUIRE ESATTAMENTE:');
-    righe.push('Cereali a pranzo: '+(mod.cereali.pranzo?'SÌ':'NO')+' | Cereali a cena: '+(mod.cereali.cena?'SÌ':'NO'));
+    righe.push('Cereali a pranzo: '+((mod.cereali.pranzo&&!isCeto)?'SÌ':'NO')+' | Cereali a cena: '+((mod.cereali.cena&&!isCeto)?'SÌ':'NO')+(isCeto?' (protocollo chetogenico: ignora le colonne cereali del modello)':''));
     Object.entries(mod.griglia).forEach(function(entry){
       var g=entry[0], pasti=entry[1];
       var pLabel=giorniLabel[g]||g;
@@ -12543,8 +12580,9 @@ REGOLE STRUTTURA CELLE:
 - MASSIMO 6 alimenti per cella (1 principale + max 5 alternative) per limitare output
 - Verdura, frutta: una sola voce per cella, NESSUNA alternativa
 - Cella olio/grasso (cat "oi"): principale Olio EVO, poi alternative isocaloriche tra queste (usa SOLO questi grammi, già equivalenti a 10g Olio EVO): Avocado 40g, Frutta secca mista 20g, Semi di chia 20g, Semi di lino 15g, Olive verdi 60g, Olive nere 30g, Burro arachidi 15g, Burro mandorle 15g. Non tutte vanno sempre incluse: scegline 2-4 in base alle preferenze del paziente.
-- Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
-- Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)
+${isCeto ? `- Disposizione KETO pranzo: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2) — NESSUNA cella carbo, NESSUNA cella frutta
+- Disposizione KETO cena: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2)` : `- Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
+- Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)`}
 
 ESEMPIO FORMATO (un giorno):
 [{"g":"Lunedì","macros":{"kcal":1850,"proteine":130,"carboidrati":200,"grassi":60},"pasti":{"colazione":{"ric":[],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Yogurt greco 0%","g":125,"cat":"pr","cl":"v"},{"n":"Skyr","g":125,"cat":"pr","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Noci","g":20,"cat":"gx","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Fiocchi d'avena","g":40,"cat":"ca","cl":"v"},{"n":"Muesli","g":40,"cat":"ca","cl":"v"}]}]},"pranzo":{"ric":["Pasta al pesto con pollo e verdure","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Pasta integrale","g":80,"cat":"ca","cl":"v"},{"n":"Riso","g":70,"cat":"ca","cl":"v"},{"n":"Farro","g":80,"cat":"ca","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Petto di pollo","g":150,"cat":"pr","cl":"v"},{"n":"Salmone","g":130,"cat":"pr","cl":"v"},{"n":"Tonno","g":120,"cat":"pr","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Verdura","g":200,"cat":"ve","cl":"v"}]},{"id":"c4","co":"dx","or":2,"al":[{"n":"Olio EVO","g":20,"cat":"oi","cl":"v"},{"n":"Avocado","g":80,"cat":"oi","cl":"v"},{"n":"Frutta secca mista","g":40,"cat":"oi","cl":"v"}]},{"id":"c5","co":"sx","or":3,"al":[{"n":"Frutta","g":150,"cat":"fr","cl":"v"}]}]}}}]
