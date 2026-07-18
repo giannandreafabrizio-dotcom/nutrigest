@@ -1159,15 +1159,11 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
   <div class="card">
-    <div class="card-hd"><h3>🤖 API Anthropic</h3></div>
+    <div class="card-hd"><h3>🤖 Servizio AI</h3></div>
     <div class="card-bd">
-      <div class="fg">
-        <label>Chiave API <span id="ant-hint" style="font-size:.75rem;color:var(--text3)"></span></label>
-        <input type="password" id="ant-key" placeholder="sk-ant-...">
-      </div>
+      <div style="font-size:.8rem;color:var(--text2);margin-bottom:.5rem">La chiave AI è ora protetta sul server: non serve più inserirla qui. L'AI funziona finché sei collegato.</div>
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-p" onclick="salvaAntKey()">Salva</button>
-        <button class="btn btn-g" onclick="testaAntKey()">🔌 Testa connessione</button>
+        <button class="btn btn-g" onclick="testaAntKey()">🔌 Testa connessione AI</button>
         <span id="ant-res" style="font-size:.75rem;color:var(--text3)"></span>
       </div>
     </div>
@@ -5057,31 +5053,20 @@ async function testConn(){
   try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({test:true})});res.style.color='var(--teal)';res.textContent='✓ Connessione riuscita!';}
   catch(e){res.style.color='var(--red)';res.textContent='✗ Errore';}
 }
-function salvaAntKey(){
-  const v=document.getElementById('ant-key').value.trim();
-  if(!v){alert('Inserisci la chiave API');return;}
-  localStorage.setItem('anthropicApiKey',v);
-  const hint=document.getElementById('ant-hint');
-  if(hint)hint.textContent='•••• '+v.slice(-4);
-  notif('✓ Chiave API Anthropic salvata!');
-}
+// P66c — niente più chiave lato client: il "Salva chiave" non esiste più.
 async function testaAntKey(){
-  const key=document.getElementById('ant-key').value.trim()||localStorage.getItem('anthropicApiKey')||'';
   const res=document.getElementById('ant-res');
-  if(!key){res.style.color='var(--red)';res.textContent='⚠ Inserisci la chiave';return;}
+  if(!res) return;
+  if(!_aiPronto()){res.style.color='var(--red)';res.textContent='⚠ Devi essere collegato';return;}
   res.style.color='var(--text3)';res.textContent='⏳ Test in corso...';
   try{
-    await aiCall({tipo:'test',apiKey:key,trasportoDiretto:true,max_tokens:1,messages:[{role:'user',content:'Hi'}],timeoutMs:20000});
-    res.style.color='var(--teal)';res.textContent='✓ Connessione attiva';
-  }catch(e){res.style.color='var(--red)';res.textContent='✗ Chiave non valida';}
+    await aiCall({tipo:'test',max_tokens:1,messages:[{role:'user',content:'Hi'}],timeoutMs:20000});
+    res.style.color='var(--teal)';res.textContent='✓ Servizio AI attivo';
+  }catch(e){res.style.color='var(--red)';res.textContent='✗ '+(e&&e.message?e.message:'Non disponibile');}
 }
+// P66c — bonifica: rimuove qualunque chiave legacy ancora salvata in questo browser.
 function initAntCard(){
-  const k=localStorage.getItem('anthropicApiKey');
-  if(!k)return;
-  const el=document.getElementById('ant-key');
-  if(el)el.value=k;
-  const hint=document.getElementById('ant-hint');
-  if(hint)hint.textContent='•••• '+k.slice(-4);
+  try{ localStorage.removeItem('anthropicApiKey'); localStorage.removeItem('anthropic_api_key'); }catch(e){}
 }
 function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
 function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
@@ -7349,13 +7334,13 @@ function costruisciContestoPaziente(p){
   return ctx;
 }
 
-async function avviaFX(p,apiKey){
+async function avviaFX(p){
   const _ct=calcolaTDEE(p);
   const kcalBase=_ct.tdee?_ct.tdee+_regimeOffset(p,_ct.tdee):null;
   // P16: FX = unione F1 (scheda macros + composizione + parere) + F3 (flag clinici) in UNA sola chiamata.
   // Il contesto paziente viaggia una volta sola (prima era duplicato tra F1 e F3).
   const system='Sei un dietologo clinico esperto che affianca il Dott. Fabrizio Giannandrea.\n\nNel contesto trovi i dati del paziente. Se è presente la riga "⚑ MACROS DECISI DAL MEDICO", quei valori sono i macros scelti da Fabrizio — NON ricalcolarli, NON proporre alternative. Il tuo compito è commentarli criticamente come farebbe un secondo specialista.\n\nPRODUCI ESATTAMENTE queste QUATTRO sezioni, in questo ordine — niente di più, niente di meno.\n\n═══ SEZIONE 1 — SCHEDA MACROS ═══\n\n📊 MACROS SCELTI DAL MEDICO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMB: X kcal  ·  LAF: X  ·  TDEE: X kcal\nRegime: [nome]  ·  Delta: [±X] kcal rispetto TDEE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 TARGET MEDICO: X kcal\n   Proteine:  Xg  (X%)  [X g/kg — 1 commento clinico]\n   Carboidrati: Xg  (X%)\n   Grassi:     Xg  (X%)  [X g/kg]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📉 COMPOSIZIONE CORPOREA\n   Peso: Xkg  |  Massa magra: Xkg [delta]  |  %Grassa: X% [delta]\n   Viscerale: X [commento emoji ✅⚠️🔴]  |  BMI: X\n   Trend: [una frase sul delta tra misurazioni — cosa sta succedendo]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧠 PARERE CLINICO SUI MACROS SCELTI\n[3-5 righe. Rispondi a: i macros scelti dal medico sono coerenti col profilo InBody e con il regime? Cosa funziona bene? C\'è qualcosa da tenere d\'occhio o che cambieresti e perché? Se ci sono analisi del sangue anomale, commentale. Se il profilo è semplice e tutto torna, dillo chiaramente senza inventare problemi. La decisione finale resta a Fabrizio.]\n\nSe nel contesto NON ci sono macros salvati dal medico, produci la scheda con i macros calcolati automaticamente e segnalalo con: ⚠️ Nessun target salvato — valori stimati automaticamente.\n\n═══ SEZIONE 2 — FLAG CLINICI ═══\n\n🏥 FLAG CLINICI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[Per ogni condizione/farmaco rilevante:]\n⚠️ [NOME CONDIZIONE]\n   → [vincolo diretto sul piano: cosa fare o evitare — 1 riga]\n   → [seconda indicazione se serve — 1 riga]\n\n[Per ogni interazione farmaco-nutriente:]\n💊 [FARMACO]\n   → [interazione nutrizionale rilevante — 1 riga]\n\n🔴 AVVISI PRIORITARI\n   1. [cosa piu importante da tenere a mente]\n   2. [seconda priorita se esiste]\n\nSe non ci sono condizioni rilevanti per la Sezione 2 scrivi SOLO: ✅ Profilo standard — nessun vincolo clinico specifico.\n\n═══ SEZIONE 3 — COSA PROPORRE (ORA) ═══\n\n💡 COSA PROPORRE — PROSSIMA FASE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[3-4 azioni operative per il prossimo periodo, una per riga con freccia →. Indicazioni pratiche utili durante la telefonata col paziente: cosa confermare, cosa modificare, cosa monitorare. Basati su macros, trend InBody, flag clinici e sangue. Azioni specifiche per QUESTO paziente, niente di generico.]\n→ [azione 1]\n→ [azione 2]\n→ [azione 3]\n\n═══ SEZIONE 4 — PERCORSO 5-7 MESI ═══\n\n🗺️ PERCORSO 5-7 MESI\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nMesi 1-2: [obiettivo e focus della prima fase — 1 riga]\nMesi 3-4: [obiettivo della fase intermedia — 1 riga]\nMesi 5-7: [obiettivo finale: mantenimento, educazione, autonomia — 1 riga]\n[Proiezione realistica basata su regime, trend attuale e obiettivo del paziente. Se l\'obiettivo è già vicino, adatta le fasi di conseguenza.]\n\nTONO: collega clinico diretto. Numeri precisi. Niente fronzoli. Nella Sezione 2: niente testo narrativo, solo flag e frecce, massimo 15 righe. Nelle Sezioni 3 e 4: concretezza operativa, frasi brevi, una riga per voce, niente fronzoli.';
-  const data=await aiCall({tipo:'fx',apiKey:apiKey,max_tokens:2000,system:system,messages:[{role:'user',content:(()=>{
+  const data=await aiCall({tipo:'fx',max_tokens:2000,system:system,messages:[{role:'user',content:(()=>{
     const _ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
     const _ffm=_ib&&_ib.m?parseFloat(_ib.m):null;
     const _bmi=_ib&&_ib.bmi?parseFloat(_ib.bmi):null;
@@ -7380,13 +7365,12 @@ async function avviaFX(p,apiKey){
 async function avviaAnalisi(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});
   if(!p)return;
-  const apiKey=localStorage.getItem('anthropicApiKey')||'';
-  if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
+  if(!_aiPronto()){ notif('⚠ Devi essere collegato per usare l\'AI'); return; }
   _ragFlussi={fx:'',loading:['fx']};
   renderPdRagionamento(p);
   notif('⏳ Analisi clinica in corso...');
   try{
-    _ragFlussi.fx=await avviaFX(p,apiKey);
+    _ragFlussi.fx=await avviaFX(p);
   }catch(e){
     _ragFlussi.fx='⚠ Errore FX: '+e.message;
   }
@@ -7491,14 +7475,13 @@ function _riepParseFX(fx){
 // Rigenera l'FX (riusa avviaFX) e lo persiste nel profilo.
 async function _riepAggiornaFX(p){
   if(!p||_riepFxBusy[p.id]) return;
-  var apiKey=localStorage.getItem('anthropicApiKey')||'';
-  if(!apiKey){ notif('⚠ Configura la chiave API in Impostazioni'); return; }
+  if(!_aiPronto()){ notif('⚠ Devi essere collegato per usare l\'AI'); return; }
   _riepFxBusy[p.id]=true;
   _riepFxFailed[p.id]=false;
   renderPdRiepilogo(p);
   notif('⏳ Aggiornamento analisi in corso...');
   try{
-    var testo=await avviaFX(p,apiKey);
+    var testo=await avviaFX(p);
     if(!p.ragionamentoClinico) p.ragionamentoClinico={data:today(),testo:'',macrosDecisi:null,flussi:{}};
     if(!p.ragionamentoClinico.flussi) p.ragionamentoClinico.flussi={};
     p.ragionamentoClinico.flussi.fx=testo;
@@ -7756,8 +7739,7 @@ function renderPdRiepilogo(p, allowAuto){
   el.innerHTML=html;
 
   // ---- auto-rigenerazione FX quando i dati sono cambiati ----
-  var apiKey=localStorage.getItem('anthropicApiKey')||'';
-  if(allowAuto && apiKey && !busy && !_riepFxFailed[p.id] && stale){
+  if(allowAuto && _aiPronto() && !busy && !_riepFxFailed[p.id] && stale){
     setTimeout(function(){ _riepAggiornaFX(p); }, 60);
   }
 }
@@ -7855,15 +7837,14 @@ async function inviaMessaggioRag(){
   const msg=input.value.trim();if(!msg)return;
   input.value='';
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});if(!p)return;
-  const apiKey=localStorage.getItem('anthropicApiKey')||'';
-  if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
+  if(!_aiPronto()){ notif('⚠ Devi essere collegato per usare l\'AI'); return; }
   const contestoFlussi=_ragFlussi.fx
     ?'\n\nANALISI GIA PRODOTTA:\n'+_ragFlussi.fx.substring(0,1100)+'\n'
     :'';
   _ragMessages.push({role:'user',content:msg});
   _ragLoading=true;renderPdRagionamento(p);
   try{
-    const data=await aiCall({tipo:'ragionamento',apiKey:apiKey,max_tokens:1024,system:RAG_SYSTEM_PROMPT+'\n\n'+costruisciContestoPaziente(p)+contestoFlussi,messages:_ragMessages.map(function(m){return {role:m.role,content:m.content};})});
+    const data=await aiCall({tipo:'ragionamento',max_tokens:1024,system:RAG_SYSTEM_PROMPT+'\n\n'+costruisciContestoPaziente(p)+contestoFlussi,messages:_ragMessages.map(function(m){return {role:m.role,content:m.content};})});
     _ragMessages.push({role:'assistant',content:data.content?.[0]?.text||''});
   }catch(e){_ragMessages.push({role:'assistant',content:'⚠ Errore: '+e.message});}
   _ragLoading=false;renderPdRagionamento(p);
@@ -7871,14 +7852,13 @@ async function inviaMessaggioRag(){
 
 async function concludiERiassumi(){
   const p=db.pazienti.find(function(x){return x.id===_ragPazId;});if(!p)return;
-  const apiKey=localStorage.getItem('anthropicApiKey')||'';
-  if(!apiKey){notif('⚠ Configura la chiave API in Impostazioni');return;}
+  if(!_aiPronto()){ notif('⚠ Devi essere collegato per usare l\'AI'); return; }
   notif('⏳ Elaborazione riassunto clinico...');
   const flussiTesto=_ragFlussi.fx?'ANALISI CLINICA (MACROS + FLAG):\n'+_ragFlussi.fx+'\n\n':'';
   const conv=_ragMessages.length?_ragMessages.map(function(m){return (m.role==='user'?'Dott. Fabrizio':'Claude')+': '+m.content;}).join('\n\n'):'';
   const promptRiass='Sei un assistente clinico. Leggi l analisi prodotta e la conversazione di raffinamento riguardo al paziente '+p.nome+' '+p.cognome+'. Estrai SOLO le decisioni cliniche finali. Produci un riassunto strutturato con, in questo ordine: Obiettivo; poi una riga scritta ESATTAMENTE COSI con le kcal finali decise (post-raffinamento): "🎯 TARGET FINALE: X kcal" (X = numero intero, es. 1900) — questa riga e OBBLIGATORIA e deve contenere il valore calorico definitivo, non MB ne TDEE; Macros definitivi (scrivi esattamente: Proteine: Xg, Carboidrati: Xg, Grassi: Xg); Note cliniche importanti; Integratori consigliati se decisi; Prossimo controllo se menzionato. Sii preciso e conciso.\n\nANALISI PRODOTTA:\n'+flussiTesto+(conv?'\n\nCONVERSAZIONE DI RAFFINAMENTO:\n'+conv:'');
   try{
-    const data=await aiCall({tipo:'ragionamento-riassunto',apiKey:apiKey,max_tokens:800,messages:[{role:'user',content:promptRiass}]});
+    const data=await aiCall({tipo:'ragionamento-riassunto',max_tokens:800,messages:[{role:'user',content:promptRiass}]});
     _ragRiassunto=data.content?.[0]?.text||'';
     renderPdRagionamento(p);notif('✓ Riassunto clinico generato!');
   }catch(e){notif('⚠ Errore: '+e.message);}
@@ -8096,8 +8076,7 @@ async function loadAnalisiSanguePDF(e){
   const loadingEl=document.getElementById('as-pdf-loading'); if(loadingEl) loadingEl.style.display='block';
   const isImage=file.type.startsWith('image/');
   try{
-    const apiKey=localStorage.getItem('anthropicApiKey')||'';
-    if(!apiKey) throw new Error('Chiave API non configurata.');
+    if(!_aiPronto()) throw new Error('Devi essere collegato per usare l\'AI.');
 
     // Lettura file → base64 (Promise, cosi' il blocco try/catch copre anche eventuali errori di lettura)
     const base64=await new Promise((res,rej)=>{
@@ -8124,7 +8103,7 @@ async function loadAnalisiSanguePDF(e){
       +'- Riporta solo il risultato del paziente, non gli intervalli di riferimento del laboratorio.\n\n'
       +'Formato risposta: {"Nome esame 1": "valore", "Nome esame 2": "valore"}';
 
-    const data=await aiCall({tipo:'import-analisi',apiKey:apiKey,max_tokens:2000,messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]});
+    const data=await aiCall({tipo:'import-analisi',max_tokens:2000,messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]});
     const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
     const clean=testo.replace(/```json|```/g,'').trim();
     const estratti=JSON.parse(clean);
@@ -8464,9 +8443,8 @@ async function suggerisciGruppiClinici(){
     return;
   }
 
-  const apiKey=localStorage.getItem('anthropicApiKey')||'';
-  if(!apiKey){
-    box.innerHTML='<div style="background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#991b1b">⚠️ Chiave API non configurata.</div>';
+  if(!_aiPronto()){
+    box.innerHTML='<div style="background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:.7rem;margin-bottom:.9rem;font-size:.85rem;color:#991b1b">⚠️ Devi essere collegato per usare l\'AI.</div>';
     return;
   }
 
@@ -8481,7 +8459,7 @@ async function suggerisciGruppiClinici(){
     +'\n\nIndica quali gruppi attivare. Per ognuno una motivazione breve (max 1 frase, cita il valore che la giustifica). Formato richiesto — SOLO questo JSON:\n{"gruppi":[{"id":"pat-...","nome":"...","motivazione":"..."}]}\nSe nessun dato giustifica alcun gruppo: {"gruppi":[]}';
 
   try{
-    const data=await aiCall({tipo:'gruppi-clinici',apiKey:apiKey,max_tokens:600,system:system,messages:[{role:'user',content:prompt}]});
+    const data=await aiCall({tipo:'gruppi-clinici',max_tokens:600,system:system,messages:[{role:'user',content:prompt}]});
     let txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
     txt=txt.replace(/```json|```/g,'').trim();
     const parsed=JSON.parse(txt);
@@ -12950,14 +12928,17 @@ function caricaRegolePiano(p){
   if(typeof aggiornaUImodello==='function')aggiornaUImodello();
 }
 
-function getAnthropicKey() {
-  let key = localStorage.getItem('anthropicApiKey') || localStorage.getItem('anthropic_api_key');
-  if (!key) {
-    key = window.prompt('Inserisci la tua chiave API Anthropic (verrà salvata in questo browser):');
-    if (!key) throw new Error('Chiave API non inserita');
-    localStorage.setItem('anthropicApiKey', key.trim());
-  }
-  return key.trim();
+// P66c — la chiave Anthropic non vive più nel browser: l'AI passa SOLO dal
+// proxy autenticato (Edge Function ai-proxy). "Pronto" = utente collegato
+// (sessione valida o rinnovabile via refresh token), non più "chiave presente".
+function _aiPronto(){
+  try{
+    if (getSessioneSalvata()) return true;
+    var raw = JSON.parse(localStorage.getItem(NG_SESSION_KEY) || 'null');
+    if (raw && raw.refresh_token) return true;
+    var cred = (typeof getCredenzialiPersistenti === 'function') ? getCredenzialiPersistenti() : null;
+    return !!(cred && cred.refresh_token);
+  }catch(e){ return false; }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13051,18 +13032,15 @@ async function _aiTokenPerProxy(forzaRefresh){
   }catch(e){ return null; }
 }
 
-// aiCall({ tipo, messages, max_tokens, system?, tools?, tool_choice?, model?, apiKey?, timeoutMs?, trasportoDiretto? })
+// aiCall({ tipo, messages, max_tokens, system?, tools?, tool_choice?, timeoutMs? })
 // → restituisce il JSON grezzo della risposta (stessa forma che i chiamanti
 //   già consumano: data.content, data.stop_reason, data.usage, ...).
 // → lancia Error('Errore API <status>') su risposta non-ok (dopo un retry
 //   sugli status transitori), Error di timeout, o l'errore di rete originale.
-// TRASPORTO: proxy Edge Function (default, con JWT sessione) con fallback
-// automatico al diretto legacy; trasportoDiretto:true lo forza (es. il test
-// della chiave in Impostazioni, che deve testare LA CHIAVE, non il proxy).
-// Semantica chiave (solo trasporto diretto): apiKey esplicita (anche '')
-// viene usata così com'è; solo se null/undefined interviene getAnthropicKey().
+// P66c — TRASPORTO: SOLO proxy Edge Function autenticato (JWT sessione). La
+// via diretta legacy e la chiave lato client sono state rimosse: se manca la
+// sessione, aiCall lancia un errore chiaro invece di ripiegare in silenzio.
 async function aiCall(opts){
-  const model = opts.model || _aiModelFor(opts.tipo); // usato SOLO dal diretto: nel proxy decide il server
   const bodyComune = { max_tokens: opts.max_tokens, messages: opts.messages };
   if(opts.system != null) bodyComune.system = opts.system;
   if(opts.tools) bodyComune.tools = opts.tools;
@@ -13078,49 +13056,31 @@ async function aiCall(opts){
     } finally { clearTimeout(timer); }
   }
 
-  // ── scelta trasporto ──
-  let usaProxy = !opts.trasportoDiretto && !_aiProxyDisabled();
-  let token = null;
-  if(usaProxy){
-    token = await _aiTokenPerProxy(false);
-    if(!token){
-      console.warn('[AI] nessuna sessione valida per il proxy — trasporto diretto (legacy)');
-      usaProxy = false;
-    }
+  // ── P66c: trasporto SOLO proxy autenticato. Via diretta e chiave client
+  //    rimosse. Se manca la sessione, errore chiaro — mai fallback silenzioso.
+  let token = await _aiTokenPerProxy(false);
+  if(!token){
+    throw new Error('Servizio AI non disponibile: sessione non valida. Ricollegati e riprova.');
   }
   let refreshGiaTentato = false;
 
   async function unTentativo(){
-    if(usaProxy){
-      const resp = await fetchConTimeout(
-        _aiProxyUrl(),
-        { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token },
-        JSON.stringify(Object.assign({ tipo: opts.tipo || 'altro' }, bodyComune))
-      );
-      if(!resp.headers.get('x-proxy-upstream')){
-        // Errore d'INFRASTRUTTURA del proxy: Anthropic non è mai stato
-        // interpellato. 401 → un solo tentativo di refresh token; tutto il
-        // resto (404 funzione assente, 5xx della funzione, JWT irrecuperabile)
-        // → fallback al trasporto diretto, l'ambulatorio non si ferma.
-        if(resp.status === 401 && !refreshGiaTentato){
-          refreshGiaTentato = true;
-          const t2 = await _aiTokenPerProxy(true);
-          if(t2){ token = t2; return unTentativo(); }
-        }
-        console.warn('[AI] proxy non disponibile (status ' + resp.status + ') — fallback trasporto diretto');
-        usaProxy = false;
-        return unTentativo();
-      }
-      return resp; // risposta Anthropic verbatim (ok o errore API vero)
-    }
-    // ── trasporto diretto legacy (fallback/kill-switch/trasportoDiretto) ──
-    const apiKey = (opts.apiKey != null) ? opts.apiKey : getAnthropicKey();
-    return fetchConTimeout(
-      'https://api.anthropic.com/v1/messages',
-      { 'Content-Type':'application/json', 'x-api-key': apiKey,
-        'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-      JSON.stringify(Object.assign({ model: model }, bodyComune))
+    const resp = await fetchConTimeout(
+      _aiProxyUrl(),
+      { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + token },
+      JSON.stringify(Object.assign({ tipo: opts.tipo || 'altro' }, bodyComune))
     );
+    if(!resp.headers.get('x-proxy-upstream')){
+      // Errore d'INFRASTRUTTURA del proxy: Anthropic non è mai stato interpellato.
+      // 401 → un solo tentativo di refresh token; tutto il resto → errore chiaro.
+      if(resp.status === 401 && !refreshGiaTentato){
+        refreshGiaTentato = true;
+        const t2 = await _aiTokenPerProxy(true);
+        if(t2){ token = t2; return unTentativo(); }
+      }
+      throw new Error('Servizio AI temporaneamente non disponibile (proxy ' + resp.status + '). Riprova tra poco.');
+    }
+    return resp; // risposta Anthropic verbatim (ok o errore API vero)
   }
 
   let lastErr = null;
@@ -13137,20 +13097,13 @@ async function aiCall(opts){
         throw new Error('Errore API ' + resp.status);
       }
       const data = await resp.json();
-      _aiLogUsage(opts.tipo, usaProxy ? '(proxy)' : model, data.usage);
+      _aiLogUsage(opts.tipo, '(proxy)', data.usage);
       return data;
     }catch(err){
       if(err && err.name === 'AbortError'){
-        // Timeout: NIENTE retry (raddoppierebbe l'attesa) — errore esplicito subito.
         throw new Error('Timeout chiamata AI (' + Math.round(timeoutMs/1000) + 's)');
       }
       if(err instanceof TypeError && tentativo === 0){
-        // Errore di rete puro: ritenta una volta; se era il proxy a essere
-        // irraggiungibile, il retry avviene già sul trasporto diretto.
-        if(usaProxy){
-          console.warn('[AI] rete/proxy irraggiungibile — fallback trasporto diretto');
-          usaProxy = false;
-        }
         lastErr = err;
         console.warn('[AI] errore di rete — ritento tra 1.5s (' + (opts.tipo||'altro') + ')');
         continue;
@@ -14941,7 +14894,6 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
 
   console.log('[Piano] PROMPT COMPLETO:\n', prompt);
 
-  const apiKey = getAnthropicKey();
 
   // P77 — atteso calcolato PRIMA della chiamata: dimensiona schema e max_tokens
   var _attesoPre = _attesoStrutturaPiano(paz);
@@ -14950,7 +14902,6 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
   // identici), solo trasporto unificato in aiCall. Cache 90gg non toccata.
   const data = await aiCall({
     tipo: 'piano',
-    apiKey: apiKey,
     max_tokens: _pianoMaxTokens(_attesoPre.nGiorniAttesi),
     tools: [_pianoToolSchema(_attesoPre.nGiorniAttesi)],
     tool_choice: { type: 'tool', name: 'genera_piano' },
@@ -14995,7 +14946,6 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
           // lo stesso avviso del vecchio ramo else (comportamento invariato).
           const dataDelta = await aiCall({
             tipo: 'piano-delta',
-            apiKey: apiKey,
             max_tokens: _pianoMaxTokens(_giorniMancantiIdx.length),
             tools: [_pianoToolSchema(_giorniMancantiIdx.length)],
             tool_choice: { type: 'tool', name: 'genera_piano' },
@@ -15038,7 +14988,7 @@ async function chiamaGeneraPiano(pazienteId, forceRegen) {
       + '[{"giorno":"Lunedì","pranzo_nota":"...","cena_nota":"..."},...]\nNessun testo, solo JSON.';
     try {
       // P66 — aiCall lancia su errore API: il catch qui sotto logga come prima.
-      const dataNote = await aiCall({ tipo: 'piano-note', apiKey: apiKey, max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] });
+      const dataNote = await aiCall({ tipo: 'piano-note', max_tokens: 1500, messages: [{ role: 'user', content: promptNote }] });
         const testoNote = dataNote.content[0].text.trim()
           .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
         parseJSONSicuro(testoNote).forEach(function(item) {
@@ -15235,8 +15185,7 @@ Scrivi SOLO il testo del messaggio, senza commenti, senza titoli, senza virgolet
   document.getElementById('ai-wa-btn-genera').disabled = true;
 
   try {
-    const apiKey = localStorage.getItem('anthropicApiKey') || '';
-    const data = await aiCall({ tipo: 'whatsapp', apiKey: apiKey, max_tokens: 1000, messages: [{ role: 'user', content: prompt }] });
+    const data = await aiCall({ tipo: 'whatsapp', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] });
     const testo = data.content?.[0]?.text?.trim();
     if (!testo) throw new Error('Risposta vuota');
 
@@ -15807,7 +15756,7 @@ async function generaPiano(forceRegen){
   if(!pianoEl) return;
 
 
-  // ── Generazione piano via chiamata Anthropic diretta (getAnthropicKey) ────
+  // ── Generazione piano via proxy AI (P66c) ────
   // NB: la vecchia integrazione Google Apps Script (scriptUrl) è dismessa.
   // La generazione usa la chiave API Anthropic salvata in Impostazioni.
 
@@ -16161,7 +16110,7 @@ async function _generaGiornoSpecialeAI(temaKey, btnEl){
   const pazId=sel?sel.value:'';
   const p=(db.pazienti||[]).find(function(x){ return x.id===pazId; });
   if(!p){ if(typeof notif==='function') notif('\u26a0 Seleziona prima un paziente'); return; }
-  if(typeof getAnthropicKey!=='function'){ if(typeof notif==='function') notif('\u26a0 Funzione chiave API non disponibile'); return; }
+  if(!_aiPronto()){ if(typeof notif==='function') notif('\u26a0 Devi essere collegato per usare l\'AI'); return; }
 
   // Assicura i target macros impostati (stessa cintura del generatore normale)
   if(typeof _setupPianoTargets==='function') _setupPianoTargets(p);
@@ -16197,10 +16146,8 @@ async function _generaGiornoSpecialeAI(temaKey, btnEl){
   if(btnEl){ btnEl.disabled=true; btnEl.style.opacity='.6'; btnEl.innerHTML='\u23f3 Genero\u2026'; }
 
   try{
-    var apiKey=getAnthropicKey();
     var data=await aiCall({
       tipo:'piano',
-      apiKey:apiKey,
       max_tokens:_pianoMaxTokens(1),
       tools:[_pianoToolSchema(1)],
       tool_choice:{ type:'tool', name:'genera_piano' },
@@ -18660,11 +18607,10 @@ Regole:
 - Scrivi solo il testo da leggere ad alta voce, senza titoli o intestazioni`;
 
   try{
-    const apiKey=getAnthropicKey();
     btn.innerHTML='⏳ Elaborazione...';
     btn.disabled=true;
 
-    const data=await aiCall({tipo:'voce-progresso',apiKey:apiKey,max_tokens:600,messages:[{role:'user',content:prompt}]});
+    const data=await aiCall({tipo:'voce-progresso',max_tokens:600,messages:[{role:'user',content:prompt}]});
     const testo=data.content[0].text.trim();
 
     box.textContent=testo;
@@ -20021,7 +19967,7 @@ async function aiSuggerisciRicetta() {
 
 Usa le tabelle nutrizionali CREA italiane. Rispondi SOLO con il JSON, senza markdown.`;
 
-    const data = await aiCall({tipo:'ricetta',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:1000,messages:[{role:'user', content: prompt}]});
+    const data = await aiCall({tipo:'ricetta',max_tokens:1000,messages:[{role:'user', content: prompt}]});
     const testo = data.content?.[0]?.text || '';
     const clean = testo.replace(/```json|```/g,'').trim();
     const ric = JSON.parse(clean);
@@ -20124,7 +20070,7 @@ async function loadInbodyPDF(e) {
       const contentBlock = isImage
         ? {type:'image', source:{type:'base64', media_type:mediaType, data:base64}}
         : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
-      const data = await aiCall({tipo:'import-inbody',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:1000,messages:[{role:'user', content:[
+      const data = await aiCall({tipo:'import-inbody',max_tokens:1000,messages:[{role:'user', content:[
             contentBlock,
             {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
           ]}]});
@@ -20468,7 +20414,7 @@ async function aiRiscriviConcetto(id) {
   if(!c) return;
   notif('⏳ AI sta riscrivendo il concetto...');
   try {
-    const data = await aiCall({tipo:'concetto',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:800,
+    const data = await aiCall({tipo:'concetto',max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista. Riscrivi questo concetto educativo nel tuo stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Mantieni i contenuti scientifici ma rendi il testo più coinvolgente e personalizzato. Titolo: "${c.titolo}". Testo attuale: "${(c.testo||'').substring(0,500)}". Rispondi SOLO con il testo riscritto, senza titolo.`}]});
     const nuovoTesto = data.content?.[0]?.text || '';
     const idx=db.concetti.findIndex(x=>x.id===id);
@@ -20511,7 +20457,7 @@ async function openNuovoConcetto() {
   const argomento=prompt('Di cosa vuole parlare? (es. "alimentazione per il sonno")');if(!argomento)return;
   notif('AI in elaborazione...');
   try {
-    const data=await aiCall({tipo:'concetto',apiKey:localStorage.getItem('anthropicApiKey')||'',max_tokens:800,
+    const data=await aiCall({tipo:'concetto',max_tokens:800,
         messages:[{role:'user',content:`Sei il Dott. Fabrizio Giannandrea, nutrizionista italiano. Scrivi un concetto educativo dal titolo "${titolo}" sull'argomento: "${argomento}". Stile professionale ma caldo e diretto, adatto a essere consegnato al paziente. Massimo 400 parole. Rispondi SOLO con il testo.`}]});
     const testo=data.content?.[0]?.text||'';
     const id='custom_'+Date.now();
