@@ -9347,8 +9347,13 @@ function renderPdMacros(p){
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}" oninput="_aggiornaRifPesoTarget()"></div>
-    <div class="fg"><label>Strategia dieta</label>
-      <select id="mac-strategia" onchange="_applicaModalitaKeto()">
+    <div class="fg"><label>Approccio dieta</label>
+      <div id="mac-mode-switch" style="display:flex;gap:3px;background:var(--bg2);border-radius:8px;padding:3px">
+        <button type="button" id="mac-mode-bil" onclick="_setModalitaDieta('bil')" style="flex:1;border:none;border-radius:6px;padding:.4rem;font-size:.78rem;font-weight:700;cursor:pointer;background:#fff;color:#185FA5;box-shadow:0 1px 3px rgba(0,0,0,.12)">🍽 Bilanciata</button>
+        <button type="button" id="mac-mode-keto" onclick="_setModalitaDieta('keto')" style="flex:1;border:none;border-radius:6px;padding:.4rem;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--text2)">🥑 Chetogenica</button>
+      </div>
+      <!-- select nascosto: resta la fonte di verità per strategia (compat con tutto il codice) -->
+      <select id="mac-strategia" onchange="_applicaModalitaKeto()" style="display:none">
         <option value="standard">Standard (bilanciata)</option>
         <optgroup label="— Chetogenici —">
           <option value="keto-psmf">PSMF — Protein Sparing Modified Fast</option>
@@ -9360,6 +9365,7 @@ function renderPdMacros(p){
       </select>
     </div>
   </div>
+  <div id="mac-keto-chips" style="display:none;margin-bottom:.6rem"></div>
   <div id="mac-keto-suggest" style="display:none;margin-bottom:.6rem"></div>
   <div id="mac-psmf-banner" style="display:none;margin-bottom:.6rem;padding:.55rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.74rem;color:#b91c1c;line-height:1.35"></div>
   <div id="mac-peso-rif-box"></div>
@@ -9793,7 +9799,10 @@ function _aggiornaRegimeSlider(origine){
     if(_isKetoSl && _tgtKcalSl) _lblTxt += ' · ' + _gradoKeto(_tgtKcalSl, tdee);
     lblEl.textContent=_lblTxt;
   }
-  if(tgtEl) tgtEl.textContent=tdee?(tdee+offKcal)+' kcal':((offKcal>=0?'+':'')+offKcal+' kcal · TDEE n/d');
+  if(tgtEl){
+    if(tdee){ var _pctDisp=Math.round(offKcal/tdee*100); tgtEl.textContent=(tdee+offKcal)+' kcal · '+(_pctDisp>=0?'+':'')+_pctDisp+'%'; }
+    else tgtEl.textContent=(offKcal>=0?'+':'')+offKcal+' kcal · TDEE n/d';
+  }
   if(warnEl){
     if(tdee&&mb&&(tdee+offKcal)<mb){
       if(_isKetoSl){
@@ -9878,6 +9887,41 @@ function _renderPresetRegime(){
   }
   var minLbl=document.getElementById('mac-slider-min-lbl');
   if(minLbl) minLbl.textContent = strat.indexOf('keto')===0 ? '−75% (VLCKD)' : '−40% (deficit)';
+}
+
+// ── P-KETO: toggle a due mondi distinti (Bilanciata ⇄ Chetogenica). Il select
+// nascosto mac-strategia resta la fonte di verità: 'standard' = bilanciata, un
+// valore keto-* = chetogenica. In keto, se non c'è già un protocollo scelto usa
+// il consigliato dal suggeritore (o LCKD di default). ──
+function _setModalitaDieta(mode){
+  var s=document.getElementById('mac-strategia'); if(!s) return;
+  if(mode==='bil'){ s.value='standard'; }
+  else {
+    if((s.value||'').indexOf('keto')!==0){
+      var sug=null;
+      try{ var a=_analisiSuggeritoreKeto(_macrosPaziente); if(a&&!a.bloccato&&a.datiOk&&a.classifica&&a.classifica.length) sug=a.classifica[0].key; }catch(e){}
+      s.value = sug || 'keto-moderata';
+    }
+  }
+  _applicaModalitaKeto();
+}
+
+// P-KETO: chip compatte dei 5 protocolli (visibili solo in modalità chetogenica).
+// Cliccando una chip si applica il protocollo (che sposta il cursore al centro
+// della sua fascia via pos). La chip attiva è evidenziata col colore del protocollo.
+function _renderKetoChips(){
+  var box=document.getElementById('mac-keto-chips'); if(!box) return;
+  var cur=(document.getElementById('mac-strategia')||{}).value||'';
+  if(cur.indexOf('keto')!==0){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='flex'; box.style.flexWrap='wrap'; box.style.gap='5px';
+  var html='';
+  Object.keys(PROTOCOLLI_KETO).forEach(function(key){
+    var pk=PROTOCOLLI_KETO[key]; var on=(key===cur);
+    html+='<button type="button" onclick="_applicaProtocolloSuggerito(\''+key+'\')" title="'+pk.nome+'" '
+      +'style="display:flex;align-items:center;gap:5px;border:1.5px solid '+(on?pk.colore:'var(--border)')+';border-radius:16px;padding:3px 10px 3px 8px;cursor:pointer;font-size:.74rem;font-weight:600;background:'+(on?pk.colore:'#fff')+';color:'+(on?'#fff':'var(--text2)')+'">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+(on?'#fff':pk.colore)+'"></span>'+pk.label+'</button>';
+  });
+  box.innerHTML=html;
 }
 
 // ── P-KETO: mappa visiva dei protocolli sull'asse kcal (la "riga"). Le bande si
@@ -10139,6 +10183,16 @@ function _applicaModalitaKeto(init){
   _renderPresetRegime();
   _aggiornaRegimeSlider();
   _renderKetoZoneMap();
+  // P-KETO: aggiorna toggle a due mondi + chip + gating del suggeritore
+  var bBil=document.getElementById('mac-mode-bil'), bKeto=document.getElementById('mac-mode-keto');
+  if(bBil&&bKeto){
+    if(keto){ bKeto.style.background='#fff'; bKeto.style.color='#0d9488'; bKeto.style.boxShadow='0 1px 3px rgba(0,0,0,.12)'; bBil.style.background='transparent'; bBil.style.color='var(--text2)'; bBil.style.boxShadow='none'; }
+    else { bBil.style.background='#fff'; bBil.style.color='#185FA5'; bBil.style.boxShadow='0 1px 3px rgba(0,0,0,.12)'; bKeto.style.background='transparent'; bKeto.style.color='var(--text2)'; bKeto.style.boxShadow='none'; }
+  }
+  _renderKetoChips();
+  var sugBox=document.getElementById('mac-keto-suggest');
+  if(sugBox && !keto){ sugBox.style.display='none'; sugBox.innerHTML=''; }
+  else if(sugBox && keto){ _renderSuggerimentoKeto(false); }
 }
 function _presetRegime(pct){
   var pctEl=document.getElementById('mac-off-pct');
