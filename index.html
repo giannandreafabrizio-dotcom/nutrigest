@@ -9348,7 +9348,7 @@ function renderPdMacros(p){
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}" oninput="_aggiornaRifPesoTarget()"></div>
     <div class="fg"><label>Strategia dieta</label>
-      <select id="mac-strategia" onchange="_aggiornaRegimeSlider()">
+      <select id="mac-strategia" onchange="_applicaModalitaKeto()">
         <option value="standard">Standard (bilanciata)</option>
         <option value="keto-moderata">Chetogenica moderata</option>
         <option value="keto-aggressiva">Chetogenica aggressiva (WLKD)</option>
@@ -9363,12 +9363,12 @@ function renderPdMacros(p){
       <span id="mac-regime-target" style="margin-left:auto;font-weight:600;font-size:.95rem">— kcal</span>
     </div>
     <input type="range" id="mac-off-slider" min="-40" max="25" value="0" step="1" style="width:100%;margin:.3rem 0" oninput="_aggiornaRegimeSlider('slider')">
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span>−40% (deficit)</span><span>mantenimento</span><span>+25% (surplus)</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span id="mac-slider-min-lbl">−40% (deficit)</span><span>mantenimento</span><span>+25% (surplus)</span></div>
     <div class="fr">
       <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione kcal</label><input type="number" id="mac-off-kcal" step="10" placeholder="0" oninput="_aggiornaRegimeSlider('kcal')"></div>
       <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione %</label><input type="number" id="mac-off-pct" step="1" placeholder="0" oninput="_aggiornaRegimeSlider('pct')"></div>
     </div>
-    <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem">
+    <div id="mac-preset-row" style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem">
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-25)">−25%</button>
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>
@@ -9558,7 +9558,8 @@ function aggiornaLabelMacros(){
   const r=(document.querySelector('input[name="mac-ref"]:checked')||{value:'ffm'}).value;
   const suff=r==='ffm'?' (g/kg FFM)':r==='ideale'?' (g/kg Peso Ideale)':' (g/kg peso)';
   const lp=document.getElementById('mac-prot-lbl');if(lp)lp.textContent='Proteine'+suff;
-  const lg=document.getElementById('mac-grassi-lbl');if(lg)lg.textContent='Grassi'+suff;
+  // P-KETO: in modalità keto il campo grassi rappresenta il TETTO carboidrati (g/die)
+  const lg=document.getElementById('mac-grassi-lbl');if(lg)lg.textContent=window._ketoUiAttiva?'🍞 Carboidrati (g/die) — tetto keto':'Grassi'+suff;
   // A10: warning se ideale selezionato ma non inserito
   const _lbl=document.getElementById('mac-ref-ideale-label');
   if(_lbl&&r==='ideale'){
@@ -9600,10 +9601,32 @@ function calcolaMacros(){
   const refColor=useFFM?'#185FA5':useIdeale?'#B8860B':'#3B6D11';
   const kcalObj=tdee+obj;
   const protG=+(prot*ref).toFixed(0);
-  const grassiG=+(grassi*ref).toFixed(0);
-  const kcalProt=protG*4;const kcalGrassi=grassiG*9;
-  const kcalCarb=Math.max(0,kcalObj-kcalProt-kcalGrassi);
-  const carbG=+(kcalCarb/4).toFixed(0);
+  const kcalProt=protG*4;
+  // P-KETO: in modalità keto il calcolo si INVERTE (paper ADI 2014): i carboidrati
+  // sono un TETTO fisso (il campo mac-grassi in keto contiene g/die di carbo),
+  // i grassi diventano il resto delle kcal. In standard: identico a prima.
+  const _stratCM=(document.getElementById('mac-strategia')||{}).value||'standard';
+  const _isKetoCM=_stratCM.indexOf('keto')===0;
+  let grassiG,carbG,kcalGrassi,kcalCarb;
+  if(_isKetoCM){
+    const _tettoRaw=parseFloat(document.getElementById('mac-grassi').value);
+    carbG=Math.max(0,Math.round(isNaN(_tettoRaw)?_ketoTettoCarb(_stratCM):_tettoRaw));
+    kcalCarb=carbG*4;
+    grassiG=Math.max(0,Math.round((kcalObj-kcalProt-kcalCarb)/9));
+    kcalGrassi=grassiG*9;
+  } else {
+    grassiG=+(grassi*ref).toFixed(0);
+    kcalGrassi=grassiG*9;
+    kcalCarb=Math.max(0,kcalObj-kcalProt-kcalGrassi);
+    carbG=+(kcalCarb/4).toFixed(0);
+  }
+  // P-KETO: avvisi di protocollo (lipidi minimi 15 g/die · soglia chetogenica carbo 20–50 g/die)
+  let _ketoWarnHtml='';
+  if(_isKetoCM){
+    if(grassiG<15) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.75rem;color:#b91c1c">⚠ Lipidi risultanti '+grassiG+' g/die: sotto il minimo di protocollo (15–30 g/die). Aumenta le kcal obiettivo o riduci le proteine.</div>';
+    else if(carbG>50) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:.75rem;color:#92400e">⚠ Tetto carboidrati '+carbG+' g/die: sopra la soglia chetogenica (20–50 g/die) — il paziente potrebbe non entrare in chetosi.</div>';
+    else if(carbG<20) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:.75rem;color:#92400e">Tetto carboidrati '+carbG+' g/die: molto restrittivo (range consigliato 20–50 g/die).</div>';
+  }
   document.getElementById('mac-result').innerHTML=`
     <div class="macro-result">
       <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
@@ -9612,10 +9635,10 @@ function calcolaMacros(){
       </div>
       <div class="macro-grid">
         <div class="macro-item"><div class="macro-lbl">Proteine</div><div class="macro-val">${protG}g</div><div style="font-size:.62rem;color:${refColor}">${prot} g/kg · ${kcalProt} kcal</div></div>
-        <div class="macro-item"><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${(carbG/ref).toFixed(1)} g/kg · ${kcalCarb} kcal</div></div>
-        <div class="macro-item"><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:${refColor}">${grassi} g/kg · ${kcalGrassi} kcal</div></div>
+        <div class="macro-item"${_isKetoCM?' style="background:#fffbeb;border-color:#fcd34d"':''}><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${_isKetoCM?('tetto keto · '+kcalCarb+' kcal'):((carbG/ref).toFixed(1)+' g/kg · '+kcalCarb+' kcal')}</div></div>
+        <div class="macro-item"${_isKetoCM?' style="background:#f0fdf4;border-color:#86efac"':''}><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:${refColor}">${_isKetoCM?('= resto · '+(grassiG/ref).toFixed(1)+' g/kg · '+kcalGrassi+' kcal'):(grassi+' g/kg · '+kcalGrassi+' kcal')}</div></div>
         <div class="macro-item"><div class="macro-lbl">Totale kcal</div><div class="macro-val" style="font-size:.9rem">${kcalObj}</div><div style="font-size:.62rem;color:var(--text3)">Obiettivo giornaliero</div></div>
-      </div>
+      </div>${_ketoWarnHtml}
       ${(()=>{
         if(obj===0)return '<div style="margin-top:.8rem;padding:.6rem .9rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text2)"><strong>Normocalorico</strong> — nessuna variazione di peso prevista. Obiettivo: mantenimento della composizione corporea attuale.</div>';
         const kgSett=Math.round(Math.abs(obj)/7700*7*100)/100;
@@ -9665,6 +9688,7 @@ function calcolaMacros(){
 }
 
 function applicaSchema(laf,prot,grassi){
+  if(window._ketoUiAttiva){ notif('⚠ Schemi standard non applicabili in modalità chetogenica — il campo carboidrati è il tetto keto'); return; }
   const el1=document.getElementById('mac-laf');const el2=document.getElementById('mac-prot');const el3=document.getElementById('mac-grassi');
   if(el1)el1.value=laf;if(el2)el2.value=prot;if(el3)el3.value=grassi;
   notif('✓ Valori applicati — clicca Calcola');
@@ -9742,24 +9766,147 @@ function _aggiornaRegimeSlider(origine){
     if(tdee){ pct=k/tdee*100; } else { absMode=true; } // senza TDEE la kcal è assoluta
   } else if(origine==='pct'){ pct=parseFloat(pctEl.value)||0; }
   else { pct=parseFloat(slider.value)||0; }
-  if(pct!=null) pct=Math.max(-40,Math.min(25,Math.round(pct)));
   var strat=(document.getElementById('mac-strategia')||{}).value||'standard';
+  var _isKetoSl = strat.indexOf('keto')===0;
+  // P-KETO: in modalità chetogenica lo slider scende fino a −75% (una VLCKD da
+  // 600 kcal su TDEE alti è oltre il −40% standard); in standard resta −40%.
+  var _minPct = _isKetoSl ? -75 : -40;
+  if(pct!=null) pct=Math.max(_minPct,Math.min(25,Math.round(pct)));
   if(!absMode){
     slider.value=pct; pctEl.value=pct;
     // FIX-REGIME: se l'utente ha digitato le kcal, NON riscriverle con il valore
     // arrotondato al punto % — la kcal digitata resta esatta, la % è solo indicativa
     if(tdee && origine!=='kcal') kcalEl.value=Math.round(tdee*pct/100);
   } else { pctEl.value=''; }
-  if(lblEl) lblEl.textContent=_componiRegimeText(absMode?null:pct, strat)||'—';
   var offKcal=kcalEl.value!==''?(parseFloat(kcalEl.value)||0):0;
+  var _tgtKcalSl = tdee ? (tdee+offKcal) : null;
+  if(lblEl){
+    var _lblTxt=_componiRegimeText(absMode?null:pct, strat)||'—';
+    if(_isKetoSl && _tgtKcalSl) _lblTxt += ' · ' + _gradoKeto(_tgtKcalSl, tdee);
+    lblEl.textContent=_lblTxt;
+  }
   if(tgtEl) tgtEl.textContent=tdee?(tdee+offKcal)+' kcal':((offKcal>=0?'+':'')+offKcal+' kcal · TDEE n/d');
   if(warnEl){
     if(tdee&&mb&&(tdee+offKcal)<mb){
-      warnEl.innerHTML='<span style="color:#c0392b">⚠ Target '+(tdee+offKcal)+' kcal sotto il metabolismo basale ('+mb+' kcal) — sconsigliato</span>';
-    } else if(!absMode&&pct<=-25){
+      if(_isKetoSl){
+        // P-KETO: in cheto stare sotto il MB è previsto dal protocollo (VLCKD/LCKD),
+        // non un errore — messaggio informativo con le condizioni di sicurezza AME/ADI
+        warnEl.innerHTML='<span style="color:#B8860B">🥑 '+_gradoKeto(tdee+offKcal,tdee)+': target '+(tdee+offKcal)+' kcal sotto il MB ('+mb+' kcal) — previsto dal protocollo chetogenico: durata max 8–12 settimane, controlli ogni 2 settimane e test chetoni urinari</span>';
+      } else {
+        warnEl.innerHTML='<span style="color:#c0392b">⚠ Target '+(tdee+offKcal)+' kcal sotto il metabolismo basale ('+mb+' kcal) — sconsigliato</span>';
+      }
+    } else if(!absMode&&pct<=-25&&!_isKetoSl){
       warnEl.innerHTML='<span style="color:#B8860B">Deficit aggressivo: adatto solo a fasi brevi e monitorate</span>';
     } else warnEl.textContent='';
   }
+}
+
+// ── P-KETO: gradi delle diete chetogeniche strutturate (VLCKD protocollo AME/SIE:
+// 500–800 kcal · LCKD ipocalorica: 800–1500 kcal · isocalorica: ≈TDEE) ──
+function _gradoKeto(targetKcal, tdee){
+  if(targetKcal==null) return '';
+  if(targetKcal<=800) return 'VLCKD';
+  if(tdee && Math.abs(targetKcal-tdee)<=tdee*0.10) return 'Keto isocalorica';
+  if(targetKcal<=1500) return 'LCKD';
+  return targetKcal<(tdee||Infinity) ? 'Keto ipocalorica' : 'Keto ipercalorica';
+}
+
+// P-KETO: tetto carboidrati di default per strategia (deciso col paper ADI:
+// aggressiva 20–30 g/die → default 25 · moderata 30–50 g/die → default 40)
+function _ketoTettoCarb(strat){
+  return strat==='keto-aggressiva' ? 25 : 40;
+}
+
+// P-KETO: preset in kcal ASSOLUTE per la modalità keto (i gradi sono definiti
+// in kcal/die, non in % del TDEE) — imposta l'offset corrispondente
+function _presetKetoKcal(kcalAssolute){
+  var kcalEl=document.getElementById('mac-off-kcal');
+  var tdee=window._tdeeRegime;
+  if(!kcalEl) return;
+  if(!tdee){ notif('⚠ TDEE non disponibile — clicca prima Ricalcola LAF'); return; }
+  kcalEl.value=Math.round(kcalAssolute-tdee);
+  _aggiornaRegimeSlider('kcal');
+}
+
+// P-KETO: rigenera la riga dei preset in base alla strategia
+function _renderPresetRegime(){
+  var row=document.getElementById('mac-preset-row'); if(!row) return;
+  var strat=(document.getElementById('mac-strategia')||{}).value||'standard';
+  if(strat.indexOf('keto')===0){
+    row.innerHTML=
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetKetoKcal(600)">VLCKD 600</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetKetoKcal(800)">VLCKD 800</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetKetoKcal(1000)">LCKD 1000</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetKetoKcal(1200)">LCKD 1200</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetKetoKcal(1500)">LCKD 1500</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(0)">Keto isocalorica</button>';
+  } else {
+    row.innerHTML=
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-25)">−25%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-10)">−10%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-5)">−5%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(0)">Mantenimento</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(10)">+10%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(15)">+15%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(20)">+20%</button>'+
+      '<button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(25)">+25%</button>';
+  }
+  var minLbl=document.getElementById('mac-slider-min-lbl');
+  if(minLbl) minLbl.textContent = strat.indexOf('keto')===0 ? '−75% (VLCKD)' : '−40% (deficit)';
+}
+
+// ── P-KETO: applica/rimuove la modalità chetogenica sul pannello macros ──
+// Opzione A (18 lug 2026): in keto il campo "Grassi (g/kg)" si TRASFORMA in
+// "Carboidrati (g/die)" = tetto keto modificabile; i grassi diventano il resto
+// delle kcal. Proteine default 1,3 g/kg (paper ADI: 1–1,5). In standard tutto
+// torna identico a prima. init=true quando chiamata al caricamento paziente.
+function _applicaModalitaKeto(init){
+  var stratEl=document.getElementById('mac-strategia'); if(!stratEl) return;
+  var strat=stratEl.value||'standard';
+  var keto=strat.indexOf('keto')===0;
+  var prev=!!window._ketoUiAttiva;
+  window._ketoUiAttiva=keto;
+  var slider=document.getElementById('mac-off-slider');
+  if(slider) slider.min = keto ? -75 : -40;
+  var inpG=document.getElementById('mac-grassi');
+  var inpP=document.getElementById('mac-prot');
+  var lblG=document.getElementById('mac-grassi-lbl');
+  if(keto){
+    var tetto=_ketoTettoCarb(strat), pdef=1.3;
+    if(init){
+      // ripristina i valori keto salvati sul paziente, se la strategia coincide
+      var mt=(_macrosPaziente&&_macrosPaziente.macrosTarget)||null;
+      var sSaved=(_macrosPaziente&&_macrosPaziente.strategia)||'';
+      if(mt&&sSaved.indexOf('keto')===0){
+        if(mt.carbG!=null) tetto=mt.carbG;
+        if(mt.protGkg) pdef=mt.protGkg;
+      }
+      if(inpG){ inpG.value=tetto; inpG.step='5'; }
+      if(inpP) inpP.value=pdef;
+    } else {
+      if(inpG){ inpG.value=tetto; inpG.step='5'; }
+      if(inpP&&!prev) inpP.value=pdef; // cambio keto→keto: non toccare le proteine già impostate
+    }
+    if(lblG) lblG.style.color='#B45309';
+    // VLCKD (aggressiva): protocollo AME calcola le proteine sul PESO IDEALE
+    if(strat==='keto-aggressiva'&&!init){
+      var lastIbK=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
+      var piK=lastIbK&&lastIbK.pesoIdeale?parseFloat(lastIbK.pesoIdeale):null;
+      var rIdeale=document.getElementById('mac-ref-ideale');
+      if(piK&&rIdeale){ rIdeale.checked=true; notif('🥑 VLCKD: riferimento proteine passato a Peso Ideale ('+piK+' kg) — protocollo AME. Puoi cambiarlo a mano.'); }
+      else if(!piK) notif('⚠ VLCKD: Peso Ideale non inserito in InBody — le proteine restano sul riferimento attuale');
+    }
+  } else if(prev){
+    // uscita dalla modalità keto: il campo torna Grassi (g/kg) coi default standard
+    if(inpG){ inpG.value=0.9; inpG.step='0.1'; }
+    if(inpP) inpP.value=1.8;
+    if(lblG) lblG.style.color='';
+  }
+  aggiornaLabelMacros();
+  _renderPresetRegime();
+  _aggiornaRegimeSlider();
 }
 function _presetRegime(pct){
   var pctEl=document.getElementById('mac-off-pct');
@@ -9779,6 +9926,7 @@ function _initRegimeSliderDaPaziente(p, tdee, mb){
   if(pct==null) pct=0;
   if(pctEl) pctEl.value=pct;
   _aggiornaRegimeSlider('pct');
+  _applicaModalitaKeto(true); // P-KETO: applica la modalità keto se il paziente la ha salvata
 }
 
 function ricalcolaLAF(){
@@ -9940,8 +10088,12 @@ function salvaCalcoloMacros(){
     };
   }
   // ── BUG3 FIX: salva target macros completi sul paziente ──
-  const _protGkg=parseFloat(document.getElementById('mac-prot').value)||1.8;
-  const _grassiGkg=parseFloat(document.getElementById('mac-grassi').value)||0.9;
+  // P-KETO: in strategia keto il campo mac-grassi contiene il TETTO carbo (g/die)
+  const _stratSv=p.strategia||'standard';
+  const _ketoSv=_stratSv.indexOf('keto')===0;
+  const _protGkg=parseFloat(document.getElementById('mac-prot').value)||(_ketoSv?1.3:1.8);
+  const _grassiFieldSv=parseFloat(document.getElementById('mac-grassi').value);
+  const _grassiGkg=_ketoSv?null:(_grassiFieldSv||0.9);
   const _ctSv=calcolaTDEE(p);
   const _lastIbSv=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const _ffmSv=_lastIbSv&&_lastIbSv.m?parseFloat(_lastIbSv.m):null;
@@ -9954,9 +10106,16 @@ function salvaCalcoloMacros(){
     const _offsetSv=_regimeOffset(p,_ctSv.tdee);
     const _kcalSv=_ctSv.tdee+_offsetSv;
     const _protSv=Math.round(_protGkg*_refSv);
-    const _grasSv=Math.round(_grassiGkg*_refSv);
-    const _carbSv=Math.max(0,Math.round((_kcalSv-_protSv*4-_grasSv*9)/4));
-    const _nuovoSlot={kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:_grassiGkg,ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,timestamp:Date.now(),source:'tdee'};
+    let _grasSv,_carbSv;
+    if(_ketoSv){
+      // P-KETO: carbo = tetto fisso, grassi = resto delle kcal (paper ADI 2014)
+      _carbSv=Math.max(0,Math.round(isNaN(_grassiFieldSv)?_ketoTettoCarb(_stratSv):_grassiFieldSv));
+      _grasSv=Math.max(0,Math.round((_kcalSv-_protSv*4-_carbSv*4)/9));
+    } else {
+      _grasSv=Math.round(_grassiGkg*_refSv);
+      _carbSv=Math.max(0,Math.round((_kcalSv-_protSv*4-_grasSv*9)/4));
+    }
+    const _nuovoSlot={kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:(_ketoSv?+(_refSv?(_grasSv/_refSv):0).toFixed(2):_grassiGkg),ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,strategia:_stratSv,timestamp:Date.now(),source:'tdee'};
     // Storico TDEE: aggiungi slot, mantieni max 20, aggiorna target attivo
     if(!p.macrosStorico)p.macrosStorico=[];
     p.macrosStorico.push(_nuovoSlot);
@@ -21772,7 +21931,11 @@ document.getElementById('p2-save').onclick = async function() {
     return h;
   }
   function validaInput(el){
-    const rule=RULES[el.id];
+    let rule=RULES[el.id];
+    // P-KETO: in modalità keto il campo mac-grassi contiene il tetto carbo in g/die
+    if(el.id==='mac-grassi'&&window._ketoUiAttiva){
+      rule={min:5,max:100,warn_min:15,warn_max:60,unit:'g/die'};
+    }
     if(!rule)return;
     const raw=el.value.trim();
     const hint=getHint(el);
