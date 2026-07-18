@@ -9350,11 +9350,18 @@ function renderPdMacros(p){
     <div class="fg"><label>Strategia dieta</label>
       <select id="mac-strategia" onchange="_applicaModalitaKeto()">
         <option value="standard">Standard (bilanciata)</option>
-        <option value="keto-moderata">Chetogenica moderata</option>
-        <option value="keto-aggressiva">Chetogenica aggressiva (WLKD)</option>
+        <optgroup label="— Chetogenici —">
+          <option value="keto-psmf">PSMF — Protein Sparing Modified Fast</option>
+          <option value="keto-aggressiva">VLCKD — Very Low Calorie KD</option>
+          <option value="keto-moderata">LCKD — Low Calorie KD</option>
+          <option value="keto-mediterranea">Mediterranea chetogenica</option>
+          <option value="keto-wkd">WKD — Well Formulated (normocalorica)</option>
+        </optgroup>
       </select>
     </div>
   </div>
+  <div id="mac-keto-suggest" style="display:none;margin-bottom:.6rem"></div>
+  <div id="mac-psmf-banner" style="display:none;margin-bottom:.6rem;padding:.55rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.74rem;color:#b91c1c;line-height:1.35"></div>
   <div id="mac-peso-rif-box"></div>
   <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;background:var(--bg);margin-bottom:.8rem">
     <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.3rem">
@@ -9380,6 +9387,7 @@ function renderPdMacros(p){
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(20)">+20%</button>
       <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(25)">+25%</button>
     </div>
+    <div id="mac-keto-zonemap" style="display:none;margin-top:.7rem"></div>
     <div id="mac-regime-warn" style="font-size:.72rem;margin-top:.5rem"></div>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
@@ -9799,6 +9807,7 @@ function _aggiornaRegimeSlider(origine){
       warnEl.innerHTML='<span style="color:#B8860B">Deficit aggressivo: adatto solo a fasi brevi e monitorate</span>';
     } else warnEl.textContent='';
   }
+  if(_isKetoSl && typeof _renderKetoZoneMap==='function') _renderKetoZoneMap(); // muove il marker sulla riga
 }
 
 // ── P-KETO: gradi delle diete chetogeniche strutturate (VLCKD protocollo AME/SIE:
@@ -9811,10 +9820,24 @@ function _gradoKeto(targetKcal, tdee){
   return targetKcal<(tdee||Infinity) ? 'Keto ipocalorica' : 'Keto ipercalorica';
 }
 
-// P-KETO: tetto carboidrati di default per strategia (deciso col paper ADI:
-// aggressiva 20–30 g/die → default 25 · moderata 30–50 g/die → default 40)
+// ── P-KETO: tabella dei protocolli chetogenici strutturati (scrematura 18 lug 2026,
+// validata con Fabrizio dalla tabella clinica). Ogni protocollo imposta tetto carbo,
+// proteine g/kg di default, riferimento proteine, e posizione tipica sulla riga kcal.
+// I valori legacy keto-aggressiva/keto-moderata restano come chiavi (compat dati):
+// keto-aggressiva = VLCKD, keto-moderata = LCKD.
+const PROTOCOLLI_KETO = {
+  'keto-psmf':        {label:'PSMF',         nome:'PSMF (Protein Sparing Modified Fast)', tetto:20, prot:2.0, rif:'ffm',    grado:'PSMF',  colore:'#7f1d1d', pos:{kcal:700},  banda:[400,800],   avviso:'⚠ PSMF — protocollo iperproteico spinto: solo pazienti selezionati, supervisione medica stretta, durata breve (2–4 settimane) e controlli ravvicinati (elettroliti, funzione renale). Non adatto come prima scelta.'},
+  'keto-aggressiva':  {label:'VLCKD',        nome:'VLCKD (Very Low Calorie Ketogenic Diet)', tetto:25, prot:1.3, rif:'ideale', grado:'VLCKD', colore:'#b45309', pos:{kcal:700},  banda:[600,800]},
+  'keto-moderata':    {label:'LCKD',         nome:'LCKD (Low Calorie Ketogenic Diet)',    tetto:40, prot:1.5, rif:'ideale', grado:'LCKD',  colore:'#ca8a04', pos:{kcal:1000}, banda:[800,1500]},
+  'keto-mediterranea':{label:'Mediterranea', nome:'Mediterranea chetogenica',             tetto:30, prot:1.4, rif:'ideale', grado:'Keto mediterranea', colore:'#0d9488', pos:{pct:-10}, banda:'medit'},
+  'keto-wkd':         {label:'WKD',          nome:'WKD (Well Formulated, normocalorica)',  tetto:30, prot:1.4, rif:'ideale', grado:'WKD normo', colore:'#166534', pos:{pct:0}, banda:'wkd'}
+};
+function _protocolloKeto(strat){ return PROTOCOLLI_KETO[strat]||null; }
+
+// P-KETO: tetto carboidrati di default per protocollo (dalla tabella protocolli)
 function _ketoTettoCarb(strat){
-  return strat==='keto-aggressiva' ? 25 : 40;
+  var pk=PROTOCOLLI_KETO[strat];
+  return pk ? pk.tetto : 40;
 }
 
 // P-KETO: preset in kcal ASSOLUTE per la modalità keto (i gradi sono definiti
@@ -9857,11 +9880,202 @@ function _renderPresetRegime(){
   if(minLbl) minLbl.textContent = strat.indexOf('keto')===0 ? '−75% (VLCKD)' : '−40% (deficit)';
 }
 
+// ── P-KETO: mappa visiva dei protocolli sull'asse kcal (la "riga"). Le bande si
+// ricalcolano sul TDEE del paziente: asse da 0.25×TDEE (−75%) a 1.25×TDEE (+25%). ──
+function _renderKetoZoneMap(){
+  var box=document.getElementById('mac-keto-zonemap'); if(!box) return;
+  var keto=!!window._ketoUiAttiva;
+  var tdee=window._tdeeRegime;
+  if(!keto || !tdee){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  var minK=tdee*0.25, maxK=tdee*1.25, span=maxK-minK;
+  var pos=function(k){ return Math.max(0,Math.min(100,(k-minK)/span*100)); };
+  var stratCur=(document.getElementById('mac-strategia')||{}).value||'';
+  // banda kcal effettiva per ciascun protocollo (medit/wkd sono relative al TDEE)
+  var bandaKcal=function(pk){
+    if(pk.banda==='medit') return [Math.max(1000,tdee*0.65), tdee*0.95];
+    if(pk.banda==='wkd')   return [tdee*0.90, tdee*1.10];
+    return pk.banda;
+  };
+  var html='<div style="position:relative;height:118px;font-size:.6rem">';
+  // asse gradiente
+  html+='<div style="position:absolute;left:0;right:0;top:58px;height:12px;border-radius:6px;background:linear-gradient(90deg,#7f1d1d,#b45309,#ca8a04,#0d9488,#166534)"></div>';
+  // ticks
+  [{k:600},{k:800},{k:1200},{k:1500},{k:tdee,l:'TDEE'}].forEach(function(t){
+    if(t.k<minK||t.k>maxK) return;
+    var x=pos(t.k);
+    html+='<div style="position:absolute;top:54px;left:'+x+'%;width:1px;height:20px;background:#94a3b8"></div>';
+    html+='<div style="position:absolute;top:74px;left:'+x+'%;transform:translateX(-50%);color:var(--text3);white-space:nowrap">'+(t.l||Math.round(t.k))+'</div>';
+  });
+  // bande + etichette (alternate sopra/sotto per non sovrapporsi)
+  var i=0;
+  Object.keys(PROTOCOLLI_KETO).forEach(function(key){
+    var pk=PROTOCOLLI_KETO[key]; var b=bandaKcal(pk);
+    var x1=pos(b[0]), x2=pos(b[1]); if(x2<=x1) return;
+    var isCur=(key===stratCur);
+    html+='<div style="position:absolute;top:58px;left:'+x1+'%;width:'+(x2-x1)+'%;height:12px;border-radius:6px;background:'+pk.colore+';opacity:'+(isCur?0.95:0.4)+';'+(isCur?'box-shadow:0 0 0 2px '+pk.colore:'')+'"></div>';
+    var cx=(x1+x2)/2, top=(i%2===0);
+    html+='<div style="position:absolute;left:'+cx+'%;'+(top?'top:6px':'top:90px')+';transform:translateX(-50%);text-align:center;white-space:nowrap">'
+        + '<span style="display:inline-block;padding:1px 6px;border-radius:10px;color:#fff;font-weight:700;background:'+pk.colore+';'+(isCur?'':'opacity:.75')+'">'+pk.label+'</span>'
+        + '</div>';
+    i++;
+  });
+  // marker posizione corrente
+  var offK=(function(){var e=document.getElementById('mac-off-kcal');return e&&e.value!==''?(parseFloat(e.value)||0):0;})();
+  var tgt=tdee+offK, mx=pos(tgt);
+  html+='<div style="position:absolute;top:44px;left:'+mx+'%;transform:translateX(-50%);z-index:5"><div style="font-weight:700;background:#0f172a;color:#fff;padding:1px 5px;border-radius:4px;white-space:nowrap">'+Math.round(tgt)+'</div></div>';
+  html+='<div style="position:absolute;top:56px;left:'+mx+'%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid #0f172a;z-index:5"></div>';
+  html+='</div>';
+  box.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P-KETO-SUGG — SUGGERITORE DI PROTOCOLLO CHETOGENICO (18 lug 2026)
+// Legge InBody + anamnesi e produce: (a) blocco di sicurezza se ci sono
+// controindicazioni assolute (Tabella I position paper ADI 2014), (b) classifica
+// di tutti e 5 i protocolli con punteggio e motivi espliciti. Cut-off BMI
+// validati con Fabrizio: VLCKD/PSMF ≥35 · 30–35 VLCKD→LCKD · 27–30 LCKD.
+// ═══════════════════════════════════════════════════════════════════════════
+function _analisiSuggeritoreKeto(p){
+  var out={bloccato:false, motiviBlocco:[], warning:[], datiOk:false, classifica:[]};
+  if(!p) return out;
+  var cs=p.checkSemaforo||{};
+  var txt=((p.patologie||'')+' '+(p.farmaci||'')+' '+(p.condSpeciali||'')+' '+(p.sdv||'')).toLowerCase();
+  // ── Controindicazioni assolute (ADI Tabella I) ──
+  if(cs['csp-gravidanza']||/gravidanz/.test(txt)||(p.gravidanza&&/s[iì]/i.test(p.gravidanza))) out.motiviBlocco.push('Gravidanza');
+  if(cs['csp-allattamento']||/allattament/.test(txt)) out.motiviBlocco.push('Allattamento');
+  if(cs['pat-irc']||/insufficienza renal|nefropatia grave/.test(txt)) out.motiviBlocco.push('Insufficienza renale');
+  if(/insufficienza epat|cirrosi/.test(txt)) out.motiviBlocco.push('Insufficienza epatica');
+  if(/diabete (mellito )?(di )?tipo 1|dm1|t1d|insulino-dipendente/.test(txt)) out.motiviBlocco.push('Diabete tipo 1');
+  if(/porfiria/.test(txt)) out.motiviBlocco.push('Porfiria');
+  if(/angina instabile|ima recente|infarto recente/.test(txt)) out.motiviBlocco.push('Angina instabile / IMA recente');
+  if(/anoressia|bulimia|disturbo.{0,20}alimentare|dca\b|abuso.{0,15}(alcol|sostanze)/.test(txt)) out.motiviBlocco.push('Disturbi del comportamento alimentare / abuso di sostanze');
+  if(out.motiviBlocco.length){ out.bloccato=true; return out; }
+  // ── Dati InBody ──
+  var ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  if(!ib||!ib.bmi){ return out; } // datiOk resta false → suggerimento non calcolabile
+  out.datiOk=true;
+  var bmi=parseFloat(ib.bmi)||null, pg=parseFloat(ib.pg)||null, ffm=parseFloat(ib.m)||null;
+  var visc=parseFloat(ib.visc)||null, peso=parseFloat(ib.peso)||null;
+  var target=p.pesoTarget?parseFloat(p.pesoTarget):null;
+  var daPerdere=(peso&&target&&peso>target)?(peso-target):null;
+  var eta=null;
+  if(p.nascita){ var d=new Date(p.nascita); if(!isNaN(d)) eta=Math.floor((Date.now()-d.getTime())/31557600000); }
+  var diabete2=cs['pat-diabete']&&!/tipo 1|dm1|t1d/.test(txt);
+  var dislip=cs['pat-lipidi']||/dislipidem|colesterol/.test(txt);
+  var ipert=cs['pat-ipert']||/ipertension/.test(txt);
+  var nafld=/steatosi|nafld|fegato grasso/.test(txt);
+  var metabolico=diabete2||nafld||/sindrome metabolica|insulino.?resistenza/.test(txt);
+  var sarcopenia=(pg&&pg>=45)||(ffm&&peso&&(ffm/peso)<0.55&&pg&&pg>40);
+  // ── Punteggi (base + regole con motivo) ──
+  function P(key,base){ return {key:key, label:PROTOCOLLI_KETO[key].label, colore:PROTOCOLLI_KETO[key].colore, punti:base, motivi:[], contro:[]}; }
+  function più(pr,n,m){ pr.punti+=n; pr.motivi.push(m); }
+  function meno(pr,n,m){ pr.punti-=n; pr.contro.push(m); }
+  var vlckd=P('keto-aggressiva',50), psmf=P('keto-psmf',25), lckd=P('keto-moderata',55), medit=P('keto-mediterranea',45), wkd=P('keto-wkd',25);
+  if(bmi>=35){
+    più(vlckd,25,'BMI '+bmi+' ≥35: obesità severa, indicazione elettiva VLCKD');
+    più(psmf,20,'BMI ≥35: candidabile a calo rapido supervisionato');
+    più(lckd,5,'utilizzabile come step dopo la fase VLCKD');
+    meno(wkd,15,'BMI ≥35: serve prima un deficit importante');
+  } else if(bmi>=30){
+    più(vlckd,15,'BMI '+bmi+' (30–35): VLCKD efficace come fase di attacco');
+    più(lckd,15,'BMI 30–35: LCKD come protocollo principale o dopo VLCKD');
+    meno(psmf,10,'BMI <35: PSMF raramente giustificato');
+    meno(wkd,10,'serve prima una fase ipocalorica');
+  } else if(bmi>=27){
+    più(lckd,20,'BMI '+bmi+' (27–30): LCKD prima scelta, meno estremo e più gestibile');
+    più(medit,10,'sovrappeso lieve: sostenibilità della Mediterranea keto');
+    meno(vlckd,15,'BMI <30: VLCKD sproporzionata');
+    meno(psmf,20,'BMI <30: PSMF non indicato');
+  } else {
+    più(wkd,25,'BMI '+bmi+' <27: normocalorica, mantenimento o indicazione metabolica');
+    più(medit,10,'profilo sostenibile a lungo termine');
+    meno(vlckd,25,'BMI <27: nessuna indicazione a deficit severo');
+    meno(psmf,25,'BMI <27: non indicato');
+    meno(lckd,10,'deficit forte non prioritario');
+  }
+  if(metabolico){
+    più(vlckd,10,'comorbilità metaboliche ('+(diabete2?'diabete T2 ':'')+(nafld?'NAFLD ':'')+'): la chetosi migliora il controllo glicemico/epatico');
+    più(lckd,8,'beneficio metabolico anche con deficit moderato');
+  }
+  if(dislip||ipert){
+    più(medit,20,(dislip?'dislipidemia':'profilo cardiovascolare')+': grassi da EVO/pesce/frutta secca, profilo lipidico migliore');
+  }
+  if(daPerdere!=null){
+    if(daPerdere>=15){ più(vlckd,10,daPerdere.toFixed(0)+' kg da perdere: serve un motore di calo rapido'); più(psmf,5,'calo importante richiesto'); }
+    else if(daPerdere<=3){ più(wkd,20,'peso quasi a target ('+daPerdere.toFixed(1)+' kg): fase di mantenimento in chetosi'); meno(vlckd,10,'obiettivo peso quasi raggiunto'); }
+  }
+  if(sarcopenia){
+    più(psmf,8,'%grassa alta con FFM da preservare: quota proteica alta su massa magra');
+    out.warning.push('⚠ Profilo a rischio sarcopenia (%grassa '+pg+'%): qualunque protocollo, proteine calcolate su FFM e monitoraggio massa magra ad ogni controllo');
+  }
+  if(eta!=null&&eta>=65){ meno(psmf,15,'età '+eta+': PSMF sconsigliato oltre i 65 anni'); meno(vlckd,5,'età avanzata: preferire approccio graduale'); }
+  psmf.contro.push('richiede sempre supervisione stretta e durata breve (2–4 settimane)');
+  out.classifica=[vlckd,psmf,lckd,medit,wkd].sort(function(a,b){return b.punti-a.punti;});
+  return out;
+}
+
+// P-KETO-SUGG: render del box suggerimento (compact = solo 1° consigliato, full = classifica dei 5)
+function _renderSuggerimentoKeto(full){
+  var box=document.getElementById('mac-keto-suggest'); if(!box) return;
+  var p=_macrosPaziente; if(!p){ box.style.display='none'; return; }
+  var a=_analisiSuggeritoreKeto(p);
+  box.style.display='block';
+  if(a.bloccato){
+    box.innerHTML='<div style="padding:.6rem .85rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.76rem;color:#b91c1c;line-height:1.4"><strong>⛔ Dieta chetogenica CONTROINDICATA</strong> (position paper ADI): '+a.motiviBlocco.join(' · ')+'. Usa la strategia Standard.</div>';
+    return;
+  }
+  if(!a.datiOk){
+    box.innerHTML='<div style="display:flex;align-items:center;gap:.6rem;padding:.45rem .7rem;background:var(--bg2);border:1px dashed var(--border);border-radius:8px;font-size:.74rem;color:var(--text3)">💡 Inserisci un InBody (almeno il BMI) per il suggerimento del protocollo keto</div>';
+    return;
+  }
+  var top=a.classifica[0];
+  var warnHtml=a.warning.length?'<div style="margin-top:.4rem;font-size:.7rem;color:#B8860B">'+a.warning.join('<br>')+'</div>':'';
+  if(!full){
+    box.innerHTML='<div style="padding:.55rem .8rem;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;font-size:.76rem;line-height:1.4">'
+      +'<span style="font-weight:700;color:#5b21b6">💡 Protocollo consigliato: <span style="display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;background:'+top.colore+'">'+top.label+'</span></span> '
+      +'<span style="color:var(--text2)">— '+(top.motivi[0]||'profilo compatibile')+'</span>'
+      +'<div style="margin-top:.45rem;display:flex;gap:.4rem;flex-wrap:wrap">'
+      +'<button type="button" class="btn btn-p btn-sm" style="font-size:.7rem;padding:.2rem .6rem" onclick="_applicaProtocolloSuggerito(\''+top.key+'\')">Applica '+top.label+'</button>'
+      +'<button type="button" class="btn btn-g btn-sm" style="font-size:.7rem;padding:.2rem .6rem" onclick="_renderSuggerimentoKeto(true)">Classifica completa</button>'
+      +'</div>'+warnHtml+'</div>';
+    return;
+  }
+  var maxP=Math.max.apply(null,a.classifica.map(function(x){return x.punti;}));
+  var html='<div style="padding:.6rem .85rem;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;font-size:.74rem">'
+    +'<div style="font-weight:700;color:#5b21b6;margin-bottom:.5rem">💡 Classifica protocolli per questo paziente</div>';
+  a.classifica.forEach(function(pr,i){
+    var w=Math.max(6,Math.round(pr.punti/maxP*100));
+    html+='<div style="margin-bottom:.55rem;padding-bottom:.5rem;'+(i<a.classifica.length-1?'border-bottom:1px dashed #ddd6fe':'')+'">'
+      +'<div style="display:flex;align-items:center;gap:.5rem">'
+      +'<span style="font-weight:700;color:var(--text3);min-width:1.1rem">'+(i+1)+'.</span>'
+      +'<span style="display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-weight:700;background:'+pr.colore+'">'+pr.label+'</span>'
+      +'<div style="flex:1;height:7px;background:#ede9fe;border-radius:4px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+pr.colore+'"></div></div>'
+      +'<span style="font-weight:700;min-width:2rem;text-align:right">'+pr.punti+'</span>'
+      +'<button type="button" class="btn btn-g btn-sm" style="font-size:.66rem;padding:.12rem .5rem" onclick="_applicaProtocolloSuggerito(\''+pr.key+'\')">Usa</button>'
+      +'</div>'
+      +(pr.motivi.length?'<div style="margin:.25rem 0 0 1.6rem;color:#166534">✓ '+pr.motivi.join(' · ')+'</div>':'')
+      +(pr.contro.length?'<div style="margin:.15rem 0 0 1.6rem;color:#b91c1c">✗ '+pr.contro.join(' · ')+'</div>':'')
+      +'</div>';
+  });
+  html+=warnHtml+'<div style="margin-top:.3rem"><button type="button" class="btn btn-g btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="_renderSuggerimentoKeto(false)">Riduci</button></div></div>';
+  box.innerHTML=html;
+}
+
+// P-KETO-SUGG: applica il protocollo scelto dalla classifica
+function _applicaProtocolloSuggerito(key){
+  var s=document.getElementById('mac-strategia'); if(!s) return;
+  s.value=key;
+  _applicaModalitaKeto();
+  _renderSuggerimentoKeto(false);
+}
+
 // ── P-KETO: applica/rimuove la modalità chetogenica sul pannello macros ──
 // Opzione A (18 lug 2026): in keto il campo "Grassi (g/kg)" si TRASFORMA in
 // "Carboidrati (g/die)" = tetto keto modificabile; i grassi diventano il resto
-// delle kcal. Proteine default 1,3 g/kg (paper ADI: 1–1,5). In standard tutto
-// torna identico a prima. init=true quando chiamata al caricamento paziente.
+// delle kcal. Ogni protocollo (PROTOCOLLI_KETO) imposta tetto/proteine/riferimento
+// e posiziona lo slider nella sua zona kcal. In standard tutto torna identico a
+// prima. init=true quando chiamata al caricamento paziente.
 function _applicaModalitaKeto(init){
   var stratEl=document.getElementById('mac-strategia'); if(!stratEl) return;
   var strat=stratEl.value||'standard';
@@ -9873,8 +10087,10 @@ function _applicaModalitaKeto(init){
   var inpG=document.getElementById('mac-grassi');
   var inpP=document.getElementById('mac-prot');
   var lblG=document.getElementById('mac-grassi-lbl');
+  var banner=document.getElementById('mac-psmf-banner');
+  var pk=_protocolloKeto(strat);
   if(keto){
-    var tetto=_ketoTettoCarb(strat), pdef=1.3;
+    var tetto=pk?pk.tetto:_ketoTettoCarb(strat), pdef=pk?pk.prot:1.3;
     if(init){
       // ripristina i valori keto salvati sul paziente, se la strategia coincide
       var mt=(_macrosPaziente&&_macrosPaziente.macrosTarget)||null;
@@ -9886,27 +10102,43 @@ function _applicaModalitaKeto(init){
       if(inpG){ inpG.value=tetto; inpG.step='5'; }
       if(inpP) inpP.value=pdef;
     } else {
+      // cambio di protocollo dal menu: applica sempre i default del nuovo protocollo
       if(inpG){ inpG.value=tetto; inpG.step='5'; }
-      if(inpP&&!prev) inpP.value=pdef; // cambio keto→keto: non toccare le proteine già impostate
+      if(inpP) inpP.value=pdef;
     }
     if(lblG) lblG.style.color='#B45309';
-    // VLCKD (aggressiva): protocollo AME calcola le proteine sul PESO IDEALE
-    if(strat==='keto-aggressiva'&&!init){
-      var lastIbK=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
-      var piK=lastIbK&&lastIbK.pesoIdeale?parseFloat(lastIbK.pesoIdeale):null;
-      var rIdeale=document.getElementById('mac-ref-ideale');
-      if(piK&&rIdeale){ rIdeale.checked=true; notif('🥑 VLCKD: riferimento proteine passato a Peso Ideale ('+piK+' kg) — protocollo AME. Puoi cambiarlo a mano.'); }
-      else if(!piK) notif('⚠ VLCKD: Peso Ideale non inserito in InBody — le proteine restano sul riferimento attuale');
+    // banner protocolli con avviso (PSMF)
+    if(banner){
+      if(pk&&pk.avviso){ banner.style.display='block'; banner.textContent=pk.avviso; }
+      else { banner.style.display='none'; banner.textContent=''; }
     }
-  } else if(prev){
-    // uscita dalla modalità keto: il campo torna Grassi (g/kg) coi default standard
-    if(inpG){ inpG.value=0.9; inpG.step='0.1'; }
-    if(inpP) inpP.value=1.8;
-    if(lblG) lblG.style.color='';
+    if(!init){
+      // riferimento proteine di default del protocollo (PSMF→FFM, altri→Peso ideale)
+      var lastIbK=_macrosPaziente&&_macrosPaziente.inbody&&_macrosPaziente.inbody.length?_macrosPaziente.inbody[_macrosPaziente.inbody.length-1]:null;
+      var rifWant=pk?pk.rif:'ideale';
+      var rEl=document.getElementById(rifWant==='ffm'?'mac-ref-ffm':'mac-ref-ideale');
+      var dispVal=rifWant==='ffm'?(lastIbK&&lastIbK.m?parseFloat(lastIbK.m):null):(lastIbK&&lastIbK.pesoIdeale?parseFloat(lastIbK.pesoIdeale):null);
+      if(dispVal&&rEl){ rEl.checked=true; notif('🥑 '+(pk?pk.label:'Keto')+': proteine calcolate su '+(rifWant==='ffm'?'Massa magra (FFM '+dispVal+'kg)':'Peso ideale ('+dispVal+'kg)')+'. Puoi cambiarlo a mano.'); }
+      else if(!dispVal) notif('⚠ '+(pk?pk.label:'Keto')+': '+(rifWant==='ffm'?'FFM':'Peso ideale')+' non in InBody — proteine sul riferimento attuale');
+      // posiziona lo slider nella zona kcal tipica del protocollo
+      if(pk&&pk.pos&&window._tdeeRegime){
+        if(pk.pos.kcal!=null){ var ke=document.getElementById('mac-off-kcal'); if(ke){ ke.value=Math.round(pk.pos.kcal-window._tdeeRegime); _aggiornaRegimeSlider('kcal'); } }
+        else if(pk.pos.pct!=null){ _presetRegime(pk.pos.pct); }
+      }
+    }
+  } else {
+    if(banner){ banner.style.display='none'; banner.textContent=''; }
+    if(prev){
+      // uscita dalla modalità keto: il campo torna Grassi (g/kg) coi default standard
+      if(inpG){ inpG.value=0.9; inpG.step='0.1'; }
+      if(inpP) inpP.value=1.8;
+      if(lblG) lblG.style.color='';
+    }
   }
   aggiornaLabelMacros();
   _renderPresetRegime();
   _aggiornaRegimeSlider();
+  _renderKetoZoneMap();
 }
 function _presetRegime(pct){
   var pctEl=document.getElementById('mac-off-pct');
@@ -9927,6 +10159,7 @@ function _initRegimeSliderDaPaziente(p, tdee, mb){
   if(pctEl) pctEl.value=pct;
   _aggiornaRegimeSlider('pct');
   _applicaModalitaKeto(true); // P-KETO: applica la modalità keto se il paziente la ha salvata
+  _renderSuggerimentoKeto(false); // P-KETO-SUGG: box automatico col protocollo consigliato
 }
 
 function ricalcolaLAF(){
@@ -10204,6 +10437,9 @@ function _regimeOffset(p, tdee){
 
 // Compone l'etichetta testuale del regime (compatibile col vecchio sistema testuale).
 function _componiRegimeText(pct, strategia){
+  // P-KETO: per i protocolli chetogenici l'etichetta è il nome del protocollo,
+  // sempre contenente "chetogen" così isCeto (generatore/validazione) lo riconosce.
+  if(typeof PROTOCOLLI_KETO!=='undefined' && PROTOCOLLI_KETO[strategia]) return 'Chetogenica '+PROTOCOLLI_KETO[strategia].label;
   if(strategia==='keto-aggressiva') return 'Chetogenico WLKD';
   if(strategia==='keto-moderata') return 'Chetogenico moderato';
   if(pct==null) return '';
