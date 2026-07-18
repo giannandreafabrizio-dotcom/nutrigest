@@ -12442,14 +12442,14 @@ function costruisciPrompt(pazienteId) {
   var _tettoCarboPrompt=(carbG!==null&&carbG!==undefined)?carbG:(_pkPrompt?_pkPrompt.tetto:30);
   var ketoBlock='';
   if(isCeto){
-    ketoBlock='\n\nPROTOCOLLO CHETOGENICO'+(_pkPrompt?(' — '+_pkPrompt.nome):'')+' — REGOLE ASSOLUTE, priorità su tutto il resto\n'
-      +'• Carboidrati TOTALI giornalieri: MAX '+_tettoCarboPrompt+' g/die (somma di TUTTI i pasti). Il paziente deve restare in chetosi.\n'
-      +'• VIETATI in ogni pasto: pasta, pane, riso, farro, orzo, avena e ogni altro cereale; patate; legumi; zuccheri e dolci; frutta (unica eccezione: frutti di bosco max 50g, solo se i carbo totali restano nel tetto).\n'
-      +'• NON generare celle "carbo" (cat "ca"): al loro posto più verdura o una fonte grassa in cella "oi"/"gx".\n'
-      +'• Fonti caloriche: proteine (carne, pesce, uova, formaggi) e GRASSI (olio EVO, avocado, frutta secca, semi, olive)'+(p.strategia==='keto-mediterranea'?' — impronta MEDITERRANEA: privilegia olio EVO, pesce azzurro e frutta secca':'')+'.\n'
+    ketoBlock='\n\nPROTOCOLLO CHETOGENICO'+(_pkPrompt?(' — '+_pkPrompt.nome):'')+' — REGOLA ASSOLUTA, priorità su tutto il resto\n'
+      +'• Il vincolo è il BUDGET: carboidrati TOTALI giornalieri MAX '+_tettoCarboPrompt+' g/die (somma di TUTTI gli alimenti di tutti i pasti). NON è vietata una categoria di alimenti in sé — è vietato SFORARE il budget. Il paziente deve restare in chetosi.\n'
+      +'• Cereali (pasta/pane/riso/farro/orzo/avena), legumi, patate e frutta sono AMMESSI solo se il loro contributo in carboidrati, sommato a quello di tutto il resto della giornata, non supera il tetto. In pratica: con un budget di '+_tettoCarboPrompt+'g/die è quasi sempre più facile spenderlo tutto in verdura+grassi che in un solo alimento amidaceo — quindi usa cereali/legumi/frutta SOLO in piccole porzioni occasionali e solo se resta ampio margine, mai come base ricorrente del pasto.\n'
+      +'• Prima di aggiungere un alimento amidaceo/legume/frutta a una cella, calcola i suoi carboidrati e verifica che il totale del giorno resti ≤ '+_tettoCarboPrompt+'g. Se non c\'è margine, NON aggiungerlo: usa verdura o una fonte grassa al suo posto.\n'
+      +'• NON generare una cella "carbo" (cat "ca") a ogni pasto per abitudine: solo se il budget del giorno lo consente davvero. Le fonti caloriche principali restano proteine e GRASSI (olio EVO, avocado, frutta secca, semi, olive)'+(p.strategia==='keto-mediterranea'?' — impronta MEDITERRANEA: privilegia olio EVO, pesce azzurro e frutta secca':'')+'.\n'
       +(p.strategia==='keto-psmf'?'• PSMF: priorità assoluta a proteine magre (petto di pollo/tacchino, pesce bianco, albumi, latticini magri); grassi al minimo indispensabile.\n':'')
-      +'• Verdure — gruppo LIBERO (anche oltre 200g): foglia verde, bietole, broccoli, cavolfiori, cavoli, cetrioli, cime di rapa, finocchi, peperoni verdi, ravanelli, radicchio, sedano, spinaci, zucchine. Gruppo A QUANTITÀ (max 150g/pasto): asparagi, carciofi, cavolini di Bruxelles, cipolle, fagiolini, melanzane, peperoni gialli/rossi, pomodori, porri, rape, zucca. VIETATE: barbabietole, patate, carote cotte.\n'
-      +'• Nel campo "macros" di ogni giorno i carboidrati devono risultare ≤ '+_tettoCarboPrompt+'g: verifica la somma prima di chiudere il giorno.';
+      +'• Verdure — gruppo LIBERO (pochi carboidrati, anche oltre 200g): foglia verde, bietole, broccoli, cavolfiori, cavoli, cetrioli, cime di rapa, finocchi, peperoni verdi, ravanelli, radicchio, sedano, spinaci, zucchine. Gruppo A QUANTITÀ (più carboidrati, max 150g/pasto e da conteggiare nel budget): asparagi, carciofi, cavolini di Bruxelles, cipolle, fagiolini, melanzane, peperoni gialli/rossi, pomodori, porri, rape, zucca. Da EVITARE per l\'alto contenuto di amido (non vietate in assoluto, ma quasi sempre fuori budget): barbabietole, patate, carote cotte.\n'
+      +'• Nel campo "macros" di ogni giorno i carboidrati devono risultare ≤ '+_tettoCarboPrompt+'g: somma TUTTI gli alimenti (compresi cereali/legumi/frutta se usati) e verifica prima di chiudere il giorno.';
   }
 
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.
@@ -12467,7 +12467,7 @@ ${_ciclizzato ? `Giorni di carico (ON): ${(p.giorniAllenamento||[]).join(', ')||
 ${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}${blocoCiclizzazione}
 
 GRAMMATURE FISSE
-${isCeto ? `Olio EVO: ${olioG}g/pasto (aumentabile: in keto i grassi chiudono le kcal) | Verdura: 200g (gruppo libero anche di più) | Frutta secca: 20g | NIENTE cereali, legumi o frutta — vedi PROTOCOLLO CHETOGENICO` : `Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${_ciclizzato ? `giorni ON ${carbGrON}g · giorni OFF ${carbGrOFF}g` : `${carbGr}g`} | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g`}${ketoBlock}
+${isCeto ? `Olio EVO: ${olioG}g/pasto (aumentabile: in keto i grassi chiudono le kcal) | Verdura: 200g (gruppo libero anche di più) | Frutta secca: 20g | Cereali/legumi/frutta: NIENTE grammatura fissa — ammessi solo entro il budget carboidrati, vedi PROTOCOLLO CHETOGENICO` : `Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${_ciclizzato ? `giorni ON ${carbGrON}g · giorni OFF ${carbGrOFF}g` : `${carbGr}g`} | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g`}${ketoBlock}
 
 ALIMENTI AUTORIZZATI — usa SOLO questi, mai inventarne altri
 Verdi (${alimentiVerdi.length}): ${alimentiVerdi.join(', ')||'nessuno specificato'}
@@ -12515,7 +12515,7 @@ ${(function(){
   righe.push('Uova: '+uova+'x/settimana');
   righe.push('Affettati magri: '+affettati+'x/settimana');
   righe.push('Latticini: '+latticini+'x/settimana');
-  righe.push(isCeto?'LEGUMI: mai (protocollo chetogenico)':(legumi===0?'LEGUMI: mai':'Legumi: '+legumi+'x/settimana'));
+  righe.push(isCeto?'Legumi: ammessi solo entro il budget carboidrati del protocollo chetogenico (vedi sopra), non come base ricorrente':(legumi===0?'LEGUMI: mai':'Legumi: '+legumi+'x/settimana'));
   righe.push('Pesce conservato: '+pesceconsv+'x/settimana');
   var r2=p.regolePiano||{};
   if(r2.legumi135!==false && !r2.modello && !isCeto)righe.push('Legumi posizionati Lunedi/Mercoledi/Venerdi a pranzo');
@@ -12580,8 +12580,8 @@ REGOLE STRUTTURA CELLE:
 - MASSIMO 6 alimenti per cella (1 principale + max 5 alternative) per limitare output
 - Verdura, frutta: una sola voce per cella, NESSUNA alternativa
 - Cella olio/grasso (cat "oi"): principale Olio EVO, poi alternative isocaloriche tra queste (usa SOLO questi grammi, già equivalenti a 10g Olio EVO): Avocado 40g, Frutta secca mista 20g, Semi di chia 20g, Semi di lino 15g, Olive verdi 60g, Olive nere 30g, Burro arachidi 15g, Burro mandorle 15g. Non tutte vanno sempre incluse: scegline 2-4 in base alle preferenze del paziente.
-${isCeto ? `- Disposizione KETO pranzo: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2) — NESSUNA cella carbo, NESSUNA cella frutta
-- Disposizione KETO cena: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2)` : `- Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
+${isCeto ? `- Disposizione KETO pranzo: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2) — aggiungi una cella carbo/legumi/frutta (cat "ca") SOLO se il budget carboidrati del giorno lo consente ancora (vedi PROTOCOLLO CHETOGENICO), altrimenti ometti la cella
+- Disposizione KETO cena: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2) — stessa regola: carbo/legumi solo se c'è margine nel budget` : `- Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
 - Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)`}
 
 ESEMPIO FORMATO (un giorno):
