@@ -10,6 +10,79 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+18 LUGLIO 2026 — P66c CHIUSA (CHIAVE AI SOLO SERVER-SIDE) + NUOVA
+PROCEDURA DOCUMENTAZIONE + PULIZIA POST-P66c + NUOVA VOCE P113.
+Sessione Cowork con Fabrizio (Opus per P66c, Fable per indagine e
+riorganizzazione). Due commit: `e536b95` (index.html — P66c) e il
+presente commit (pulizia codice + tutta la documentazione).
+
+── PARTE 1: P66c — chiusura trasporto diretto legacy (commit e536b95,
+   HEAD 7c93ffb → e536b95, +71/−125 righe) ──
+PRECONDIZIONE (da roadmap: "NON eseguire senza evidenza di uso stabile
+del proxy"): verificata insieme a Fabrizio sulla tabella ai_usage — ~20
+righe status 200 dall'8 al 17 lug 2026, un solo user_id, tutti i tipi di
+chiamata (concetto, import-inbody, fx, ragionamento-riassunto, piano).
+Il proxy (Fase 1, commit 85fc8cd) reggeva stabilmente da ~9 giorni.
+COSA È CAMBIATO:
+- aiCall è ora SOLO proxy autenticato (Edge Function ai-proxy col JWT di
+  sessione). Rimossi il ramo diretto verso api.anthropic.com e ogni
+  lettura della chiave.
+- getAnthropicKey (window.prompt + scrittura anthropicApiKey) ELIMINATA.
+  Nuovo helper _aiPronto() = utente collegato (sessione valida o
+  rinnovabile via refresh token).
+- ~15 call-site AI ripuliti: guardie "hai la chiave?" → "sei collegato?"
+  (inclusi 2 call-site sfuggiti al primo grep — giorno speciale P94 e
+  voce-progresso — intercettati dal controllo di invarianti).
+- Impostazioni: card "API Anthropic" → "Servizio AI" (solo test via
+  proxy); initAntCard ora BONIFICA la chiave legacy dai browser.
+- Senza sessione o proxy giù: errore chiaro, MAI fallback silenzioso.
+  Rollback estremo: git revert e536b95.
+Verifica: node --check ok, suite 63/63 verde, invarianti di assenza
+chiave. Collaudo in produzione di Fabrizio dopo il push.
+
+── PARTE 2: INDAGINE "PROCEDURE SOVRAPPOSTE" E NUOVA REGOLA DOC ──
+Su richiesta di Fabrizio ("più procedure che si sovrappongono"),
+verificato che lo stato delle voci viveva in 4-5 posti (riepilogo in
+testa alla Roadmap, Blocchi A-D, schede, archivio, più il Contesto) con
+3 disallineamenti storici documentati (P59/P60, P78, Contesto su P66c).
+ADOTTATA LA REGOLA "UN POSTO SOLO" (testi approvati da Fabrizio):
+- Stato voce → SOLO la SCHEDA in NutriGest_Roadmap_v4.md;
+- Storia → SOLO CHANGELOG.md; Funzionamento → Contesto; Funzioni → INDEX;
+- Roadmap semplice (progetto Claude) = fotografia derivata, formato
+  "solo cosa resta", rigenerata a fine sessione;
+- Riepilogone di testa della Roadmap SPOSTATO qui sotto (integrale);
+- Blocchi A-D congelati come fotografia storica dell'8 lug;
+- Checklist di chiusura voce (6 passi, con verifica incrociata finale)
+  aggiunta a CLAUDE.md.
+NUOVA VOCE P113 — Una sola procedura di sessione: unificare
+assicuraTokenValido / _aiTokenPerProxy / verificaSessioneEAvvia /
+_aiPronto (stesso refresh_token monouso → rischio rinnovi concorrenti;
+prima di P66c il fallback diretto mascherava l'esito). Scheda in Roadmap.
+
+── PARTE 3: PULIZIA POST-P66c (index.html, approvata voce per voce) ──
+(a) rimosso il kill-switch _aiProxyDisabled/aiProxyDisabled: senza via
+    diretta non faceva più NULLA (falsa sicurezza);
+(b) rimossi AI_MODELS e _aiModelFor (registro modelli client: serviva
+    solo al trasporto diretto; il modello lo decide il MODEL_REGISTRY
+    della Edge Function);
+(c) riscritti i commenti sopra aiCall che descrivevano ancora fallback e
+    kill-switch come esistenti; aggiornato il commento di _aiLogUsage;
+(d) log locale consumi (localStorage aiUsage) TENUTO deliberatamente:
+    unica vista consumi senza aprire Supabase; sorte da decidere con
+    P66d;
+(e) Contesto v18 aggiornato: sezione "API key" e "PIANO DI CHIUSURA"
+    ora dicono il vero (chiave solo server-side, piano eseguito);
+(f) INDEX.md allineato (salvaAntKey/_aiModelFor/_aiProxyDisabled fuori,
+    getAnthropicKey → _aiPronto).
+Verifica della pulizia: node --check ok, suite test verde, zero
+riferimenti residui a kill-switch/AI_MODELS/trasporto diretto.
+
+── PARTE 4: RIEPILOGO STORICO MIGRATO DALLA TESTA DELLA ROADMAP ──
+(Testo integrale al 17 lug 2026, conservato qui per la cronologia; da
+questa data la testa della Roadmap non contiene più stati duplicati.)
+
+**Stato voci chiuse (8 lug 2026, aggiornato 14 lug 2026 sera):** P61 (validatore clinico), P62 (troncamento), P77 (output strutturato tool-use, commit `676927e`), P78 (suite test, commit `ba5c109`), **P68** (push incrementale, commit `5487754`+`97f0d53`), **P55** (sorgente unica target macros, `getTargetAttivi`, commit `85b18ea`, 9 lug 2026), **P105** (fix sessione anti-42501, commit `d32f6aa`, 12 lug 2026), **P108 fase 0** (catalogo unico alimenti con id stabile, `risolviAlimento`, commit `f574bb5`, 13 lug 2026), **P109** (valori CREA-INRAN per 68/95 alimenti privi di macros, commit `937cf17`, 13 lug 2026), **P108 fase 1** (sezione "Alimenti": lista/ricerca/filtri, campo allergeni, archivia invece di elimina, confermata in produzione da Fabrizio, 13 lug 2026 sera), **P112** (pannello alimenti unificato giorno gara + unificazione Componi a mano col Generatore AI, commit `2cd0230`→`5173a75`→`c421a07`, 14 lug 2026 sera) chiuse **per intero** → archiviate in fondo (ragionamento CTO) e dettagliate nel CHANGELOG. P63 (diff import, `8c9e77a`) e P66 (proxy AI, `85fc8cd`) chiuse **in parte**, restano come voci-residuo qui sotto. **P60** (separatore frutta PDF, commit `17064c8`) chiusa il 7 lug 2026; **P59** (marker frutta su celle) chiusa lo stesso giorno ma **scartata** dopo verifica clinica (implementata poi revertita, commit `d3c50e0`→`177dce9`) — corretto il 9 lug 2026 un disallineamento: erano rimaste segnate "Da fare" in questo file nonostante CHANGELOG e Contesto le documentassero già chiuse dal 7 luglio. Tutte secondo la SOLUZIONE OTTIMIZZATA, non l'approccio originario.
+
 17 LUGLIO 2026 — P74 FASE 1c: DOPPIA LETTURA `collections` CON PREFERENZA
 AL NUOVO E RETE DI SICUREZZA SUL LEGACY. Sessione Cowork con Fabrizio,
 modello Opus. HEAD dcaec68 → e88e0fb (index.html). Autonomia L0 (ogni

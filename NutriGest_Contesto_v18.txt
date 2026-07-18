@@ -440,11 +440,14 @@ Modello AI:      claude-sonnet-4-5 | max_tokens piano: dinamico 2200/gg+2000 (ca
                  (dal proxy P66 il modello è deciso lato server nel
                  MODEL_REGISTRY di ai-proxy/index.ts — cambio modello senza
                  deploy del client)
-API key:         TRANSIZIONE P66: ancora in localStorage come
-                 anthropicApiKey, ma NON più il percorso primario — usata
-                 solo come fallback se il proxy non è raggiungibile, la
-                 sessione manca, o il kill-switch è attivo. Verrà rimossa
-                 al commit di chiusura P66 (vedi DECISIONI ARCHITETTURALI).
+API key:         SOLO server-side dal 18 lug 2026 (P66c, commit e536b95):
+                 secret ANTHROPIC_API_KEY nella Edge Function ai-proxy.
+                 Nel browser non esiste più nulla: via diretta, chiave in
+                 localStorage (anthropicApiKey) e window.prompt rimossi;
+                 i browser che avevano la chiave salvata la cancellano da
+                 soli all'apertura delle Impostazioni (bonifica in
+                 initAntCard). Guardia lato client: _aiPronto() = utente
+                 collegato, non più "chiave presente".
 
 Supabase: https://zrhmspylnlklppvhgplp.supabase.co
   Edge Functions:
@@ -917,16 +920,19 @@ P66 TRASPORTO PROXY CON FALLBACK, NON TAGLIO NETTO (8 lug 2026): al posto
   un'app clinica in uso quotidiano non può fermarsi per un problema di
   deploy della funzione o di configurazione secret — stesso principio già
   applicato al doppio parser di P77 (schema-first con fallback testuale).
-  Il fallback NON è permanente per design: è la fase di transizione.
-  PIANO DI CHIUSURA (non ancora eseguito, in attesa di qualche giorno di
-  uso stabile in produzione): commit dedicato che rimuove per intero il
-  ramo trasporto diretto in aiCall, la lettura/scrittura della chiave
-  Anthropic in localStorage (anthropicApiKey), e il window.prompt di
-  getAnthropicKey. Da quel commit in poi la chiave Anthropic non esisterà
-  più lato browser per nessun utente — solo come secret server-side nella
-  Edge Function ai-proxy. Non chiudere questo passo finché l'uso reale in
-  produzione (piano, import analisi/InBody, WhatsApp AI, concetti) non ha
-  attraversato il proxy per più giorni senza fallback anomali in ai_usage.
+  Il fallback NON era permanente per design: era la fase di transizione.
+  PIANO DI CHIUSURA — ESEGUITO il 18 lug 2026 (P66c, commit e536b95),
+  dopo verifica su ai_usage di uso stabile del proxy dall'8 al 17 lug
+  (nessun fallback anomalo): rimossi per intero il ramo trasporto diretto
+  in aiCall, la lettura/scrittura della chiave Anthropic in localStorage
+  (anthropicApiKey), il window.prompt di getAnthropicKey e il kill-switch
+  aiProxyDisabled (senza via diretta non aveva più effetto). Da quel
+  commit la chiave Anthropic esiste SOLO come secret server-side nella
+  Edge Function ai-proxy. Se il proxy ha un problema, le funzioni AI si
+  fermano con un errore chiaro (mai fallback silenziosi); rimedio estremo:
+  git revert e536b95. Il log locale dei consumi (localStorage aiUsage)
+  resta deliberatamente come vista rapida; il registro ufficiale è la
+  tabella ai_usage server-side (sorte del log locale da decidere con P66d).
 
 GITHUB NON COLLEGATO A SUPABASE PER IL DEPLOY DELLE EDGE FUNCTIONS
   (8 lug 2026): valutato esplicitamente al momento del deploy di ai-proxy.

@@ -178,7 +178,6 @@ Righe 4739-4862
 - `4744` — _caricaPianoCache
 - `4750` — salvaCfg
 - `4751` — testConn
-- `4757` — salvaAntKey
 - `4765` — testaAntKey
 - `4775` — initAntCard
 - `4783` — esporta
@@ -479,16 +478,15 @@ Righe 11608-12076
 ---
 
 ### MODELLI ROTAZIONE — editor griglia visuale, salvataggio; AI CALL — auth token, aiCall generico
+> Nota: dopo P66c + pulizia (18 lug 2026) i numeri di riga di quest'area e successive si sono spostati; usare grep per conferma.
 Righe 12111-12625
 
 - `12111` — rerender
 - `12345` — _salvaModelloDaEditor
 - `12387` — caricaRegolePiano
-- `12414` — getAnthropicKey
-- `12453` — _aiModelFor
+- `12414` — _aiPronto  (P66c: sostituisce getAnthropicKey — chiave AI solo server-side)
 - `12460` — _aiLogUsage
 - `12482` — _aiProxyUrl
-- `12486` — _aiProxyDisabled
 - `12494` — _aiTokenPerProxy
 - `12525` — aiCall
 - `12534` — fetchConTimeout

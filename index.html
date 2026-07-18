@@ -12942,40 +12942,29 @@ function _aiPronto(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// P66 FASE 0+1 — CLIENT AI UNIFICATO (aiCall) + PROXY EDGE FUNCTION
+// P66 — CLIENT AI UNIFICATO (aiCall) SU PROXY EDGE FUNCTION
 // Tutte le chiamate ad Anthropic passano da qui: un solo punto per fetch,
-// headers, stringa modello, timeout, retry-once e log dei consumi.
-// FASE 1 (trasporto proxy): aiCall chiama la Edge Function Supabase
-// 'ai-proxy' col JWT della sessione utente — la chiave Anthropic vive SOLO
-// come secret server-side e il MODELLO lo decide il registro del server.
-// TRANSIZIONE (stesso pattern del doppio parser P77): se il proxy non è
-// raggiungibile, la sessione manca, o il kill-switch è attivo
-// (localStorage aiProxyDisabled='1'), fallback automatico al trasporto
-// diretto legacy (chiave in localStorage). Il commit di chiusura, a campo
-// validato, rimuoverà trasporto diretto, chiave client e window.prompt.
+// headers, timeout, retry-once e log dei consumi.
+// TRASPORTO (P66c, commit e536b95, 18 lug 2026): SOLO la Edge Function
+// Supabase 'ai-proxy', chiamata col JWT della sessione utente. La chiave
+// Anthropic vive SOLO come secret server-side e il MODELLO lo decide il
+// MODEL_REGISTRY dentro la funzione (cambio modello senza deploy client).
+// La via diretta legacy, la chiave in localStorage e il kill-switch sono
+// stati RIMOSSI: se manca la sessione o il proxy non risponde, aiCall
+// lancia un errore chiaro (mai fallback silenziosi). Rollback estremo:
+// git revert e536b95.
 // Le risposte del proxy passate ad Anthropic portano l'header
 // 'x-proxy-upstream': la sua ASSENZA distingue gli errori d'infrastruttura
-// del proxy (→ fallback) dagli errori API veri (→ retry normale).
+// del proxy dagli errori API veri (→ retry normale).
 // NOTA CACHE (vincolo P66/Scoperta #4): la cache piani 90gg è keyed sui
 // parametri paziente, non sul trasporto — questo wrapper non ne altera l'hash.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Registro modelli per tipo di chiamata — usato SOLO dal trasporto diretto
-// legacy. Col proxy attivo (Fase 1) il modello lo decide il MODEL_REGISTRY
-// server-side dentro la Edge Function ai-proxy: cambio modello senza
-// nemmeno un deploy del client.
-const AI_MODELS = {
-  default: 'claude-sonnet-4-5'
-  // Esempi di override per tipo, quando serviranno:
-  // piano: 'claude-sonnet-4-5',
-  // fx: 'claude-opus-...'
-};
-function _aiModelFor(tipo){
-  return (tipo && AI_MODELS[tipo]) || AI_MODELS.default;
-}
-
-// Log consumi per giorno/tipo in localStorage (osservabilità Fase 0; la
-// Fase 1 sposterà il registro nella tabella ai_usage lato server).
+// Log consumi per giorno/tipo in localStorage — copia LOCALE di
+// consultazione rapida (retention 30gg). Il registro UFFICIALE dei consumi
+// è la tabella ai_usage su Supabase, scritta dalla Edge Function ai-proxy.
+// Tenuto deliberatamente (decisione d, 18 lug 2026): unica vista consumi
+// senza aprire Supabase; sorte definitiva da decidere con P66d.
 // Il log non deve MAI rompere la chiamata: tutto in try/catch silenzioso.
 function _aiLogUsage(tipo, model, usage){
   try{
@@ -12996,16 +12985,10 @@ function _aiLogUsage(tipo, model, usage){
   }catch(e){ /* mai bloccare la chiamata per un errore di log */ }
 }
 
-// ── FASE 1: trasporto proxy ────────────────────────────────────────────────
+// ── Trasporto proxy (unico trasporto dal 18 lug 2026, P66c) ───────────────
 // AI_PROXY_URL usa SUPA_URL (const top-level già definita): riferita solo a
 // runtime, quindi nessun problema d'ordine di dichiarazione.
 function _aiProxyUrl(){ return SUPA_URL + '/functions/v1/ai-proxy'; }
-
-// Kill-switch di rollback: localStorage.setItem('aiProxyDisabled','1')
-// riporta TUTTE le chiamate al trasporto diretto legacy, senza redeploy.
-function _aiProxyDisabled(){
-  try{ return localStorage.getItem('aiProxyDisabled') === '1'; }catch(e){ return false; }
-}
 
 // Token per il proxy: access_token della sessione se valido (margine 60s),
 // altrimenti tentativo di refresh col refresh_token (sessione o "resta

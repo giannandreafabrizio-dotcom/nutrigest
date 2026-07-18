@@ -48,6 +48,15 @@ Dopo ogni modifica, Claude passa in rassegna TUTTI questi file e aggiorna quelli
 
 Il blocco commit di consegna include il codice E i file documentali aggiornati, elencati esplicitamente. Una consegna senza CHANGELOG aggiornato è una consegna incompleta.
 
+## Checklist di chiusura/avanzamento voce (obbligatoria)
+Quando una voce di roadmap si chiude o avanza di fase, aggiornare NELL'ORDINE:
+1. **CHANGELOG.md** — nuova voce in cima con il racconto completo (unico posto per la storia).
+2. **NutriGest_Roadmap_v4.md** — SOLO la SCHEDA della voce (stato, data, commit); se chiusa del tutto, spostare la scheda nell'archivio in fondo. Nessun altro punto del file va toccato: dal 18 lug 2026 non esistono più riepiloghi di stato duplicati (il riepilogo di testa è stato spostato nel CHANGELOG e i Blocchi A-D sono congelati come storico).
+3. **NutriGest_Contesto_v18.txt** — SOLO se cambia il funzionamento dell'app (trasporti, tabelle, autenticazione, flussi).
+4. **INDEX.md** — SOLO se funzioni aggiunte/rimosse/rinominate.
+5. **Roadmap semplice** (progetto Claude) — rigenerata a fine sessione in formato "solo cosa resta".
+6. **Verifica incrociata finale** — cercare il numero della voce (es. "P66c") in tutti e 4 i file del repo: nessuno deve dire una cosa superata. Se un file fuori perimetro risulta stantio, si corregge nella stessa sessione.
+
 ## Ottimizzazione token — INDEX.md
 Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero prima di ogni modifica è costoso in token e va evitato.
 - **`INDEX.md`** (nella cartella del progetto) mappa ~673 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
