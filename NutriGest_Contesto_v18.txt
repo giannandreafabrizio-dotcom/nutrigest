@@ -1504,6 +1504,17 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
     calcolaTDEEOsservato, _renderTDEEOsservatoHtml (prima di
     renderStoricoTDEE). Il pulsante "Usa come TDEE" è rimandato di proposito
     a quando Fabrizio si sarà fatto l'occhio sui pazienti reali.
+  TEF DINAMICO (P114 passo 6, 19 lug 2026 — SOLO INFORMATIVO):
+    `_tefDinamico(protG,carbG,grassiG,tdee)` in calcolaMacros. Il modello TDEE
+    usa un TEF fisso al 10% (dieta mista di mantenimento); questo box mostra il
+    TEF EFFETTIVO della dieta prescritta = media pesata sui kcal dei macro
+    (proteine 25% · carboidrati 7,5% · grassi 2% dell'energia). TDEE corretto =
+    (tdee/1.10)×(1+tefFrac). Box grigio accanto agli avvisi keto/proteine: TEF%
+    sempre, e se |Δ|≥15 kcal anche il TDEE reale a quella composizione con nota
+    contestuale (grassi ≥55% → "TEF basso"; proteine ≥30% → "TEF alto").
+    NON agganciato al target: eviterebbe la circolarità target→macro→TEF→target
+    (2ª iterazione <5 kcal, effetto 40-80 kcal nel rumore della stima → loop non
+    giustificato). Effetto tipico: keto VLCKD ~−47 kcal, iperproteica ~+55.
   Strategia dieta (selettore separato, indipendente dallo slider): Standard /
   Keto moderata / Keto aggressiva — la chetogenica non è un livello di
   deficit ma una distribuzione macro, ora può coesistere con qualsiasi %.

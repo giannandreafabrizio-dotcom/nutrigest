@@ -10,6 +10,35 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+19 LUGLIO 2026 (4) — P114 PASSO 6: TEF DINAMICO (INFORMATIVO). Sessione
+Fable 5 (effort alto), baseline `212d230`.
+DECISIONE DI PROGETTO (la parte "difficile" del passo): il TEF dinamico
+NON è agganciato al calcolo del target, per non creare la circolarità
+target→macro→TEF→target. Numericamente la 2ª iterazione sposterebbe il
+risultato di <5 kcal (contrazione forte: solo il macro "riempitivo"
+varia), ma l'effetto totale del TEF dinamico è 40-80 kcal, nel rumore
+della stima: introdurre il loop nella catena slider/salvataggio sarebbe
+rischio senza valore. Coerente con la linea prudente dei passi 3/4:
+si mostra il numero, non si costruisce il loop.
+COSA È STATO AGGIUNTO (index.html):
+- `_tefDinamico(protG, carbG, grassiG, tdee)` (accanto a
+  `_avvisoProteineDeficit`): TEF effettivo = media pesata sui kcal dei
+  macro (proteine 25%, carboidrati 7,5%, grassi 2% dell'energia — valori
+  medi di letteratura); TDEE corretto = (tdee/1.10)×(1+tefFrac), dove
+  tdee/1.10 è la base metabolica implicita nel modello a TEF 10% fisso.
+  Torna anche protPct/grassiPct per contestualizzare. Null se intake<=0
+  o tdee assente.
+- In `calcolaMacros`: box informativo (grigio, accanto agli avvisi keto/
+  proteine) con TEF% della dieta; se |Δ|≥15 kcal mostra anche il TDEE
+  reale a quella composizione, con nota "dieta ricca di grassi, TEF
+  basso" (grassi ≥55% en.) o "alta quota proteica, TEF alto" (prot ≥30%).
+  Dichiarazione fissa: informativo, non modifica il target.
+NESSUN CALCOLO/SALVATAGGIO MODIFICATO: funzione a sola lettura.
+VERIFICHE: matematica su 8 diete campione (keto VLCKD −47 kcal come
+previsto · iperproteica +55 · bilanciata 18%prot −24 · PSMF +49 · mista
+~10% Δ≈0) + guardie null (intake 0, tdee null) + node --check + 63/63.
+NB roadmap: P114 ora ha chiusi i passi 1,3,4,6. Restano 2,5,7,8,9.
+
 19 LUGLIO 2026 (3) — P114 PASSO 4: TDEE OSSERVATO (PRIMA RELEASE, SOLO
 INFORMATIVO). Sessione Fable 5 (effort alto), baseline `5ea2d2c`.
 METODO VALIDATO PRIMA DI SCRIVERE CODICE APP: prototipo isolato eseguito

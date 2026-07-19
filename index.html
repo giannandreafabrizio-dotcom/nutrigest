@@ -9643,6 +9643,18 @@ function calcolaMacros(){
   }
   // P114 passo 3: guardia proteine minime su FFM in deficit marcato
   const _protWarnHtml = _avvisoProteineDeficit(protG, ffm, kcalObj, tdee, _isKetoCM);
+  // P114 passo 6: TEF dinamico della dieta prescritta (informativo)
+  const _tef = _tefDinamico(protG, carbG, grassiG, tdee);
+  let _tefHtml='';
+  if(_tef){
+    let _tefExtra='';
+    if(Math.abs(_tef.delta)>=15){
+      const _verso=_tef.delta<0?'inferiore':'superiore';
+      const _perche=_tef.grassiPct>=55?' — dieta ricca di grassi, TEF basso':_tef.protPct>=30?' — alta quota proteica, TEF alto':'';
+      _tefExtra=' → TDEE reale a questa composizione ~<strong>'+_tef.tdeeCorretto+' kcal</strong> ('+_verso+' di '+Math.abs(_tef.delta)+' kcal'+_perche+')';
+    }
+    _tefHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.72rem;color:var(--text2)">🔥 TEF di questa dieta: <strong>'+_tef.pct+'%</strong> <span style="color:var(--text3)">(il modello ne assume 10%)</span>'+_tefExtra+'<div style="font-size:.62rem;color:var(--text3);margin-top:.25rem;font-style:italic">Informativo — non modifica il target. Costo digestivo medio: proteine ~25%, carboidrati ~7,5%, grassi ~2% dell\'energia.</div></div>';
+  }
   document.getElementById('mac-result').innerHTML=`
     <div class="macro-result">
       <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
@@ -9654,7 +9666,7 @@ function calcolaMacros(){
         <div class="macro-item"${_isKetoCM?' style="background:#fffbeb;border-color:#fcd34d"':''}><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${_isKetoCM?('tetto keto · '+kcalCarb+' kcal'):((carbG/ref).toFixed(1)+' g/kg · '+kcalCarb+' kcal')}</div></div>
         <div class="macro-item"${_isKetoCM?' style="background:#f0fdf4;border-color:#86efac"':''}><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:${refColor}">${_isKetoCM?('= resto · '+(grassiG/ref).toFixed(1)+' g/kg · '+kcalGrassi+' kcal'):(grassi+' g/kg · '+kcalGrassi+' kcal')}</div></div>
         <div class="macro-item"><div class="macro-lbl">Totale kcal</div><div class="macro-val" style="font-size:.9rem">${kcalObj}</div><div style="font-size:.62rem;color:var(--text3)">Obiettivo giornaliero</div></div>
-      </div>${_ketoWarnHtml}${_protWarnHtml}
+      </div>${_ketoWarnHtml}${_protWarnHtml}${_tefHtml}
       ${(()=>{
         if(obj===0)return '<div style="margin-top:.8rem;padding:.6rem .9rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text2)"><strong>Normocalorico</strong> — nessuna variazione di peso prevista. Obiettivo: mantenimento della composizione corporea attuale.</div>';
         const kgSett=Math.round(Math.abs(obj)/7700*7*100)/100;
@@ -9852,6 +9864,28 @@ function _avvisoProteineDeficit(protG, ffm, kcalObj, tdee, isKeto){
     if(protFFM<1.8) return box('#fffbeb','#fcd34d','#92400e','Deficit '+Math.round(deficitPct)+'% con proteine '+val+': ai limiti bassi. Per proteggere la massa magra in deficit marcato il range indicato è 1,8–2,4 g/kg FFM.');
   }
   return '';
+}
+
+// ── P114 passo 6 — TEF DINAMICO (INFORMATIVO, 19 lug 2026) ──────────────────
+// Il TEF reale dipende dalla composizione della dieta: proteine ~25% dell'energia
+// che apportano, carboidrati ~7,5%, grassi ~2% (valori medi di letteratura). Il
+// modello TDEE usa un 10% fisso (assunzione: dieta mista di mantenimento). Questa
+// funzione calcola il TEF EFFETTIVO della dieta prescritta e il TDEE che ne
+// deriverebbe, SOLO per mostrarlo — non rientra nel calcolo del target.
+// PERCHÉ SOLO INFORMATIVO (scelta 19 lug 2026): agganciarlo al target creerebbe
+// una circolarità — il target userebbe il TDEE corretto → cambierebbero i grammi
+// dei macro → cambierebbe il TEF → cambierebbe il TDEE. Numericamente la seconda
+// iterazione sposta il risultato di <5 kcal, ma introdurre il loop nella catena
+// slider/salvataggio è rischio senza valore clinico (l'effetto è 40-80 kcal, nel
+// rumore della stima). Si mostra il numero, non si costruisce il loop.
+function _tefDinamico(protG, carbG, grassiG, tdee){
+  var pK=(+protG||0)*4, cK=(+carbG||0)*4, fK=(+grassiG||0)*9;
+  var intake=pK+cK+fK;
+  if(intake<=0 || !tdee) return null;
+  var tefFrac=(0.25*pK + 0.075*cK + 0.02*fK)/intake; // media pesata sui kcal dei macro
+  var tdeeCorretto=Math.round((tdee/1.10)*(1+tefFrac)); // tdee/1.10 = base metabolica implicita nel modello (TEF 10%)
+  return {pct:+(tefFrac*100).toFixed(1), tdeeCorretto:tdeeCorretto, delta:tdeeCorretto-Math.round(tdee),
+          protPct:Math.round(pK/intake*100), grassiPct:Math.round(fK/intake*100)};
 }
 
 // ── P-KETO: gradi delle diete chetogeniche strutturate (VLCKD protocollo AME/SIE:
