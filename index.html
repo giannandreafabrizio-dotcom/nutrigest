@@ -9641,6 +9641,8 @@ function calcolaMacros(){
     else if(carbG>50) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:.75rem;color:#92400e">⚠ Tetto carboidrati '+carbG+' g/die: sopra la soglia chetogenica (20–50 g/die) — il paziente potrebbe non entrare in chetosi.</div>';
     else if(carbG<20) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:.75rem;color:#92400e">Tetto carboidrati '+carbG+' g/die: molto restrittivo (range consigliato 20–50 g/die).</div>';
   }
+  // P114 passo 3: guardia proteine minime su FFM in deficit marcato
+  const _protWarnHtml = _avvisoProteineDeficit(protG, ffm, kcalObj, tdee, _isKetoCM);
   document.getElementById('mac-result').innerHTML=`
     <div class="macro-result">
       <div style="font-size:.78rem;color:var(--teal2);font-weight:600;margin-bottom:.5rem">
@@ -9652,7 +9654,7 @@ function calcolaMacros(){
         <div class="macro-item"${_isKetoCM?' style="background:#fffbeb;border-color:#fcd34d"':''}><div class="macro-lbl">Carboidrati</div><div class="macro-val">${carbG}g</div><div style="font-size:.62rem;color:var(--text3)">${_isKetoCM?('tetto keto · '+kcalCarb+' kcal'):((carbG/ref).toFixed(1)+' g/kg · '+kcalCarb+' kcal')}</div></div>
         <div class="macro-item"${_isKetoCM?' style="background:#f0fdf4;border-color:#86efac"':''}><div class="macro-lbl">Grassi</div><div class="macro-val">${grassiG}g</div><div style="font-size:.62rem;color:${refColor}">${_isKetoCM?('= resto · '+(grassiG/ref).toFixed(1)+' g/kg · '+kcalGrassi+' kcal'):(grassi+' g/kg · '+kcalGrassi+' kcal')}</div></div>
         <div class="macro-item"><div class="macro-lbl">Totale kcal</div><div class="macro-val" style="font-size:.9rem">${kcalObj}</div><div style="font-size:.62rem;color:var(--text3)">Obiettivo giornaliero</div></div>
-      </div>${_ketoWarnHtml}
+      </div>${_ketoWarnHtml}${_protWarnHtml}
       ${(()=>{
         if(obj===0)return '<div style="margin-top:.8rem;padding:.6rem .9rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.78rem;color:var(--text2)"><strong>Normocalorico</strong> — nessuna variazione di peso prevista. Obiettivo: mantenimento della composizione corporea attuale.</div>';
         const kgSett=Math.round(Math.abs(obj)/7700*7*100)/100;
@@ -9804,6 +9806,10 @@ function _aggiornaRegimeSlider(origine){
     else tgtEl.textContent=(offKcal>=0?'+':'')+offKcal+' kcal · TDEE n/d';
   }
   if(warnEl){
+    // P114 passo 3: il surplus va valutato sulla % EFFETTIVA (offKcal/TDEE), non su
+    // `pct` che lo slider cappa a +25 — digitando le kcal a mano si supera il cap
+    // (il campo kcal non viene riscritto quando origine==='kcal').
+    var _pctEff = tdee ? (offKcal/tdee*100) : null;
     if(tdee&&mb&&(tdee+offKcal)<mb){
       if(_isKetoSl){
         // P-KETO: in cheto stare sotto il MB è previsto dal protocollo (VLCKD/LCKD),
@@ -9812,11 +9818,40 @@ function _aggiornaRegimeSlider(origine){
       } else {
         warnEl.innerHTML='<span style="color:#c0392b">⚠ Target '+(tdee+offKcal)+' kcal sotto il metabolismo basale ('+mb+' kcal) — sconsigliato</span>';
       }
+    } else if(_pctEff!=null && _pctEff>25){
+      warnEl.innerHTML='<span style="color:#c0392b">⚠ Surplus +'+Math.round(_pctEff)+'% (+'+Math.round(offKcal)+' kcal): oltre il +20–25% la quota in eccesso va in gran parte a massa grassa, non a massa magra. Per una crescita muscolare un surplus di +10–20% è di norma sufficiente.</span>';
     } else if(!absMode&&pct<=-25&&!_isKetoSl){
       warnEl.innerHTML='<span style="color:#B8860B">Deficit aggressivo: adatto solo a fasi brevi e monitorate</span>';
     } else warnEl.textContent='';
   }
   if(_isKetoSl && typeof _renderKetoZoneMap==='function') _renderKetoZoneMap(); // muove il marker sulla riga
+}
+
+// ── P114 passo 3: guardia proteine minime in deficit ──────────────────────────
+// In deficit marcato il rischio clinico non è la percentuale in sé, ma perdere
+// massa magra insieme al grasso: la protezione è la quota proteica. La soglia si
+// valuta SEMPRE su g/kg di FFM (massa magra InBody), qualunque sia il riferimento
+// scelto nel pannello (FFM / Peso ideale / Peso corporeo), perché è l'unico
+// denominatore fisiologicamente confrontabile. Senza FFM non si avvisa (niente
+// falsi allarmi). In keto i protocolli hanno proteine già validate (ADI/AME):
+// scatta solo una soglia di sicurezza bassa, se l'utente le abbassa a mano.
+function _avvisoProteineDeficit(protG, ffm, kcalObj, tdee, isKeto){
+  if(!protG||!ffm||!tdee||ffm<=0) return '';
+  var protFFM = protG/ffm;
+  var deficitPct = (kcalObj-tdee)/tdee*100;
+  var box=function(bg,bord,col,txt){
+    return '<div style="margin-top:.6rem;padding:.5rem .8rem;background:'+bg+';border:1px solid '+bord+';border-radius:8px;font-size:.75rem;color:'+col+'">'+txt+'</div>';
+  };
+  var val=protFFM.toFixed(1)+' g/kg FFM ('+protG+' g su '+ffm+' kg di massa magra)';
+  if(isKeto){
+    if(protFFM<1.2) return box('#fef2f2','#fca5a5','#b91c1c','⚠ Proteine '+val+': sotto la soglia di sicurezza anche per un protocollo chetogenico. I protocolli prevedono 1,3–2,0 g/kg — verifica il valore impostato.');
+    return '';
+  }
+  if(deficitPct<=-20){
+    if(protFFM<1.5) return box('#fef2f2','#fca5a5','#b91c1c','⚠ Deficit '+Math.round(deficitPct)+'% con proteine '+val+': rischio concreto di perdita di massa magra. In deficit marcato la letteratura indica 1,8–2,4 g/kg FFM per preservare il muscolo.');
+    if(protFFM<1.8) return box('#fffbeb','#fcd34d','#92400e','Deficit '+Math.round(deficitPct)+'% con proteine '+val+': ai limiti bassi. Per proteggere la massa magra in deficit marcato il range indicato è 1,8–2,4 g/kg FFM.');
+  }
+  return '';
 }
 
 // ── P-KETO: gradi delle diete chetogeniche strutturate (VLCKD protocollo AME/SIE:

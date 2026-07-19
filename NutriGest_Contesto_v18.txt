@@ -1471,6 +1471,20 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
   TDEE 2800, pesante su un TDEE 1600).
   Soglia di sicurezza: il metabolismo basale del paziente (non più un limite
   fisso) — avviso se il target scende sotto l'MB misurato.
+  Guardrail (P114 passo 3, 19 lug 2026) — priorità: sotto-MB > surplus >
+    deficit, un solo avviso alla volta nello slider:
+    - Sotto MB: rosso in standard; in keto informativo (previsto da protocollo).
+    - Surplus: rosso oltre +25% calcolato sulla percentuale EFFETTIVA
+      (offKcal/TDEE) e non su quella dello slider — lo slider cappa a +25%, ma
+      digitando le kcal a mano il cap si supera perché il campo kcal non viene
+      riscritto quando l'origine è 'kcal' (FIX-REGIME).
+    - Deficit ≤−25%: arancione, invariato.
+    - Proteine minime (`_avvisoProteineDeficit`, mostrata nel box mac-result
+      accanto agli avvisi keto): soglia valutata SEMPRE su g/kg di FFM InBody
+      qualunque sia il riferimento scelto (FFM/Peso ideale/Peso corporeo).
+      Standard con deficit ≤−20%: <1,5 g/kg FFM rosso · <1,8 arancione.
+      Keto: solo soglia di sicurezza <1,2 (i protocolli ADI/AME hanno proteine
+      già validate). Senza FFM o TDEE non avvisa (niente falsi allarmi).
   Strategia dieta (selettore separato, indipendente dallo slider): Standard /
   Keto moderata / Keto aggressiva — la chetogenica non è un livello di
   deficit ma una distribuzione macro, ora può coesistere con qualsiasi %.

@@ -10,6 +10,38 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+19 LUGLIO 2026 (2) — P114 PASSO 3: GUARDRAIL SURPLUS + PROTEINE MINIME.
+Sessione Fable 5 (effort alto), baseline `e791a62` (post-NEAT).
+COSA È CAMBIATO (index.html):
+- `_aggiornaRegimeSlider` (~r9806): nuovo avviso SURPLUS. Valutato sulla
+  percentuale EFFETTIVA (`offKcal/tdee`), non su `pct`: lo slider cappa a
+  +25% ma digitando le kcal a mano il cap si supera, perché il campo kcal
+  non viene riscritto quando `origine==='kcal'` (comportamento voluto da
+  FIX-REGIME). Sopra +25% effettivo: avviso rosso sulla quota che va in
+  massa grassa. Priorità invariata: sotto-MB > surplus > deficit.
+- NUOVA `_avvisoProteineDeficit(protG, ffm, kcalObj, tdee, isKeto)`
+  (~r9822, accanto a `_gradoKeto`): la soglia si valuta SEMPRE su g/kg di
+  FFM InBody qualunque sia il riferimento scelto nel pannello (FFM/Peso
+  ideale/Peso corporeo), perché è l'unico denominatore confrontabile.
+  STANDARD, deficit ≤−20%: <1,5 g/kg FFM rosso · <1,8 arancione.
+  KETO: solo soglia di sicurezza <1,2 g/kg FFM (i protocolli ADI/AME
+  hanno proteine già validate — evita falsi allarmi su VLCKD).
+  Senza FFM/TDEE non avvisa: silenzio invece di falso allarme.
+- Agganciata in `calcolaMacros`: `_protWarnHtml` accanto a `_ketoWarnHtml`
+  nel box `mac-result`.
+NESSUN CALCOLO ESISTENTE MODIFICATO: solo avvisi aggiuntivi, i macro e il
+TDEE restano identici.
+VERIFICHE: test logico dedicato dell'avviso proteine (10 casi: soglie,
+bordo −20%, keto, dati mancanti ffm/protG/tdee/ffm=0) + test della
+priorità dei warning slider (9 scenari) + node --check + 63/63 verdi.
+RILEVATO E NON TOCCATO (da decidere con Fabrizio): il box previsione
+dimagrimento in `calcolaMacros` (~r9656-9699) usa la regola 7700 kcal/kg
+in forma LINEARE e proietta una data di arrivo ("arrivo indicativo: gg
+mes aaaa"). La linearità sovrastima sistematicamente oltre le 4-6
+settimane perché ignora il calo del dispendio col peso. Candidato a
+diventare P114 passo 9 (range invece di data secca) — non modificato
+senza decisione clinica di Fabrizio.
+
 19 LUGLIO 2026 — NEAT CONTINUO (PRIMO PASSO NUOVA VOCE P114 — REVISIONE
 MOTORE TDEE). Sessione Fable 5 (effort alto), baseline `5b9d15e`.
 Origine: revisione critica delle 11 proposte ChatGPT sul motore TDEE.
