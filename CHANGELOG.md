@@ -10,6 +10,45 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+19 LUGLIO 2026 (3) — P114 PASSO 4: TDEE OSSERVATO (PRIMA RELEASE, SOLO
+INFORMATIVO). Sessione Fable 5 (effort alto), baseline `5ea2d2c`.
+METODO VALIDATO PRIMA DI SCRIVERE CODICE APP: prototipo isolato eseguito
+su 6 pazienti simulati; confronto V1 (formula 7700 kcal/kg secca su
+tutto il periodo) vs V2 (scarto dei primi 14 giorni = fase acqua/
+glicogeno). V1 gonfia sistematicamente il TDEE di chi cala molto nelle
+prime settimane (attribuisce l'acqua all'energia); scelta V2 con
+Fabrizio. Configurazione approvata: V2 · riquadro informativo · NESSUN
+aggancio ai calcoli (prima ci si fa l'occhio sui pazienti reali).
+COSA È STATO AGGIUNTO (index.html, prima di `renderStoricoTDEE`):
+- `_serieePesoOss(p)`: serie peso ordinata da p.inbody[] + 
+  p.pesiIntermedi[], dedup per data (vince l'InBody), guardia su date
+  malformate (isNaN su Date).
+- `_kcalMediaPrescrittaOss(p,d0,d1)`: kcal media PESATA SUI GIORNI dai
+  target di p.macrosStorico[] (ogni slot vale dal suo timestamp al
+  successivo) — gestisce i cambi di target a metà percorso.
+- `calcolaTDEEOsservato(p)`: TDEE = kcalMedie − Δpeso×7700/giorni sul
+  SOLO tratto stabilizzato. Guardie (tutte testate): <2 pesate valide ·
+  <2 pesate dopo lo scarto dei 14 gg · tratto stabilizzato <21 gg ·
+  nessun target nel tratto · copertura target <60% · |Δpeso|>2 kg/sett
+  (probabile pesata anomala; una VLCKD reale a 1.1-1.6 kg/sett passa) ·
+  risultato fuori 600-6000 kcal. Ogni rifiuto ha un motivo leggibile.
+- `_renderTDEEOsservatoHtml(p)`: riquadro viola sotto lo storico TDEE
+  con: TDEE osservato, confronto col TDEE stimato (verde ≤8% · ambra
+  ≤15% · rosso oltre), dettaglio pesate/periodo/kcal medie, e due
+  avvertenze fisse: "informativo — non entra nei calcoli" e "presuppone
+  aderenza al piano". Se non calcolabile e il paziente ha ≥2 pesate:
+  riga grigia col motivo (il professionista sa cosa manca); paziente
+  senza dati: nessun riquadro.
+- Aggancio: `renderStoricoTDEE` appende il riquadro in entrambi i rami
+  (storico presente/vuoto).
+NESSUNA MODIFICA a calcoli, slider, salvataggi: funzione a sola lettura.
+VERIFICHE: 10 casi funzionali sulle funzioni REALI estratte dal file
+(regressione col prototipo: identici) + 3 casi sulla guardia velocità +
+node --check + test-suite 63/63 verdi.
+PROSSIMO (differito di proposito): pulsante "Usa come TDEE" che inietta
+l'osservato nel calcolo — solo dopo che Fabrizio si è fatto l'occhio
+sull'affidabilità coi pazienti reali.
+
 19 LUGLIO 2026 (2) — P114 PASSO 3: GUARDRAIL SURPLUS + PROTEINE MINIME.
 Sessione Fable 5 (effort alto), baseline `e791a62` (post-NEAT).
 COSA È CAMBIATO (index.html):

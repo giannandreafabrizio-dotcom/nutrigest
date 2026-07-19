@@ -10290,10 +10290,110 @@ function ricalcolaLAF(){
   notif('LAF aggiornato');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P114 passo 4 — TDEE OSSERVATO (prima release: SOLO INFORMATIVO, 19 lug 2026)
+// Confronta il calo/aumento di peso REALE con le kcal prescritte nel periodo e
+// ricava il TDEE effettivo del paziente. Prudenza incorporata:
+// - scarta i primi 14 giorni (fase acqua/glicogeno: attribuire quel peso
+//   all'energia gonfierebbe la stima — validato su casi simulati 19 lug 2026);
+// - richiede >=21 giorni STABILIZZATI (quindi ~5 settimane totali) e >=2 pesate;
+// - richiede un target kcal salvato che copra >=60% del tratto;
+// - NON tocca nessun calcolo: nessun aggancio a slider/macros (decisione
+//   Fabrizio 19 lug 2026 — prima ci si fa l'occhio sui pazienti reali).
+// ═══════════════════════════════════════════════════════════════════════════
+const _TDEE_OSS_K_PER_KG = 7700;   // kcal per kg di tessuto adiposo (approssimazione)
+const _TDEE_OSS_GIORNI_ACQUA = 14; // fase iniziale scartata
+
+// Serie peso ordinata: InBody + pesate intermedie, dedup per data (vince InBody).
+function _serieePesoOss(p){
+  const punti=[];
+  (p.inbody||[]).forEach(function(ib){
+    if(ib.data && ib.peso!=null && !isNaN(new Date(ib.data).getTime())) punti.push({data:ib.data, peso:+ib.peso, fonte:"inbody"});
+  });
+  (p.pesiIntermedi||[]).forEach(function(pi){
+    if(pi.data && pi.peso!=null && !isNaN(new Date(pi.data).getTime())) punti.push({data:pi.data, peso:+pi.peso, fonte:"intermedio"});
+  });
+  const perData={};
+  punti.forEach(function(pt){ if(!perData[pt.data] || pt.fonte==="inbody") perData[pt.data]=pt; });
+  return Object.values(perData).sort(function(a,b){return a.data.localeCompare(b.data);});
+}
+
+// kcal media prescritta nella finestra [d0,d1]: ogni slot di macrosStorico vale
+// dal suo timestamp fino allo slot successivo; media pesata sui giorni coperti.
+function _kcalMediaPrescrittaOss(p, d0, d1){
+  const slot=(p.macrosStorico||[]).filter(function(s){return s.kcal>0 && s.timestamp;}).slice().sort(function(a,b){return a.timestamp-b.timestamp;});
+  if(!slot.length) return null;
+  const t0=new Date(d0+"T00:00:00").getTime();
+  const t1=new Date(d1+"T00:00:00").getTime();
+  if(!(t1>t0)) return null;
+  let kcalGiorni=0, giorniCoperti=0;
+  for(let i=0;i<slot.length;i++){
+    const a=Math.max(slot[i].timestamp, t0);
+    const b=Math.min(i+1<slot.length?slot[i+1].timestamp:t1, t1);
+    if(b>a){ const gg=(b-a)/864e5; kcalGiorni+=slot[i].kcal*gg; giorniCoperti+=gg; }
+  }
+  if(giorniCoperti<=0) return null;
+  return {kcalMedia:kcalGiorni/giorniCoperti, coperturaGiorni:giorniCoperti};
+}
+
+function calcolaTDEEOsservato(p){
+  const tutta=_serieePesoOss(p);
+  if(tutta.length<2) return {ok:false, motivo:"Servono almeno 2 pesate con data (InBody o pesata intermedia)."};
+  const t0tot=new Date(tutta[0].data).getTime();
+  const serie=tutta.filter(function(pt){ return (new Date(pt.data).getTime()-t0tot)/864e5 >= _TDEE_OSS_GIORNI_ACQUA; });
+  if(serie.length<2) return {ok:false, motivo:"Scartati i primi "+_TDEE_OSS_GIORNI_ACQUA+" giorni (fase acqua/glicogeno) restano meno di 2 pesate: servono pesate distribuite nel tempo."};
+  const primo=serie[0], ultimo=serie[serie.length-1];
+  const giorni=(new Date(ultimo.data)-new Date(primo.data))/864e5;
+  if(giorni<21) return {ok:false, motivo:"Tratto stabilizzato di soli "+Math.round(giorni)+" giorni (minimo 21): continua a registrare pesate."};
+  const km=_kcalMediaPrescrittaOss(p, primo.data, ultimo.data);
+  if(!km) return {ok:false, motivo:"Nessun target kcal salvato che copra il tratto stabilizzato."};
+  const coperturaPct=km.coperturaGiorni/giorni*100;
+  if(coperturaPct<60) return {ok:false, motivo:"Il target kcal salvato copre solo il "+Math.round(coperturaPct)+"% del tratto: dati troppo frammentari."};
+  const deltaPeso=ultimo.peso-primo.peso;
+  const kgSettAbs=Math.abs(deltaPeso/giorni*7);
+  if(kgSettAbs>2) return {ok:false, motivo:"Variazione di "+(deltaPeso>0?"+":"")+(deltaPeso/giorni*7).toFixed(1)+" kg/settimana nel tratto stabilizzato: fuori da qualsiasi protocollo — probabile pesata anomala o dato errato, verifica lo storico pesi."};
+  const tdeeOss=Math.round(km.kcalMedia - deltaPeso*_TDEE_OSS_K_PER_KG/giorni);
+  if(!(tdeeOss>600 && tdeeOss<6000)) return {ok:false, motivo:"Risultato fuori range fisiologico ("+tdeeOss+" kcal): probabile pesata anomala o target non rispecchiante l'assunzione reale."};
+  return {ok:true, tdeeOss:tdeeOss, kcalMedia:Math.round(km.kcalMedia),
+    deltaPeso:+deltaPeso.toFixed(1), giorni:Math.round(giorni),
+    kgSett:+(deltaPeso/giorni*7).toFixed(2), dal:primo.data, al:ultimo.data,
+    nPunti:serie.length, coperturaPct:Math.round(coperturaPct)};
+}
+
+// Riquadro informativo sotto lo storico TDEE. Non contiene azioni: solo numeri.
+function _renderTDEEOsservatoHtml(p){
+  const r=calcolaTDEEOsservato(p);
+  const fmtD=function(iso){ const d=new Date(iso); return d.getDate()+"/"+(d.getMonth()+1)+"/"+d.getFullYear(); };
+  if(!r.ok){
+    // mostra il motivo solo se il paziente ha già almeno 2 pesate (dati in accumulo):
+    // per pazienti nuovi/vuoti il riquadro non compare affatto.
+    if(_serieePesoOss(p).length>=2){
+      return '<div style="margin-top:.8rem;padding:.55rem .8rem;background:var(--bg2);border:1px dashed var(--border);border-radius:8px;font-size:.7rem;color:var(--text3)">📈 TDEE osservato: non ancora calcolabile — '+r.motivo+'</div>';
+    }
+    return '';
+  }
+  const ct=calcolaTDEE(p);
+  const stimato=ct&&ct.tdee?ct.tdee:null;
+  let confronto='';
+  if(stimato){
+    const delta=r.tdeeOss-stimato;
+    const deltaPct=Math.round(delta/stimato*100);
+    const col=Math.abs(deltaPct)<=8?'#0F6E56':Math.abs(deltaPct)<=15?'#B8860B':'#c0392b';
+    const giudizio=Math.abs(deltaPct)<=8?'in linea con la stima':Math.abs(deltaPct)<=15?'scarto moderato dalla stima':'scarto importante dalla stima';
+    confronto='<div style="font-size:.72rem;color:'+col+';margin-top:.25rem;font-weight:600">vs TDEE stimato '+stimato+' kcal: '+(delta>=0?'+':'')+delta+' kcal ('+(deltaPct>=0?'+':'')+deltaPct+'%) — '+giudizio+'</div>';
+  }
+  return '<div style="margin-top:.8rem;padding:.7rem .9rem;background:#F5F0FB;border:1.5px solid #C9B3E8;border-radius:8px">'
+    +'<div style="font-size:.8rem;font-weight:700;color:#5B3E8C">📈 TDEE osservato: '+r.tdeeOss+' kcal <span style="font-weight:400;font-size:.66rem;color:var(--text3)">(informativo — non entra nei calcoli)</span></div>'
+    +confronto
+    +'<div style="font-size:.68rem;color:var(--text2);margin-top:.3rem">Dal peso reale: '+(r.deltaPeso>0?'+':'')+r.deltaPeso+' kg in '+r.giorni+' giorni stabilizzati ('+(r.kgSett>0?'+':'')+r.kgSett+' kg/sett) a '+r.kcalMedia+' kcal medie prescritte · '+r.nPunti+' pesate dal '+fmtD(r.dal)+' al '+fmtD(r.al)+'</div>'
+    +'<div style="font-size:.62rem;color:var(--text3);margin-top:.25rem;font-style:italic">Prime 2 settimane escluse (acqua/glicogeno). Presuppone aderenza al piano: se il paziente non lo segue, il numero riflette ciò che mangia davvero, non il metabolismo.</div>'
+    +'</div>';
+}
+
 function renderStoricoTDEE(p){
   const box=document.getElementById('mac-storico-box');if(!box)return;
   const storico=(p.macrosStorico||[]).slice().reverse(); // più recente prima
-  if(!storico.length){box.innerHTML='';return;}
+  if(!storico.length){box.innerHTML=_renderTDEEOsservatoHtml(p);return;}
   const fmt=ts=>{
     const d=new Date(ts);
     return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
@@ -10320,6 +10420,7 @@ function renderStoricoTDEE(p){
     </div>`;
   });
   html+='</div>';
+  html+=_renderTDEEOsservatoHtml(p); // P114 passo 4 — riquadro informativo
   box.innerHTML=html;
 }
 

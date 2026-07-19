@@ -1485,6 +1485,25 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
       Standard con deficit ≤−20%: <1,5 g/kg FFM rosso · <1,8 arancione.
       Keto: solo soglia di sicurezza <1,2 (i protocolli ADI/AME hanno proteine
       già validate). Senza FFM o TDEE non avvisa (niente falsi allarmi).
+  TDEE OSSERVATO (P114 passo 4, 19 lug 2026 — SOLO INFORMATIVO):
+    riquadro viola sotto lo storico TDEE, appeso da renderStoricoTDEE.
+    Confronta il Δpeso reale (serie da p.inbody[] + p.pesiIntermedi[], dedup
+    per data con precedenza InBody) con le kcal medie prescritte (media pesata
+    sui giorni dagli slot di p.macrosStorico[]): TDEE = kcalMedie −
+    Δpeso×7700/giorni, calcolato SOLO sul tratto stabilizzato (scartati i
+    primi 14 giorni = fase acqua/glicogeno, che gonfierebbe la stima).
+    Guardie che rifiutano il calcolo con motivo leggibile: <2 pesate valide ·
+    <2 pesate dopo lo scarto · tratto stabilizzato <21 gg · nessun target
+    kcal nel tratto · copertura target <60% · |Δpeso|>2 kg/sett (pesata
+    anomala; le VLCKD reali ~1.1-1.6 kg/sett passano) · risultato fuori
+    600-6000 kcal. Il riquadro mostra il confronto col TDEE stimato a
+    semaforo (scarto ≤8% verde · ≤15% ambra · oltre rosso) e due avvertenze
+    fisse: non entra in nessun calcolo, e presuppone aderenza al piano (se il
+    paziente non lo segue, il numero riflette l'assunzione reale, non il
+    metabolismo). Funzioni: _serieePesoOss, _kcalMediaPrescrittaOss,
+    calcolaTDEEOsservato, _renderTDEEOsservatoHtml (prima di
+    renderStoricoTDEE). Il pulsante "Usa come TDEE" è rimandato di proposito
+    a quando Fabrizio si sarà fatto l'occhio sui pazienti reali.
   Strategia dieta (selettore separato, indipendente dallo slider): Standard /
   Keto moderata / Keto aggressiva — la chetogenica non è un livello di
   deficit ma una distribuzione macro, ora può coesistere con qualsiasi %.
