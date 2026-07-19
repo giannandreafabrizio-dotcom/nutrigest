@@ -10,6 +10,31 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+19 LUGLIO 2026 — NEAT CONTINUO (PRIMO PASSO NUOVA VOCE P114 — REVISIONE
+MOTORE TDEE). Sessione Fable 5 (effort alto), baseline `5b9d15e`.
+Origine: revisione critica delle 11 proposte ChatGPT sul motore TDEE.
+Verificato sul codice che cronotipo e orario allenamento NON entrano nel
+calcolo (premessa #8/#9 errata); individuato nel NEAT a fasce il punto
+più grezzo del motore (termine da 0.15-0.50×MB con salti di fascia:
+7499→0.25 vs 7500→0.35 = +150 kcal per 1 passo).
+COSA È CAMBIATO (index.html, `_neatFrazione` ~r10460):
+- La frazione NEAT ora è una curva CONTINUA: interpolazione lineare tra
+  ancore poste sui CENTRI delle vecchie 4 fasce — (2000, 0.15) (5750,
+  0.25) (8750, 0.35) (12000, 0.50), con pavimento ≤2000 e tetto ≥12000.
+- Scala complessiva invariata; sparisce l'effetto scalino. Il tetto 0.50
+  si raggiunge gradualmente a 12000 passi (prima: di colpo a 10000).
+- Guardia input rinforzata: null E NaN → 0.15 (prima solo null).
+- Nuova costante `_NEAT_ANCORE` accanto alla funzione.
+EFFETTO SUI PAZIENTI: i TDEE ricalcolati live cambiano di ~50-140 kcal
+vicino ai vecchi bordi di fascia (es. 4000 passi: −70 su MB 1500; 10000
+passi: −138). I `macrosTarget` GIÀ SALVATI restano intatti (snapshot).
+VERIFICHE: test numerico dedicato (monotonia su 0-16000 passi, salto max
+0.001/passo, casi null/NaN/bordi) + node --check sul blocco script +
+test-suite completa 63/63 verdi.
+DOCUMENTAZIONE: nuova voce P114 in Roadmap v4 (piano completo revisione
+TDEE, questo è il passo 1); sezione STILE NUTRIZIONALE del Contesto
+aggiornata con la nuova formula NEAT.
+
 18 LUGLIO 2026 — P66c CHIUSA (CHIAVE AI SOLO SERVER-SIDE) + NUOVA
 PROCEDURA DOCUMENTAZIONE + PULIZIA POST-P66c + NUOVA VOCE P113.
 Sessione Cowork con Fabrizio (Opus per P66c, Fable per indagine e

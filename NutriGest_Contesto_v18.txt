@@ -1430,8 +1430,12 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
   MET−1 (non il MET pieno): 1 MET = riposo, già contato nel MB — evita il
     doppio conteggio che affliggeva il vecchio modello PAL (NEAT+EAT sommati
     su base già "attiva").
-  NEAT: frazione del MB calibrata sui passi/giorno — <4000→15% | <7500→25% |
-    <10000→35% | ≥10000→50%.
+  NEAT: frazione del MB calibrata sui passi/giorno — dal 19 lug 2026 (P114
+    passo 1) curva CONTINUA: interpolazione lineare tra ancore `_NEAT_ANCORE`
+    poste sui centri delle vecchie fasce — (2000, 15%) (5750, 25%) (8750, 35%)
+    (12000, 50%), pavimento 15% sotto i 2000 passi, tetto 50% da 12000 in su.
+    Passi null/NaN → 15%. (Prima: 4 fasce a scalino <4000→15% | <7500→25% |
+    <10000→35% | ≥10000→50%, con salti fino a +150 kcal per 1 passo al bordo.)
   EAT: richiede peso e ore effettive di allenamento/giorno (settimanali/7).
     Ore effettive da due possibili fonti:
     - Sedute/settimana + Minuti effettivi/seduta (NUOVO, priorità se compilati) —

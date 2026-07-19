@@ -144,6 +144,20 @@
 **Soluzione:** una sola funzione di rinnovo con "lucchetto" anti-concorrenza (chi arriva mentre un rinnovo è già in corso ne attende l'esito invece di lanciarne un altro); le altre diventano involucri sottili; buffer unificato a 120s.
 **SCHEDA:** Stato: Da fare · Priorità: Media (sale ad Alta se compaiono errori "sessione non valida" durante l'uso AI) · Categoria: Robustezza/Auth · Dipendenze: nessuna (post P66c) · Modello: Fable piano, Sonnet esecuzione · Autonomia: L1 con test verdi prima/dopo · Origine: indagine del 18 lug 2026.
 
+### P114 — Revisione motore TDEE (da revisione critica proposte ChatGPT, 19 lug 2026)
+**Descrizione:** piano di miglioramento del motore TDEE nato dall'analisi critica di 11 proposte esterne, filtrate sul codice reale. Scartate: database MET a 150-200 voci (le 28 attuali + griglia coprono tutto), previsione perdita peso a data-obiettivo (regola 7000 kcal/kg falsa oltre 4-6 settimane), cambio formula MB (Katch-McArdle su FFM InBody è già la scelta corretta; più formule alternative = pseudo-precisione senza criterio di scelta), correttore fisso di adattamento metabolico (variabilità individuale troppo alta — sostituito dal TDEE osservato, passo 4). Verificato che cronotipo e orario allenamento NON entrano nel TDEE (già solo metadati: le proposte #8/#9 partivano da premessa errata).
+**Passi in ordine di priorità:**
+1. ✅ **NEAT continuo** (19 lug 2026): interpolazione lineare tra ancore sui centri delle vecchie 4 fasce — eliminato l'effetto scalino (+150 kcal per 1 passo al bordo 7500). Test numerico dedicato + 63/63.
+2. **Modificatore lavoro nel NEAT** — solo per la quota NON ambulatoria (stare in piedi, carichi) e SOLO quando i passi mancano o sono auto-dichiarati: con passi misurati da smartwatch il lavoro in piedi è già dentro il conteggio (rischio doppio conteggio).
+3. **Guardrail aggiuntivi** — avviso surplus >25% (deficit e sotto-MB già coperti) + controllo proteine minime g/kg FFM in deficit spinto.
+4. **TDEE osservato** — ricalibrazione empirica ai controlli: confronto calo peso atteso vs reale su ≥3 settimane → TDEE corretto del paziente, mostrato al professionista prima di applicarlo. Sostituisce ogni correttore teorico di adattamento metabolico.
+5. **Indice di affidabilità della stima** (🔴🟡🟢 in base ai dati disponibili) + TDEE mostrato come intervallo, ganci già presenti in `calcolaTDEE` (campo `metodo`).
+6. **TEF dinamico dai macro** — utile soprattutto in keto dove il 10% fisso sovrastima di 40-80 kcal; una sola iterazione (attenzione alla circolarità kcal→macro→TEF).
+7. **Cross-check Mifflin-St Jeor come guardia** — NON come formula alternativa: bandierina se diverge >15% dal MB InBody (becca OCR sbagliati, valori digitati storti, misure in condizioni errate). Si aggancia al passo 5.
+8. **Orario allenamento nel contesto AI** — oggi raccolto ma mai passato all'AI (il cronotipo sì): aggiunta di una riga in `ctx` per abilitare suggerimenti pre/post-workout. Nessun effetto sul calcolo.
+**FOCUS COMPONENTI COINVOLTI:** Motore TDEE (righe ~9056-9607 e ~10448-10555), contesto AI (passo 8). Zero modifiche a dati salvati: i `macrosTarget` sono snapshot e non vengono ricalcolati.
+**SCHEDA:** Stato: **In corso** (passo 1 ✅ 19 lug 2026) · Priorità: Media · Categoria: Motore clinico · Dipendenze: nessuna · Modello: Fable/Opus (High) per formule e guardrail clinici, Sonnet (Media) per il passo 8 · Autonomia: L1 con test verdi prima/dopo · Origine: revisione critica proposte ChatGPT, 19 lug 2026.
+
 ### P67 — Pacchetto GDPR ⭐
 **L'APPROCCIO ORIGINARIO:** consenso versionato, informativa, registro trattamenti, DPA/ruoli Supabase, residency UE, retention, export/oblio, valutare DPIA.
 **LA CRITICA DEL CTO:** elenco giusto ma indistinto: mescola 30 minuti di verifica, modellazione dati, e deliverable legali che Claude non deve inventare. E ignora un dato imbarazzante già agli atti: **i backup CSV in chiaro sul Desktop (protocollo P29/P30) sono essi stessi un trattamento non protetto**.
