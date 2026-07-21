@@ -9366,6 +9366,9 @@ function renderPdMacros(p){
     </div>
   </div>
   <div id="mac-keto-chips" style="display:none;margin-bottom:.6rem"></div>
+  <div id="mac-keto-uscita-btn" style="display:none;margin-bottom:.6rem">
+    <button type="button" class="btn btn-g btn-sm" onclick="_apriModaleUscitaKeto()">🔄 Uscita graduale dalla chetosi</button>
+  </div>
   <div id="mac-keto-suggest" style="display:none;margin-bottom:.6rem"></div>
   <div id="mac-psmf-banner" style="display:none;margin-bottom:.6rem;padding:.55rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.74rem;color:#b91c1c;line-height:1.35"></div>
   <div id="mac-peso-rif-box"></div>
@@ -9637,7 +9640,9 @@ function calcolaMacros(){
   // P-KETO: avvisi di protocollo (lipidi minimi 15 g/die · soglia chetogenica carbo 20–50 g/die)
   let _ketoWarnHtml='';
   if(_isKetoCM){
+    const _kuAttiva=_macrosPaziente&&_macrosPaziente.ketoUscita&&_macrosPaziente.ketoUscita.attiva?_macrosPaziente.ketoUscita:null;
     if(grassiG<15) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.75rem;color:#b91c1c">⚠ Lipidi risultanti '+grassiG+' g/die: sotto il minimo di protocollo (15–30 g/die). Aumenta le kcal obiettivo o riduci le proteine.</div>';
+    else if(carbG>50&&_kuAttiva) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;font-size:.75rem;color:#0f766e">🔄 <strong>Uscita graduale attiva — '+_kuAttiva.label+'</strong>: carboidrati '+carbG+' g/die sopra la soglia chetogenica DI PROPOSITO (reintroduzione controllata). Termina il percorso dalla modale Uscita graduale quando il paziente passa a Bilanciata.</div>';
     else if(carbG>50) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:.75rem;color:#92400e">⚠ Tetto carboidrati '+carbG+' g/die: sopra la soglia chetogenica (20–50 g/die) — il paziente potrebbe non entrare in chetosi.</div>';
     else if(carbG<20) _ketoWarnHtml='<div style="margin-top:.6rem;padding:.5rem .8rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:.75rem;color:#92400e">Tetto carboidrati '+carbG+' g/die: molto restrittivo (range consigliato 20–50 g/die).</div>';
   }
@@ -10183,6 +10188,176 @@ function _applicaProtocolloSuggerito(key){
   _renderSuggerimentoKeto(false);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P-KETO-USCITA — USCITA GRADUALE DALLA CHETOSI (fase 3 conduzione ADI 2014,
+// logica clinica di Fabrizio, 21 lug 2026). Pannello MANUALE, non automatico:
+// il nutrizionista decide durata e contenuto di ogni step (settimana); la
+// modale precompila le grammature standard scalate sul TDEE del paziente
+// (riferimento: 40g pane per TDEE ~2000) e calcola carbo totali + kcal.
+// I grassi restano fissi a ~1 g/kg FFM: impostando le kcal obiettivo come
+// somma prot+carbo+grassi, il motore keto esistente (grassi = resto) li
+// riproduce esattamente senza modifiche alla matematica di calcolaMacros.
+// Lo step viene salvato su p.ketoUscita e letto da: _componiRegimeText
+// (etichetta), calcolaMacros (guardia >50g), generatore (blocco prompt).
+// ═══════════════════════════════════════════════════════════════════════════
+const _KU_FONTI={
+  'pane':   {label:'Pane integrale',            cho:45, base:40,  step:5},
+  'patate': {label:'Patate',                    cho:18, base:150, step:25},
+  'cereali':{label:'Riso / pasta / farro int.', cho:65, base:60,  step:5}
+};
+const _KU_FRUTTA={
+  'meta2':  {label:'2 mezzi frutti (pranzo e cena)', cho:15},
+  'interi2':{label:'2 frutti interi',                cho:30},
+  'no':     {label:'Nessuna frutta',                 cho:0}
+};
+const _KU_CHO_BASE_VERDURE=10; // quota carbo residua di verdure e alimenti accessori
+
+function _kuFattoreScala(){
+  var tdee=window._tdeeRegime;
+  if(!tdee) return 1;
+  return Math.max(0.7, Math.min(1.6, tdee/2000));
+}
+function _kuRound(v,step){ return Math.max(step, Math.round(v/step)*step); }
+
+// riferimento proteine corrente del pannello (stessa logica di calcolaMacros)
+function _kuRefProteine(){
+  var p=_macrosPaziente; if(!p) return null;
+  var lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
+  var ffm=lastIb&&lastIb.m?parseFloat(lastIb.m):null;
+  var ideale=lastIb&&lastIb.pesoIdeale?parseFloat(lastIb.pesoIdeale):null;
+  var peso=lastIb&&lastIb.peso?parseFloat(lastIb.peso):(p.peso?parseFloat(p.peso):null);
+  var sel=(document.querySelector('input[name="mac-ref"]:checked')||{value:'ffm'}).value;
+  var val=sel==='ffm'?ffm:sel==='ideale'?ideale:peso;
+  return {val:val||peso, ffm:ffm, peso:peso};
+}
+
+function _apriModaleUscitaKeto(){
+  var p=_macrosPaziente;
+  if(!p){ notif('⚠ Nessun paziente aperto'); return; }
+  if(!window._tdeeRegime){ notif('⚠ TDEE non disponibile — clicca prima Ricalcola LAF'); return; }
+  if(document.getElementById('ku-overlay')) return;
+  var f=_kuFattoreScala();
+  var ku=p.ketoUscita&&p.ketoUscita.attiva?p.ketoUscita:null;
+  // precompilato: step salvato se esiste, altrimenti standard scalati (settimana 1)
+  var vLabel=ku?ku.label:'Settimana 1';
+  var vFonte=ku?ku.fonte:'pane';
+  var vFonteG=ku?ku.fonteG:_kuRound(_KU_FONTI['pane'].base*f,_KU_FONTI['pane'].step);
+  var vColG=ku?ku.colazioneG:0;
+  var vFrutta=ku?ku.frutta:'meta2';
+  var vGrassi=ku&&ku.grassiGkgFfm?ku.grassiGkgFfm:1.0;
+  var protCur=(document.getElementById('mac-prot')||{}).value||'';
+  var fonteOpts=Object.keys(_KU_FONTI).map(function(k){
+    return '<option value="'+k+'"'+(k===vFonte?' selected':'')+'>'+_KU_FONTI[k].label+'</option>';
+  }).join('');
+  var fruttaOpts=Object.keys(_KU_FRUTTA).map(function(k){
+    return '<option value="'+k+'"'+(k===vFrutta?' selected':'')+'>'+_KU_FRUTTA[k].label+'</option>';
+  }).join('');
+  var modal=document.createElement('div');
+  modal.className='overlay open';
+  modal.id='ku-overlay';
+  modal.innerHTML='<div class="modal" style="width:560px;max-width:94vw;max-height:88vh;overflow-y:auto">'
+    +'<h3 style="margin:0 0 .3rem">🔄 Uscita graduale dalla chetosi</h3>'
+    +'<div style="font-size:.74rem;color:var(--text2);margin-bottom:.8rem;line-height:1.4">Reintroduzione manuale dei carboidrati, uno step alla volta. Le grammature proposte sono scalate sul TDEE del paziente ('+Math.round(window._tdeeRegime)+' kcal, fattore '+f.toFixed(2)+') — modificale liberamente. Fonte carbo da assumere una volta al giorno, preferibilmente vicino ad allenamento o camminata.</div>'
+    +'<div class="fg" style="margin-bottom:.7rem"><label>Nome dello step</label><input type="text" id="ku-label" value="'+String(vLabel).replace(/"/g,'&quot;')+'" placeholder="es. Settimana 1"></div>'
+    +'<div class="fr" style="margin-bottom:.7rem">'
+    +'<div class="fg" style="margin:0"><label>Fonte carbo principale (1 porzione/die)</label><select id="ku-fonte" onchange="_kuCambioFonte()">'+fonteOpts+'</select></div>'
+    +'<div class="fg" style="margin:0;max-width:130px"><label>Grammi/die</label><input type="number" id="ku-fonte-g" value="'+vFonteG+'" step="5" oninput="_kuAggiornaRiepilogo()"></div>'
+    +'</div>'
+    +'<div class="fr" style="margin-bottom:.7rem">'
+    +'<div class="fg" style="margin:0"><label>Frutta</label><select id="ku-frutta" onchange="_kuAggiornaRiepilogo()">'+fruttaOpts+'</select></div>'
+    +'<div class="fg" style="margin:0;max-width:180px"><label>Colazione glucidica (g carbo)</label><input type="number" id="ku-col-g" value="'+vColG+'" step="5" min="0" oninput="_kuAggiornaRiepilogo()"><div style="font-size:.62rem;color:var(--text3);margin-top:2px">20 ≈ 2 fette biscottate o 2 biscotti</div></div>'
+    +'</div>'
+    +'<div class="fr" style="margin-bottom:.7rem">'
+    +'<div class="fg" style="margin:0"><label>Grassi (g/kg FFM)</label><input type="number" id="ku-grassi" value="'+vGrassi+'" step="0.1" oninput="_kuAggiornaRiepilogo()"><div style="font-size:.62rem;color:var(--text3);margin-top:2px">stabili durante tutta la reintroduzione</div></div>'
+    +'<div class="fg" style="margin:0"><label>Proteine (g/kg — a tua discrezione)</label><input type="number" id="ku-prot" value="'+protCur+'" step="0.1" oninput="_kuAggiornaRiepilogo()"><div style="font-size:.62rem;color:var(--text3);margin-top:2px">riferimento: quello selezionato nel pannello</div></div>'
+    +'</div>'
+    +'<div id="ku-riepilogo" style="margin-bottom:.8rem"></div>'
+    +'<div class="mf" style="display:flex;gap:.5rem;flex-wrap:wrap">'
+    +'<button class="btn btn-p" style="flex:1" onclick="_applicaUscitaKeto()">✓ Applica step al pannello</button>'
+    +(p.ketoUscita&&p.ketoUscita.attiva?'<button class="btn btn-r" onclick="_disattivaUscitaKeto()">Termina uscita</button>':'')
+    +'<button class="btn btn-g" onclick="_chiudiModaleUscitaKeto()">Annulla</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+  _kuAggiornaRiepilogo();
+}
+function _chiudiModaleUscitaKeto(){ var m=document.getElementById('ku-overlay'); if(m) m.remove(); }
+
+// cambio fonte: propone la grammatura standard scalata della nuova fonte
+function _kuCambioFonte(){
+  var k=(document.getElementById('ku-fonte')||{}).value||'pane';
+  var el=document.getElementById('ku-fonte-g');
+  if(el&&_KU_FONTI[k]) el.value=_kuRound(_KU_FONTI[k].base*_kuFattoreScala(),_KU_FONTI[k].step);
+  _kuAggiornaRiepilogo();
+}
+
+// calcolo vivo dello step: carbo totali + kcal stimate
+function _kuCalcolaStep(){
+  var gv=function(id,d){ var el=document.getElementById(id); var v=el?parseFloat(el.value):NaN; return isNaN(v)?d:v; };
+  var fonte=(document.getElementById('ku-fonte')||{}).value||'pane';
+  var fonteG=gv('ku-fonte-g',0);
+  var colG=Math.max(0,gv('ku-col-g',0));
+  var frutta=(document.getElementById('ku-frutta')||{}).value||'meta2';
+  var grassiGkg=gv('ku-grassi',1.0);
+  var protGkg=gv('ku-prot',0);
+  var choFonte=Math.round(fonteG*(_KU_FONTI[fonte]?_KU_FONTI[fonte].cho:45)/100);
+  var choFrutta=_KU_FRUTTA[frutta]?_KU_FRUTTA[frutta].cho:0;
+  var carbTot=choFonte+choFrutta+colG+_KU_CHO_BASE_VERDURE;
+  var ref=_kuRefProteine();
+  var ffm=ref?ref.ffm:null;
+  var grassiG=ffm?Math.round(grassiGkg*ffm):null;
+  var protG=(ref&&ref.val&&protGkg)?Math.round(protGkg*ref.val):null;
+  var kcal=(grassiG!=null&&protG!=null)?(protG*4+carbTot*4+grassiG*9):null;
+  return {fonte:fonte,fonteG:fonteG,colG:colG,frutta:frutta,grassiGkg:grassiGkg,protGkg:protGkg,
+          choFonte:choFonte,choFrutta:choFrutta,carbTot:carbTot,grassiG:grassiG,protG:protG,kcal:kcal,ffm:ffm};
+}
+function _kuAggiornaRiepilogo(){
+  var box=document.getElementById('ku-riepilogo'); if(!box) return;
+  var s=_kuCalcolaStep();
+  var manca=[];
+  if(!s.ffm) manca.push('FFM non presente in InBody (serve per i grassi)');
+  if(!s.protG) manca.push('proteine g/kg non impostate');
+  var righe='<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:.15rem 0"><span>Carbo fonte principale ('+(_KU_FONTI[s.fonte]?_KU_FONTI[s.fonte].label:'')+' '+s.fonteG+'g)</span><strong>'+s.choFonte+' g</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:.15rem 0"><span>Frutta ('+(_KU_FRUTTA[s.frutta]?_KU_FRUTTA[s.frutta].label:'')+')</span><strong>'+s.choFrutta+' g</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:.15rem 0"><span>Colazione glucidica</span><strong>'+s.colG+' g</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:.15rem 0"><span>Verdure e accessori (quota base)</span><strong>'+_KU_CHO_BASE_VERDURE+' g</strong></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:.8rem;padding:.3rem 0;border-top:1px solid var(--border);margin-top:.2rem"><span><strong>Carboidrati totali</strong></span><strong style="color:#B45309">'+s.carbTot+' g/die</strong></div>'
+    +(s.kcal!=null
+      ?'<div style="display:flex;justify-content:space-between;font-size:.8rem;padding:.15rem 0"><span><strong>Kcal stimate</strong> (P '+s.protG+'g · C '+s.carbTot+'g · G '+s.grassiG+'g)</span><strong>'+s.kcal+' kcal</strong></div>'
+       +(window._tdeeRegime?'<div style="font-size:.68rem;color:var(--text3);padding:.1rem 0">TDEE '+Math.round(window._tdeeRegime)+' kcal → '+(s.kcal<window._tdeeRegime?'deficit di '+Math.round(window._tdeeRegime-s.kcal)+' kcal':'surplus di '+Math.round(s.kcal-window._tdeeRegime)+' kcal')+'</div>':'')
+      :'<div style="font-size:.72rem;color:#b91c1c;padding:.2rem 0">⚠ '+manca.join(' · ')+'</div>');
+  box.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.6rem .85rem">'+righe+'</div>';
+}
+
+// applica lo step: salva su p.ketoUscita + imposta pannello Macros (tetto carbo
+// nel campo mac-grassi, kcal obiettivo = P+C+G così i grassi "resto" = g/kg FFM)
+function _applicaUscitaKeto(){
+  var p=db.pazienti.find(function(x){return x.id===currentPazId;})||_macrosPaziente;
+  if(!p){ notif('⚠ Nessun paziente aperto'); return; }
+  var s=_kuCalcolaStep();
+  if(s.kcal==null){ notif('⚠ Completa i dati mancanti prima di applicare'); return; }
+  var label=((document.getElementById('ku-label')||{}).value||'').trim()||'Step uscita';
+  p.ketoUscita={attiva:true,label:label,fonte:s.fonte,fonteG:s.fonteG,colazioneG:s.colG,
+    frutta:s.frutta,grassiGkgFfm:s.grassiGkg,carbTot:s.carbTot,kcal:s.kcal,timestamp:Date.now()};
+  // pannello: tetto carbo (campo mac-grassi in keto) + proteine + kcal obiettivo
+  var inpG=document.getElementById('mac-grassi'); if(inpG) inpG.value=s.carbTot;
+  var inpP=document.getElementById('mac-prot'); if(inpP&&s.protGkg) inpP.value=s.protGkg;
+  var ke=document.getElementById('mac-off-kcal');
+  if(ke&&window._tdeeRegime){ ke.value=Math.round(s.kcal-window._tdeeRegime); _aggiornaRegimeSlider('kcal'); }
+  save(p.id);
+  _chiudiModaleUscitaKeto();
+  if(typeof calcolaMacros==='function') calcolaMacros();
+  notif('🔄 '+label+' applicato: '+s.carbTot+'g carbo · '+s.kcal+' kcal. Controlla i valori e premi Salva dati TDEE.');
+}
+
+// termina il percorso di uscita: lo step resta in memoria ma non più attivo
+function _disattivaUscitaKeto(){
+  var p=db.pazienti.find(function(x){return x.id===currentPazId;})||_macrosPaziente;
+  if(p&&p.ketoUscita){ p.ketoUscita.attiva=false; save(p.id); }
+  _chiudiModaleUscitaKeto();
+  _aggiornaRegimeSlider();
+  notif('✓ Uscita graduale terminata — il paziente può passare a Bilanciata/mantenimento (pausa a TDEE)');
+}
+
 // ── P-KETO: applica/rimuove la modalità chetogenica sul pannello macros ──
 // Opzione A (18 lug 2026): in keto il campo "Grassi (g/kg)" si TRASFORMA in
 // "Carboidrati (g/die)" = tetto keto modificabile; i grassi diventano il resto
@@ -10262,6 +10437,8 @@ function _applicaModalitaKeto(init){
   var sugBox=document.getElementById('mac-keto-suggest');
   if(sugBox && !keto){ sugBox.style.display='none'; sugBox.innerHTML=''; }
   else if(sugBox && keto){ _renderSuggerimentoKeto(false); }
+  var uscitaBtn=document.getElementById('mac-keto-uscita-btn');
+  if(uscitaBtn) uscitaBtn.style.display = keto ? 'block' : 'none';
 }
 function _presetRegime(pct){
   var pctEl=document.getElementById('mac-off-pct');
@@ -10677,7 +10854,16 @@ function _regimeOffset(p, tdee){
 function _componiRegimeText(pct, strategia){
   // P-KETO: per i protocolli chetogenici l'etichetta è il nome del protocollo,
   // sempre contenente "chetogen" così isCeto (generatore/validazione) lo riconosce.
-  if(typeof PROTOCOLLI_KETO!=='undefined' && PROTOCOLLI_KETO[strategia]) return 'Chetogenica '+PROTOCOLLI_KETO[strategia].label;
+  // P-KETO-USCITA: se il paziente è in uscita graduale, il suffisso lo rende
+  // visibile ovunque (pannello, PDF, storico) senza rompere il match "chetogen".
+  if(typeof PROTOCOLLI_KETO!=='undefined' && PROTOCOLLI_KETO[strategia]){
+    var _txtKeto='Chetogenica '+PROTOCOLLI_KETO[strategia].label;
+    try{
+      var _pKu=_macrosPaziente||db.pazienti.find(function(x){return x.id===currentPazId;});
+      if(_pKu&&_pKu.ketoUscita&&_pKu.ketoUscita.attiva&&_pKu.ketoUscita.label) _txtKeto+=' — Uscita: '+_pKu.ketoUscita.label;
+    }catch(e){}
+    return _txtKeto;
+  }
   if(strategia==='keto-aggressiva') return 'Chetogenico WLKD';
   if(strategia==='keto-moderata') return 'Chetogenico moderato';
   if(pct==null) return '';
@@ -12624,16 +12810,29 @@ function costruisciPrompt(pazienteId) {
   // target salvato dal medico; regole da position paper ADI 2014 + AME) ──
   var _pkPrompt=(typeof PROTOCOLLI_KETO!=='undefined'&&p.strategia&&PROTOCOLLI_KETO[p.strategia])?PROTOCOLLI_KETO[p.strategia]:null;
   var _tettoCarboPrompt=(carbG!==null&&carbG!==undefined)?carbG:(_pkPrompt?_pkPrompt.tetto:30);
+  // P-KETO-USCITA: step di reintroduzione carboidrati attivo sul paziente
+  var _kuGen=(p.ketoUscita&&p.ketoUscita.attiva)?p.ketoUscita:null;
   var ketoBlock='';
   if(isCeto){
     ketoBlock='\n\nPROTOCOLLO CHETOGENICO'+(_pkPrompt?(' — '+_pkPrompt.nome):'')+' — REGOLA ASSOLUTA, priorità su tutto il resto\n'
-      +'• Il vincolo è il BUDGET: carboidrati TOTALI giornalieri MAX '+_tettoCarboPrompt+' g/die (somma di TUTTI gli alimenti di tutti i pasti). NON è vietata una categoria di alimenti in sé — è vietato SFORARE il budget. Il paziente deve restare in chetosi.\n'
+      +'• Il vincolo è il BUDGET: carboidrati TOTALI giornalieri MAX '+_tettoCarboPrompt+' g/die (somma di TUTTI gli alimenti di tutti i pasti). NON è vietata una categoria di alimenti in sé — è vietato SFORARE il budget. '+(_kuGen?'Il paziente è in USCITA GRADUALE dalla chetosi (reintroduzione controllata dei carboidrati): NON deve più restare in chetosi, ma il budget resta vincolante.':'Il paziente deve restare in chetosi.')+'\n'
       +'• Cereali (pasta/pane/riso/farro/orzo/avena), legumi, patate e frutta sono AMMESSI solo se il loro contributo in carboidrati, sommato a quello di tutto il resto della giornata, non supera il tetto. In pratica: con un budget di '+_tettoCarboPrompt+'g/die è quasi sempre più facile spenderlo tutto in verdura+grassi che in un solo alimento amidaceo — quindi usa cereali/legumi/frutta SOLO in piccole porzioni occasionali e solo se resta ampio margine, mai come base ricorrente del pasto.\n'
       +'• Prima di aggiungere un alimento amidaceo/legume/frutta a una cella, calcola i suoi carboidrati e verifica che il totale del giorno resti ≤ '+_tettoCarboPrompt+'g. Se non c\'è margine, NON aggiungerlo: usa verdura o una fonte grassa al suo posto.\n'
       +'• NON generare una cella "carbo" (cat "ca") a ogni pasto per abitudine: solo se il budget del giorno lo consente davvero. Le fonti caloriche principali restano proteine e GRASSI (olio EVO, avocado, frutta secca, semi, olive)'+(p.strategia==='keto-mediterranea'?' — impronta MEDITERRANEA: privilegia olio EVO, pesce azzurro e frutta secca':'')+'.\n'
       +(p.strategia==='keto-psmf'?'• PSMF: priorità assoluta a proteine magre (petto di pollo/tacchino, pesce bianco, albumi, latticini magri); grassi al minimo indispensabile.\n':'')
       +'• Verdure — gruppo LIBERO (pochi carboidrati, anche oltre 200g): foglia verde, bietole, broccoli, cavolfiori, cavoli, cetrioli, cime di rapa, finocchi, peperoni verdi, ravanelli, radicchio, sedano, spinaci, zucchine. Gruppo A QUANTITÀ (più carboidrati, max 150g/pasto e da conteggiare nel budget): asparagi, carciofi, cavolini di Bruxelles, cipolle, fagiolini, melanzane, peperoni gialli/rossi, pomodori, porri, rape, zucca. Da EVITARE per l\'alto contenuto di amido (non vietate in assoluto, ma quasi sempre fuori budget): barbabietole, patate, carote cotte.\n'
+      +(_kuGen?'':'• Frutta e legumi in keto (regola di combinazione): porzione legumi ≈ 80g; nel giorno in cui compaiono legumi O latticini, la frutta di quel giorno è al massimo MEZZO frutto; nei giorni senza legumi né latticini puoi arrivare a UN frutto intero diviso in due metà (mezzo a pranzo, mezzo a cena) — sempre dentro il budget carboidrati.\n')
       +'• Nel campo "macros" di ogni giorno i carboidrati devono risultare ≤ '+_tettoCarboPrompt+'g: somma TUTTI gli alimenti (compresi cereali/legumi/frutta se usati) e verifica prima di chiudere il giorno.';
+    if(_kuGen){
+      var _kuFonteLbl={'pane':'pane integrale','patate':'patate','cereali':'riso, pasta o farro integrale'}[_kuGen.fonte]||_kuGen.fonte;
+      var _kuFruttaTxt=_kuGen.frutta==='meta2'?'2 MEZZI frutti al giorno: mezzo frutto a pranzo e mezzo frutto a cena':(_kuGen.frutta==='interi2'?'2 frutti INTERI al giorno (uno a pranzo, uno a cena o come spuntino)':'NESSUNA frutta in questo step');
+      ketoBlock+='\n\nREINTRODUZIONE CARBOIDRATI — '+(_kuGen.label||'step attivo')+' (uscita graduale dalla chetosi, istruzioni VINCOLANTI)\n'
+        +'• Ogni giorno UNA porzione di '+_kuFonteLbl+' da '+_kuGen.fonteG+'g: collocala nel pasto più vicino ad allenamento o camminata (usa i giorni/orari di allenamento del paziente se noti), altrimenti a pranzo.\n'
+        +'• Frutta: '+_kuFruttaTxt+'.\n'
+        +(_kuGen.colazioneG?'• Colazione: quota glucidica di circa '+_kuGen.colazioneG+'g di carboidrati (es. 2 fette biscottate integrali o 2 biscotti secchi, o pane integrale equivalente).\n':'• Colazione: ancora SENZA quota glucidica (niente pane, fette biscottate o biscotti a colazione in questo step).\n')
+        +'• NESSUN altro alimento amidaceo oltre a quelli indicati sopra: il resto della giornata resta impostato come chetogenico (verdure, proteine, grassi) e il totale carboidrati del giorno deve restare ≈ '+_tettoCarboPrompt+'g.\n'
+        +'• In uscita i 3 gruppi di verdure keto restano un riferimento ma NON un vincolo rigido, e la scelta del tipo di frutta è libera: conta il totale carboidrati del giorno.';
+    }
   }
 
   return `Sei un nutrizionista clinico esperto italiano. Genera un piano alimentare settimanale personalizzato.

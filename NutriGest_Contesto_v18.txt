@@ -1545,6 +1545,45 @@ CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c2
   target con etichette ON/OFF solo cosmetiche sui nomi giorno (causa reale
   del bug P34, vedi STORICO SESSIONI E COMMIT).
 
+MOTORE CHETOGENICO (P-KETO, 18 lug 2026 — commit 2ea9705…5b9d15e):
+  Toggle Bilanciata/Chetogenica nel pannello Macros (select nascosto
+  mac-strategia resta la fonte di verità). In keto il calcolo si INVERTE
+  (paper ADI 2014): il campo grassi diventa "Carboidrati g/die — tetto",
+  i grassi chiudono il bilancio kcal come "resto". 5 protocolli in
+  PROTOCOLLI_KETO (PSMF/VLCKD/LCKD/Mediterranea/WKD — chiavi legacy
+  keto-aggressiva=VLCKD, keto-moderata=LCKD per compat dati) con chip,
+  zone-map kcal sul TDEE del paziente e suggeritore automatico
+  (_analisiSuggeritoreKeto: blocchi assoluti ADI Tabella I + cut-off BMI
+  + modificatori). p.regime contiene sempre "Chetogenica <label>" →
+  isCeto del generatore lo riconosce (7 giorni, blocco PROTOCOLLO
+  CHETOGENICO nel prompt con vincolo carboidrati a BUDGET, non divieto
+  categorico). Storia completa: CHANGELOG 18 lug 2026.
+
+USCITA GRADUALE DALLA CHETOSI (P-KETO-USCITA, 21 lug 2026):
+  Fase 3 della conduzione ADI, gestione MANUALE (scelta di Fabrizio: la
+  durata e il contenuto di ogni step li decide lui caso per caso, niente
+  fasi automatiche). Pulsante "Uscita graduale" nel pannello Macros
+  (solo in keto) → modale (_apriModaleUscitaKeto): etichetta step,
+  fonte carbo 1x/die (pane int./patate/riso-pasta-farro int.) con
+  grammi, colazione glucidica (g carbo), frutta (2 mezzi / 2 interi /
+  niente), grassi g/kg FFM (default 1.0, stabili per tutta l'uscita),
+  proteine libere. Precompilato scalato sul TDEE (rif. 40g pane per
+  TDEE 2000, clamp 0.7-1.6). Applica → salva p.ketoUscita {attiva,
+  label, fonte, fonteG, colazioneG, frutta, grassiGkgFfm} e imposta il
+  pannello: tetto carbo nel campo mac-grassi e kcal obiettivo = P+C+G,
+  così il motore keto esistente (grassi = resto) riproduce il g/kg FFM
+  senza modifiche alla matematica. Con uscita attiva: etichetta regime
+  con suffisso " — Uscita: <label>" (match "chetogen" conservato),
+  guardia carbo>50g di calcolaMacros → box informativo (non warning),
+  prompt generatore con blocco REINTRODUZIONE CARBOIDRATI (istruzioni
+  alimentari vincolanti dello step: fonte vicino ad allenamento/
+  camminata, frutta, colazione, nessun altro amidaceo). "Termina
+  uscita" → attiva=false, passaggio a Bilanciata manuale (pausa
+  metabolica a TDEE, eventuale nuovo deficit dopo 2-4 mesi).
+  REGOLA FRUTTA/LEGUMI keto normale (nel prompt, non in uscita):
+  porzione legumi ≈80g; giorno con legumi o latticini → max mezzo
+  frutto; giorno senza → un frutto intero in due metà.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCHEMA STORICO (pre 4 luglio 2026, superato dal motore MET additivo sopra)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

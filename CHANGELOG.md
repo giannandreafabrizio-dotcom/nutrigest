@@ -10,6 +10,64 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+21 LUGLIO 2026 — P-KETO-USCITA: USCITA GRADUALE DALLA CHETOSI (MODALE
+MANUALE + BLOCCO REINTRODUZIONE NEL GENERATORE) + REGOLA FRUTTA/LEGUMI
+IN KETO NORMALE. Avanza P47 (parte "reintroduzione carbo a step").
+Sessione Cowork con Fabrizio (Fable). Baseline `5b9d15e`,
+riallineata in sessione a `9bb9fd3` (P114 passi 1-6 pushati in parallelo;
+merge pulito su index.html, conflitto solo in CHANGELOG, risolto).
+
+COSA: era l'unico pezzo mancante della conduzione ADI (fase 3, pag. 41).
+DECISIONE DI DESIGN (il punto importante da ricordare): NON è un
+automatismo a fasi precalcolate. Fabrizio ha descritto la sua pratica
+reale (sett.1: pane int. 40g O patate 150g 1x/die vicino ad allenamento/
+camminata + 2 mezzi frutti; sett.2: frutti interi; sett.3: +20g carbo a
+colazione; sett.4+: pane 60→80g o pasta/riso/farro 60g, +30g colazione)
+e ha chiesto gestione MANUALE caso per caso: durata e contenuto li
+decide lui. Quindi: modale di lavoro, non motore automatico.
+
+- MODALE "🔄 Uscita graduale" (pulsante nel pannello Macros, solo in
+  modalità keto): etichetta step libera, fonte carbo (pane/patate/
+  riso-pasta-farro int.) con grammi, colazione glucidica (g carbo),
+  frutta a 3 stati (2 mezzi / 2 interi / niente), grassi g/kg FFM
+  (default 1.0, stabili per tutta l'uscita — scelta di Fabrizio),
+  proteine libere. Precompilato scalato sul TDEE (rif. 40g pane per
+  TDEE 2000, clamp 0.7–1.6, arrotondo a passo: pane 5g, patate 25g).
+- TRUCCO CHIAVE (zero modifiche alla matematica del motore): kcal
+  obiettivo = P+C+G(g/kg FFM); il motore keto esistente calcola i
+  grassi come "resto" → riproduce esattamente il g/kg FFM voluto.
+- Step salvato su p.ketoUscita {attiva,label,fonte,fonteG,colazioneG,
+  frutta,grassiGkgFfm,...}; "Termina uscita" mette attiva=false.
+- _componiRegimeText: suffisso " — Uscita: <label>" (contiene sempre
+  "chetogen" → isCeto/7giorni/filtri ricette invariati).
+- calcolaMacros: la guardia carbo>50g diventa box informativo teal
+  ("di proposito") quando l'uscita è attiva; resta warning altrimenti.
+- costruisciPrompt: con uscita attiva il blocco keto dice "NON deve più
+  restare in chetosi, ma il budget resta vincolante" + nuovo blocco
+  REINTRODUZIONE CARBOIDRATI con le istruzioni alimentari dello step
+  (fonte 1x/die vicino ad allenamento, frutta, colazione, nessun altro
+  amidaceo; 3 gruppi verdure → riferimento non rigido in uscita).
+  PERCHÉ: senza il blocco nel prompt l'AI distribuirebbe i carbo a modo
+  suo — i numeri non bastano, servono le istruzioni alimentari.
+- REGOLA FRUTTA/LEGUMI in keto NORMALE (pratica di Fabrizio, assente
+  dai protocolli pubblicati): porzione legumi ≈80g; giorno con legumi
+  O latticini → max mezzo frutto; giorno senza → un frutto intero in
+  due metà. Nel prompt keto standard; sostituita dallo step in uscita.
+
+TEST: suite 63→68 (nuovo test/s2-keto-uscita.test.js: scala TDEE,
+matematica step, suffisso etichetta, prompt con/senza uscita). Sintassi
+script verificata. LEZIONE HARNESS (per i prossimi test): db/
+currentPazId/_macrosPaziente sono `let` top-level → NON raggiungibili
+come win.* da jsdom; il setup deve passare da win.eval() nel contesto
+globale, altrimenti i test falliscono in modo ingannevole (16 falsi
+negativi in sessione prima della correzione dell'harness).
+
+RESTA APERTO (non in questo giro): auto-proposta del passaggio a
+Bilanciata/mantenimento a TDEE a fine uscita ("pausa metabolica",
+eventuale nuovo deficit dopo 2-4 mesi — per ora passaggio manuale);
+preset semaforo verdure keto; auto-allegato concetto educativo keto;
+bonifica p.cheto/p.chetoNote.
+
 19 LUGLIO 2026 (4) — P114 PASSO 6: TEF DINAMICO (INFORMATIVO). Sessione
 Fable 5 (effort alto), baseline `212d230`.
 DECISIONE DI PROGETTO (la parte "difficile" del passo): il TEF dinamico
