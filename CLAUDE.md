@@ -30,6 +30,8 @@ GitHub `main` è la fonte di verità per TUTTO (codice + documentazione: `index.
 3. Per `index.html`: sempre `node --check` sul blocco script; se la modifica tocca funzioni coperte dalla test-suite (`test-suite/`), eseguire anche i test.
 4. Consegnare SEMPRE i file via present_files (un blocco commit senza i file allegati non è una consegna).
 
+**Cartella `nutrigest` collegata in Cowork (dal 22 lug 2026):** Fabrizio tiene la cartella `Desktop\nutrigest` collegata in modo permanente all'app Claude (pulsante "Aggiungi cartella"). Quando la cartella risulta collegata via il bridge dispositivo (`mcp__remote-devices__*`), oltre a consegnare i file in chat con present_files, Claude li SALVA anche direttamente al posto giusto nella cartella dell'utente: `index.html` e i doc nella radice `nutrigest\`, i test in `test-suite\test\`. Così Fabrizio non deve spostarli a mano prima di committare. Restano invariate le regole di verifica (ricontrollo SHA, node --check, test, grep sul contenuto) prima del salvataggio. Se la cartella NON è collegata, Claude consegna solo in chat e lo segnala. Claude non esegue mai `git commit`/`push` al posto di Fabrizio: prepara i file e gli passa il comando.
+
 **Regole git non negoziabili:**
 - Mai `git add -A` o `git add .` nel blocco commit: sempre i file espliciti.
 - Mai suggerire `push --force` o varianti. Se il push viene rifiutato (non-fast-forward), il rimedio è: `git pull` e rieseguire — e se compare un conflitto, fermarsi e portare il problema a Claude, non risolverlo a mano.

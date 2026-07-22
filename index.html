@@ -5354,7 +5354,7 @@ function openNuovoPaz(){
 
   // Campi FUORI dal modal (sezione "Calcola Macronutrienti" della scheda paziente,
   // visibili sotto al modal): vanno azzerati esplicitamente, il selector sopra non li tocca.
-  ['p-obiettivo','p-integratori','p-int-vuole','p-dove','p-no-rinuncia','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-cheto-note','p-passi','p-ore-all','p-sedute','p-minuti-seduta','p-attivita-spec','p-orario-all-note','p-tipo-all','p-intens-all','p-orario-all','p-cronotipo','p-orario-pasto','p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-obiettivo','p-integratori','p-int-vuole','p-dove','p-no-rinuncia','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-cheto-note','p-passi','p-ore-all','p-sedute','p-minuti-seduta','p-attivita-spec','p-orario-all-note','p-tipo-all','p-intens-all','p-orario-all','p-fonte-passi','p-lavoro','p-cronotipo','p-orario-pasto','p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
   toggleOrarioNote();
 
@@ -5395,6 +5395,7 @@ function editPaz(){
   const ss2=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
   ss2('p-intens-all',p.intensitaAllenamento);ss2('p-tipo-all',p.tipoAllenamento);
   ss2('p-attivita-spec',p.attivitaSpecifica);
+  ss2('p-fonte-passi',p.fontePassi);ss2('p-lavoro',p.tipoLavoro);
   ss2('p-orario-all',p.orarioAllenamento);ss2('p-cronotipo',p.cronotipo);ss2('p-orario-pasto',p.orarioPastoPrincipale);
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=(p.giorniAllenamento||[]).includes(d.charAt(0).toUpperCase()+d.slice(1));});
   // A10: seleziona radio corretto — se non salvato, automatico (FFM se BMI>=25, peso altrimenti)
@@ -5983,6 +5984,7 @@ function salvaPaz(){
     crisi:g('p-crisi'),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
     seduteSettimana:gn('p-sedute'),minutiSeduta:gn('p-minuti-seduta'),attivitaSpecifica:gs('p-attivita-spec'),
+    fontePassi:gs('p-fonte-passi'),tipoLavoro:gs('p-lavoro'),
     intensitaAllenamento:gs('p-intens-all'),tipoAllenamento:gs('p-tipo-all'),
     orarioAllenamento:gs('p-orario-all'),orarioAllenamentoNote:g('p-orario-all-note'),
     giorniAllenamento:['lun','mar','mer','gio','ven','sab','dom'].filter(d=>{const el=document.getElementById('gall-'+d);return el&&el.checked;}).map(d=>d.charAt(0).toUpperCase()+d.slice(1)),
@@ -9236,6 +9238,26 @@ function renderPdMacros(p){
     <div class="fg"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 3-5 ore" min="0" step="0.5"></div>
   </div>
   <div class="fr3">
+    <div class="fg"><label>Fonte passi</label>
+      <select id="p-fonte-passi">
+        <option value="">— Non specificata —</option>
+        <option value="misurati">Misurati (smartwatch/telefono)</option>
+        <option value="stimati">Stimati a occhio</option>
+      </select>
+    </div>
+    <div class="fg"><label>Tipo di lavoro</label>
+      <select id="p-lavoro">
+        <option value="">— Non specificato —</option>
+        <option value="sedentario">Sedentario (scrivania)</option>
+        <option value="in-piedi">In piedi / in movimento</option>
+        <option value="pesante">Pesante (carichi)</option>
+      </select>
+    </div>
+    <div class="fg" style="display:flex;align-items:flex-end;margin:0">
+      <div style="font-size:.66rem;color:var(--text3);line-height:1.3">Il lavoro alza il NEAT solo se i passi <b>non</b> sono misurati (con lo smartwatch è già contato).</div>
+    </div>
+  </div>
+  <div class="fr3">
     <div class="fg"><label>Tipo allenamento</label>
       <select id="p-tipo-all">
         <option value="">— Non specificato —</option>
@@ -9332,12 +9354,13 @@ function renderPdMacros(p){
     </div>`;
   }
 
-  const {laf:lafCalc}=calcolaTDEE(p);
+  const _ct0=calcolaTDEE(p);
+  const lafCalc=_ct0.laf;
   const lafSource=p&&(p.passiGiornalieri||p.oreAllenamento)?'calcolato da passi e allenamento':'da selezione manuale (dati attività mancanti)';
   html+=`<div class="fr" style="margin-bottom:.8rem;align-items:flex-end">
     <div class="fg" style="flex:2">
       <label>Fattore attività (LAF)</label>
-      <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">LAF: <strong>${lafCalc?lafCalc.toFixed(3):'—'}</strong> · TDEE: <strong>${lafCalc&&mb?Math.round(mb*lafCalc)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>
+      <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">LAF: <strong>${lafCalc?lafCalc.toFixed(3):'—'}</strong> · TDEE: <strong>${lafCalc&&mb?Math.round(mb*lafCalc)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${lafSource}</span>${_affidabilitaHtml(_ct0)}
       </div>
     </div>
     <div class="fg" style="flex:1">
@@ -9515,6 +9538,8 @@ function renderPdMacros(p){
   _gs('p-tipo-all', p.tipoAllenamento);
   _gs('p-intens-all', p.intensitaAllenamento);
   _gs('p-attivita-spec', p.attivitaSpecifica);
+  _gs('p-fonte-passi', p.fontePassi);
+  _gs('p-lavoro', p.tipoLavoro);
   _gs('p-orario-all', p.orarioAllenamento);
   _gn('mac-peso-target', p.pesoTarget);
   // P-REGIME SLIDER — init da paziente (ancora slider al TDEE/MB correnti)
@@ -10474,6 +10499,8 @@ function ricalcolaLAF(){
   p.intensitaAllenamento=gs('p-intens-all');
   p.tipoAllenamento=gs('p-tipo-all');
   p.attivitaSpecifica=gs('p-attivita-spec');
+  p.fontePassi=gs('p-fonte-passi');
+  p.tipoLavoro=gs('p-lavoro');
   const ct=calcolaTDEE(p);
   // FIX-REGIME: sincronizza _macrosPaziente con l'oggetto db aggiornato,
   // così calcolaMacros legge gli stessi dati attività usati per ancorare lo slider
@@ -10489,13 +10516,14 @@ function ricalcolaLAF(){
       lafEl.innerHTML = `<div style="line-height:1.7">`
         + `<div><strong>TDEE: ${ct.tdee} kcal</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— metodo MET additivo (Compendium 2024), MB misurato InBody</span></div>`
         + `<div style="font-size:.76rem;color:var(--text2);margin-top:.2rem">`
-        + `MB ${ct.mb} + NEAT ${ct.neat} (passi) + EAT ${ct.eat}${ct.metUsato?' ('+ct.metUsato+' MET'+(p.attivitaSpecifica?', '+p.attivitaSpecifica:'')+')':''} + TEF ${ct.tef} (10%) = <strong>${ct.tdee} kcal</strong>`
+        + `MB ${ct.mb} + NEAT ${ct.neat} (${ct.bonusLavoro>0?'passi + lavoro':'passi'}) + EAT ${ct.eat}${ct.metUsato?' ('+ct.metUsato+' MET'+(p.attivitaSpecifica?', '+p.attivitaSpecifica:'')+')':''} + TEF ${ct.tef} (10%) = <strong>${ct.tdee} kcal</strong>`
         + `</div>`
         + (ct.larnTdee!=null ? `<div style="font-size:.72rem;color:var(--text3);margin-top:.3rem;padding-top:.3rem;border-top:1px dashed var(--border)">Confronto LARN (SINU, stile di vita): LAF ${ct.larnLaf.toFixed(2)} → ${ct.larnTdee} kcal ${diffLarn!=null?`<span style="color:${Math.abs(diffLarn)>300?'#c0392b':'var(--text3)'}">(scarto ${diffLarn>0?'+':''}${diffLarn} kcal)</span>`:''} — solo riferimento, il target lo decidi tu</div>` : '')
+        + _affidabilitaHtml(ct)
         + `</div>`;
     } else {
       const src=p.passiGiornalieri||p.oreAllenamento?'calcolato da passi e allenamento':'dati attività mancanti';
-      lafEl.innerHTML=`LAF: <strong>${ct.laf?ct.laf.toFixed(3):'—'}</strong> · TDEE: <strong>${ct.laf&&ct.mb?Math.round(ct.mb*ct.laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${src}</span>`;
+      lafEl.innerHTML=`LAF: <strong>${ct.laf?ct.laf.toFixed(3):'—'}</strong> · TDEE: <strong>${ct.laf&&ct.mb?Math.round(ct.mb*ct.laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${src}</span>`+_affidabilitaHtml(ct);
     }
   }
   notif('LAF aggiornato');
@@ -10692,6 +10720,8 @@ function salvaCalcoloMacros(){
   p.tipoAllenamento=gs('p-tipo-all');
   p.intensitaAllenamento=gs('p-intens-all');
   p.attivitaSpecifica=gs('p-attivita-spec');
+  p.fontePassi=gs('p-fonte-passi');
+  p.tipoLavoro=gs('p-lavoro');
   p.orarioAllenamento=gs('p-orario-all');
   p.orarioAllenamentoNote=gs('p-orario-all-note');
   p.cronotipo=gs('p-cronotipo');
@@ -10759,7 +10789,7 @@ function salvaCalcoloMacros(){
   save(p.id);
   const lafInfo=calcolaTDEE(p);
   const lafEl=document.getElementById('laf-display');
-  if(lafEl)lafEl.innerHTML=`LAF: <strong>${lafInfo.laf?lafInfo.laf.toFixed(3):'—'}</strong> · TDEE: <strong>${lafInfo.laf&&lafInfo.mb?Math.round(lafInfo.mb*lafInfo.laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${p.passiGiornalieri||p.oreAllenamento?'calcolato da passi e allenamento':'dati attività mancanti'}</span>`;
+  if(lafEl)lafEl.innerHTML=`LAF: <strong>${lafInfo.laf?lafInfo.laf.toFixed(3):'—'}</strong> · TDEE: <strong>${lafInfo.laf&&lafInfo.mb?Math.round(lafInfo.mb*lafInfo.laf)+' kcal':'—'}</strong> <span style="font-weight:400;color:var(--text3);font-size:.75rem">— ${p.passiGiornalieri||p.oreAllenamento?'calcolato da passi e allenamento':'dati attività mancanti'}</span>`+_affidabilitaHtml(lafInfo);
   renderStoricoTDEE(p);
   notif('✓ Dati salvati');
 }
@@ -10821,6 +10851,56 @@ function _neatFrazione(passi){
     }
   }
   return a[a.length-1][1];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P114 passo 2 — MODIFICATORE LAVORO nel NEAT (19→22 lug 2026)
+// Somma una frazione del MB alla frazione NEAT dei passi, per la quota di
+// dispendio NON ambulatoria del lavoro (stare in piedi, spostare carichi).
+// Regola anti-doppio-conteggio: se i passi sono MISURATI da smartwatch/telefono,
+// lo stare in piedi è già dentro il conteggio → nessun bonus. Il bonus scatta
+// solo con passi stimati a occhio o mancanti (fontePassi ≠ 'misurati').
+// Frazioni prudenti (in piedi +6% MB, pesante +13% MB), validate da Fabrizio.
+const _LAVORO_BONUS = {'in-piedi':0.06, 'pesante':0.13};
+const _NEAT_FRAZIONE_MAX = 0.60; // tetto di sicurezza sulla frazione NEAT totale
+function _bonusLavoroFrazione(p){
+  if(!p) return 0;
+  const tl=p.tipoLavoro;
+  if(!tl || tl==='sedentario') return 0;
+  const b=_LAVORO_BONUS[tl];
+  if(!b) return 0;
+  if(p.fontePassi==='misurati') return 0; // già contato nei passi misurati
+  return b;
+}
+
+// P114 passo 5 — INDICE DI AFFIDABILITÀ della stima TDEE (semaforo 🔴🟡🟢).
+// Non cambia nessun calcolo: valuta solo quanto sono solidi i dati in ingresso
+// e ne ricava un intervallo plausibile intorno al TDEE.
+function _affidabilitaTDEE(p, o){
+  if(o.metodo==='LAF manuale'){
+    return {livello:'bassa', rangePct:20, motivi:['nessun dato di attività: fattore scelto a mano']};
+  }
+  const motivi=[];
+  let punti=0;
+  if(o.passi==null){ punti+=2; motivi.push('passi non inseriti'); }
+  else if(!p || p.fontePassi!=='misurati'){ punti+=1; motivi.push('passi stimati, non misurati'); }
+  if(o.oreLegacy && !o.seduteMinuti){ punti+=1; motivi.push('allenamento in ore approssimate'); }
+  if(o.ibGiorni!=null && o.ibGiorni>120){ punti+=1; motivi.push('InBody più vecchio di 4 mesi'); }
+  const livello = punti===0 ? 'alta' : (punti<=2 ? 'media' : 'bassa');
+  const rangePct = livello==='alta' ? 8 : (livello==='media' ? 13 : 18);
+  return {livello, rangePct, motivi};
+}
+
+// Riquadro/riga HTML con semaforo affidabilità + intervallo TDEE (solo trasparenza).
+function _affidabilitaHtml(ct){
+  if(!ct || !ct.affidabilita || !ct.tdee) return '';
+  const a=ct.affidabilita;
+  const map={alta:{e:'🟢',t:'affidabilità alta',c:'#0F6E56'},media:{e:'🟡',t:'affidabilità media',c:'#B8860B'},bassa:{e:'🔴',t:'affidabilità bassa',c:'#c0392b'}};
+  const m=map[a.livello]||map.media;
+  const motivi=(a.motivi&&a.motivi.length)?' — '+a.motivi.join('; '):'';
+  return '<div style="font-size:.72rem;color:'+m.c+';margin-top:.3rem;padding-top:.3rem;border-top:1px dashed var(--border);font-weight:600">'
+    +m.e+' '+m.t+': stima probabile tra <strong>'+a.tdeeMin+'</strong> e <strong>'+a.tdeeMax+' kcal</strong>'
+    +'<span style="font-weight:400;color:var(--text3)">'+motivi+'</span></div>';
 }
 
 // LARN "stile di vita" a 4 livelli (SINU) — SOLO per confronto/guardrail.
@@ -10886,16 +10966,28 @@ function calcolaTDEE(p){
   // Compat: ore legacy se manca sedute/minuti
   const oreLegacy=p&&p.oreAllenamento!=null?+p.oreAllenamento:null;
 
-  const hasDatiAttivita = (passi!==null) || (sedute&&minuti) || (oreLegacy&&oreLegacy>0);
+  // P114 passo 2 — un lavoro non sedentario è di per sé un dato di attività:
+  // basta a usare il metodo MET additivo (NEAT base 0.15 dei passi mancanti + bonus lavoro).
+  const haLavoroAttivo = !!(p && p.tipoLavoro && p.tipoLavoro!=='sedentario');
+  // Giorni trascorsi dall'ultimo InBody (per l'indice di affidabilità).
+  let ibGiorni=null;
+  if(lastIb && lastIb.data){ const _t=new Date(lastIb.data).getTime(); if(!isNaN(_t)) ibGiorni=Math.round((Date.now()-_t)/864e5); }
+
+  const hasDatiAttivita = (passi!==null) || (sedute&&minuti) || (oreLegacy&&oreLegacy>0) || haLavoroAttivo;
   if(!hasDatiAttivita){
     // Nessun dato attività: fallback al selettore LAF manuale (comportamento storico)
-    const sel=document.getElementById('mac-laf');
+    const sel=(typeof document!=='undefined')?document.getElementById('mac-laf'):null;
     const laf=sel?(parseFloat(sel.value)||1.20):1.20;
-    return {tdee:Math.round(mb*laf),laf,mb,peso,metodo:'LAF manuale'};
+    const tdeeM=Math.round(mb*laf);
+    const affM=_affidabilitaTDEE(p,{metodo:'LAF manuale'});
+    affM.tdeeMin=Math.round(tdeeM*(1-affM.rangePct/100)); affM.tdeeMax=Math.round(tdeeM*(1+affM.rangePct/100));
+    return {tdee:tdeeM,laf,mb,peso,metodo:'LAF manuale',affidabilita:affM};
   }
 
-  // ── NEAT (movimento non-allenamento, dai passi) ──
-  const neat = Math.round(mb * _neatFrazione(passi));
+  // ── NEAT (movimento non-allenamento, dai passi + eventuale bonus lavoro) ──
+  const bonusLavoro=_bonusLavoroFrazione(p);
+  const neatFraz=Math.min(_neatFrazione(passi)+bonusLavoro, _NEAT_FRAZIONE_MAX);
+  const neat = Math.round(mb * neatFraz);
 
   // ── EAT (allenamento strutturato): (MET−1) × peso × ore_effettive/giorno ──
   // MET−1 perché 1 MET è il riposo, già contato nel MB (no doppio conteggio).
@@ -10919,7 +11011,14 @@ function calcolaTDEE(p){
   const larnLaf = _larnLafStileVita(passi, sedute);
   const larnTdee = Math.round(mb * larnLaf);
 
+  // P114 passo 5 — indice di affidabilità + intervallo intorno al TDEE
+  const aff=_affidabilitaTDEE(p,{metodo:'MET additivo (Compendium 2024) · MB InBody',
+    passi, seduteMinuti:!!(sedute&&minuti), oreLegacy:!!(oreLegacy&&oreLegacy>0), ibGiorni});
+  aff.tdeeMin=Math.round(tdee*(1-aff.rangePct/100));
+  aff.tdeeMax=Math.round(tdee*(1+aff.rangePct/100));
+
   return {tdee, laf, mb, peso, neat, eat, tef, metUsato, larnLaf, larnTdee,
+          bonusLavoro, neatFraz, affidabilita:aff,
           metodo:'MET additivo (Compendium 2024) · MB InBody'};
 }
 

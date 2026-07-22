@@ -10,6 +10,46 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+22 LUGLIO 2026 — P114 PASSI 2+5: MODIFICATORE LAVORO NEL NEAT + INDICE DI
+AFFIDABILITÀ DELLA STIMA TDEE (SEMAFORO + INTERVALLO). Sessione Cowork con
+Fabrizio (Opus). Baseline `80a59b5`, HEAD invariato in consegna.
+
+PASSO 2 — MODIFICATORE LAVORO NEL NEAT. Due nuovi campi nel pannello Attività
+Fisica: "Fonte passi" (Misurati smartwatch/telefono · Stimati a occhio) e
+"Tipo di lavoro" (Sedentario · In piedi/in movimento · Pesante con carichi),
+salvati su `p.fontePassi` e `p.tipoLavoro`. La quota NON ambulatoria del lavoro
+(stare in piedi, spostare carichi) si somma alla frazione NEAT dei passi:
+in-piedi +0.06 del MB, pesante +0.13, con tetto di sicurezza sulla frazione
+NEAT totale a 0.60. REGOLA ANTI-DOPPIO-CONTEGGIO (il punto clinico): il bonus
+scatta SOLO quando i passi non sono misurati (`fontePassi ≠ 'misurati'` o vuota)
+— con i passi da smartwatch lo stare in piedi è già nel conteggio, aggiungerlo
+sarebbe contarlo due volte. Un lavoro attivo è di per sé un dato di attività:
+attiva il metodo MET additivo (NEAT base 0.15 + bonus) anche senza passi né
+allenamento, invece di cadere sul LAF manuale. Frazioni validate da Fabrizio.
+
+PASSO 5 — INDICE DI AFFIDABILITÀ + INTERVALLO. `_affidabilitaTDEE` assegna un
+livello 🟢 alta / 🟡 media / 🔴 bassa a punti sulla qualità dei dati: passi
+misurati (0) vs stimati (+1) vs mancanti (+2); allenamento in ore approssimate
+senza minuti effettivi (+1); InBody più vecchio di 4 mesi (+1); LAF manuale →
+sempre bassa. 0 punti = alta, 1-2 = media, ≥3 = bassa. Da qui un intervallo
+intorno al TDEE: ±8% (alta), ±13% (media), ±18% (bassa), ±20% su LAF manuale —
+mostrato come "stima probabile tra X e Y kcal" col motivo dello scarto. Reso via
+`_affidabilitaHtml` in tutti i box TDEE (apertura paziente, Ricalcola LAF,
+salvataggio). NON entra in nessun calcolo: pura trasparenza contro la falsa
+precisione del numero secco. Il passo 7 (cross-check Mifflin-St Jeor come
+bandierina) si aggancerà a questo indice.
+
+FILE: `index.html` (calcolaTDEE + helper `_bonusLavoroFrazione`,
+`_affidabilitaTDEE`, `_affidabilitaHtml`, costanti `_LAVORO_BONUS`/
+`_NEAT_FRAZIONE_MAX`; wiring form nei 6 punti lettura/scrittura). Nuovo test
+`test-suite/test/s2-tdee-lavoro-affidabilita.test.js` (10 casi: no-doppio-
+conteggio, bonus in-piedi/pesante, tetto 0.60, lavoro-senza-passi, semaforo
+alta/media/bassa, intervalli). Suite 68→77 verdi. `new Function` OK. Zero
+modifiche a dati salvati: i `macrosTarget` restano snapshot, non ricalcolati.
+STATO P114: restano solo 7 (cross-check Mifflin, ora sbloccato dal 5), 8
+(orario allenamento nel contesto AI), 9 (previsione dimagrimento — decisione
+clinica di Fabrizio pendente).
+
 21 LUGLIO 2026 — P-KETO-USCITA: USCITA GRADUALE DALLA CHETOSI (MODALE
 MANUALE + BLOCCO REINTRODUZIONE NEL GENERATORE) + REGOLA FRUTTA/LEGUMI
 IN KETO NORMALE. Avanza P47 (parte "reintroduzione carbo a step").
