@@ -13,6 +13,9 @@ STORICO SESSIONI E COMMIT
 22 LUGLIO 2026 — P114 PASSI 2+5: MODIFICATORE LAVORO NEL NEAT + INDICE DI
 AFFIDABILITÀ DELLA STIMA TDEE (SEMAFORO + INTERVALLO). Sessione Cowork con
 Fabrizio (Opus). Baseline `80a59b5`, HEAD invariato in consegna.
+**Pushato da Fabrizio in commit `f263ad1`. Collaudato in produzione lo stesso
+giorno da Fabrizio: campi Fonte passi/Tipo di lavoro e semaforo di affidabilità
+verificati su paziente reale, esito positivo ("mi piace").**
 
 PASSO 2 — MODIFICATORE LAVORO NEL NEAT. Due nuovi campi nel pannello Attività
 Fisica: "Fonte passi" (Misurati smartwatch/telefono · Stimati a occhio) e
@@ -46,7 +49,7 @@ FILE: `index.html` (calcolaTDEE + helper `_bonusLavoroFrazione`,
 conteggio, bonus in-piedi/pesante, tetto 0.60, lavoro-senza-passi, semaforo
 alta/media/bassa, intervalli). Suite 68→77 verdi. `new Function` OK. Zero
 modifiche a dati salvati: i `macrosTarget` restano snapshot, non ricalcolati.
-STATO P114: restano solo 7 (cross-check Mifflin, ora sbloccato dal 5), 8
+STATO P114: passi 2 e 5 ✅ CHIUSI (pushati e collaudati). Restano solo 7 (cross-check Mifflin, ora sbloccato dal 5), 8
 (orario allenamento nel contesto AI), 9 (previsione dimagrimento — decisione
 clinica di Fabrizio pendente).
 
