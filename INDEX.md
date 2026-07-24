@@ -235,8 +235,8 @@ Righe 4870-6107
 
 ---
 
-### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-2-3-4, 24 lug 2026)
-Righe 6021-6548 (numeri ESATTI al 24/7 notte, dopo la Tappa 4). ⚠️ Questo blocco (~527 righe) fa slittare tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale (es. la Tappa 5).
+### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-5 COMPLETE, 24 lug 2026)
+Righe 6021-6621 (numeri ESATTI al 24/7 notte, dopo la Tappa 5). ⚠️ Questo blocco (~600 righe) fa slittare tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
 
 - `6032` — _PERCORSO_TIPI (const: tipi fase, colori, pct default)
 - `6039` — _percorsoGet *(normalizza p.percorso, scarta fasi invalide)*
@@ -248,12 +248,13 @@ Righe 6021-6548 (numeri ESATTI al 24/7 notte, dopo la Tappa 4). ⚠️ Questo bl
 - `6160` — _percorsoDataBreve *(ISO → "12 set")*
 - `6177` — _percorsoSerieEnergia *(Tappa 3 — serie introito/TDEE stimato/TDEE osservato per la corsia energia)*
 - `6216` — _percorsoSerieMassaMagra *(Tappa 4 — solo InBody: punti {data,m,pg})*
-- `6230` — _PERCORSO_LAYERS_DEFAULT / _percorsoLayersState / _percorsoLayersGet *(Tappa 4 — stato interruttori, SOLO sessione, mai su p)*
-- `6235` — percorsoLayerToggle *(Tappa 4 — inverte un solo strato)*
-- `6241` — percorsoVistaPreset *(Tappa 4 — preset "tecnica"/"paziente")*
-- `6249` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
-- `6291` — _percorsoChartSvg *(due corsie: peso + massa magra + cono proiezione sopra, energia (kcal) sotto — tutto gated dagli interruttori)*
-- `6461` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, toolbar interruttori, grafico, editor)*
+- `6235` — _percorsoConsuntivo *(Tappa 5 — legge p.consuntivo scritto da P50: aderenza, extra kcal, ritardo=extra÷7700, settimane perse; oggi sempre ok:false)*
+- `6277` — _PERCORSO_LAYERS_DEFAULT / _percorsoLayersState / _percorsoLayersGet *(Tappa 4 — stato interruttori, SOLO sessione, mai su p)*
+- `6282` — percorsoLayerToggle *(Tappa 4 — inverte un solo strato)*
+- `6288` — percorsoVistaPreset *(Tappa 4 — preset "tecnica"/"paziente")*
+- `6296` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
+- `6338` — _percorsoChartSvg *(due corsie: peso + massa magra + cono proiezione sopra, striscia aderenza in mezzo (solo con dati P50), energia (kcal) sotto — tutto gated dagli interruttori)*
+- `6527` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, riga Piano vs Realtà (solo con dati), toolbar interruttori, grafico, editor)*
 
 *(Tappa 2 tocca anche `calcolaMacros`: box obiettivo con intervallo al posto della data secca.)*
 

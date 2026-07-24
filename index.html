@@ -6223,11 +6223,58 @@ function _percorsoSerieMassaMagra(p){
   return punti.sort(function(a,b){return a.data.localeCompare(b.data);});
 }
 
+// P115 Tappa 5 — consuntivo "Piano vs Realtà" (PREDISPOSIZIONE, 24 lug 2026).
+// I dati arriveranno dall'app paziente (P50): oggi p.consuntivo non esiste per nessun
+// paziente e tutto degrada a {ok:false} senza mostrare nulla. Il CONTRATTO DATI è fissato
+// ORA perché P50 possa scrivere senza rifare l'architettura:
+//   p.consuntivo = { fonte:"app-paziente", giorni:[ {data:"YYYY-MM-DD",
+//     aderenza:"ok"|"parziale"|"sgarro", extraKcal:>=0 (kcal oltre il prescritto),
+//     opzionali: extraProt/extraCarb/extraGrassi (g), passi, sonnoOre} ] }
+// È un OGGETTO con dentro l'array, mai proprietà extra attaccate a un array (regola 8:
+// JSON.stringify le perderebbe in silenzio al salvataggio su Supabase).
+function _percorsoConsuntivo(p){
+  const c = p && p.consuntivo;
+  const grezzi = (c && Array.isArray(c.giorni)) ? c.giorni : [];
+  const ADER = {ok:1, parziale:1, sgarro:1};
+  const giorni = [];
+  grezzi.forEach(function(g){
+    if(!g || !g.data || isNaN(new Date(g.data+"T00:00:00").getTime())) return;
+    const extra = (typeof g.extraKcal==="number" && g.extraKcal>=0) ? g.extraKcal : 0;
+    let ad = ADER[g.aderenza] ? g.aderenza : null;
+    if(!ad){
+      if(typeof g.extraKcal!=="number") return;  // né aderenza né kcal: giorno non valutabile
+      // fallback provvisorio (da rivedere con P50): deriva l'aderenza dalle kcal extra
+      ad = extra===0 ? "ok" : (extra<=300 ? "parziale" : "sgarro");
+    }
+    giorni.push({data:g.data, aderenza:ad, extraKcal:Math.round(extra)});
+  });
+  if(!giorni.length) return {ok:false, motivo:"nessun dato di automonitoraggio (arriverà con l'app paziente)"};
+  giorni.sort(function(a,b){ return a.data.localeCompare(b.data); });
+  const nOk = giorni.filter(function(g){ return g.aderenza==="ok"; }).length;
+  const extraTot = giorni.reduce(function(s,g){ return s+g.extraKcal; }, 0);
+  const ritardoKg = +(extraTot/7700).toFixed(2);   // regola trasparente: kcal in più ÷ 7700
+  // settimane "perse" = ritardo ÷ ritmo di calo pianificato (media pesata delle fasi deficit)
+  let settimanePerse = null;
+  const percorso=_percorsoGet(p), ct=calcolaTDEE(p);
+  if(percorso && ct && ct.tdee){
+    let pctSett=0, sett=0;
+    percorso.fasi.forEach(function(f){ if(f.tipo==="deficit" && f.pct<0){ pctSett+=Math.abs(f.pct)*f.settimane; sett+=f.settimane; } });
+    if(sett>0){
+      const ritmoSett = ct.tdee*(pctSett/sett)/100*7/7700;   // kg/settimana previsti dal piano
+      if(ritmoSett>0) settimanePerse=+(ritardoKg/ritmoSett).toFixed(1);
+    }
+  }
+  return {ok:true, giorni:giorni, pctAderenza:Math.round(nOk/giorni.length*100),
+          extraKcalTot:extraTot, ritardoKg:ritardoKg, settimanePerse:settimanePerse};
+}
+
 // P115 Tappa 4 — interruttori strati: è una preferenza di visualizzazione (non un dato
 // clinico), quindi vive solo in memoria di sessione — NON su p, NON salvata su Supabase.
 // Ogni apertura scheda riparte dalla "vista tecnica" (tutto acceso); "vista paziente" è
 // una scorciatoia rapida per quando lo schermo lo guarda il paziente in studio.
-const _PERCORSO_LAYERS_DEFAULT = {massaMagra:true, proiezione:true, energia:true, dettagliFasi:true};
+// (Tappa 5: strato "consuntivo" — la striscia aderenza resta accesa anche in vista
+// paziente: è il momento educativo in visita, il motivo per cui esiste.)
+const _PERCORSO_LAYERS_DEFAULT = {massaMagra:true, proiezione:true, energia:true, dettagliFasi:true, consuntivo:true};
 let _percorsoLayersState = {};
 function _percorsoLayersGet(pazId){
   return Object.assign({}, _PERCORSO_LAYERS_DEFAULT, _percorsoLayersState[pazId]||{});
@@ -6240,7 +6287,7 @@ function percorsoLayerToggle(pazId, layer){
 }
 function percorsoVistaPreset(pazId, modo){
   _percorsoLayersState[pazId] = modo==="paziente"
-    ? {massaMagra:false, proiezione:true, energia:false, dettagliFasi:false}
+    ? {massaMagra:false, proiezione:true, energia:false, dettagliFasi:false, consuntivo:true}
     : Object.assign({}, _PERCORSO_LAYERS_DEFAULT);
   const p=_percorsoPaz(pazId); if(p) renderPdPercorso(p);
 }
@@ -6297,6 +6344,8 @@ function _percorsoChartSvg(p){
   const serieMm = layers.massaMagra ? _percorsoSerieMassaMagra(p) : [];  // solo InBody
   const proj=_percorsoProiezione(p);       // P115 Tappa 2 — cono futuro (può essere ok:false)
   const projOk=layers.proiezione && !!(proj && proj.ok && proj.punti.length>1);
+  const cons = layers.consuntivo ? _percorsoConsuntivo(p) : {ok:false};  // P115 Tappa 5 — oggi quasi sempre ok:false
+  const hasConsuntivo = !!(cons && cons.ok);
   const oggi=_percorsoIsoLocal(Date.now());
   // dominio temporale: dal min(inizio percorso, prima pesata) al max(fine percorso, ultima pesata, oggi)
   const dParse=function(iso){ return new Date(iso+"T00:00:00").getTime(); };
@@ -6317,10 +6366,13 @@ function _percorsoChartSvg(p){
   // P115 Tappa 3 — layout a due corsie: peso sopra, energia (kcal) sotto.
   // La corsia energia esiste solo se c'è un percorso con fasi.
   const hasEnergia = ints.length>0 && layers.energia;
+  // P115 Tappa 5 — spazio striscia aderenza SOLO se ci sono dati consuntivo:
+  // senza (il caso di oggi per tutti), il layout resta ESATTO alle Tappe 3-4 (fissato da test).
+  const consH = hasConsuntivo ? 24 : 0;
   const wBot = hasEnergia ? T+250 : 366;      // fondo corsia peso (366 = layout storico senza corsia)
-  const eTop = wBot+40, eBot = eTop+118;
-  const H = hasEnergia ? eBot+B : 400;
-  const axisY = hasEnergia ? eBot : H-B;
+  const eTop = wBot+40+consH, eBot = eTop+118;
+  const H = hasEnergia ? eBot+B : 400+consH;
+  const axisY = hasEnergia ? eBot : wBot+consH;
   const x=function(t){ return L+(t-t0)/(t1-t0)*(W-L-R); };
   const y=function(kg){ return T+(1-(kg-kgMin)/(kgMax-kgMin))*(wBot-T); };
   let s="";
@@ -6405,6 +6457,20 @@ function _percorsoChartSvg(p){
     const ultMm=serieMm[serieMm.length-1];
     s+='<text x="'+(x(dParse(ultMm.data))+7).toFixed(1)+'" y="'+(y(ultMm.m)+15).toFixed(1)+'" font-size="10.5" font-weight="700" fill="#e87ba4">'+ultMm.m+' kg magra</text>';
   }
+  // P115 Tappa 5 — STRISCIA ADERENZA "Piano vs Realtà": un rettangolino per giorno
+  // dichiarato dal paziente (🟢 ok / 🟡 parziale / 🔴 sgarro), tooltip nativo col dettaglio.
+  // Disegnata solo se l'app paziente (P50) ha scritto dati: oggi non compare mai.
+  if(hasConsuntivo){
+    const yS=wBot+6, hS=14, dayMs=864e5;
+    cons.giorni.forEach(function(g){
+      const ta=dParse(g.data);
+      const col = g.aderenza==="ok" ? "#008300" : g.aderenza==="parziale" ? "#eda100" : "#e34948";
+      const xa=Math.max(x(ta),L), xb=Math.min(x(ta+dayMs),W-R);
+      if(xb<=xa) return;
+      s+='<rect x="'+xa.toFixed(1)+'" y="'+yS+'" width="'+Math.max(xb-xa,1.5).toFixed(1)+'" height="'+hS+'" fill="'+col+'" opacity=".85"><title>'+g.data+' — '+g.aderenza+(g.extraKcal?" (+"+g.extraKcal+" kcal)":"")+'</title></rect>';
+    });
+    s+='<text x="'+(W-R)+'" y="'+(yS+hS-3)+'" text-anchor="end" font-size="9.5" fill="#52514e" opacity=".8">aderenza</text>';
+  }
   // P115 Tappa 3 — CORSIA ENERGIA: introito prescritto vs fabbisogno (asse kcal separato)
   if(hasEnergia){
     // bande fasi anche qui (senza etichette), per continuità visiva con la corsia peso
@@ -6414,8 +6480,8 @@ function _percorsoChartSvg(p){
       if(f.dal>oggi) s+='<rect x="'+xa.toFixed(1)+'" y="'+eTop+'" width="'+(xb-xa).toFixed(1)+'" height="'+(eBot-eTop)+'" fill="url(#percorso-hatch)"/>';
       s+='<line x1="'+xb.toFixed(1)+'" y1="'+eTop+'" x2="'+xb.toFixed(1)+'" y2="'+eBot+'" stroke="#e1e0d9"/>';
     });
-    // titolo/legenda della corsia
-    s+='<text x="'+L+'" y="'+(wBot+24)+'" font-size="11" font-weight="700" fill="#0b0b0b">Energia (kcal): '
+    // titolo/legenda della corsia (sotto l'eventuale striscia aderenza della Tappa 5)
+    s+='<text x="'+L+'" y="'+(wBot+24+consH)+'" font-size="11" font-weight="700" fill="#0b0b0b">Energia (kcal): '
       +'<tspan fill="#b5641a">▬ introito prescritto</tspan>  <tspan fill="#0F6E56">▬ TDEE stimato</tspan>  <tspan fill="#5B3E8C">▬ TDEE osservato</tspan></text>';
     const en=_percorsoSerieEnergia(p, t0, t1);
     const vals=[];
@@ -6497,6 +6563,12 @@ function renderPdPercorso(p){
     } else if(_proj && !_proj.ok && ints.length){
       html+='<div style="font-size:.7rem;color:var(--text3);margin:-.2rem 0 .55rem">Proiezione non disponibile: '+_proj.motivo+'.</div>';
     }
+    // P115 Tappa 5 — riga "Piano vs Realtà": compare solo quando l'app paziente (P50)
+    // avrà scritto dati di automonitoraggio; oggi resta invisibile per tutti.
+    const _cons=_percorsoConsuntivo(p);
+    if(_cons.ok){
+      html+='<div style="font-size:.74rem;color:var(--text2);margin:-.2rem 0 .55rem;padding:.35rem .6rem;background:#fdf6f4;border:1px solid #f3ddd4;border-radius:8px">Piano vs Realtà: aderenza <strong>'+_cons.pctAderenza+'%</strong> su '+_cons.giorni.length+' giorni · sgarri <strong>+'+_cons.extraKcalTot+' kcal</strong> → ritardo ~<strong>'+_cons.ritardoKg+' kg</strong>'+(_cons.settimanePerse!=null?' (~'+_cons.settimanePerse+' settimane sul ritmo del piano)':'')+'</div>';
+    }
     // P115 Tappa 4 — interruttori strati (vista di sessione, non salvata: sempre "tecnica" alla riapertura)
     const layers=_percorsoLayersGet(p.id);
     const _lyChk=function(key,lbl,accent){
@@ -6508,6 +6580,7 @@ function renderPdPercorso(p){
       +_lyChk("proiezione","cono proiezione","#2a78d6")
       +_lyChk("energia","corsia energia","#eb6834")
       +_lyChk("dettagliFasi","dettagli fasi (% · kcal)","#898781")
+      +(_cons.ok?_lyChk("consuntivo","aderenza (app paziente)","#008300"):"")
       +'<span style="margin-left:auto;display:flex;gap:6px">'
         +'<button class="btn btn-g btn-sm" title="Tutti gli strati, per il lavoro clinico" onclick="percorsoVistaPreset(\''+p.id+'\',\'tecnica\')">🔧 Vista tecnica</button>'
         +'<button class="btn btn-g btn-sm" title="Solo peso, target e proiezione — da mostrare al paziente" onclick="percorsoVistaPreset(\''+p.id+'\',\'paziente\')">🙂 Vista paziente</button>'
@@ -6517,7 +6590,7 @@ function renderPdPercorso(p){
     html+= svg
       ? '<div style="border:1px solid var(--border);border-radius:10px;padding:.5rem .4rem .2rem;background:#fcfcfb">'+svg+'</div>'
       : '<div style="font-size:.75rem;color:var(--text3);padding:.6rem 0">Aggiungi almeno una fase (o un paio di pesate) per vedere il grafico.</div>';
-    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody (peso) · ○ pesata intermedia · ▪ massa magra (InBody, stesso asse kg: il divario col peso è la massa grassa — passa il mouse sui quadratini per il dettaglio % grassa) · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. Tutto informativo: nessun calcolo viene toccato.</div>';
+    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody (peso) · ○ pesata intermedia · ▪ massa magra (InBody, stesso asse kg: il divario col peso è la massa grassa — passa il mouse sui quadratini per il dettaglio % grassa) · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. '+(_cons.ok?'Striscia aderenza: un rettangolino per giorno dichiarato dal paziente (verde ok · giallo parziale · rosso sgarro), passa il mouse per il dettaglio. ':'Piano vs Realtà: predisposto — la striscia aderenza e il ritardo accumulato si accenderanno con l\'app paziente (P50). ')+'Tutto informativo: nessun calcolo viene toccato.</div>';
     // editor fasi
     html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
       +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th></th></tr></thead><tbody>';

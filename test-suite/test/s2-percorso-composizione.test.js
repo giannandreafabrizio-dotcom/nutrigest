@@ -46,7 +46,8 @@ test('STRATI — default "vista tecnica": tutti gli strati accesi per un pazient
   // NB: l'oggetto torna dal realm JSDOM — JSON round-trip per confrontarlo nel realm del test
   // (stessa causa del problema con gli array cross-realm già visto nella Tappa 3).
   const layers = JSON.parse(JSON.stringify(win._percorsoLayersGet('paz-mai-visto-' + Math.random())));
-  assert.deepStrictEqual(layers, { massaMagra: true, proiezione: true, energia: true, dettagliFasi: true });
+  // (Tappa 5: aggiunto lo strato "consuntivo", anch'esso acceso di default)
+  assert.deepStrictEqual(layers, { massaMagra: true, proiezione: true, energia: true, dettagliFasi: true, consuntivo: true });
 });
 
 test('STRATI — percorsoLayerToggle spegne/accende UN solo strato, gli altri restano', () => {
@@ -70,8 +71,9 @@ test('STRATI — percorsoVistaPreset: "paziente" nasconde i tecnici, "tecnica" l
   assert.strictEqual(clean.energia, false);
   assert.strictEqual(clean.dettagliFasi, false);
   assert.strictEqual(clean.proiezione, true, 'la proiezione resta utile anche in vista paziente');
+  assert.strictEqual(clean.consuntivo, true, 'l\'aderenza resta anche in vista paziente (Tappa 5): è il momento educativo');
   win.percorsoVistaPreset(pid, 'tecnica');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(win._percorsoLayersGet(pid))), { massaMagra: true, proiezione: true, energia: true, dettagliFasi: true });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(win._percorsoLayersGet(pid))), { massaMagra: true, proiezione: true, energia: true, dettagliFasi: true, consuntivo: true });
 });
 
 test('GRAFICO — la massa magra compare/scompare col suo interruttore, sullo stesso asse kg (nessun secondo asse)', () => {

@@ -10,6 +10,49 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (2ª sessione, parte 6) — P115 TAPPA 5: SLOT CONSUNTIVO "PIANO
+VS REALTÀ" (PREDISPOSIZIONE). Sessione Cowork con Fabrizio (Fable 5).
+Baseline `3802f5d`. **Chiude l'implementazione di P115 (tutte e 5 le tappe).**
+
+**COSA:** predisposto il terzo livello della scheda 📈 Percorso — il
+consuntivo dall'automonitoraggio del paziente — SENZA costruire
+l'acquisizione dati (che arriverà con l'app paziente P50). Fissato il
+CONTRATTO DATI `p.consuntivo = {fonte, giorni:[{data, aderenza:"ok"|
+"parziale"|"sgarro", extraKcal, opz. extraProt/Carb/Grassi, passi,
+sonnoOre}]}` (oggetto con array dentro, mai proprietà su array — regola 8) e
+il motore puro `_percorsoConsuntivo`: normalizza/ordina/filtra, deriva
+l'aderenza dalle extraKcal se assente (0→ok, ≤300→parziale, >300→sgarro,
+soglia provvisoria), e calcola le REGOLE TRASPARENTI per il momento
+educativo in visita: % aderenza, kcal extra totali, **ritardo kg =
+extra÷7700**, **settimane perse = ritardo ÷ ritmo di calo pianificato**
+(media pesata |pct| fasi deficit; null senza deficit). Nel grafico:
+striscia aderenza (rettangolino/giorno 🟢🟡🔴 con tooltip, tra corsia peso
+ed energia) + riga riepilogo + interruttore in toolbar — acceso anche in
+vista paziente, perché mostrare l'effetto degli sgarri È lo scopo.
+
+**PUNTO ARCHITETTURALE (il senso della tappa):** oggi NESSUN paziente ha
+`p.consuntivo`, quindi tutto degrada a invisibile e il layout resta AL
+PIXEL quello delle Tappe 3-4 (viewBox 500 con energia, 400 senza — fissato
+da test di regressione; lo spazio della striscia, +24px, esiste solo coi
+dati). Quando P50 scriverà il campo rispettando il contratto, il livello
+si accenderà da solo senza toccare il grafico. Era la nota architetturale
+del design doc: "slot previsto ma vuoto, degrada bene".
+
+**VERIFICHE:** suite **111 → 118, tutte verdi** (nuovo
+`s2-percorso-consuntivo.test.js`: contratto/normalizzazione/derivazione,
+conteggi esatti (3850÷7700=0.5 kg), settimanePerse dal ritmo pianificato e
+null senza deficit, striscia solo con dati + layout invariato senza,
+toggle, isolamento proiezione/TDEE con 2000 kcal di sgarri). Aggiornato
+`s2-percorso-composizione.test.js` (i default degli strati hanno ora la 5ª
+chiave `consuntivo:true` — modifica di contratto legittima, documentata
+qui). Lezione realm ricorrente: anche `.map()` su un array JSDOM resta nel
+realm JSDOM — spread `[...arr]` PRIMA di `deepStrictEqual`, terza volta che
+si ripresenta (Tappa 3 array, Tappa 4 oggetti, Tappa 5 map). Collaudo
+visivo Chromium con/senza dati fittizi (riepilogo coerente: 9630 kcal →
+1.25 kg → 3.4 settimane sul ritmo medio pianificato). SHA ricontrollato
+invariato (`3802f5d`). P115: restano solo il collaudo in produzione di
+Fabrizio e, un domani, P50.
+
 24 LUGLIO 2026 (2ª sessione, parte 5) — P115 TAPPA 4: MASSA MAGRA +
 INTERRUTTORI STRATI. Sessione Cowork con Fabrizio (Sonnet). Baseline `c35db97`.
 

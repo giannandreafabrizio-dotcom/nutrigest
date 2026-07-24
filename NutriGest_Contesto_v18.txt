@@ -742,6 +742,17 @@ p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surpl
   // pct = % del TDEE della fase (stessa semantica dello slider regime), limiti -40..+25.
   // Date SEMPRE in locale via _percorsoIsoLocal (mai toISOString: UTC slitterebbe di 1 giorno).
 
+p.consuntivo = { fonte:"app-paziente", giorni:[{ data:"YYYY-MM-DD",
+    aderenza:"ok"|"parziale"|"sgarro", extraKcal:>=0,
+    opzionali: extraProt/extraCarb/extraGrassi (g), passi, sonnoOre }] }
+  // P115 Tappa 5, 24 lug 2026 — CONTRATTO DATI del consuntivo "Piano vs Realtà",
+  // PREDISPOSTO: oggi NESSUN paziente lo ha, lo scriverà la futura app paziente (P50).
+  // Chi lo scrive DEVE rispettare questo schema (oggetto con array dentro, mai
+  // proprietà attaccate a un array — regola 8, JSON.stringify le perderebbe).
+  // extraKcal = kcal dichiarate OLTRE il prescritto in quel giorno. Se aderenza
+  // manca ma extraKcal è numerico, _percorsoConsuntivo la deriva (0→ok, ≤300→
+  // parziale, >300→sgarro — soglia provvisoria da rivedere con P50).
+
 p.domandeChiamata[] = stringa[]  // P22, 29 giu 2026 — domande aperte selezionate per il
   // Riepilogo chiamata. Selezionabili da libreria RIEP_DOMANDE_DEFAULT (12 domande
   // hardcoded in JS, non in db) + testo libero aggiunto dall'utente. Stesso array
@@ -1644,9 +1655,27 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     parametro nuovo nella firma, retrocompatibile con le Tappe 1-3): ogni
     strato gated spegne solo il disegno, MAI il calcolo sottostante
     (_percorsoProiezione e _percorsoSerieEnergia restano invariati, testato).
-  PROSSIME TAPPE (design nel doc di progetto "NutriGest_P9_Timeline_
-  Ragionamento"): 5 slot consuntivo "Piano vs Realtà" (si accende con l'app
-  paziente P50) — ultima tappa di P115.
+  SLOT CONSUNTIVO "PIANO VS REALTÀ" (P115 Tappa 5, 24 lug 2026 — PREDISPOSTO,
+  si accende con l'app paziente P50):
+    _percorsoConsuntivo(p) (pura) legge p.consuntivo (contratto in STRUTTURA
+    DATI): normalizza/ordina/filtra i giorni, deriva l'aderenza dalle extraKcal
+    se assente, e calcola: pctAderenza (% giorni "ok"), extraKcalTot,
+    ritardoKg = extraKcalTot ÷ 7700 (regola trasparente per il momento
+    educativo in visita), settimanePerse = ritardoKg ÷ ritmo di calo
+    pianificato (media pesata |pct| delle fasi deficit × TDEE ÷ 7700 a
+    settimana; null senza fasi deficit). Senza dati → {ok:false} e NIENTE
+    cambia: né la scheda né il grafico mostrano nulla (layout al pixel come
+    Tappe 3-4, fissato da test). Con dati: striscia aderenza nel grafico
+    (un rettangolino per giorno 🟢 ok #008300 / 🟡 parziale #eda100 / 🔴
+    sgarro #e34948, tooltip nativo col dettaglio, tra corsia peso ed
+    energia, +24px di layout solo quando esiste), riga riepilogo "Piano vs
+    Realtà" sopra il grafico, interruttore "aderenza (app paziente)" nella
+    toolbar (acceso anche in vista paziente: è il momento educativo, il
+    motivo per cui esiste). SOLO informativo: proiezione e TDEE ignorano il
+    consuntivo (fissato da test di isolamento).
+  P115 COMPLETO (Tappe 1-5, tutte 24 lug 2026). Il livello Piano vs Realtà
+  si accenderà da solo quando P50 scriverà p.consuntivo — architettura
+  pronta, nessuna modifica al grafico necessaria.
 
 CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):
   Per pazienti sportivi (a prescindere dal dimagrimento) o non sportivi che
