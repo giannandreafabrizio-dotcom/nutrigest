@@ -634,6 +634,20 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 
 ---
 
+### P118 — Analisi del sangue: storico datato, range di riferimento, andamento (nata 24 lug 2026)
+
+**Origine:** richiesta di Fabrizio durante il collaudo di P116 — "quando carico le analisi non vedo la data" e "vorrei vedere i range di riferimento di ogni valore". Tre tappe, la prima chiusa in giornata.
+
+**Tappa 1 — Referti datati ✅ CHIUSA 24 lug 2026** (baseline `9d898a5`). `p.refertiSangue[]`, migrazione idempotente, selettore/data/Nuovo/Copia/Elimina, import che crea un referto nuovo con data obbligatoria (precompilata dall'AI quando la trova nel documento). `p.analisiSangue` sopravvive come specchio derivato del quadro attuale — dettaglio della regola e del perche' nel Contesto e nel CHANGELOG. Test 130→140.
+
+**Tappa 2 — Range di riferimento (da fare).** Oggi `RANGE_RIF` copre **10 voci su 119**. Serve: (a) tabella di riferimento per tutte le voci, sesso-specifica dove serve, che Fabrizio valida voce per voce — e' contenuto clinico, non codice; (b) estrazione dei range STAMPATI dal laboratorio durante l'import (il campo `rf.range` esiste gia' vuoto), che hanno la precedenza perche' variano da laboratorio a laboratorio; (c) visualizzazione sempre visibile sotto ogni valore, accanto al pallino che c'e' gia'. **Opus · High · ON** — sono soglie cliniche.
+
+**Tappa 3 — Andamento nel tempo (da fare).** Freccia con la variazione rispetto al referto precedente accanto a ogni valore, e mini-grafico per i valori che si vogliono seguire. Dipende dalla tappa 1 (fatta) e si appoggia alla tappa 2 per colorare la variazione rispetto al range. **Sonnet · Medium · OFF.**
+
+**SCHEDA:** Stato: **tappa 1 chiusa, tappe 2-3 da fare** · Priorità: Media · Categoria: Motore clinico / UX · Dipendenze: nessuna a monte; la tappa 3 conviene dopo la 2 · Autonomia: L1 per le tappe 1 e 3, **L0 per la tappa 2** (soglie cliniche: Claude propone, Fabrizio valida).
+
+---
+
 # VALUTAZIONI APERTE — verdetti del CTO
 
 - **Ricette fit (#2):** non cancellare, ARCHIVIARE: tag `archiviata` + filtro default che le nasconde. Cancellare dati per fare ordine è sempre la scelta sbagliata. → 20 min dentro P82/P80.

@@ -5976,7 +5976,7 @@ function salvaPaz(){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
     if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';if(_old.bia&&!pd.bia)pd.bia=_old.bia;db.pazienti[idx]=pd;}
   }else{
-    pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
+    pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.refertiSangue=[];pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
@@ -9190,9 +9190,250 @@ function _richStoricoHtml(p){
   return h;
 }
 
-function renderPdAnalisi(p){
+// ═══════════════════════════════════════════════════════════════════════════
+// P118 TAPPA 1 — REFERTI DATATI (storico delle analisi del sangue nel tempo)
+// ---------------------------------------------------------------------------
+// PRIMA: p.analisiSangue conteneva UN SOLO set di valori. Ogni import
+// sovrascriveva il precedente e non esisteva il concetto di "referto", quindi
+// non c'era nemmeno un posto dove mettere la data.
+// ORA: p.refertiSangue[] e' l'archivio dei referti, ognuno con la sua data.
+//
+// REGOLA ARCHITETTURALE (una sola, per non avere due verita' in giro):
+//   p.analisiSangue resta e diventa lo SPECCHIO DERIVATO del quadro attuale
+//   (per ogni esame, il valore misurato piu' di recente) — mai del referto che
+//   stai guardando. Cosi' i ~10 consumatori che
+//   gia' lo leggono (contesto AI, generatore piani, calcoli derivati, gruppi
+//   clinici, richiesta esami P116, firma di sincronizzazione, tabella ombra
+//   P74 fase 2) continuano a vedere "i valori attuali del paziente" senza
+//   che nessuno di loro venga toccato. Guardare un referto vecchio e' solo
+//   uno stato dell'interfaccia: non cambia i valori attuali.
+//   Ogni scrittura passa da _refertiApplica(), che riallinea lo specchio.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Referto attualmente visualizzato (indice in p.refertiSangue). Vive solo in
+// memoria di sessione: non e' un dato clinico, non va salvato ne' sincronizzato.
+window._refertoVistaId = null;
+
+function _refertoNuovoId(){
+  return 'rf'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+}
+function _refertoOggi(){
+  const d=new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function _refertoDataIt(iso){
+  if(!iso) return 'data non indicata';
+  const parti=String(iso).split('-');
+  return parti.length===3 ? (parti[2]+'/'+parti[1]+'/'+parti[0]) : String(iso);
+}
+// Quanti valori compilati ha un referto.
+function _refertoConteggio(rf){
+  if(!rf || !rf.valori) return 0;
+  let n=0;
+  Object.keys(rf.valori).forEach(function(k){
+    if(k.slice(-4)==='_val' && rf.valori[k] && String(rf.valori[k]).trim()!=='') n++;
+  });
+  return n;
+}
+
+// MIGRAZIONE (idempotente, gira a ogni apertura scheda).
+// Se il paziente ha valori nel vecchio formato e nessun referto, ne crea uno.
+// La data non c'e' nel vecchio dato: la deduce dalla provenienza degli import
+// (p._analisiMeta), altrimenti resta vuota e marcata dataStimata → l'interfaccia
+// chiede a Fabrizio di correggerla, invece di inventarsi una data plausibile.
+function _refertiMigra(p){
+  if(!p) return;
+  if(!Array.isArray(p.refertiSangue)) p.refertiSangue=[];
+  if(p.refertiSangue.length) return false;
   const as=p.analisiSangue||{};
-  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-sm" style="background:#e8763a;color:#fff" onclick="apriRichiestaAnalisi()">🩸 Richiesta esami</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti">'+renderBoxGruppiCliniciSuggeriti(p)+'</div>'+_richStoricoHtml(p);
+  if(!Object.keys(as).some(function(k){ return k.slice(-4)==='_val' && as[k] && String(as[k]).trim()!==''; })) return false;
+  let data='';
+  try{
+    const meta=p._analisiMeta||{};
+    const date=Object.keys(meta).map(function(k){ return meta[k]&&meta[k].data?String(meta[k].data).slice(0,10):''; }).filter(Boolean).sort();
+    if(date.length) data=date[date.length-1];
+  }catch(e){}
+  p.refertiSangue.push({
+    id:_refertoNuovoId(),
+    data:data,
+    dataStimata:!data,
+    lab:'',
+    file:'',
+    valori:Object.assign({}, as),
+    range:{},
+    note:''
+  });
+  return true;
+}
+
+// Referti ordinati dal piu' recente al piu' vecchio. I referti senza data
+// finiscono in fondo (non in cima: una data mancante non e' "oggi").
+function _refertiOrdinati(p){
+  const arr=(p&&Array.isArray(p.refertiSangue))?p.refertiSangue.slice():[];
+  arr.sort(function(a,b){
+    const da=a.data||'', db_=b.data||'';
+    if(!da && !db_) return 0;
+    if(!da) return 1;
+    if(!db_) return -1;
+    return db_.localeCompare(da);
+  });
+  return arr;
+}
+function _refertoPiuRecente(p){
+  const arr=_refertiOrdinati(p);
+  return arr.length?arr[0]:null;
+}
+// Il referto attualmente in vista (default: il piu' recente).
+function _refertoInVista(p){
+  const arr=_refertiOrdinati(p);
+  if(!arr.length) return null;
+  if(window._refertoVistaId){
+    const trovato=arr.find(function(r){ return r.id===window._refertoVistaId; });
+    if(trovato) return trovato;
+  }
+  return arr[0];
+}
+// Ricostruisce lo specchio p.analisiSangue = QUADRO CLINICO ATTUALE, cioe'
+// per ogni esame il valore misurato piu' di recente. Non e' una copia del
+// referto piu' recente: se l'ultimo referto non ripeteva la vitamina D, resta
+// valida quella del referto precedente — che e' come ragiona un clinico, ed e'
+// anche il comportamento che l'app aveva prima di P118 (un import parziale non
+// cancellava i valori vecchi). Ogni singolo referto invece contiene SOLO cio'
+// che quel laboratorio ha davvero misurato quel giorno.
+// UNICO punto in cui p.analisiSangue viene riscritto: se un giorno i valori
+// "attuali" risultassero sbagliati, il colpevole e' qui e in nessun altro posto.
+function _refertiApplica(p){
+  const arr=_refertiOrdinati(p);           // dal piu' recente al piu' vecchio
+  const out={};
+  for(let i=arr.length-1;i>=0;i--){        // si scorre al contrario: il recente sovrascrive
+    const v=arr[i].valori||{};
+    Object.keys(v).forEach(function(k){
+      if(v[k]!=null && String(v[k]).trim()!=='') out[k]=v[k];
+    });
+  }
+  p.analisiSangue=out;
+}
+
+// Crea un referto nuovo e lo mette in vista. Se `valori` e' omesso nasce vuoto.
+function _refertoCrea(p, data, valori, file){
+  if(!Array.isArray(p.refertiSangue)) p.refertiSangue=[];
+  const rf={
+    id:_refertoNuovoId(),
+    data:data||'',
+    dataStimata:!data,
+    lab:'',
+    file:file||'',
+    valori:valori?Object.assign({}, valori):{},
+    range:{},
+    note:''
+  };
+  p.refertiSangue.push(rf);
+  window._refertoVistaId=rf.id;
+  _refertiApplica(p);
+  return rf;
+}
+
+// ── Azioni dell'interfaccia ───────────────────────────────────────────────
+function refertoCambiaVista(id){
+  const p=db.pazienti.find(function(x){ return x.id===currentPazId; });
+  if(!p) return;
+  window._refertoVistaId=id||null;
+  renderPdAnalisi(p);
+}
+function refertoCambiaData(id, nuovaData){
+  const p=db.pazienti.find(function(x){ return x.id===currentPazId; });
+  if(!p) return;
+  const rf=(p.refertiSangue||[]).find(function(r){ return r.id===id; });
+  if(!rf) return;
+  rf.data=nuovaData||'';
+  rf.dataStimata=!nuovaData;
+  _refertiApplica(p);
+  save(p.id);
+  renderPdAnalisi(p);
+  notif(nuovaData?('✓ Referto datato '+_refertoDataIt(nuovaData)):'Data rimossa');
+}
+function refertoNuovo(){
+  const p=db.pazienti.find(function(x){ return x.id===currentPazId; });
+  if(!p){ notif('⚠ Nessun paziente selezionato'); return; }
+  _refertoCrea(p, _refertoOggi(), null, '');
+  save(p.id);
+  renderPdAnalisi(p);
+  notif('✓ Nuovo referto vuoto in data odierna — cambia la data se serve');
+}
+function refertoDuplica(){
+  const p=db.pazienti.find(function(x){ return x.id===currentPazId; });
+  if(!p) return;
+  const rf=_refertoInVista(p);
+  _refertoCrea(p, _refertoOggi(), rf?rf.valori:null, '');
+  save(p.id);
+  renderPdAnalisi(p);
+  notif('✓ Referto copiato in data odierna — correggi i valori cambiati');
+}
+function refertoElimina(id){
+  const p=db.pazienti.find(function(x){ return x.id===currentPazId; });
+  if(!p) return;
+  const rf=(p.refertiSangue||[]).find(function(r){ return r.id===id; });
+  if(!rf) return;
+  if(!confirm("Elimino il referto del "+_refertoDataIt(rf.data)+" con "+_refertoConteggio(rf)+" valori? L'operazione non si annulla.")) return;
+  p.refertiSangue=p.refertiSangue.filter(function(r){ return r.id!==id; });
+  if(window._refertoVistaId===id) window._refertoVistaId=null;
+  _refertiApplica(p);
+  save(p.id);
+  renderPdAnalisi(p);
+  notif('Referto eliminato');
+}
+
+// ── Barra di selezione in cima alla scheda ────────────────────────────────
+function _refertiBarraHtml(p){
+  const arr=_refertiOrdinati(p);
+  const vista=_refertoInVista(p);
+  const recente=_refertoPiuRecente(p);
+
+  if(!arr.length){
+    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;margin-bottom:.7rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:200px;font-size:.8rem;color:var(--text2)">Nessun referto registrato. Importa un PDF qui sotto, oppure crea un referto vuoto e inserisci i valori a mano.</div>'
+      +'<button class="btn btn-sm btn-p" onclick="refertoNuovo()">+ Nuovo referto</button>'
+      +'</div>';
+  }
+
+  const isVecchio = vista && recente && vista.id!==recente.id;
+  let h='<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;margin-bottom:.7rem">'
+    +'<div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap">'
+    +'<span style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:600">Referto</span>'
+    +'<select onchange="refertoCambiaVista(this.value)" style="flex:1;min-width:190px;padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;font-size:.82rem;background:var(--card)">';
+  arr.forEach(function(rf,i){
+    const sel=(vista&&rf.id===vista.id)?' selected':'';
+    const etich=_refertoDataIt(rf.data)+' · '+_refertoConteggio(rf)+' valori'+(i===0?" — piu' recente":'');
+    h+='<option value="'+rf.id+'"'+sel+'>'+_richEsc(etich)+'</option>';
+  });
+  h+='</select>'
+    +'<input type="date" value="'+(vista&&vista.data?vista.data:'')+'" onchange="refertoCambiaData(\''+(vista?vista.id:'')+'\', this.value)" style="padding:.38rem .5rem;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--card)">'
+    +'<button class="btn btn-sm" onclick="refertoNuovo()" title="Referto vuoto in data odierna">+ Nuovo</button>'
+    +'<button class="btn btn-sm" onclick="refertoDuplica()" title="Copia i valori di questo referto in uno nuovo di oggi">Copia</button>'
+    +'<button class="btn btn-sm btn-r" onclick="refertoElimina(\''+(vista?vista.id:'')+'\')" title="Elimina il referto in vista">Elimina</button>'
+    +'</div>';
+
+  if(vista && (!vista.data || vista.dataStimata)){
+    h+='<div style="margin-top:.5rem;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:.45rem .7rem;font-size:.76rem;color:#9a3412">'
+      +(vista.data
+        ? 'Data dedotta dalla data di import, non dal referto: controllala e correggila se serve.'
+        : "Questo referto non ha una data. Impostala qui sopra: senza data non entra nell'andamento nel tempo.")
+      +'</div>';
+  }
+  if(isVecchio){
+    h+='<div style="margin-top:.5rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.45rem .7rem;font-size:.76rem;color:var(--teal2)">'
+      +'Stai guardando un referto precedente. Le modifiche restano su questo referto; i valori attuali del paziente — quelli usati da calcoli, AI e richiesta esami — restano quelli del referto del <strong>'+_richEsc(_refertoDataIt(recente.data))+'</strong>.'
+      +'</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function renderPdAnalisi(p){
+  _refertiMigra(p);
+  const _rfVista=_refertoInVista(p);
+  const as=(_rfVista&&_rfVista.valori)?_rfVista.valori:{};
+  let html='<div class="card"><div class="card-hd"><h3>Analisi del sangue</h3><div style="display:flex;gap:.4rem;align-items:center"><button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="suggerisciGruppiClinici()">🔍 Gruppi clinici</button><button class="btn btn-sm" style="background:#e8763a;color:#fff" onclick="apriRichiestaAnalisi()">🩸 Richiesta esami</button><button class="btn btn-p btn-sm" onclick="salvaAnalisi()">Salva</button></div></div><div class="card-bd"><div id="gruppi-clinici-suggeriti">'+renderBoxGruppiCliniciSuggeriti(p)+'</div>'+_refertiBarraHtml(p)+_richStoricoHtml(p);
   html+='<div class="upload-area" onclick="document.getElementById(\'as-pdf-input\').click()" style="padding:.5rem .9rem;margin-bottom:.6rem">'
       +'<p style="margin:0">📄 Clicca per importare un referto (PDF o foto) — i valori riconosciuti vengono inseriti automaticamente</p>'
       +'<span id="as-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>'
@@ -9276,8 +9517,9 @@ async function loadAnalisiSanguePDF(e){
       +'- Se un esame non è presente nel referto, NON includere quella chiave nel JSON (ometti, non mettere null).\n'
       +'- Per i valori numerici riporta solo il numero (es. "13.6"), senza unità di misura, usando il punto come separatore decimale.\n'
       +'- Per i valori testuali delle urine (es. Aspetto, Colore, Esame morfologico sedimento) riporta il testo come scritto nel referto (es. "Limpido", "Giallo chiaro", "Assente").\n'
-      +'- Riporta solo il risultato del paziente, non gli intervalli di riferimento del laboratorio.\n\n'
-      +'Formato risposta: {"Nome esame 1": "valore", "Nome esame 2": "valore"}';
+      +'- Riporta solo il risultato del paziente, non gli intervalli di riferimento del laboratorio.\n'
+      +'- Includi SEMPRE la chiave "_data_referto" con la data del prelievo (o, se assente, la data di refertazione) nel formato AAAA-MM-GG. Se nel documento non compare nessuna data, ometti la chiave.\n\n'
+      +'Formato risposta: {"_data_referto": "AAAA-MM-GG", "Nome esame 1": "valore", "Nome esame 2": "valore"}';
 
     const data=await aiCall({tipo:'import-analisi',max_tokens:2000,messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]});
     const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
@@ -9288,6 +9530,12 @@ async function loadAnalisiSanguePDF(e){
     // Popola solo _staging; la scrittura avviene esclusivamente dopo conferma
     // dell'utente riga per riga nel modal diff (confermaDiffAnalisi).
     const elencoSet=new Set(elencoVoci);
+    // P118 — la data del referto non e' una voce di ANALISI: si estrae a parte,
+    // e si accetta solo se ha la forma AAAA-MM-GG (niente date inventate).
+    let dataReferto='';
+    if(estratti && typeof estratti._data_referto==='string' && /^\d{4}-\d{2}-\d{2}$/.test(estratti._data_referto.trim())){
+      dataReferto=estratti._data_referto.trim();
+    }
     const staging={};
     Object.entries(estratti).forEach(([nome,val])=>{
       if(val==null || String(val).trim()==='') return;
@@ -9298,7 +9546,7 @@ async function loadAnalisiSanguePDF(e){
     if(Object.keys(staging).length===0){
       notif('⚠ Nessun valore riconosciuto nel referto.');
     } else {
-      mostraDiffAnalisi(p, staging, file.name);
+      mostraDiffAnalisi(p, staging, file.name, dataReferto);
     }
   } catch(err){
     notif('⚠ Errore estrazione referto: '+err.message);
@@ -9318,7 +9566,7 @@ async function loadAnalisiSanguePDF(e){
 // anomalo (>50% dal valore precedente, se numerico e precedente presente).
 // Provenienza salvata in p._analisiMeta[key] = {fonte:'ai-import', data, file}.
 // ═══════════════════════════════════════════════════════════════════════════
-function mostraDiffAnalisi(p, staging, fileName){
+function mostraDiffAnalisi(p, staging, fileName, dataReferto){
   const righe=Object.entries(staging).map(([nome,val])=>{
     const key=ANALISI_KEY(nome);
     const attuale=(p.analisiSangue||{})[key+'_val']||'';
@@ -9353,6 +9601,14 @@ function mostraDiffAnalisi(p, staging, fileName){
   modal.innerHTML='<div class="modal" style="width:640px;max-width:94vw;max-height:82vh;overflow-y:auto">'
     +'<h3 style="margin:0 0 .3rem">📋 Conferma valori estratti</h3>'
     +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem">Referto: '+fileName+' — '+righe.length+' valori riconosciuti. Deseleziona le righe che non vuoi importare.</div>'
+    // P118: ogni import crea un REFERTO DATATO. La data e' obbligatoria, perche'
+    // un referto senza data non entra nell'andamento nel tempo. Se l'AI l'ha
+    // trovata nel documento arriva gia' compilata, ma resta correggibile.
+    +'<div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.55rem .8rem;margin-bottom:.7rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">'
+    +'<label for="diff-analisi-data" style="font-size:.78rem;color:var(--teal2);font-weight:600">Data del referto</label>'
+    +'<input type="date" id="diff-analisi-data" value="'+(dataReferto||'')+'" style="padding:.35rem .5rem;border:1px solid var(--teal-light);border-radius:7px;font-size:.82rem;background:var(--card)">'
+    +'<span style="font-size:.73rem;color:var(--teal2)">'+(dataReferto?'letta dal documento — correggila se sbagliata':'non trovata nel documento: inseriscila tu')+'</span>'
+    +'</div>'
     +'<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)">'
     +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)"></th>'
     +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Esame</th>'
@@ -9365,15 +9621,22 @@ function mostraDiffAnalisi(p, staging, fileName){
   modal.querySelector('.modal').appendChild(mf);
   mf.children[0].onclick=function(){ngChiudiModale(modal);};
   mf.children[1].onclick=function(){
+    const dataEl=document.getElementById('diff-analisi-data');
+    const dataRef=(dataEl&&dataEl.value)?dataEl.value:'';
+    if(!dataRef){
+      notif('⚠ Indica la data del referto prima di confermare');
+      if(dataEl) dataEl.focus();
+      return;
+    }
     const checks=modal.querySelectorAll('.diff-analisi-chk');
+    const valoriNuovi={};
     let nImportati=0;
-    if(!p.analisiSangue) p.analisiSangue={};
     if(!p._analisiMeta) p._analisiMeta={};
     checks.forEach(function(chk){
       if(!chk.checked) return;
       const idx=+chk.getAttribute('data-idx');
       const r=righe[idx];
-      p.analisiSangue[r.key+'_val']=r.val;
+      valoriNuovi[r.key+'_val']=r.val;
       p._analisiMeta[r.key]={fonte:'ai-import', data:new Date().toISOString(), file:fileName};
       nImportati++;
     });
@@ -9382,9 +9645,14 @@ function mostraDiffAnalisi(p, staging, fileName){
       notif('Nessun valore importato.');
       return;
     }
+    // P118: nasce un referto NUOVO con i soli valori misurati quel giorno.
+    // I valori non ripetuti restano validi nel quadro attuale grazie a
+    // _refertiApplica (che prende, esame per esame, la misura piu' recente).
+    _refertiMigra(p);
+    _refertoCrea(p, dataRef, valoriNuovi, fileName);
     save(p.id);
     renderPdAnalisi(p);
-    notif('✓ '+nImportati+' valori importati dal referto!');
+    notif('✓ Referto del '+_refertoDataIt(dataRef)+' creato con '+nImportati+' valori');
   };
   document.body.appendChild(modal);
 }
@@ -9462,16 +9730,22 @@ function toggleGlossario(calcId){
 
 function updateAnalisi(changedKey){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
-  if(!p.analisiSangue)p.analisiSangue={};
+  // P118: la scrittura va sul referto in vista. Se non ce n'e' nessuno (primo
+  // valore inserito a mano su un paziente nuovo) se ne crea uno in data odierna.
+  _refertiMigra(p);
+  let _rf=_refertoInVista(p);
+  if(!_rf) _rf=_refertoCrea(p, _refertoOggi(), null, '');
+  if(!_rf.valori) _rf.valori={};
   // P18 Fase A: niente più _check (checkbox rimossa). Persistiamo solo i _val.
   // Eventuali _check legacy nel db restano lì come dead-data e sono ignorati dai consumer.
   Object.entries(ANALISI).forEach(([,items])=>{
     items.forEach(item=>{
       const key=item.replace(/[^a-z0-9]/gi,'_');
       const vi=document.getElementById('an-val-'+key);
-      if(vi) p.analisiSangue[key+'_val']=vi.value;
+      if(vi) _rf.valori[key+'_val']=vi.value;
     });
   });
+  _refertiApplica(p);   // riallinea il quadro attuale letto da AI, calcoli e P116
   // Aggiornamento UI incrementale (evidenza + counter) solo per il campo modificato
   if(changedKey){
     const item=document.getElementById('ai-'+changedKey);

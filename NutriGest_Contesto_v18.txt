@@ -682,6 +682,28 @@ p.gruppiCliniciSuggeriti[] = { id, nome, motivazione, applicato }  // BLOCCO 17,
   // ricalcola il semaforo (applicaRegoloSemaforo) e salva. Lo stato "già applicato"
   // mostrato nel box è l'OR di: voce.applicato | checkbox DOM | p.checkSemaforo[id].
 
+p.refertiSangue[] = { id, data, dataStimata, lab, file, valori:{KEY_val}, range:{}, note }
+  // P118 tappa 1, 24 lug 2026 — archivio dei referti del sangue, uno per data.
+  // Ogni referto contiene SOLO gli esami realmente misurati quel giorno.
+  // `range` nasce vuoto (lo riempira' la tappa 2). `dataStimata` = la data non
+  // viene dal referto ma e' stata dedotta in migrazione: l'interfaccia chiede
+  // di correggerla.
+  // REGOLA UNICA — p.analisiSangue NON e' stato rimosso: e' lo SPECCHIO
+  // DERIVATO del quadro clinico attuale, cioe' per ogni esame il valore
+  // misurato PIU' DI RECENTE fra tutti i referti (_refertiApplica, unico punto
+  // di scrittura). Percio' i consumatori storici — costruisciContestoPaziente,
+  // generatore piani, _renderCalcoliPannello, suggerisciGruppiClinici,
+  // richiesta esami P116, firma di sync, _analisiSangueUpsert (P74 f2) —
+  // non sono stati toccati e continuano a leggere p.analisiSangue.
+  // Conseguenza voluta: un referto parziale non cancella i valori non
+  // ripetuti (comportamento identico a prima di P118).
+  // Il referto in VISTA (window._refertoVistaId) e' solo stato di interfaccia,
+  // non viene salvato: guardare un referto vecchio non cambia i valori attuali.
+  // updateAnalisi() scrive sul referto in vista e poi richiama _refertiApplica.
+  // L'import (mostraDiffAnalisi) CREA un referto nuovo e pretende la data;
+  // il prompt di estrazione chiede anche "_data_referto" (accettata solo se
+  // AAAA-MM-GG) per precompilarla.
+
 p.richiesteAnalisi[] = { data, motivo, voci:[...], n, url }  // P116, 24 lug 2026
   // Storico delle richieste di esami consegnate al paziente per il medico di base.
   // `voci` contiene chiavi 'sezione.idVoce' del catalogo RICH_CATALOGO (non i nomi

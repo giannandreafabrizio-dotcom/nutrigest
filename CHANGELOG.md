@@ -10,6 +10,76 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (3ª sessione, parte 3) — P118 TAPPA 1: REFERTI DEL SANGUE
+DATATI. Baseline `9d898a5`. Prima delle tre tappe chieste da Fabrizio
+(storico datato → range di riferimento → andamento nel tempo).
+
+**PROBLEMA:** `p.analisiSangue` conteneva UN SOLO set di valori. Ogni import
+sovrascriveva il precedente, e non esisteva nemmeno il concetto di "referto":
+per questo non c'era un posto dove mettere la data. Senza data non esiste
+storico, e senza storico non esiste andamento.
+
+**COSA:** nuovo `p.refertiSangue[] = {id, data, dataStimata, lab, file,
+valori:{KEY_val}, range:{}, note}`. In cima alla scheda una barra con
+selettore dei referti (etichettati "gg/mm/aaaa · N valori"), campo data,
+e i pulsanti Nuovo / Copia / Elimina. Il campo `range` nasce vuoto: lo
+riempira' la tappa 2.
+
+**LA REGOLA CHE TIENE TUTTO INSIEME (il punto architetturale).**
+`p.analisiSangue` NON viene rimosso e NON diventa una copia del referto in
+vista: diventa lo **specchio derivato del quadro clinico attuale**, cioe' per
+ogni esame il valore misurato **piu' di recente**, ricostruito da
+`_refertiApplica()`. Due conseguenze volute:
+1. i ~10 consumatori esistenti (contesto AI, generatore piani, calcoli
+   derivati, gruppi clinici, richiesta esami P116, firma di sincronizzazione,
+   tabella ombra P74 fase 2) **non sono stati toccati** e continuano a leggere
+   "i valori attuali del paziente";
+2. un referto parziale non cancella nulla — se l'ultimo referto non ripeteva
+   la vitamina D, resta valida quella di prima. E' come ragiona un clinico ed
+   e' anche il comportamento che l'app aveva PRIMA di P118 (un import parziale
+   non azzerava i valori vecchi): la retrocompatibilita' di comportamento era
+   un requisito, non un effetto collaterale.
+Ogni singolo referto invece contiene **solo cio' che quel laboratorio ha
+davvero misurato quel giorno** — un referto non deve mai far credere che un
+esame sia stato fatto in una data in cui non e' stato fatto.
+`_refertiApplica()` e' l'UNICO punto che riscrive `p.analisiSangue`: se un
+giorno i valori attuali risultassero sbagliati, il colpevole e' li'.
+
+**MIGRAZIONE:** `_refertiMigra(p)` gira a ogni apertura scheda ed e'
+idempotente. Trasforma i valori vecchi in un referto. La data non esiste nel
+dato vecchio: la deduce dalla piu' recente `p._analisiMeta[].data` (la
+provenienza degli import), altrimenti **la lascia vuota** e marca
+`dataStimata` — l'interfaccia chiede a Fabrizio di correggerla. Scelta
+deliberata: **inventare "oggi" avrebbe prodotto uno storico plausibile e
+falso**, che e' peggio di un buco dichiarato.
+
+**IMPORT:** la conferma del diff non sovrascrive piu': **crea un referto
+nuovo**, e la data e' **obbligatoria** (senza data il referto non entrerebbe
+nell'andamento). Il prompt di estrazione ora chiede anche `_data_referto`
+(data del prelievo, o in mancanza di refertazione): se l'AI la trova, il
+campo arriva gia' compilato e resta correggibile; si accetta solo nel formato
+AAAA-MM-GG, per non far entrare date inventate.
+
+**VERIFICHE:** `node --check`; suite **130 → 140, tutte verdi** (nuovo
+`s2-referti-datati.test.js`: migrazione con e senza indizi di data +
+idempotenza, ordinamento coi senza-data in fondo, quadro attuale che prende
+la misura piu' recente esame per esame, esame non ripetuto che NON sparisce,
+valori vuoti che non cancellano, referto nuovo che non eredita, eliminazione
+che riporta indietro il quadro, e un test di non-regressione su P116 che
+legge i valori dopo la migrazione).
+
+**PROSSIME TAPPE:** (2) tabella range per le 119 voci + lettura dei range
+stampati dal laboratorio durante l'import, mostrati sotto ogni valore;
+(3) frecce di variazione rispetto al referto precedente e mini-grafico
+dell'andamento.
+
+**LEZIONE:** quando si passa da "un valore" a "una serie storica di valori",
+la tentazione e' spostare tutti i lettori sulla nuova struttura. Tenere
+invece il vecchio campo come **specchio derivato con una regola sola e un
+solo punto di scrittura** ha permesso di cambiare la struttura dati senza
+toccare nessuno dei consumatori — e i test di non-regressione sui consumatori
+costano molto meno che riscriverli.
+
 24 LUGLIO 2026 (3ª sessione, parte 2) — P116 RIVISTA DOPO IL PRIMO COLLAUDO
 REALE. Baseline `dd9201f`. Tre correzioni nate provando la funzione su una
 paziente vera (Chetogenico WLKD, BMI 37,1 → blocco insulino-resistenza acceso
