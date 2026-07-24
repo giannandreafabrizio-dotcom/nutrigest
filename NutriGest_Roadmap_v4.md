@@ -618,6 +618,22 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 
 ---
 
+### P117 — Richiesta analisi, fase 2 (nata 24 lug 2026, dopo la chiusura di P116)
+
+**Contesto:** P116 ha portato in produzione il generatore di richieste esami per il medico curante (catalogo, preselezione automatica, PDF, invio WhatsApp). Restano tre cose che P116 ha volutamente lasciato fuori, tutte già predisposte nel codice.
+
+**1. Confronto "richiesto vs ricevuto".** Ogni voce del catalogo dichiara già `map:[nomi di ANALISI]` e ogni richiesta è registrata in `p.richiesteAnalisi[]`. Serve solo la vista: nella card Analisi del sangue, "richiesti 15 · arrivati 12 · mancano 3", con l'elenco dei mancanti. È il pezzo che trasforma la richiesta in un promemoria di follow-up per i pazienti che spariscono. Costo stimato: basso. **Sonnet · Medium · Thinking OFF.**
+
+**2. Seconda richiesta automatica sui valori alterati.** Il flusso naturale è a due tempi: prima visita → richiesta base; caricamento referto → l'app propone "questi tre valori sono fuori range, genero la richiesta di approfondimento?". Le regole di accensione (`RICH_REGOLE`) esistono già e girano sui valori salvati: manca l'aggancio al momento dell'import referto (`loadAnalisiSanguePDF`). **Sonnet · Medium · OFF.**
+
+**3. Catalogo modificabile per utente (multiutente).** Oggi `RICH_CATALOGO` e i flag SSN/privato sono costanti nel codice, e l'intestazione professionale vive in localStorage. Per il multiutente vero servono: catalogo + pannelli su Supabase con un template di default clonabile, intestazione nel profilo sincronizzato, e flag SSN modificabili (variano per regione e per convinzione clinica del singolo professionista). Da fare insieme al resto del lavoro multiutente, non prima. **Opus · High · ON.**
+
+**Nota operativa aperta:** il bucket pubblico `richieste` su Supabase Storage (+ policy INSERT per `authenticated`) va creato da Fabrizio prima che l'invio col link funzioni. Finché non esiste, l'invio ricade da solo su "scarica PDF + WhatsApp col testo" senza errori a video.
+
+**SCHEDA:** Stato: **Da fare** · Priorità: Media (punto 1 e 2), Bassa (punto 3, legato al multiutente) · Categoria: Prodotto / clinica · Dipendenze: P116 (chiusa 24 lug 2026); il punto 3 dipende dal lavoro multiutente · Autonomia: L1 per i punti 1-2, L2 per il punto 3.
+
+---
+
 # VALUTAZIONI APERTE — verdetti del CTO
 
 - **Ricette fit (#2):** non cancellare, ARCHIVIARE: tag `archiviata` + filtro default che le nasconde. Cancellare dati per fare ordine è sempre la scelta sbagliata. → 20 min dentro P82/P80.

@@ -682,6 +682,53 @@ p.gruppiCliniciSuggeriti[] = { id, nome, motivazione, applicato }  // BLOCCO 17,
   // ricalcola il semaforo (applicaRegoloSemaforo) e salva. Lo stato "già applicato"
   // mostrato nel box è l'OR di: voce.applicato | checkbox DOM | p.checkSemaforo[id].
 
+p.richiesteAnalisi[] = { data, motivo, voci:[...], n, url }  // P116, 24 lug 2026
+  // Storico delle richieste di esami consegnate al paziente per il medico di base.
+  // `voci` contiene chiavi 'sezione.idVoce' del catalogo RICH_CATALOGO (non i nomi
+  // stampati: le etichette possono cambiare, gli id no). `url` = link pubblico del PDF
+  // su Supabase Storage se l'invio è avvenuto col link, stringa vuota se il PDF è stato
+  // solo scaricato/condiviso. Ultime 5 mostrate da _richStoricoHtml(p) in testa alla
+  // card Analisi del sangue; l'array è potato alle ultime 30 voci.
+
+RICHIESTA ANALISI PER IL MEDICO CURANTE (P116, 24 lug 2026)
+  Bottone 🩸 "Richiesta esami" nella card Analisi del sangue → apriRichiestaAnalisi().
+  Non stampa un catalogo fisso: genera una richiesta PERSONALE, corta e motivata, che
+  il paziente porta al proprio medico di base (che resta l'unico a prescrivere).
+  · RICH_CATALOGO — 8 sezioni, 39 voci. Ogni voce: {id, label (testo stampato), ssn
+    (indicazione orientativa SSN/privato), map:[nomi ESATTI di ANALISI]}. Il campo `map`
+    è il ponte verso l'anagrafica già usata dal form dei risultati: permetterà il
+    confronto "richiesto vs ricevuto" senza una seconda anagrafica. Un test di
+    regressione (s2-richiesta-analisi.test.js) verifica che nessun map punti a un nome
+    inesistente — altrimenti una rinomina in ANALISI spezzerebbe il legame in silenzio.
+  · RICH_REGOLE + _richPreselezione(p) — le 15 voci di base sempre accese; i blocchi di
+    approfondimento si accendono da soli leggendo p.inbody (BMI), p.analisiSangue
+    (valori precedenti), p.patologie e p.regime, e ogni accensione dichiara a video il
+    proprio motivo. Vitamine e micronutrienti NON si accendono mai automaticamente
+    (scelta clinica esplicita). La preselezione è solo un punto di partenza: la modale
+    consente di spuntare e togliere qualsiasi voce, comprese quelle di base.
+  · _richCostruisciPDF — foglio A4 (jsPDF vendorizzato), intestato al paziente, con
+    motivo, casella da spuntare per voce, etichetta SSN/PRIVATO e disclaimer non
+    prescrittivo. Richiesta tipica = una pagina. _richTxt() sostituisce i caratteri
+    fuori da Latin-1 (γ, μ, — , “ ”, …): le accentate italiane invece jsPDF 2.5.1 le
+    stampa correttamente e vanno lasciate.
+  · Invio — richInviaWhatsApp() carica il PDF su Supabase Storage (bucket pubblico
+    `richieste`, nome file con parte casuale) e apre wa.me col messaggio e il link
+    pronti: è l'unica strada che funziona ANCHE DA PC, perché WhatsApp non consente a
+    nessun sito di allegare file. Se il caricamento fallisce degrada da solo su
+    "scarica PDF + WhatsApp col testo". richCondividiPDF() usa navigator.share col file
+    (iPhone: allegato vero via menu iOS; desktop: scarica). richScaricaPDF() solo file.
+    La finestra di WhatsApp va aperta DENTRO il gestore del click e riempita dopo
+    l'upload, altrimenti il browser la blocca come popup.
+  · Intestazione professionale — blocco OPZIONALE (nome, albo, studio, contatti) in
+    localStorage 'ngIntestazioneProf', configurabile dalla modale stessa. Vuota, il
+    foglio esce senza intestazione (scelta attuale di Fabrizio). È la predisposizione
+    multiutente: un altro professionista compila e il foglio diventa suo.
+  · PREREQUISITO OPERATIVO: bucket pubblico `richieste` + policy INSERT sul bucket per il
+    ruolo `authenticated`. Il caricamento usa supaHeaders(), quindi viaggia con
+    l'access_token dell'utente collegato e NON con la chiave anonima: la policy resta
+    chiusa a chi ha solo la chiave pubblica dell'app. Senza sessione valida o senza
+    policy, l'invio col link ricade da solo sul percorso di riserva (PDF scaricato).
+
 p.checkSemaforo = { 'pat-diabete':true, ... }  // fonte di verità patologie/allergie/speciali
   // (campo esistente dal fix a54cb14 del 30 giu; documentato qui il 6 lug 2026).
   // ATTENZIONE (BLOCCO 17, commit 5a0721f): gli id sono CONDIVISI coi checkbox del

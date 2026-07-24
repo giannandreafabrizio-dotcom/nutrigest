@@ -10,6 +10,107 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (3ª sessione) — P116: RICHIESTA ANALISI DEL SANGUE PER IL
+MEDICO CURANTE. Sessione Cowork con Fabrizio (Opus 5). Baseline `880668d`.
+**Voce nata e chiusa nella stessa sessione** (non passa dalla Roadmap: entra
+diretta in Contesto + CHANGELOG).
+
+**PROBLEMA:** Fabrizio consiglia esami che poi prescrive il medico di base
+del paziente. Finora consegnava un PDF-catalogo con ~40 voci uguali per
+tutti. Un medico che riceve un catalogo generico ne prescrive tre a caso o
+niente: il documento giusto per quel destinatario è una richiesta CORTA,
+INTESTATA a quel paziente e MOTIVATA. Da qui la riprogettazione: non "un
+bottone che stampa il catalogo", ma un generatore di richieste personali.
+
+**COSA:** nella scheda Analisi del sangue nuovo bottone 🩸 **Richiesta
+esami** → modale con checklist **già pre-spuntata**:
+- le **15 voci di base** sempre accese (emocromo, glicemia, insulina, assetto
+  lipidico, creatinina+eGFR, elettroliti, transaminasi, azotemia, acido
+  urico, ferritina+sideremia, TSH/FT3/FT4, B12, folati, vit. D, omocisteina);
+- i **blocchi di approfondimento si accendono da soli** dai dati già in
+  scheda, ognuno con il motivo mostrato a video: insulino-resistenza (BMI≥30,
+  glicemia≥100, HbA1c≥5.7, insulina≥12, anamnesi diabete/PCOS/IR, regime
+  chetogenico), cardiovascolare (LDL≥130, col.tot≥240, TG≥200, anamnesi),
+  epatico (ALT/AST>40, steatosi), ferro (ferritina >300 o <30, sideremia<50),
+  autoimmunità tiroidea (TSH fuori 0.4–4, anamnesi tiroide);
+- **vitamine e micronutrienti non si accendono MAI da soli** — restano scelta
+  clinica esplicita (decisione di Fabrizio in sessione).
+Il nutrizionista ha sempre l'ultima parola: può togliere anche una voce di
+base e aggiungere qualsiasi altra.
+
+**IL FOGLIO (jsPDF, stile del PDF originale di Fabrizio):** intestato al
+paziente con data di nascita, data e **motivo della richiesta**; casella da
+spuntare per ogni voce; etichetta **SSN / PRIVATO** per voce, così il
+paziente sa in partenza cosa probabilmente non passa sulla ricetta rossa e
+non fa tre giri inutili; disclaimer in chiusura ("proposta sottoposta alla
+valutazione del Medico Curante, cui competono la prescrizione e ogni
+decisione clinica" — linguaggio non prescrittivo, coerente con P73).
+Richiesta tipica (base, o base + un blocco) = **una pagina sola**.
+
+**INVIO (entrambe le strade, scelta di Fabrizio):**
+- 💬 *Invia su WhatsApp* — carica il PDF su **Supabase Storage** (bucket
+  pubblico `richieste`, nome file con parte casuale di 18 caratteri: non
+  indovinabile) e apre WhatsApp col messaggio e il **link** già pronti.
+  **È l'unica strada che funziona anche da PC**: WhatsApp non permette a
+  nessun sito di allegare file a una chat, né da desktop né da mobile.
+  Se il caricamento fallisce (bucket non ancora creato, rete assente)
+  degrada da solo: scarica il PDF e apre WhatsApp col testo, da allegare a
+  mano. La finestra viene aperta DENTRO il click e riempita dopo l'upload,
+  altrimenti il browser la blocca come popup.
+- 📲 *Condividi* — `navigator.share` col file: su iPhone apre il menu iOS e
+  passa il PDF allegato a WhatsApp; su desktop, dove non è supportato,
+  scarica.
+- 📄 *Scarica PDF*.
+Ogni invio registra la richiesta in `p.richiesteAnalisi[]` (data, motivo,
+voci, link) e lo **storico compare in cima alla scheda** con il link per
+riaprire il PDF.
+
+**SCELTA ARCHITETTURALE (il punto che regge il seguito):** le voci del
+catalogo non sono testo libero — ognuna dichiara `map:[...]` con i nomi
+ESATTI delle voci di `ANALISI`. È la stessa anagrafica usata dal form dei
+risultati, quindi domani si potrà dire "richiesti 15, arrivati 12, mancano
+3" senza rifare nulla. Un test di regressione verifica che nessun `map`
+punti a un nome inesistente: se una voce di ANALISI viene rinominata il
+collegamento si spezzerebbe **in silenzio**, e questo è l'unico modo di
+accorgersene.
+
+**MULTIUTENTE (predisposizione, non ancora attiva):** l'intestazione
+professionale (nome, albo, studio, contatti) è un blocco **opzionale**
+salvato su localStorage e configurabile dalla modale stessa. Vuota — la
+scelta di Fabrizio per sé — il foglio esce senza intestazione; per gli
+altri utenti basterà compilarla, senza toccare il codice.
+
+**DA FARE PRIMA DELL'USO (2 minuti, pannello Supabase):** creare il bucket
+**pubblico** `richieste` e una policy INSERT per il ruolo **`authenticated`**.
+Il caricamento passa da `supaHeaders()`, quindi viaggia con l'access_token
+dell'utente collegato e non con la chiave anonima: la policy resta chiusa a
+chi possiede solo la chiave pubblica dell'app (che è dentro index.html).
+Senza bucket/policy la funzione non si rompe: ricade sul PDF scaricato +
+WhatsApp col testo.
+
+**VERIFICHE:** `node --check` sul blocco script; suite **118 → 130, tutte
+verdi** (nuovo `s2-richiesta-analisi.test.js`: aggancio catalogo↔ANALISI,
+id univoci, paziente vuoto = solo le 15 di base, ogni regola accende il
+blocco giusto e SOLO quello, micro/vitamine mai automatiche, sostituzione
+caratteri non stampabili, costruzione PDF, link wa.me con prefisso 39).
+Layout verificato rendendo il PDF a immagine (2 bug corretti così: `γ` →
+`gamma` produceva "gamma--GT", e il foglio andava a 2 pagine anche nei casi
+tipici — margini e passo riga ricalibrati).
+
+**LEZIONI:**
+1. **jsPDF 2.5.1 (quella vendorizzata) stampa correttamente le accentate
+   italiane** à è é ì ò ù (WinAnsi): verificato caricando `vendor/jspdf.umd.min.js`
+   in JSDOM, non la 4.x del test-suite. Restano da sostituire solo i
+   caratteri FUORI da Latin-1 (γ, μ, trattino lungo, virgolette curve,
+   puntini di sospensione) — a questo serve `_richTxt`.
+2. **Nei test, le costanti `const` di livello script NON sono su `window`**:
+   si leggono con `win.eval('NOME')`. E `deepStrictEqual` fra un oggetto
+   nato dentro JSDOM e uno letterale del test **fallisce sempre** (prototipi
+   di realm diversi): confrontare le chiavi, non l'oggetto.
+3. WhatsApp non consente allegati da web: se serve mandare un file da PC,
+   l'unica strada è caricarlo e mandare il link. Vale per qualunque futura
+   funzione di invio.
+
 24 LUGLIO 2026 (2ª sessione, parte 6) — P115 TAPPA 5: SLOT CONSUNTIVO "PIANO
 VS REALTÀ" (PREDISPOSIZIONE). Sessione Cowork con Fabrizio (Fable 5).
 Baseline `3802f5d`. **Chiude l'implementazione di P115 (tutte e 5 le tappe).**
