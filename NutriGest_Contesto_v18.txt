@@ -1587,9 +1587,31 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
   invalide), _percorsoIntervalli (fasi → date concrete), _percorsoFaseAt,
   _percorsoKcalFase, mutatori percorsoInit/AddFase/UpdFase/DelFase/MoveFase/
   SetInizio, _percorsoChartSvg, renderPdPercorso. Test: s2-percorso.test.js.
+  PROIEZIONE IBRIDA (P115 Tappa 2, 24 lug 2026 — SOLO INFORMATIVA):
+    _percorsoProiezione(p) (pura) proietta il peso dal punto reale più
+    recente, giorno per giorno lungo le fasi. Intake fase = TDEE stimato ×
+    (1+pct/100) — la % dello slider è prescritta sul TDEE stimato; bilancio =
+    intake − TDEE di riferimento: tdeeOss del TDEE osservato se disponibile
+    (metodo "calibrata"), altrimenti lo stimato ("teorica"); pendenza =
+    bilancio/7700 kg/die. Conseguenza clinica voluta: in mantenimento
+    calibrato con osservato<stimato il peso proiettato RISALE (adattamento
+    visibile); un deficit prescritto sotto l'osservato viene smascherato come
+    non-deficit. Cono: ±(0.25 kg + giorni×TDEEstim×rangePct%/7700); rangePct
+    dall'affidabilità (passo 5) o 8 se calibrata. Guardia 730 giorni; fuori
+    fase mantiene. Obiettivo (pesoTarget): {dal (bordo ottimista), al (bordo
+    prudente, null=oltre il percorso), centro, raggiungibile}. Nel grafico:
+    cono azzurro + linea centrale tratteggiata + etichetta "~lo–hi kg"; riga
+    riepilogo con metodo (caveat calibrata: "assume che le kcal prescritte
+    vengano seguite"), ±rangePct e intervallo obiettivo. NON tocca nessun
+    calcolo (test dedicato). Test: s2-percorso-proiezione.test.js.
+  PREVISIONE IN calcolaMacros (aggiornata con P115 Tappa 2): il box obiettivo
+    non mostra più la data secca ma un INTERVALLO — settimane min–max e
+    "arrivo tra <data> e <data>", con ±rangePct dell'affidabilità sul
+    bilancio; scenario prudente non stimabile → "almeno N settimane". Nota
+    fissa: "a ritmo costante, senza fasi di mantenimento" + rimando alla
+    scheda 📈 Percorso per la curva con le fasi.
   PROSSIME TAPPE (design nel doc di progetto "NutriGest_P9_Timeline_
-  Ragionamento"): 2 proiezione ibrida (sostituirà la data secca di
-  calcolaMacros) · 3 corsia energia · 4 massa magra + interruttori strati ·
+  Ragionamento"): 3 corsia energia · 4 massa magra + interruttori strati ·
   5 slot consuntivo "Piano vs Realtà" (si accende con l'app paziente P50).
 
 CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):

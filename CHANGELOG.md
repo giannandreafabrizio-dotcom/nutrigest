@@ -10,6 +10,53 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (2ª sessione, parte 3) — P115 TAPPA 2: PROIEZIONE IBRIDA DEL
+PESO. Sessione Cowork con Fabrizio (Fable 5). Baseline `107eadb`. Chiude nel
+merito il vecchio P114 passo 9 ("da data secca a range") dentro la scheda
+Percorso, come da design.
+
+**MOTORE (`_percorsoProiezione`, pura):** dal peso reale più recente
+(`_serieePesoOss`) proietta giorno per giorno lungo le fasi pianificate.
+Intake fase = TDEE stimato × (1+pct/100) — è ciò che viene davvero prescritto
+(la % dello slider è sul TDEE stimato). Bilancio = intake − TDEE di
+riferimento: OSSERVATO (P114 passo 4, campo `tdeeOss`) se disponibile →
+metodo "calibrata", altrimenti stimato → "teorica". Pendenza = bilancio/7700
+kg/die: la 7700 resta solo l'innesco, con la calibrazione la pendenza segue
+il ritmo VERO del paziente (questo risolve la sovrastima della vecchia stima
+lineare oltre 4-6 settimane). Effetto clinico voluto e verificato dal test:
+in mantenimento calibrato con osservato < stimato la pendenza diventa
+POSITIVA — l'adattamento metabolico si VEDE; e se l'osservato è sotto
+l'intake di un "deficit sulla carta", il grafico mostra che per quel paziente
+NON è un deficit (avviso prezioso in visita). Cono: ±(0.25 kg + giorni ×
+TDEEstim×rangePct%/7700), rangePct dall'affidabilità (passo 5) o 8% se
+calibrata. Guardia 730 giorni. Fuori fase (buco teorico): mantiene.
+Obiettivo (se pesoTarget): intervallo dal=bordo ottimista / al=prudente
+(null → "oltre la fine del percorso"), confini verificati dai test. SOLO
+INFORMATIVO: un test fissa che il TDEE è identico prima/dopo.
+
+**UI:** cono azzurro + linea centrale tratteggiata nel grafico Percorso
+(sotto la linea del peso reale), etichetta finale "~lo–hi kg" sopra il cono,
+riga riepilogo sotto il badge fase: metodo (teorica "si calibrerà da sola" /
+calibrata col valore e il caveat "assume che le kcal prescritte vengano
+seguite" — stesso presupposto dichiarato del TDEE osservato), intervallo ±%,
+e obiettivo "tra <data> e <data>". **`calcolaMacros`: la data secca è
+SOSTITUITA dall'intervallo** — settimane min–max e "arrivo tra <data> e
+<data>" calcolati con ±rangePct dell'affidabilità; nota esplicita "a ritmo
+costante, senza fasi di mantenimento" + rimando alla scheda 📈 Percorso per
+la curva con le fasi. Se lo scenario prudente non è stimabile (deficit −
+incertezza ≤ 0): "almeno N settimane".
+
+**VERIFICHE:** suite **92 → 98, tutte verdi** (`s2-percorso-proiezione.
+test.js`: pendenza teorica esatta, cono crescente, calibrata con fixture
+TDEE-osservato valida e risalita in mantenimento, intervallo obiettivo
+dal≤centro≤al, degradazioni pulite, cono nel SVG + zero effetti sui
+calcoli); collaudo visivo Chromium su due casi (teorica con cono che si
+piega sulle fasi; calibrata che smaschera un finto deficit). Estrazione
+script con `extractMainScript()` (lezione parte 2). SHA ricontrollato
+invariato. Resta il collaudo di Fabrizio in produzione. Di P115 restano le
+Tappe 3 (corsia energia), 4 (massa magra + interruttori), 5 (slot
+consuntivo).
+
 24 LUGLIO 2026 (2ª sessione, parte 2) — P115 TAPPA 1: SCHEDA "📈 PERCORSO"
 (TIMELINE DI PERIODIZZAZIONE). Sessione Cowork con Fabrizio (Fable 5).
 Baseline `ea3d7db`. Nasce P115: l'evoluzione del passo 9 di P114 decisa da

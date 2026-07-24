@@ -235,8 +235,8 @@ Righe 4870-6107
 
 ---
 
-### 📈 PERCORSO — timeline di periodizzazione (P115 Tappa 1, 24 lug 2026)
-Righe 6021-6280 (numeri ESATTI al 24/7 sera). ⚠️ L'inserimento di questo blocco (~260 righe) fa slittare di +~260 tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
+### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-2, 24 lug 2026)
+Righe 6021-6390 (numeri ESATTI al 24/7 sera, dopo la Tappa 2). ⚠️ Questo blocco (~370 righe) fa slittare di +~370 tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
 
 - `6032` — _PERCORSO_TIPI (const: tipi fase, colori, pct default)
 - `6039` — _percorsoGet *(normalizza p.percorso, scarta fasi invalide)*
@@ -244,15 +244,19 @@ Righe 6021-6280 (numeri ESATTI al 24/7 sera). ⚠️ L'inserimento di questo blo
 - `6056` — _percorsoIntervalli *(fasi consecutive → date concrete dal/al)*
 - `6070` — _percorsoFaseAt *(fase attiva a una data; dal incluso, al escluso)*
 - `6079` — _percorsoKcalFase *(pct → kcal indicative via calcolaTDEE)*
-- `6086` — _percorsoPaz
-- `6087` — percorsoInit
-- `6093` — percorsoSetInizio
-- `6097` — percorsoAddFase *(alternanza suggerita deficit↔mantenimento)*
-- `6106` — percorsoUpdFase
-- `6114` — percorsoDelFase
-- `6119` — percorsoMoveFase
-- `6128` — _percorsoChartSvg *(bande fasi + peso reale + oggi + obiettivo)*
-- `6210` — renderPdPercorso *(scheda: badge fase, grafico, editor)*
+- `6102` — _percorsoProiezione *(Tappa 2 — proiezione ibrida teorica/calibrata, cono, obiettivo a intervallo)*
+- `6160` — _percorsoDataBreve *(ISO → "12 set")*
+- `6167` — _percorsoPaz
+- `6168` — percorsoInit
+- `6174` — percorsoSetInizio
+- `6178` — percorsoAddFase *(alternanza suggerita deficit↔mantenimento)*
+- `6187` — percorsoUpdFase
+- `6195` — percorsoDelFase
+- `6200` — percorsoMoveFase
+- `6209` — _percorsoChartSvg *(bande fasi + peso reale + cono proiezione + oggi + obiettivo)*
+- `6304` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, grafico, editor)*
+
+*(Tappa 2 tocca anche `calcolaMacros`: box obiettivo con intervallo al posto della data secca.)*
 
 ---
 

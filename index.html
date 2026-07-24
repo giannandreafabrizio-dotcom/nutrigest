@@ -6082,6 +6082,87 @@ function _percorsoKcalFase(p, pct){
   return Math.round(ct.tdee*(1+pct/100));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P115 Tappa 2 — PROIEZIONE IBRIDA del peso (24 lug 2026).
+// Dal peso reale più recente proietta la traiettoria futura lungo le fasi
+// pianificate. Metodo:
+//   - intake della fase = TDEE stimato × (1 + pct/100)  (è ciò che viene
+//     prescritto: la % dello slider è calcolata sul TDEE stimato);
+//   - bilancio reale = intake − TDEE di riferimento, dove il riferimento è
+//     il TDEE OSSERVATO (P114 passo 4) se disponibile → metodo "calibrata",
+//     altrimenti il TDEE stimato → metodo "teorica";
+//   - pendenza = bilancio/7700 kg/die. La 7700 resta SOLO l'innesco: con la
+//     calibrazione la pendenza segue il ritmo VERO del paziente (è questo
+//     che risolve la sovrastima della vecchia stima lineare oltre 4-6 sett.);
+//   - in mantenimento calibrato con TDEE osservato < stimato la pendenza
+//     diventa positiva: l'adattamento metabolico si VEDE, non si nasconde.
+// Incertezza: cono ±(0.25 kg + giorni × TDEEstim×rangePct%/7700), con
+// rangePct dall'indice di affidabilità (passo 5) o 8% se calibrata.
+// SOLO INFORMATIVO: non tocca nessun calcolo né target.
+function _percorsoProiezione(p){
+  const percorso=_percorsoGet(p);
+  if(!percorso || !percorso.fasi.length) return {ok:false, motivo:"nessuna fase pianificata"};
+  const serie=_serieePesoOss(p);
+  if(!serie.length) return {ok:false, motivo:"nessun peso registrato"};
+  const ct=calcolaTDEE(p);
+  if(!ct || !ct.tdee) return {ok:false, motivo:"TDEE non calcolabile (manca InBody)"};
+  const start=serie[serie.length-1];
+  const ints=_percorsoIntervalli(percorso);
+  const fine=ints[ints.length-1].al;
+  if(start.data>=fine) return {ok:false, motivo:"il percorso pianificato è già concluso"};
+  const tdeeStim=ct.tdee;
+  let tdeeRef=tdeeStim, metodo="teorica";
+  let oss=null;
+  try{ oss=calcolaTDEEOsservato(p); }catch(e){ oss=null; }
+  if(oss && oss.ok && oss.tdeeOss){ tdeeRef=oss.tdeeOss; metodo="calibrata"; }
+  const rangePct = metodo==="calibrata" ? 8 : ((ct.affidabilita && ct.affidabilita.rangePct) || 15);
+  const spreadDay = tdeeStim*rangePct/100/7700;   // kg/die di incertezza sul bilancio
+  const dayMs=864e5;
+  const tFine=new Date(fine+"T00:00:00").getTime();
+  let d=new Date(start.data+"T00:00:00").getTime();
+  let kg=+start.peso, giorno=0;
+  const punti=[{data:start.data, kg:+kg.toFixed(2), lo:+kg.toFixed(2), hi:+kg.toFixed(2)}];
+  while(d<tFine && giorno<730){                    // guardia: mai oltre 2 anni
+    const fase=_percorsoFaseAt(percorso, _percorsoIsoLocal(d));
+    const pct=fase?fase.pct:0;                     // fuori fase (buco teorico): mantieni
+    const intake=tdeeStim*(1+pct/100);
+    kg += (intake-tdeeRef)/7700;
+    d+=dayMs; giorno++;
+    if(giorno%7===0 || d>=tFine){
+      const spread=0.25+giorno*spreadDay;
+      punti.push({data:_percorsoIsoLocal(d), kg:+kg.toFixed(2), lo:+(kg-spread).toFixed(2), hi:+(kg+spread).toFixed(2)});
+    }
+  }
+  // intervallo di raggiungimento obiettivo (se pesoTarget impostato):
+  // primo giorno in cui il bordo OTTIMISTA tocca il target → "dal";
+  // primo giorno in cui il bordo PRUDENTE lo tocca → "al" (null = oltre il percorso).
+  let obiettivo=null;
+  const target=p.pesoTarget!=null?+p.pesoTarget:null;
+  if(target && !isNaN(target) && punti.length>1){
+    const perdere = punti[0].kg > target;         // dimagrimento vs aumento
+    let dal=null, al=null, centro=null;
+    for(let i=1;i<punti.length;i++){
+      const q=punti[i];
+      const okLo = perdere ? q.lo<=target : q.hi>=target;   // bordo ottimista
+      const okC  = perdere ? q.kg<=target : q.kg>=target;
+      const okHi = perdere ? q.hi<=target : q.lo>=target;   // bordo prudente
+      if(dal===null && okLo) dal=q.data;
+      if(centro===null && okC) centro=q.data;
+      if(al===null && okHi) al=q.data;
+    }
+    if(dal) obiettivo={dal:dal, al:al, centro:centro, raggiungibile:centro!==null};
+  }
+  return {ok:true, punti:punti, metodo:metodo, tdeeStim:tdeeStim, tdeeRef:tdeeRef,
+          rangePct:rangePct, obiettivo:obiettivo, fineISO:fine};
+}
+
+// Data ISO → "12 set" (breve, per i riepiloghi).
+function _percorsoDataBreve(iso){
+  const mn=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+  const d=new Date(iso+"T00:00:00");
+  return isNaN(d.getTime())?iso:d.getDate()+" "+mn[d.getMonth()]+(d.getFullYear()!==new Date().getFullYear()?" "+String(d.getFullYear()).slice(2):"");
+}
+
 // ── Mutatori (pattern: muta paziente → save → re-render) ──────────────────────
 function _percorsoPaz(pazId){ return (db.pazienti||[]).find(function(x){return x.id===pazId;}); }
 function percorsoInit(pazId){
@@ -6130,6 +6211,8 @@ function _percorsoChartSvg(p){
   const serie=_serieePesoOss(p);           // [{data,peso,fonte}] ordinata
   const ints=_percorsoIntervalli(percorso);
   if(!ints.length && serie.length<2) return "";  // niente da disegnare
+  const proj=_percorsoProiezione(p);       // P115 Tappa 2 — cono futuro (può essere ok:false)
+  const projOk=!!(proj && proj.ok && proj.punti.length>1);
   const oggi=_percorsoIsoLocal(Date.now());
   // dominio temporale: dal min(inizio percorso, prima pesata) al max(fine percorso, ultima pesata, oggi)
   const dParse=function(iso){ return new Date(iso+"T00:00:00").getTime(); };
@@ -6142,6 +6225,7 @@ function _percorsoChartSvg(p){
   let kgMin=Infinity,kgMax=-Infinity;
   serie.forEach(function(pt){ kgMin=Math.min(kgMin,pt.peso); kgMax=Math.max(kgMax,pt.peso); });
   if(p.pesoTarget){ kgMin=Math.min(kgMin,+p.pesoTarget); kgMax=Math.max(kgMax,+p.pesoTarget); }
+  if(projOk){ proj.punti.forEach(function(q){ kgMin=Math.min(kgMin,q.lo); kgMax=Math.max(kgMax,q.hi); }); }
   if(!isFinite(kgMin)){ kgMin=60; kgMax=90; }
   const span=Math.max(kgMax-kgMin,2); kgMin-=span*0.15; kgMax+=span*0.15;
   const W=1000,H=400,L=52,R=20,T=58,B=34;
@@ -6186,6 +6270,16 @@ function _percorsoChartSvg(p){
     s+='<line x1="'+xo.toFixed(1)+'" y1="'+(T-4)+'" x2="'+xo.toFixed(1)+'" y2="'+(H-B)+'" stroke="#52514e" stroke-width="1.2" stroke-dasharray="3 3"/>'
      +'<text x="'+xo.toFixed(1)+'" y="'+(T-34)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#52514e">oggi</text>';
   }
+  // P115 Tappa 2 — cono di proiezione (sotto la linea del peso, sopra le bande)
+  if(projOk){
+    const pj=proj.punti;
+    const su=pj.map(function(q){ return x(dParse(q.data)).toFixed(1)+" "+y(q.hi).toFixed(1); });
+    const giu=pj.slice().reverse().map(function(q){ return x(dParse(q.data)).toFixed(1)+" "+y(q.lo).toFixed(1); });
+    s+='<path d="M'+su.join(" L")+" L"+giu.join(" L")+' Z" fill="rgba(42,120,214,0.14)"/>';
+    s+='<path d="'+pj.map(function(q,i){ return (i?"L":"M")+x(dParse(q.data)).toFixed(1)+" "+y(q.kg).toFixed(1); }).join(" ")+'" fill="none" stroke="#2a78d6" stroke-width="1.8" stroke-dasharray="5 4" opacity=".85"/>';
+    const fineP=pj[pj.length-1];
+    s+='<text x="'+(x(dParse(fineP.data))-4).toFixed(1)+'" y="'+(y(fineP.hi)-6).toFixed(1)+'" text-anchor="end" font-size="10.5" fill="#2a78d6">~'+fineP.lo.toFixed(1)+"–"+fineP.hi.toFixed(1)+' kg</text>';
+  }
   // linea peso reale + punti (InBody pieni, pesate intermedie vuote)
   if(serie.length){
     const pts=serie.map(function(pt){ return [x(dParse(pt.data)), y(pt.peso)]; });
@@ -6227,12 +6321,31 @@ function renderPdPercorso(p){
         ? '<div style="padding:.25rem .7rem;border-radius:20px;background:'+_PERCORSO_TIPI[fAtt.tipo].band+';color:'+_PERCORSO_TIPI[fAtt.tipo].txt+';font-weight:700">Oggi: '+_PERCORSO_TIPI[fAtt.tipo].label+' ('+(fAtt.pct===0?"mantieni":(fAtt.pct>0?"+":"")+fAtt.pct+"%")+') · fase '+(fAtt.indice+1)+' di '+ints.length+'</div>'
         : '<div style="padding:.25rem .7rem;border-radius:20px;background:#fff7ed;color:#c2410c;font-weight:600">Oggi fuori dalle fasi pianificate'+(fine&&oggi>=fine?" (percorso terminato il "+fine+")":"")+'</div>')
       +'</div>';
+    // P115 Tappa 2 — riga proiezione + obiettivo (informativa)
+    const _proj=_percorsoProiezione(p);
+    if(_proj && _proj.ok){
+      const met = _proj.metodo==="calibrata"
+        ? '<span style="color:#5B3E8C;font-weight:700">calibrata sul TDEE osservato ('+_proj.tdeeRef+' kcal)</span> <span style="color:var(--text3)">(assume che le kcal prescritte vengano seguite)</span>'
+        : '<span style="color:#185FA5;font-weight:700">teorica</span> <span style="color:var(--text3)">(si calibrerà da sola con le prossime pesate)</span>';
+      let obTxt="";
+      if(_proj.obiettivo){
+        const o=_proj.obiettivo;
+        obTxt = o.al
+          ? ' · 🎯 obiettivo '+p.pesoTarget+' kg: <strong>tra '+_percorsoDataBreve(o.dal)+' e '+_percorsoDataBreve(o.al)+'</strong>'
+          : ' · 🎯 obiettivo '+p.pesoTarget+' kg: <strong>da '+_percorsoDataBreve(o.dal)+'</strong>, nello scenario prudente oltre la fine del percorso';
+      } else if(p.pesoTarget){
+        obTxt=' · 🎯 obiettivo '+p.pesoTarget+' kg: oltre la fine del percorso pianificato — valuta di allungare o intensificare le fasi';
+      }
+      html+='<div style="font-size:.74rem;color:var(--text2);margin:-.2rem 0 .55rem;padding:.35rem .6rem;background:#f4f8fd;border:1px solid #d9e6f5;border-radius:8px">Proiezione: '+met+' · intervallo ±'+_proj.rangePct+'%'+obTxt+'</div>';
+    } else if(_proj && !_proj.ok && ints.length){
+      html+='<div style="font-size:.7rem;color:var(--text3);margin:-.2rem 0 .55rem">Proiezione non disponibile: '+_proj.motivo+'.</div>';
+    }
     // grafico
     const svg=_percorsoChartSvg(p);
     html+= svg
       ? '<div style="border:1px solid var(--border);border-radius:10px;padding:.5rem .4rem .2rem;background:#fcfcfb">'+svg+'</div>'
       : '<div style="font-size:.75rem;color:var(--text3);padding:.6rem 0">Aggiungi almeno una fase (o un paio di pesate) per vedere il grafico.</div>';
-    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody · ○ pesata intermedia · le fasi future sono tratteggiate · le kcal accanto alle fasi sono indicative (% del TDEE attuale). La proiezione del peso arriva con la Tappa 2.</div>';
+    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody · ○ pesata intermedia · fasi future tratteggiate · kcal indicative (% del TDEE attuale) · il cono azzurro è la proiezione del peso lungo le fasi: più si va lontano più si allarga, e si restringe man mano che registri pesate. Solo informativa: non tocca nessun calcolo.</div>';
     // editor fasi
     html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
       +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th></th></tr></thead><tbody>';
@@ -9938,17 +10051,27 @@ function calcolaMacros(){
         if(pesoAttualeVal&&pesoTargetVal){
           const kgDiff=obj<0?(pesoAttualeVal-pesoTargetVal):(pesoTargetVal-pesoAttualeVal);
           if(kgDiff>0&&kgSett>0){
-            const settNec=Math.round(kgDiff/kgSett);
-            const mesiApprox=Math.round(settNec/4.3*10)/10;
-            const dataArrivo=new Date();dataArrivo.setDate(dataArrivo.getDate()+settNec*7);
+            // P115 Tappa 2 (ex P114 passo 9) — INTERVALLO al posto della data secca:
+            // il bilancio reale è |obj| ± incertezza del TDEE (rangePct del semaforo
+            // di affidabilità, passo 5) → forchetta di settimane, non un giorno preciso.
+            const _rangePct=(_ct&&_ct.affidabilita&&_ct.affidabilita.rangePct)||15;
+            const _unc=tdee*_rangePct/100;
+            const kgSettMax=(Math.abs(obj)+_unc)/7700*7;
+            const kgSettMin=Math.max(0,(Math.abs(obj)-_unc))/7700*7;
+            const settMin=Math.max(1,Math.ceil(kgDiff/kgSettMax));
+            const settMax=kgSettMin>0?Math.ceil(kgDiff/kgSettMin):null;
             const mn=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
-            const dataStr=dataArrivo.getDate()+' '+mn[dataArrivo.getMonth()]+' '+dataArrivo.getFullYear();
+            const _fmtD=function(sett){ const d=new Date(); d.setDate(d.getDate()+sett*7); return d.getDate()+' '+mn[d.getMonth()]+' '+d.getFullYear(); };
+            const stimaTxt=(settMax&&settMax<=156)
+              ? `<strong>${settMin}–${settMax} settimane</strong> · arrivo <strong>tra ${_fmtD(settMin)} e ${_fmtD(settMax)}</strong>`
+              : `<strong>almeno ${settMin} settimane</strong> (da ${_fmtD(settMin)}) — scenario prudente non stimabile con i dati attuali`;
             const colObi=obj<0?'#16a34a':'#2563eb';
             const bgObi=obj<0?'rgba(22,163,74,.08)':'rgba(37,99,235,.08)';
             const bordObi=obj<0?'#16a34a':'#2563eb';
+            const pazPerc=_macrosPaziente&&_macrosPaziente.percorso&&_macrosPaziente.percorso.fasi&&_macrosPaziente.percorso.fasi.length;
             previsione=`<div style="margin-top:.55rem;padding:.45rem .7rem;background:${bgObi};border-left:3px solid ${bordObi};border-radius:0 6px 6px 0;font-size:.74rem;color:${colObi}">
-              🎯 <strong>Obiettivo ${pesoTargetVal} kg</strong> — mancano <strong>${Math.round(kgDiff*10)/10} kg</strong> · stima <strong>${settNec} settimane</strong> (~${mesiApprox} mesi) · arrivo indicativo: <strong>${dataStr}</strong>
-              <div style="font-size:.66rem;color:#6b7280;margin-top:2px">Stima lineare — rivalutare a ogni controllo</div>
+              🎯 <strong>Obiettivo ${pesoTargetVal} kg</strong> — mancano <strong>${Math.round(kgDiff*10)/10} kg</strong> · stima ${stimaTxt}
+              <div style="font-size:.66rem;color:#6b7280;margin-top:2px">Forchetta ±${_rangePct}% dall'affidabilità della stima TDEE · a ritmo costante, senza fasi di mantenimento — ${pazPerc?'la curva completa con le fasi è nella scheda 📈 Percorso':'per pianificare fasi e vedere la curva usa la scheda 📈 Percorso'}</div>
             </div>`;
           }
         }
