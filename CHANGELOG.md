@@ -12,10 +12,23 @@ STORICO SESSIONI E COMMIT
 
 24 LUGLIO 2026 — P74 FASE 1d (CUTOVER META-RECORD SU `collections`) + AVVIO
 FASE 2 (DOPPIA SCRITTURA ANALISI DEL SANGUE). Sessione Cowork con Fabrizio
-(Fable 5). Baseline `def73de`, HEAD invariato in consegna. Precondizione
+(Fable 5). Baseline `def73de`. **Pushato da Fabrizio in commit `97acb03`;
+tabella `analisi_sangue` creata via SQL Editor prima del push.** Precondizione
 verificata: 7 giorni di collaudo stabile della doppia lettura 1c (17→24 lug,
 confermato da Fabrizio: nessuna anomalia su PC né iPhone). Autonomia L0:
 perimetro (1d + avvio fase 2) approvato esplicitamente a inizio sessione.
+
+**COLLAUDO IN PRODUZIONE ✅ FATTO IL 24 LUG 2026, ESITO POSITIVO (dopo reload
+forzato PC + iPhone):** (1) creato paziente da iPhone → comparso su PC dopo
+sync; (2) eliminato da PC → sparito da iPhone dopo sync = il registro
+tombstone P64, ora dentro `collections`, viaggia corretto (era il punto più
+delicato del cutover); (3) alimenti custom, concetti educativi e modelli di
+rotazione tutti presenti su entrambi i dispositivi = i 4 meta-record letti
+correttamente dalla nuova casa; (4) tabella `analisi_sangue` popolata con
+l'uso — 39 righe, tutte con lo stesso `user_id` (RLS ok), `data` con i valori
+reali dove il paziente ha analisi (es. FT3/FT4/HDL) e `{}` dove non le ha.
+Resta solo: backup + eliminazione manuale delle 4 righe finte da `pazienti`
+tra qualche giorno, poi gradino successivo fase 2 (diff blob↔tabella).
 
 FASE 1d — CUTOVER. I 4 meta-record (meta_collections, __alimenti_custom,
 __modelli_rotazione, __concetti_educativi) ora vivono SOLO in `collections`:
