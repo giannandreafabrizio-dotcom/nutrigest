@@ -110,8 +110,12 @@ Righe 3645-3784
 - `3737` — _registraTombstone
 - `3745` — _tombstoneAttivi
 - `3757` — _fondiTombstones
-- `3771` — _mergeTombstonesRemoti
+- `3771` — _mergeTombstonesRemoti *(dal 24/7 legge il meta da `collections`, P74 1d)*
 - `3784` — _applicaTombstones
+- `3909` — _pazFetchMeta *(P74 1d — solo `collections`)*
+- `3930` — _collectionsUpsert *(P74 — scrittura primaria dei 4 meta-record dal cutover 1d)*
+- `3952` — _collectionsFetch *(P74 1d — lettura unica dei meta-record)*
+- `3975` — _analisiSangueUpsert *(P74 fase 2 — scrittura ombra analisi del sangue, 24/7)*
 
 ---
 

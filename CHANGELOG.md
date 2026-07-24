@@ -10,6 +10,66 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 — P74 FASE 1d (CUTOVER META-RECORD SU `collections`) + AVVIO
+FASE 2 (DOPPIA SCRITTURA ANALISI DEL SANGUE). Sessione Cowork con Fabrizio
+(Fable 5). Baseline `def73de`, HEAD invariato in consegna. Precondizione
+verificata: 7 giorni di collaudo stabile della doppia lettura 1c (17→24 lug,
+confermato da Fabrizio: nessuna anomalia su PC né iPhone). Autonomia L0:
+perimetro (1d + avvio fase 2) approvato esplicitamente a inizio sessione.
+
+FASE 1d — CUTOVER. I 4 meta-record (meta_collections, __alimenti_custom,
+__modelli_rotazione, __concetti_educativi) ora vivono SOLO in `collections`:
+- Scrittura: i 5 punti di push (pushConcetiSupabase, pushAlimentiCustomSupabase,
+  pushModelliSupabase, sezione meta di pushToSheets, ramo META_KEY di
+  _pushRigaPerId) scrivono solo via _collectionsUpsert, che da "ombra
+  best-effort" diventa scrittura PRIMARIA: il suo esito fa fede (return
+  false / throw in pushToSheets se fallisce). Spariscono i GET+PATCH/POST
+  sulle righe finte di `pazienti`.
+- Lettura: i 4 read-point (pullConcetiSupabase, _pazFetchMeta,
+  pullAlimentiCustomSupabase, pullModelliSupabase) leggono solo via
+  _collectionsFetch. Anche _mergeTombstonesRemoti (P64) legge il registro
+  tombstone dal meta in `collections` — era l'ultimo lettore legacy nascosto.
+- Rimossi gli helper della doppia lettura 1c ormai senza chiamanti:
+  _preferNuovo e _tsMs (la guardia "mai un dato più vecchio" era una misura
+  di transizione; la storia resta in questo CHANGELOG e in git).
+- Le migrazioni storiche dentro pullFromSheets (eventi/entrate/piani/ricette
+  dal meta) restano nel codice: innocue, non troveranno mai più quei campi.
+PERCHÉ: chiudere la finestra in cui due posizioni potevano divergere; era il
+gradino previsto dallo schema target (Contesto, DECISIONI ARCHITETTURALI).
+RISCHIO RESIDUO NOTO: un dispositivo con la versione VECCHIA in cache
+scriverebbe ancora nelle righe finte, che nessuno legge più → al primo
+utilizzo post-commit serve un reload forzato su ENTRAMBI i dispositivi
+(PC: Ctrl+F5; iPhone: chiudi scheda Safari e riapri). Le 4 righe finte in
+`pazienti` NON sono ancora eliminate: backup + eliminazione manuale guidata
+solo dopo qualche giorno di collaudo del cutover (istruzioni consegnate a
+Fabrizio in sessione: export CSV + tabella di backup via SQL Editor).
+Rollback estremo: `git revert` del commit 1d.
+
+FASE 2 (AVVIO) — ANALISI DEL SANGUE, DOPPIA SCRITTURA. Stesso pattern 1b che
+ha già funzionato per i meta-record: nuova tabella `analisi_sangue`
+{paz_id text, user_id uuid default auth.uid(), data jsonb, updated_at,
+PK(paz_id,user_id)}, RLS row-owner identica alle altre (SQL fornito a
+Fabrizio, da eseguire nell'SQL Editor PRIMA di usare la nuova versione:
+l'upsert ombra su tabella mancante fallirebbe best-effort con solo log
+console, senza danni). Nuovo helper _analisiSangueUpsert(pazId, analisi):
+upsert POST con Prefer: resolution=merge-duplicates, best-effort, agganciato
+DOPO il successo del push legacy del blob nei 2 punti che pushano pazienti
+(loop di pushToSheets e ramo paziente di _pushRigaPerId); l'esito non altera
+mai il return del chiamante. delPazienteSupabase elimina anche la riga ombra
+(best-effort) per non lasciare orfani nel diff. NESSUN CAMBIO DI LETTURA:
+l'app continua a leggere p.analisiSangue dal blob. Prossimi gradini (ognuno
+L0): diff blob↔tabella pulito → doppia lettura → estrazione dal blob con
+segnale di versione minima (un client vecchio non deve poter ri-pushare un
+blob "senza analisi" cancellando l'estratto).
+
+VERIFICA: node --check sul blocco script OK; test-suite 77/77 verdi;
+ls-remote ricontrollato in consegna (HEAD ancora def73de); grep di contenuto
+su "P74 1d"/"P74 f2"/_analisiSangueUpsert nel file consegnato. Collaudo di
+produzione richiesto a Fabrizio dopo il push: sync completa + spot-check di
+concetti/alimenti custom/modelli/disponibilità su PC e iPhone (con reload
+forzato), test elimina-paziente↔sync (tombstone), e verifica nel Table
+Editor che `analisi_sangue` si popoli con l'uso.
+
 22 LUGLIO 2026 — P114 PASSI 2+5: MODIFICATORE LAVORO NEL NEAT + INDICE DI
 AFFIDABILITÀ DELLA STIMA TDEE (SEMAFORO + INTERVALLO). Sessione Cowork con
 Fabrizio (Opus). Baseline `80a59b5`, HEAD invariato in consegna.

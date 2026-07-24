@@ -472,10 +472,16 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
      + proattivo (buffer 2 min) via assicuraTokenValido(). Costante APP_URL
      hardcoded per redirect email. Chiave primaria pazienti ora (id, user_id)
      per consentire meta-record con id fissi a più utenti.
-  Tabelle: pazienti | ricette | piani | entrate | eventi | meta(solo disponibilita)
-    + collections (P74 fase 1a, 16 lug 2026 — {key,user_id,data jsonb,updated_at},
-      RLS identica; in scrittura ombra dalla fase 1b, non ancora letta dal client,
-      dettaglio in DECISIONI ARCHITETTURALI → P74 SCHEMA TARGET)
+  Tabelle: pazienti | ricette | piani | entrate | eventi
+    + collections (P74 — {key,user_id,data jsonb,updated_at}, RLS identica;
+      DAL CUTOVER 1d del 24 lug 2026 è la casa UNICA dei 4 meta-record,
+      disponibilita e tombstone inclusi: lettura e scrittura passano SOLO da qui;
+      le 4 righe finte in pazienti restano da eliminare a mano dopo il collaudo.
+      Dettaglio in DECISIONI ARCHITETTURALI → P74 SCHEMA TARGET)
+    + analisi_sangue (P74 fase 2, 24 lug 2026 — {paz_id,user_id,data jsonb,
+      updated_at, PK(paz_id,user_id)}, RLS identica; SOLO scrittura ombra
+      best-effort dopo il push del blob paziente via _analisiSangueUpsert,
+      il client legge ancora p.analisiSangue dal blob)
   Funzioni sync: pushToSheets/pullFromSheets = nomi legacy che usano Supabase internamente
   Funzioni dedicate per tabella (verificate nel codice):
     Ricette:  pushRicetteSupabase  pullRicetteSupabase  delRicetteSupabase
@@ -484,12 +490,14 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
     Entrate:  pushEntrateSupabase  pullEntrateSupabase  pushEntrataSupabase  delEntrataSupabase
     Eventi:   pushEventoSupabase   pushEventiSupabase   pullEventiSupabase   delEventoSupabase
     Modelli rotazione (21 mag): pushModelliSupabase  pullModelliSupabase
-      → riga __modelli_rotazione in tabella pazienti (no tabella dedicata, scelta A1)
+      → chiave __modelli_rotazione in `collections` (dal cutover P74 1d, 24 lug 2026)
     Alimenti custom (22 mag): pushAlimentiCustomSupabase  pullAlimentiCustomSupabase
-      → riga __alimenti_custom in tabella pazienti (stesso pattern modelli rotazione)
+      → chiave __alimenti_custom in `collections` (stesso cutover)
     Concetti educativi (4 giu): pushConcetiSupabase  pullConcetiSupabase  migraConcetti
-      → riga __concetti_educativi in tabella pazienti (stesso pattern). data={concetti:[...]}
+      → chiave __concetti_educativi in `collections` (stesso cutover). data={concetti:[...]}
       → fonte UNICA db.concetti; CONCETTI_EDUCATIVI_SEED solo per migrazione iniziale
+    Analisi sangue (P74 fase 2, 24 lug): _analisiSangueUpsert → tabella analisi_sangue
+      (solo scrittura ombra; delPazienteSupabase elimina anche la riga ombra)
   Semantica sync — fotografia del comportamento attuale (aggiornata 9 luglio 2026, P68):
     save(pazId?) è ora retro-compatibile con due modalità.
     save() SENZA argomento = comportamento storico invariato: saveLocal() +
@@ -887,18 +895,21 @@ P74 SCHEMA TARGET — LA FORMA FINALE DEI DATI, FISSATA "SU CARTA" (16 lug 2026,
     (se la vecchia scrittura fallisce, quella ombra non parte); il suo
     esito non altera mai il return della funzione chiamante. LETTURA
     ANCORA SOLO DALLA VECCHIA POSIZIONE — zero cambio di comportamento.
-    (1c da fare) doppia lettura con preferenza al nuovo: legge prima da
-    collections, fallback alla vecchia riga se assente/vuoto (stesso
-    pattern del proxy AI P66) — uso reale qualche giorno prima del cutover.
-    (1d da fare) cutover: stop lettura/scrittura vecchia posizione, backup
-    export dei 4 meta-record, eliminazione delle 4 righe finte da pazienti.
-    Rischio principe (per 1c/1d): dispositivo con versione vecchia in cache
-    che legge/scrive ancora nel vecchio posto → richiede reload forzato su
-    PC e iPhone al cutover, non prima. I tombstone P64 (dentro
-    meta_collections, chiave 'deleted') migrano col loro meta — punto più
-    delicato: testare esplicitamente elimina-paziente↔sync su entrambi i
-    dispositivi a ogni sotto-passo da 1b in poi.
-  · Fase 2 — una entità per sessione FUORI dal blob (ordine: analisiSangue →
+    (1c fatta, 17 lug, commit e88e0fb) doppia lettura con preferenza al
+    nuovo e guardia updated_at (_preferNuovo/_tsMs) — 7 giorni di collaudo
+    stabile in produzione su PC e iPhone.
+    (1d fatta, 24 lug — CUTOVER, in collaudo) stop lettura/scrittura della
+    vecchia posizione: i 4 meta-record vivono SOLO in collections (tombstone
+    P64 inclusi, _mergeTombstonesRemoti compreso); helper 1c rimossi.
+    Restano: backup export + eliminazione manuale delle 4 righe finte da
+    pazienti, dopo qualche giorno di collaudo.
+    Rischio principe del cutover: dispositivo con versione vecchia in cache
+    che scrive ancora nel vecchio posto (che nessuno legge più) → reload
+    forzato su PC e iPhone subito dopo il commit 1d. Testare esplicitamente
+    elimina-paziente↔sync su entrambi i dispositivi.
+  · Fase 2 (AVVIATA 24 lug 2026: analisiSangue in doppia scrittura ombra via
+    _analisiSangueUpsert + tabella analisi_sangue con RLS row-owner; lettura
+    invariata dal blob) — una entità per sessione FUORI dal blob (ordine: analisiSangue →
     inbody → note), ognuna in tabella dedicata {id, pazId text, user_id uuid,
     data jsonb, updated_at, PK (id, user_id)} con stessa RLS. Dual-write
     (blob + tabella) finché il diff blob↔tabella è pulito; segnale di versione
