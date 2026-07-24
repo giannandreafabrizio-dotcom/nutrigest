@@ -235,8 +235,8 @@ Righe 4870-6107
 
 ---
 
-### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-2-3, 24 lug 2026)
-Righe 6021-6500 (numeri ESATTI al 24/7 notte, dopo la Tappa 3). ⚠️ Questo blocco (~480 righe) fa slittare di +~480 tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
+### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-2-3-4, 24 lug 2026)
+Righe 6021-6548 (numeri ESATTI al 24/7 notte, dopo la Tappa 4). ⚠️ Questo blocco (~527 righe) fa slittare tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale (es. la Tappa 5).
 
 - `6032` — _PERCORSO_TIPI (const: tipi fase, colori, pct default)
 - `6039` — _percorsoGet *(normalizza p.percorso, scarta fasi invalide)*
@@ -247,9 +247,13 @@ Righe 6021-6500 (numeri ESATTI al 24/7 notte, dopo la Tappa 3). ⚠️ Questo bl
 - `6102` — _percorsoProiezione *(Tappa 2 — proiezione ibrida teorica/calibrata, cono, obiettivo a intervallo)*
 - `6160` — _percorsoDataBreve *(ISO → "12 set")*
 - `6177` — _percorsoSerieEnergia *(Tappa 3 — serie introito/TDEE stimato/TDEE osservato per la corsia energia)*
-- `6229` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
-- `6256` — _percorsoChartSvg *(due corsie: peso + cono proiezione sopra, energia (kcal) sotto)*
-- `6405` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, grafico, editor)*
+- `6216` — _percorsoSerieMassaMagra *(Tappa 4 — solo InBody: punti {data,m,pg})*
+- `6230` — _PERCORSO_LAYERS_DEFAULT / _percorsoLayersState / _percorsoLayersGet *(Tappa 4 — stato interruttori, SOLO sessione, mai su p)*
+- `6235` — percorsoLayerToggle *(Tappa 4 — inverte un solo strato)*
+- `6241` — percorsoVistaPreset *(Tappa 4 — preset "tecnica"/"paziente")*
+- `6249` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
+- `6291` — _percorsoChartSvg *(due corsie: peso + massa magra + cono proiezione sopra, energia (kcal) sotto — tutto gated dagli interruttori)*
+- `6461` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, toolbar interruttori, grafico, editor)*
 
 *(Tappa 2 tocca anche `calcolaMacros`: box obiettivo con intervallo al posto della data secca.)*
 

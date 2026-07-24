@@ -10,6 +10,47 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (2ª sessione, parte 5) — P115 TAPPA 4: MASSA MAGRA +
+INTERRUTTORI STRATI. Sessione Cowork con Fabrizio (Sonnet). Baseline `c35db97`.
+
+**COSA:** nella corsia peso della scheda 📈 Percorso compare una seconda
+linea, la **massa magra** (quadratini magenta `#e87ba4`, tratteggiata:
+misurazioni InBody più rade delle pesate) — SULLO STESSO ASSE kg del peso,
+non un asse nuovo: il divario visivo tra le due linee È la massa grassa,
+nessun calcolo aggiunto. Tooltip nativo SVG (`<title>` dentro il marker) con
+% grassa al passaggio del mouse — zero JS di interazione da mantenere.
+Fonte dati solo InBody (`_percorsoSerieMassaMagra`): le pesate intermedie
+non misurano la composizione corporea, quindi non compaiono qui (a
+differenza della linea peso che le include).
+
+**INTERRUTTORI:** riga di checkbox sopra il grafico per accendere/spegnere
+4 strati (massa magra, cono proiezione, corsia energia, dettagli fasi
+%/kcal/settimane) + due preset rapidi: **🔧 Vista tecnica** (tutto acceso,
+default a ogni apertura scheda) e **🙂 Vista paziente** (nasconde massa
+magra, corsia energia e dettagli fasi — lascia peso, bande fasi col solo
+nome e cono di proiezione, utile e non ansiogeno da mostrare in studio).
+Scelta di design: lo stato è **solo di sessione** (variabile in memoria
+`_percorsoLayersState`, mai su `p`, mai salvato) — è una preferenza di
+visualizzazione, non un dato clinico, e non deve sporcare il record del
+paziente né richiedere una migrazione dati. Motore invariato: disattivare
+un layer nasconde solo il disegno, `_percorsoProiezione` e
+`_percorsoSerieEnergia` restano identici (verificato in test).
+
+**VERIFICHE:** suite **103 → 111, tutte verdi** (nuovo
+`s2-percorso-composizione.test.js`: serie massa magra solo-InBody e
+ordinata, default vista tecnica, toggle singolo non tocca gli altri
+strati, preset paziente/tecnica, cono/energia/dettagli spariscono dal
+grafico ma non dal calcolo, layout compatto invariato spegnendo energia).
+Lezione ripetuta dalla Tappa 3 ma su OGGETTI stavolta (non solo array):
+un oggetto che attraversa il realm JSDOM non passa `deepStrictEqual` contro
+un literal Node — normalizzare con `JSON.parse(JSON.stringify(...))` prima
+del confronto. Collaudo visivo Chromium: vista tecnica e vista paziente
+side-by-side, nessuna sovrapposizione di etichette, linea massa magra
+leggibile pur schiacciata in basso (range naturale ridotto sull'asse
+condiviso col peso — atteso, non un bug). SHA ricontrollato invariato
+(`c35db97`). Di P115 resta solo la Tappa 5 (slot consuntivo, prossima
+sessione con Fable/Opus effort alto).
+
 24 LUGLIO 2026 (2ª sessione, parte 4) — P115 TAPPA 3: CORSIA ENERGIA NEL
 GRAFICO PERCORSO. Sessione Cowork con Fabrizio (Fable 5). Baseline `666fa2a`.
 

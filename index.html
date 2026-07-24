@@ -6210,6 +6210,41 @@ function _percorsoSerieEnergia(p, t0, t1){
   return out;
 }
 
+// P115 Tappa 4 — massa magra: solo da InBody (le pesate intermedie non la misurano).
+// Stesso schema di _serieePesoOss ma senza fusione con pesiIntermedi: qui il "fonte"
+// è sempre InBody, quindi niente distinzione punto pieno/vuoto sul grafico.
+function _percorsoSerieMassaMagra(p){
+  const punti=[];
+  (p.inbody||[]).forEach(function(ib){
+    if(ib.data && ib.m!=null && !isNaN(new Date(ib.data).getTime())){
+      punti.push({data:ib.data, m:+ib.m, pg:(ib.pg!=null && ib.pg!==""?+ib.pg:null)});
+    }
+  });
+  return punti.sort(function(a,b){return a.data.localeCompare(b.data);});
+}
+
+// P115 Tappa 4 — interruttori strati: è una preferenza di visualizzazione (non un dato
+// clinico), quindi vive solo in memoria di sessione — NON su p, NON salvata su Supabase.
+// Ogni apertura scheda riparte dalla "vista tecnica" (tutto acceso); "vista paziente" è
+// una scorciatoia rapida per quando lo schermo lo guarda il paziente in studio.
+const _PERCORSO_LAYERS_DEFAULT = {massaMagra:true, proiezione:true, energia:true, dettagliFasi:true};
+let _percorsoLayersState = {};
+function _percorsoLayersGet(pazId){
+  return Object.assign({}, _PERCORSO_LAYERS_DEFAULT, _percorsoLayersState[pazId]||{});
+}
+function percorsoLayerToggle(pazId, layer){
+  const cur=_percorsoLayersGet(pazId), next=Object.assign({}, cur);
+  next[layer]=!cur[layer];
+  _percorsoLayersState[pazId]=next;
+  const p=_percorsoPaz(pazId); if(p) renderPdPercorso(p);
+}
+function percorsoVistaPreset(pazId, modo){
+  _percorsoLayersState[pazId] = modo==="paziente"
+    ? {massaMagra:false, proiezione:true, energia:false, dettagliFasi:false}
+    : Object.assign({}, _PERCORSO_LAYERS_DEFAULT);
+  const p=_percorsoPaz(pazId); if(p) renderPdPercorso(p);
+}
+
 // ── Mutatori (pattern: muta paziente → save → re-render) ──────────────────────
 function _percorsoPaz(pazId){ return (db.pazienti||[]).find(function(x){return x.id===pazId;}); }
 function percorsoInit(pazId){
@@ -6258,8 +6293,10 @@ function _percorsoChartSvg(p){
   const serie=_serieePesoOss(p);           // [{data,peso,fonte}] ordinata
   const ints=_percorsoIntervalli(percorso);
   if(!ints.length && serie.length<2) return "";  // niente da disegnare
+  const layers=_percorsoLayersGet(p.id);   // P115 Tappa 4 — interruttori strati (default: tutto acceso)
+  const serieMm = layers.massaMagra ? _percorsoSerieMassaMagra(p) : [];  // solo InBody
   const proj=_percorsoProiezione(p);       // P115 Tappa 2 — cono futuro (può essere ok:false)
-  const projOk=!!(proj && proj.ok && proj.punti.length>1);
+  const projOk=layers.proiezione && !!(proj && proj.ok && proj.punti.length>1);
   const oggi=_percorsoIsoLocal(Date.now());
   // dominio temporale: dal min(inizio percorso, prima pesata) al max(fine percorso, ultima pesata, oggi)
   const dParse=function(iso){ return new Date(iso+"T00:00:00").getTime(); };
@@ -6271,6 +6308,7 @@ function _percorsoChartSvg(p){
   // dominio peso
   let kgMin=Infinity,kgMax=-Infinity;
   serie.forEach(function(pt){ kgMin=Math.min(kgMin,pt.peso); kgMax=Math.max(kgMax,pt.peso); });
+  serieMm.forEach(function(pt){ kgMin=Math.min(kgMin,pt.m); kgMax=Math.max(kgMax,pt.m); });  // stesso asse kg del peso
   if(p.pesoTarget){ kgMin=Math.min(kgMin,+p.pesoTarget); kgMax=Math.max(kgMax,+p.pesoTarget); }
   if(projOk){ proj.punti.forEach(function(q){ kgMin=Math.min(kgMin,q.lo); kgMax=Math.max(kgMax,q.hi); }); }
   if(!isFinite(kgMin)){ kgMin=60; kgMax=90; }
@@ -6278,7 +6316,7 @@ function _percorsoChartSvg(p){
   const W=1000,L=52,R=20,T=58,B=34;
   // P115 Tappa 3 — layout a due corsie: peso sopra, energia (kcal) sotto.
   // La corsia energia esiste solo se c'è un percorso con fasi.
-  const hasEnergia = ints.length>0;
+  const hasEnergia = ints.length>0 && layers.energia;
   const wBot = hasEnergia ? T+250 : 366;      // fondo corsia peso (366 = layout storico senza corsia)
   const eTop = wBot+40, eBot = eTop+118;
   const H = hasEnergia ? eBot+B : 400;
@@ -6293,9 +6331,11 @@ function _percorsoChartSvg(p){
     if(f.dal>oggi) s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(wBot-T)+'" fill="url(#percorso-hatch)"/>';
     s+='<line x1="'+xb.toFixed(1)+'" y1="'+T+'" x2="'+xb.toFixed(1)+'" y2="'+wBot+'" stroke="#e1e0d9"/>';
     if(xb-xa>52){
-      const kcal=_percorsoKcalFase(p,f.pct);
-      s+='<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-26)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="'+cfg.txt+'">'+cfg.label+'</text>'
-       +'<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-12)+'" text-anchor="middle" font-size="10.5" fill="#898781">'+(f.pct===0?"mantieni":(f.pct>0?"+":"")+f.pct+"% TDEE")+(kcal?" · ~"+kcal+" kcal":"")+" · "+f.settimane+" sett.</text>";
+      s+='<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-26)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="'+cfg.txt+'">'+cfg.label+'</text>';
+      if(layers.dettagliFasi){
+        const kcal=_percorsoKcalFase(p,f.pct);
+        s+='<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-12)+'" text-anchor="middle" font-size="10.5" fill="#898781">'+(f.pct===0?"mantieni":(f.pct>0?"+":"")+f.pct+"% TDEE")+(kcal?" · ~"+kcal+" kcal":"")+" · "+f.settimane+" sett.</text>";
+      }
     }
   });
   // griglia kg
@@ -6348,6 +6388,22 @@ function _percorsoChartSvg(p){
     });
     const ult=serie[serie.length-1];
     s+='<text x="'+(x(dParse(ult.data))+7).toFixed(1)+'" y="'+(y(ult.peso)-7).toFixed(1)+'" font-size="11" font-weight="700" fill="#2a78d6">'+ult.peso+' kg</text>';
+  }
+  // P115 Tappa 4 — massa magra: stesso asse kg del peso; il divario col peso È la massa
+  // grassa (nessun calcolo aggiuntivo). Solo punti InBody (quadratini, tratteggio tra i punti
+  // perché le misurazioni sono più rade delle pesate). Tooltip nativo SVG con % grassa.
+  if(serieMm.length){
+    const ptsMm=serieMm.map(function(pt){ return [x(dParse(pt.data)), y(pt.m)]; });
+    if(ptsMm.length>1){
+      s+='<path d="'+ptsMm.map(function(q,i){return (i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="#e87ba4" stroke-width="2" stroke-dasharray="2 3"/>';
+    }
+    serieMm.forEach(function(pt,i){
+      const q=ptsMm[i];
+      const tip="Massa magra "+pt.m+" kg"+(pt.pg!=null?" · % grassa "+pt.pg+"%":"")+" ("+pt.data+")";
+      s+='<rect x="'+(q[0]-3.2).toFixed(1)+'" y="'+(q[1]-3.2).toFixed(1)+'" width="6.4" height="6.4" fill="#e87ba4"><title>'+tip+'</title></rect>';
+    });
+    const ultMm=serieMm[serieMm.length-1];
+    s+='<text x="'+(x(dParse(ultMm.data))+7).toFixed(1)+'" y="'+(y(ultMm.m)+15).toFixed(1)+'" font-size="10.5" font-weight="700" fill="#e87ba4">'+ultMm.m+' kg magra</text>';
   }
   // P115 Tappa 3 — CORSIA ENERGIA: introito prescritto vs fabbisogno (asse kcal separato)
   if(hasEnergia){
@@ -6441,12 +6497,27 @@ function renderPdPercorso(p){
     } else if(_proj && !_proj.ok && ints.length){
       html+='<div style="font-size:.7rem;color:var(--text3);margin:-.2rem 0 .55rem">Proiezione non disponibile: '+_proj.motivo+'.</div>';
     }
+    // P115 Tappa 4 — interruttori strati (vista di sessione, non salvata: sempre "tecnica" alla riapertura)
+    const layers=_percorsoLayersGet(p.id);
+    const _lyChk=function(key,lbl,accent){
+      return '<label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;user-select:none"><input type="checkbox" '+(layers[key]?"checked":"")+' onchange="percorsoLayerToggle(\''+p.id+'\',\''+key+'\')" style="accent-color:'+accent+'"> '+lbl+'</label>';
+    };
+    html+='<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 .5rem;font-size:.74rem;color:var(--text2)">'
+      +'<span style="color:var(--text3);font-weight:600">Strati:</span>'
+      +_lyChk("massaMagra","massa magra","#e87ba4")
+      +_lyChk("proiezione","cono proiezione","#2a78d6")
+      +_lyChk("energia","corsia energia","#eb6834")
+      +_lyChk("dettagliFasi","dettagli fasi (% · kcal)","#898781")
+      +'<span style="margin-left:auto;display:flex;gap:6px">'
+        +'<button class="btn btn-g btn-sm" title="Tutti gli strati, per il lavoro clinico" onclick="percorsoVistaPreset(\''+p.id+'\',\'tecnica\')">🔧 Vista tecnica</button>'
+        +'<button class="btn btn-g btn-sm" title="Solo peso, target e proiezione — da mostrare al paziente" onclick="percorsoVistaPreset(\''+p.id+'\',\'paziente\')">🙂 Vista paziente</button>'
+      +'</span></div>';
     // grafico
     const svg=_percorsoChartSvg(p);
     html+= svg
       ? '<div style="border:1px solid var(--border);border-radius:10px;padding:.5rem .4rem .2rem;background:#fcfcfb">'+svg+'</div>'
       : '<div style="font-size:.75rem;color:var(--text3);padding:.6rem 0">Aggiungi almeno una fase (o un paio di pesate) per vedere il grafico.</div>';
-    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody · ○ pesata intermedia · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. Tutto informativo: nessun calcolo viene toccato.</div>';
+    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody (peso) · ○ pesata intermedia · ▪ massa magra (InBody, stesso asse kg: il divario col peso è la massa grassa — passa il mouse sui quadratini per il dettaglio % grassa) · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. Tutto informativo: nessun calcolo viene toccato.</div>';
     // editor fasi
     html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
       +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th></th></tr></thead><tbody>';

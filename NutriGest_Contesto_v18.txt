@@ -1621,9 +1621,32 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     TDEE osservato come segmento viola sul tratto [dal..al]. Clamping
     rigoroso a [t0,t1], passato mai oltre oggi, futuro mai prima di oggi.
     Lettura clinica: distanza arancio↔verde/viola = deficit/surplus reale.
+  MASSA MAGRA + INTERRUTTORI STRATI (P115 Tappa 4, 24 lug 2026):
+    _percorsoSerieMassaMagra(p) (pura) → punti {data,m,pg} SOLO da p.inbody
+    (le pesate intermedie non registrano composizione corporea, quindi non
+    contribuiscono qui, a differenza di _serieePesoOss che le include per il
+    peso). Disegnata sullo STESSO asse kg del peso (quadratini magenta
+    #e87ba4, tratteggio tra i punti): il divario verticale col peso È la
+    massa grassa, nessun calcolo ulteriore. % grassa in tooltip nativo SVG
+    (<title> dentro il marker — zero JS di interazione da mantenere).
+    Interruttori strati: oggetto _percorsoLayersGet(pazId) con 4 chiavi
+    (massaMagra, proiezione, energia, dettagliFasi) — default tutto true
+    ("vista tecnica"). percorsoLayerToggle(pazId,layer) inverte un solo
+    strato; percorsoVistaPreset(pazId,'paziente'|'tecnica') applica un
+    preset intero ('paziente' = {massaMagra:false, proiezione:true,
+    energia:false, dettagliFasi:false} — pensato per quando lo schermo lo
+    guarda il paziente: resta il peso con bande/nome fase e il cono di
+    proiezione, che è motivante e non tecnico). Stato in _percorsoLayersState
+    (variabile di modulo, keyed per id paziente) — SOLO di sessione: non
+    tocca p, non è salvato su Supabase, si resetta a "tecnica" a ogni
+    riapertura scheda. Motivo: è una preferenza di visualizzazione, non un
+    dato clinico. _percorsoChartSvg(p) legge i layer internamente (nessun
+    parametro nuovo nella firma, retrocompatibile con le Tappe 1-3): ogni
+    strato gated spegne solo il disegno, MAI il calcolo sottostante
+    (_percorsoProiezione e _percorsoSerieEnergia restano invariati, testato).
   PROSSIME TAPPE (design nel doc di progetto "NutriGest_P9_Timeline_
-  Ragionamento"): 4 massa magra + interruttori strati · 5 slot consuntivo
-  "Piano vs Realtà" (si accende con l'app paziente P50).
+  Ragionamento"): 5 slot consuntivo "Piano vs Realtà" (si accende con l'app
+  paziente P50) — ultima tappa di P115.
 
 CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):
   Per pazienti sportivi (a prescindere dal dimagrimento) o non sportivi che
