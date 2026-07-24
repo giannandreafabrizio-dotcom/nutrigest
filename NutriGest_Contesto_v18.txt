@@ -733,6 +733,14 @@ p.aggiustamentiMacros[] = { id, data, macro:'C'|'P'|'G', delta, totale, peso, no
 p.pesiIntermedi[] = { data, peso }
   // campo presente nel codice ma C4 SCARTATO (bilance domestiche ≠ bilancia studio, delta inaffidabile)
   // il campo resta in struttura per non rompere migrazione, ma nessuna UI attiva (da rimuovere)
+  // NB: dal 19 lug (P114 passo 4) e dal 24 lug (P115) la serie peso li LEGGE se presenti (_serieePesoOss)
+
+p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surplus", settimane, pct }] }
+  // P115 Tappa 1, 24 lug 2026 — periodizzazione della scheda "📈 Percorso".
+  // Fasi CONSECUTIVE per costruzione: le date si derivano da inizio + somma durate
+  // (_percorsoIntervalli), mai memorizzate per fase → niente buchi/sovrapposizioni.
+  // pct = % del TDEE della fase (stessa semantica dello slider regime), limiti -40..+25.
+  // Date SEMPRE in locale via _percorsoIsoLocal (mai toISOString: UTC slitterebbe di 1 giorno).
 
 p.domandeChiamata[] = stringa[]  // P22, 29 giu 2026 — domande aperte selezionate per il
   // Riepilogo chiamata. Selezionabili da libreria RIEP_DOMANDE_DEFAULT (12 domande
@@ -1558,6 +1566,31 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
   verità reale: p.regimeOffsetPct, letto da un helper unico _regimeOffset()
   (sostituisce 8 tabelle di offset duplicate nel codice), con fallback per i
   pazienti legacy salvati col solo regime testuale.
+
+SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 2026):
+  Linguetta dedicata nella scheda paziente (tra TDEE e Note cliniche), pannello
+  #pd-percorso, render in apriPaziente. Pianifica FASI consecutive
+  (deficit/mantenimento/surplus) da una data di inizio: modello p.percorso
+  (vedi STRUTTURA DATI). Editor: aggiungi fase (alternanza suggerita
+  deficit↔mantenimento), tipo/durata/% modificabili (pct -40..+25, 1..104
+  sett.), riordino ↑↓, elimina, cambio data inizio — ogni mutazione:
+  save(p.id) + re-render (pattern standard). Grafico SVG (_percorsoChartSvg):
+  bande per fase (deficit azzurra/mantenimento grigia/surplus arancio), fasi
+  future tratteggiate (pattern #percorso-hatch), linea peso reale da
+  _serieePesoOss (● InBody, ○ pesate intermedie), linea "oggi", linea
+  orizzontale obiettivo (p.pesoTarget), asse mensile it-IT, badge "Oggi: fase
+  X di N" via _percorsoFaseAt (confine: giorno di cambio = fase che INIZIA).
+  kcal per fase = pct del TDEE corrente (_percorsoKcalFase → calcolaTDEE),
+  dichiarate indicative. Date SEMPRE locali via _percorsoIsoLocal — mai
+  toISOString (UTC → in Italia slitterebbe tutto di un giorno; bug evitato in
+  sviluppo, fissato dai test). Funzioni: _percorsoGet (normalizza/scarta fasi
+  invalide), _percorsoIntervalli (fasi → date concrete), _percorsoFaseAt,
+  _percorsoKcalFase, mutatori percorsoInit/AddFase/UpdFase/DelFase/MoveFase/
+  SetInizio, _percorsoChartSvg, renderPdPercorso. Test: s2-percorso.test.js.
+  PROSSIME TAPPE (design nel doc di progetto "NutriGest_P9_Timeline_
+  Ragionamento"): 2 proiezione ibrida (sostituirà la data secca di
+  calcolaMacros) · 3 corsia energia · 4 massa magra + interruttori strati ·
+  5 slot consuntivo "Piano vs Realtà" (si accende con l'app paziente P50).
 
 CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):
   Per pazienti sportivi (a prescindere dal dimagrimento) o non sportivi che

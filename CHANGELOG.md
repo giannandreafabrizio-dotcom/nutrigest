@@ -10,6 +10,50 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (2ª sessione, parte 2) — P115 TAPPA 1: SCHEDA "📈 PERCORSO"
+(TIMELINE DI PERIODIZZAZIONE). Sessione Cowork con Fabrizio (Fable 5).
+Baseline `ea3d7db`. Nasce P115: l'evoluzione del passo 9 di P114 decisa da
+Fabrizio in questa stessa sessione dopo una fase di design con mockup (tutte
+le decisioni nel doc di progetto Claude "NutriGest_P9_Timeline_Ragionamento":
+grafico integrato, proiezione ibrida, strati-interruttore, scheda dedicata,
+futuro livello "Piano vs Realtà" agganciato all'app paziente P50).
+
+**COSA:** nuova linguetta "📈 Percorso" nella scheda paziente (tra TDEE e
+Note cliniche) con: (1) modello dati `p.percorso = {inizio:"YYYY-MM-DD",
+fasi:[{tipo, settimane, pct}]}` — fasi CONSECUTIVE per costruzione (niente
+buchi/sovrapposizioni da gestire; oggetto, non proprietà su array — regola 8);
+(2) editor delle fasi (aggiungi con alternanza suggerita deficit↔mantenimento,
+modifica tipo/durata/%TDEE con limiti −40..+25% e 1..104 settimane, riordina,
+elimina, data di inizio); (3) grafico SVG: bande colorate per fase (deficit
+azzurro/mantenimento grigio/surplus arancio), fasi future tratteggiate, linea
+peso reale da `_serieePesoOss` (riuso del passo 4 P114: InBody pieni ● +
+pesate intermedie vuote ○), linea "oggi", linea obiettivo peso, asse mensile;
+(4) badge "Oggi: fase X di N" o avviso fuori-percorso. Le kcal per fase sono
+INDICATIVE (% del TDEE corrente via `calcolaTDEE`, stessa logica dello
+slider) e dichiarate tali. NIENTE proiezione (Tappa 2) e NIENTE consuntivo
+(slot previsto dal design, arriva con l'app paziente).
+
+**BUG EVITATO IN CORSA (lezione):** la prima stesura usava
+`toISOString().slice(0,10)` per le date delle fasi — ma è UTC: in Italia la
+mezzanotte locale diventa il giorno PRIMA, tutte le date delle fasi sarebbero
+slittate di un giorno. Introdotta `_percorsoIsoLocal` (formattazione LOCALE)
+usata ovunque nel blocco; il test sugli intervalli fissa le date esatte e
+protegge dal regresso. Seconda lezione di processo: `node
+test-suite/test/_extract.js > file` produce un FILE VUOTO (il modulo non
+stampa) → il `node --check` su quel file è un falso "OK". D'ora in poi
+l'estrazione va fatta via `require('./_extract.js').extractMainScript()` —
+il vero cancello di sintassi resta la suite (S1).
+
+**VERIFICHE:** sintassi OK sull'estrazione vera; nuovo file di test
+`s2-percorso.test.js` (7 test: normalizzazione, intervalli consecutivi con
+date locali esatte, confini di fase dal-incluso/al-escluso, kcal coerenti con
+calcolaTDEE, SVG con/senza dati, esistenza render+mutatori); **suite 85 → 92,
+tutte verdi**; collaudo visivo in Chromium headless su paziente demo (scheda
+renderizzata correttamente: badge fase corrente, bande, tratteggio futuro,
+editor). SHA ricontrollato invariato (`ea3d7db`). Resta il collaudo di
+Fabrizio in produzione. Prossime tappe P115: (2) proiezione ibrida, (3)
+corsia energia, (4) massa magra + interruttori strati, (5) slot consuntivo.
+
 24 LUGLIO 2026 (2ª sessione) — P114 PASSI 7 + 8: CROSS-CHECK MIFFLIN +
 ORARIO ALLENAMENTO ALL'AI. Sessione Cowork con Fabrizio (Opus). Baseline
 `a570757`. Chiusi i due passi fattibili subito del motore TDEE; di P114

@@ -775,6 +775,7 @@ main{flex:1;overflow-y:auto;}
     <button class="pd-tab" onclick="pdTab('analisi',this)">Analisi sangue</button>
     <button class="pd-tab" onclick="pdTab('inbody',this)">InBody</button>
     <button class="pd-tab" onclick="pdTab('macros',this)">TDEE</button>
+    <button class="pd-tab" onclick="pdTab('percorso',this)">📈 Percorso</button>
     <button class="pd-tab" onclick="pdTab('note',this)">Note cliniche</button>
     <button class="pd-tab" onclick="pdTab('routine',this)">🌿 Routine</button>
     <button class="pd-tab" onclick="pdTab('cibo',this)">🍽️ Cibo</button>
@@ -786,6 +787,7 @@ main{flex:1;overflow-y:auto;}
   <div class="pd-panel" id="pd-analisi"></div>
   <div class="pd-panel" id="pd-inbody"></div>
   <div class="pd-panel" id="pd-macros"></div>
+  <div class="pd-panel" id="pd-percorso"></div>
   <div class="pd-panel" id="pd-note"></div>
   <div class="pd-panel" id="pd-ragionamento"></div>
   <div class="pd-panel" id="pd-riepilogo"></div>
@@ -6008,7 +6010,7 @@ async function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
-  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdCibo(p);
+  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdPercorso(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdCibo(p);
   renderPdNote(p);
   renderPdRiepilogo(p);
   document.querySelectorAll('.pd-tab')[0].click();
@@ -6016,6 +6018,247 @@ async function openPaz(id){
   document.querySelectorAll('.nav-item')[0].classList.add('active');
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 📈 PERCORSO — TIMELINE DI PERIODIZZAZIONE (P9-PERCORSO, Tappa 1 — 24 lug 2026)
+// Scheda dedicata: fasi consecutive (deficit/mantenimento/surplus) pianificate
+// nel tempo + grafico con bande fasi e peso reale (InBody + pesate intermedie,
+// riusa _serieePesoOss). La proiezione ibrida arriva con la Tappa 2; lo slot
+// "consuntivo" (app paziente) è previsto dal design ma volutamente assente qui.
+// Modello dati: p.percorso = { inizio:"YYYY-MM-DD", fasi:[{tipo,settimane,pct}] }
+// (oggetto, non proprietà custom su array — regola 8 CLAUDE.md). Le fasi sono
+// CONSECUTIVE per costruzione: niente buchi né sovrapposizioni da gestire.
+// ══════════════════════════════════════════════════════════════════════════════
+const _PERCORSO_TIPI = {
+  "deficit":      {label:"Deficit",      pctDefault:-18, band:"rgba(42,120,214,0.08)",  txt:"#185FA5"},
+  "mantenimento": {label:"Mantenimento", pctDefault:0,   band:"rgba(137,135,129,0.14)", txt:"#6b6a66"},
+  "surplus":      {label:"Surplus",      pctDefault:8,   band:"rgba(235,104,52,0.10)",  txt:"#b5641a"}
+};
+
+// Normalizza p.percorso: restituisce {inizio, fasi[]} valido oppure null.
+function _percorsoGet(p){
+  const pc = p && p.percorso;
+  if(!pc || !pc.inizio || isNaN(new Date(pc.inizio).getTime())) return null;
+  const fasi = (pc.fasi||[]).filter(function(f){
+    return f && _PERCORSO_TIPI[f.tipo] && +f.settimane>0 && !isNaN(+f.pct);
+  }).map(function(f){ return {tipo:f.tipo, settimane:+f.settimane, pct:+f.pct}; });
+  return {inizio: pc.inizio, fasi: fasi};
+}
+
+// Data → "YYYY-MM-DD" in ora LOCALE (mai toISOString: è UTC e in Italia
+// sposterebbe la mezzanotte al giorno prima — date delle fasi tutte scalate).
+function _percorsoIsoLocal(t){
+  const d=new Date(t);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
+// Fasi → intervalli con date concrete [{tipo,pct,settimane,dal,al}], consecutive da "inizio".
+function _percorsoIntervalli(percorso){
+  if(!percorso || !percorso.inizio) return [];
+  const out=[]; let t=new Date(percorso.inizio+"T00:00:00").getTime();
+  (percorso.fasi||[]).forEach(function(f){
+    const dur=(+f.settimane)*7*864e5;
+    out.push({tipo:f.tipo, pct:+f.pct, settimane:+f.settimane,
+      dal:_percorsoIsoLocal(t), al:_percorsoIsoLocal(t+dur)});
+    t+=dur;
+  });
+  return out;
+}
+
+// Fase attiva a una certa data ISO (o null se fuori dal percorso).
+// Confine: il giorno di cambio appartiene alla fase che INIZIA ("dal" incluso, "al" escluso).
+function _percorsoFaseAt(percorso, iso){
+  const ints=_percorsoIntervalli(percorso);
+  for(let i=0;i<ints.length;i++){
+    if(iso>=ints[i].dal && iso<ints[i].al) return Object.assign({indice:i}, ints[i]);
+  }
+  return null;
+}
+
+// kcal target indicative di una fase: pct del TDEE corrente (informativo, come lo slider).
+function _percorsoKcalFase(p, pct){
+  const ct=calcolaTDEE(p);
+  if(!ct || !ct.tdee) return null;
+  return Math.round(ct.tdee*(1+pct/100));
+}
+
+// ── Mutatori (pattern: muta paziente → save → re-render) ──────────────────────
+function _percorsoPaz(pazId){ return (db.pazienti||[]).find(function(x){return x.id===pazId;}); }
+function percorsoInit(pazId){
+  const p=_percorsoPaz(pazId); if(!p) return;
+  const oggi=_percorsoIsoLocal(Date.now());
+  p.percorso={inizio:oggi, fasi:[{tipo:"deficit", settimane:10, pct:_PERCORSO_TIPI.deficit.pctDefault}]};
+  save(p.id); renderPdPercorso(p);
+}
+function percorsoSetInizio(pazId, val){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso) return;
+  if(val && !isNaN(new Date(val).getTime())){ p.percorso.inizio=val; save(p.id); renderPdPercorso(p); }
+}
+function percorsoAddFase(pazId){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso) return;
+  const fasi=p.percorso.fasi=p.percorso.fasi||[];
+  const ultima=fasi[fasi.length-1];
+  // alternanza suggerita: dopo un deficit propone mantenimento, e viceversa
+  const tipo = ultima && ultima.tipo==="deficit" ? "mantenimento" : "deficit";
+  fasi.push({tipo:tipo, settimane: tipo==="mantenimento"?6:10, pct:_PERCORSO_TIPI[tipo].pctDefault});
+  save(p.id); renderPdPercorso(p);
+}
+function percorsoUpdFase(pazId, i, campo, val){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso||!p.percorso.fasi||!p.percorso.fasi[i]) return;
+  const f=p.percorso.fasi[i];
+  if(campo==="tipo" && _PERCORSO_TIPI[val]){ f.tipo=val; f.pct=_PERCORSO_TIPI[val].pctDefault; }
+  else if(campo==="settimane"){ const n=Math.round(+val); if(n>0 && n<=104) f.settimane=n; }
+  else if(campo==="pct"){ const n=+val; if(!isNaN(n) && n>=-40 && n<=25) f.pct=n; }
+  save(p.id); renderPdPercorso(p);
+}
+function percorsoDelFase(pazId, i){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso||!p.percorso.fasi) return;
+  p.percorso.fasi.splice(i,1);
+  save(p.id); renderPdPercorso(p);
+}
+function percorsoMoveFase(pazId, i, dir){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso||!p.percorso.fasi) return;
+  const fasi=p.percorso.fasi, j=i+dir;
+  if(j<0 || j>=fasi.length) return;
+  const tmp=fasi[i]; fasi[i]=fasi[j]; fasi[j]=tmp;
+  save(p.id); renderPdPercorso(p);
+}
+
+// ── Grafico SVG: bande fasi + linea peso reale + linea "oggi" ─────────────────
+function _percorsoChartSvg(p){
+  const percorso=_percorsoGet(p);
+  const serie=_serieePesoOss(p);           // [{data,peso,fonte}] ordinata
+  const ints=_percorsoIntervalli(percorso);
+  if(!ints.length && serie.length<2) return "";  // niente da disegnare
+  const oggi=_percorsoIsoLocal(Date.now());
+  // dominio temporale: dal min(inizio percorso, prima pesata) al max(fine percorso, ultima pesata, oggi)
+  const dParse=function(iso){ return new Date(iso+"T00:00:00").getTime(); };
+  let t0=Infinity, t1=-Infinity;
+  if(ints.length){ t0=Math.min(t0,dParse(ints[0].dal)); t1=Math.max(t1,dParse(ints[ints.length-1].al)); }
+  if(serie.length){ t0=Math.min(t0,dParse(serie[0].data)); t1=Math.max(t1,dParse(serie[serie.length-1].data)); }
+  t1=Math.max(t1,dParse(oggi));
+  const pad=(t1-t0)*0.02||864e5; t0-=pad; t1+=pad;
+  // dominio peso
+  let kgMin=Infinity,kgMax=-Infinity;
+  serie.forEach(function(pt){ kgMin=Math.min(kgMin,pt.peso); kgMax=Math.max(kgMax,pt.peso); });
+  if(p.pesoTarget){ kgMin=Math.min(kgMin,+p.pesoTarget); kgMax=Math.max(kgMax,+p.pesoTarget); }
+  if(!isFinite(kgMin)){ kgMin=60; kgMax=90; }
+  const span=Math.max(kgMax-kgMin,2); kgMin-=span*0.15; kgMax+=span*0.15;
+  const W=1000,H=400,L=52,R=20,T=58,B=34;
+  const x=function(t){ return L+(t-t0)/(t1-t0)*(W-L-R); };
+  const y=function(kg){ return T+(1-(kg-kgMin)/(kgMax-kgMin))*(H-T-B); };
+  let s="";
+  // bande fasi + etichette
+  ints.forEach(function(f){
+    const xa=x(dParse(f.dal)), xb=x(dParse(f.al)), cfg=_PERCORSO_TIPI[f.tipo];
+    s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-T-B)+'" fill="'+cfg.band+'"/>';
+    if(f.dal>oggi) s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-T-B)+'" fill="url(#percorso-hatch)"/>';
+    s+='<line x1="'+xb.toFixed(1)+'" y1="'+T+'" x2="'+xb.toFixed(1)+'" y2="'+(H-B)+'" stroke="#e1e0d9"/>';
+    if(xb-xa>52){
+      const kcal=_percorsoKcalFase(p,f.pct);
+      s+='<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-26)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="'+cfg.txt+'">'+cfg.label+'</text>'
+       +'<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-12)+'" text-anchor="middle" font-size="10.5" fill="#898781">'+(f.pct===0?"mantieni":(f.pct>0?"+":"")+f.pct+"% TDEE")+(kcal?" · ~"+kcal+" kcal":"")+" · "+f.settimane+" sett.</text>";
+    }
+  });
+  // griglia kg
+  const step=span>14?5:span>6?2:1;
+  for(let kg=Math.ceil(kgMin);kg<=kgMax;kg++){
+    if(kg%step!==0) continue;
+    s+='<line x1="'+L+'" y1="'+y(kg).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(kg).toFixed(1)+'" stroke="#e1e0d9"/>'
+     +'<text x="'+(L-7)+'" y="'+(y(kg)+3.5).toFixed(1)+'" text-anchor="end" font-size="10.5" fill="#898781">'+kg+'</text>';
+  }
+  // asse tempo: tacche mensili
+  const d0=new Date(t0); d0.setDate(1);
+  for(let d=new Date(d0); d.getTime()<=t1; d.setMonth(d.getMonth()+1)){
+    const xt=x(d.getTime()); if(xt<L||xt>W-R) continue;
+    s+='<text x="'+xt.toFixed(1)+'" y="'+(H-B+16)+'" text-anchor="middle" font-size="10.5" fill="#898781">'
+      +d.toLocaleDateString("it-IT",{month:"short"})+(d.getMonth()===0?" "+String(d.getFullYear()).slice(2):"")+'</text>';
+  }
+  s+='<line x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'" stroke="#c3c2b7"/>';
+  // peso target (se impostato): linea orizzontale tratteggiata
+  if(p.pesoTarget && +p.pesoTarget>kgMin && +p.pesoTarget<kgMax){
+    s+='<line x1="'+L+'" y1="'+y(+p.pesoTarget).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(+p.pesoTarget).toFixed(1)+'" stroke="#B8860B" stroke-width="1.2" stroke-dasharray="6 4" opacity=".7"/>'
+     +'<text x="'+(W-R)+'" y="'+(y(+p.pesoTarget)-5).toFixed(1)+'" text-anchor="end" font-size="10.5" fill="#B8860B">obiettivo '+p.pesoTarget+' kg</text>';
+  }
+  // linea "oggi"
+  const xo=x(dParse(oggi));
+  if(xo>L && xo<W-R){
+    s+='<line x1="'+xo.toFixed(1)+'" y1="'+(T-4)+'" x2="'+xo.toFixed(1)+'" y2="'+(H-B)+'" stroke="#52514e" stroke-width="1.2" stroke-dasharray="3 3"/>'
+     +'<text x="'+xo.toFixed(1)+'" y="'+(T-34)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#52514e">oggi</text>';
+  }
+  // linea peso reale + punti (InBody pieni, pesate intermedie vuote)
+  if(serie.length){
+    const pts=serie.map(function(pt){ return [x(dParse(pt.data)), y(pt.peso)]; });
+    if(pts.length>1){
+      s+='<path d="'+pts.map(function(q,i){return (i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="#2a78d6" stroke-width="2.4"/>';
+    }
+    serie.forEach(function(pt,i){
+      const q=pts[i];
+      s+= pt.fonte==="inbody"
+        ? '<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3.6" fill="#2a78d6"/>'
+        : '<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3.2" fill="#fff" stroke="#2a78d6" stroke-width="1.7"/>';
+    });
+    const ult=serie[serie.length-1];
+    s+='<text x="'+(x(dParse(ult.data))+7).toFixed(1)+'" y="'+(y(ult.peso)-7).toFixed(1)+'" font-size="11" font-weight="700" fill="#2a78d6">'+ult.peso+' kg</text>';
+  }
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="Timeline del percorso">'
+    +'<defs><pattern id="percorso-hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(42,120,214,.15)" stroke-width="1.3"/></pattern></defs>'
+    +s+'</svg>';
+}
+
+// ── Render scheda ─────────────────────────────────────────────────────────────
+function renderPdPercorso(p){
+  const box=document.getElementById("pd-percorso");
+  if(!box) return;
+  const percorso=_percorsoGet(p);
+  const oggi=_percorsoIsoLocal(Date.now());
+  let html='<div class="card"><div class="card-hd"><h3>📈 Percorso — periodizzazione nel tempo</h3></div><div class="card-bd">';
+  if(!percorso){
+    html+='<div style="font-size:.8rem;color:var(--text2);margin-bottom:.7rem">Qui pianifichi le <strong>fasi</strong> del percorso (deficit → mantenimento → …) e vedi il peso reale muoversi dentro le fasi. Le fasi sono consecutive: decidi la data di inizio e la durata di ciascuna.</div>'
+      +'<button class="btn btn-p" onclick="percorsoInit(\''+p.id+'\')">➕ Crea il percorso</button>';
+  } else {
+    const fAtt=_percorsoFaseAt(percorso, oggi);
+    const ints=_percorsoIntervalli(percorso);
+    const fine=ints.length?ints[ints.length-1].al:null;
+    // riepilogo fase attuale
+    html+='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:.6rem;font-size:.78rem">'
+      +'<div><span style="color:var(--text3)">Inizio</span> <input type="date" value="'+percorso.inizio+'" onchange="percorsoSetInizio(\''+p.id+'\',this.value)" style="font-size:.78rem"></div>'
+      +(fAtt
+        ? '<div style="padding:.25rem .7rem;border-radius:20px;background:'+_PERCORSO_TIPI[fAtt.tipo].band+';color:'+_PERCORSO_TIPI[fAtt.tipo].txt+';font-weight:700">Oggi: '+_PERCORSO_TIPI[fAtt.tipo].label+' ('+(fAtt.pct===0?"mantieni":(fAtt.pct>0?"+":"")+fAtt.pct+"%")+') · fase '+(fAtt.indice+1)+' di '+ints.length+'</div>'
+        : '<div style="padding:.25rem .7rem;border-radius:20px;background:#fff7ed;color:#c2410c;font-weight:600">Oggi fuori dalle fasi pianificate'+(fine&&oggi>=fine?" (percorso terminato il "+fine+")":"")+'</div>')
+      +'</div>';
+    // grafico
+    const svg=_percorsoChartSvg(p);
+    html+= svg
+      ? '<div style="border:1px solid var(--border);border-radius:10px;padding:.5rem .4rem .2rem;background:#fcfcfb">'+svg+'</div>'
+      : '<div style="font-size:.75rem;color:var(--text3);padding:.6rem 0">Aggiungi almeno una fase (o un paio di pesate) per vedere il grafico.</div>';
+    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody · ○ pesata intermedia · le fasi future sono tratteggiate · le kcal accanto alle fasi sono indicative (% del TDEE attuale). La proiezione del peso arriva con la Tappa 2.</div>';
+    // editor fasi
+    html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
+      +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th></th></tr></thead><tbody>';
+    ints.forEach(function(f,i){
+      const kcal=_percorsoKcalFase(p,f.pct);
+      html+='<tr style="border-top:1px solid var(--border)">'
+        +'<td style="padding:.3rem .4rem;color:var(--text3)">'+(i+1)+'</td>'
+        +'<td><select onchange="percorsoUpdFase(\''+p.id+'\','+i+',\'tipo\',this.value)" style="font-size:.78rem">'
+          +Object.keys(_PERCORSO_TIPI).map(function(t){return '<option value="'+t+'"'+(t===f.tipo?" selected":"")+'>'+_PERCORSO_TIPI[t].label+'</option>';}).join("")
+        +'</select></td>'
+        +'<td><input type="number" min="1" max="104" value="'+f.settimane+'" onchange="percorsoUpdFase(\''+p.id+'\','+i+',\'settimane\',this.value)" style="width:64px;font-size:.78rem"></td>'
+        +'<td><input type="number" min="-40" max="25" step="1" value="'+f.pct+'" onchange="percorsoUpdFase(\''+p.id+'\','+i+',\'pct\',this.value)" style="width:64px;font-size:.78rem"></td>'
+        +'<td style="color:var(--text3);white-space:nowrap">'+f.dal+' → '+f.al+'</td>'
+        +'<td style="color:var(--text3)">'+(kcal?kcal:"—")+'</td>'
+        +'<td style="white-space:nowrap;text-align:right">'
+          +'<button class="btn btn-g btn-sm" title="Sposta su" '+(i===0?"disabled":"")+' onclick="percorsoMoveFase(\''+p.id+'\','+i+',-1)">↑</button> '
+          +'<button class="btn btn-g btn-sm" title="Sposta giù" '+(i===ints.length-1?"disabled":"")+' onclick="percorsoMoveFase(\''+p.id+'\','+i+',1)">↓</button> '
+          +'<button class="btn btn-g btn-sm" title="Elimina fase" onclick="percorsoDelFase(\''+p.id+'\','+i+')">✕</button>'
+        +'</td></tr>';
+    });
+    html+='</tbody></table>'
+      +'<div style="margin-top:.6rem"><button class="btn btn-g" onclick="percorsoAddFase(\''+p.id+'\')">➕ Aggiungi fase</button></div>';
+  }
+  html+='</div></div>';
+  box.innerHTML=html;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ROUTINE GIORNALIERA TERAPEUTICA
