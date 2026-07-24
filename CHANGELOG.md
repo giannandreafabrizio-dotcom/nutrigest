@@ -10,6 +10,45 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (3ª sessione, parte 2) — P116 RIVISTA DOPO IL PRIMO COLLAUDO
+REALE. Baseline `dd9201f`. Tre correzioni nate provando la funzione su una
+paziente vera (Chetogenico WLKD, BMI 37,1 → blocco insulino-resistenza acceso
+correttamente).
+
+**1. Via le etichette SSN / PRIVATO.** Decisione di Fabrizio: sul foglio e
+nella checklist erano rumore, non informazione. Rimosse da entrambi. Il campo
+`ssn` resta nei dati di `RICH_CATALOGO` (nessuno lo legge piu': se un giorno
+servisse, basta ripristinare le due righe di render) e la nota finale del PDF
+non ne parla piu'. Il testo di ogni voce ora usa tutta la larghezza.
+
+**2. Un solo pulsante di invio, che sceglie da solo la strada migliore.**
+Scoperta del collaudo: **Chrome su Windows supporta `navigator.share` con
+file** e passa il PDF a WhatsApp Desktop come allegato vero — cosa che non
+davo per scontata (la condivisione di file era attesa solo su iPhone). Quindi
+"Invia su WhatsApp" ora prova in ordine: **(1)** allegato col menu di
+condivisione del sistema, **(2)** link caricato su Storage, **(3)** PDF
+scaricato + WhatsApp col testo. Se l'utente ANNULLA la condivisione
+(`AbortError`) si ferma li': non deve ripiegare sul link, sarebbe un invio
+non voluto. Il pulsante "Condividi" separato è sparito (era la stessa cosa) e
+al suo posto c'è **🔗 Copia link**, utile per email/SMS e per diagnosticare
+lo Storage.
+
+**3. Errori del caricamento finalmente visibili (root cause aperta).** Al
+primo collaudo "Invia su WhatsApp" scaricava il PDF invece di mandare il
+link: `_richUpload` restituiva `null` e inghiottiva il motivo. Ora ritorna
+`{url}` oppure `{err}` con stato HTTP e una spiegazione in italiano — bucket
+inesistente, policy INSERT mancante, oppure **sessione scaduta** (in quel
+caso `supaHeaders()` ripiega sulla chiave anonima e la policy
+`authenticated` respinge: è il candidato numero uno, stesso schema del bug
+P105). Il messaggio compare sotto i pulsanti. **Lezione generalizzabile: un
+`catch(e){ return null }` su una chiamata di rete costa sempre un giro di
+collaudo in piu' — vale la pena restituire il motivo fin dalla prima
+scrittura** (è esattamente ciò che P76 chiede di sistemare ovunque).
+
+**VERIFICHE:** `node --check`; suite **130/130 verdi** (i test P116 non
+toccano l'invio, che resta verificato a mano: dipende da rete, popup e menu
+di sistema). Layout del foglio ricontrollato rendendo il PDF a immagine.
+
 24 LUGLIO 2026 (3ª sessione) — P116: RICHIESTA ANALISI DEL SANGUE PER IL
 MEDICO CURANTE. Sessione Cowork con Fabrizio (Opus 5). Baseline `880668d`.
 **Voce nata e chiusa nella stessa sessione** (non passa dalla Roadmap: entra

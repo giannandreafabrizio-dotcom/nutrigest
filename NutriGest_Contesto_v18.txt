@@ -695,7 +695,9 @@ RICHIESTA ANALISI PER IL MEDICO CURANTE (P116, 24 lug 2026)
   Non stampa un catalogo fisso: genera una richiesta PERSONALE, corta e motivata, che
   il paziente porta al proprio medico di base (che resta l'unico a prescrivere).
   · RICH_CATALOGO — 8 sezioni, 39 voci. Ogni voce: {id, label (testo stampato), ssn
-    (indicazione orientativa SSN/privato), map:[nomi ESATTI di ANALISI]}. Il campo `map`
+    (campo storico, NON piu' mostrato: le etichette SSN/privato sono state tolte da
+    foglio e checklist il 24 lug su decisione di Fabrizio), map:[nomi ESATTI di
+    ANALISI]}. Il campo `map`
     è il ponte verso l'anagrafica già usata dal form dei risultati: permetterà il
     confronto "richiesto vs ricevuto" senza una seconda anagrafica. Un test di
     regressione (s2-richiesta-analisi.test.js) verifica che nessun map punti a un nome
@@ -711,14 +713,17 @@ RICHIESTA ANALISI PER IL MEDICO CURANTE (P116, 24 lug 2026)
     prescrittivo. Richiesta tipica = una pagina. _richTxt() sostituisce i caratteri
     fuori da Latin-1 (γ, μ, — , “ ”, …): le accentate italiane invece jsPDF 2.5.1 le
     stampa correttamente e vanno lasciate.
-  · Invio — richInviaWhatsApp() carica il PDF su Supabase Storage (bucket pubblico
-    `richieste`, nome file con parte casuale) e apre wa.me col messaggio e il link
-    pronti: è l'unica strada che funziona ANCHE DA PC, perché WhatsApp non consente a
-    nessun sito di allegare file. Se il caricamento fallisce degrada da solo su
-    "scarica PDF + WhatsApp col testo". richCondividiPDF() usa navigator.share col file
-    (iPhone: allegato vero via menu iOS; desktop: scarica). richScaricaPDF() solo file.
-    La finestra di WhatsApp va aperta DENTRO il gestore del click e riempita dopo
-    l'upload, altrimenti il browser la blocca come popup.
+  · Invio — richInviaWhatsApp() prova in ordine: (1) `navigator.share` col file, che
+    consegna il PDF come ALLEGATO VERO — funziona su iPhone e, verificato il 24 lug,
+    anche su Chrome/Windows verso WhatsApp Desktop; se l'utente annulla (AbortError) ci
+    si ferma, senza ripiegare; (2) caricamento su Storage + wa.me col link, per i
+    browser senza condivisione di file (WhatsApp non consente a nessun sito di allegare
+    file, quindi il link è l'unica alternativa); (3) PDF scaricato + wa.me col testo.
+    richCopiaLink() carica e copia il link negli appunti (email/SMS). richScaricaPDF()
+    solo file. La finestra di WhatsApp va aperta DENTRO il gestore del click e riempita
+    dopo l'upload, altrimenti il browser la blocca come popup.
+    _richUpload() ritorna {url} oppure {err} con stato HTTP e motivo in italiano —
+    mostrato sotto i pulsanti: mai un fallimento muto (vedi P76).
   · Intestazione professionale — blocco OPZIONALE (nome, albo, studio, contatti) in
     localStorage 'ngIntestazioneProf', configurabile dalla modale stessa. Vuota, il
     foglio esce senza intestazione (scelta attuale di Fabrizio). È la predisposizione

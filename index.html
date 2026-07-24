@@ -8841,8 +8841,6 @@ function _richModaleHtml(p, pre){
       h += '<label style="display:flex;align-items:flex-start;gap:.5rem;padding:.22rem 0;font-size:.8rem;cursor:pointer">'
         + '<input type="checkbox" class="rich-cb" data-sez="'+sez.id+'" id="rich-cb-'+sez.id+'-'+v.id+'" onchange="_richAggiornaConteggi()"'+ck+' style="margin-top:.15rem">'
         + '<span style="flex:1;line-height:1.3">'+_richEsc(v.label)+'</span>'
-        + '<span style="font-size:.64rem;font-weight:700;border-radius:4px;padding:1px 5px;white-space:nowrap;'
-        + (v.ssn?'background:#dcfce7;color:#166534':'background:#fee2e2;color:#991b1b')+'">'+(v.ssn?'SSN':'privato')+'</span>'
         + '</label>';
     });
     h += '</div></div>';
@@ -8861,9 +8859,9 @@ function _richModaleHtml(p, pre){
 
   // Azioni
   h += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:.8rem">'
-    + '<button class="btn btn-p" style="flex:1;min-width:150px" onclick="richInviaWhatsApp()">💬 Invia su WhatsApp</button>'
-    + '<button class="btn" style="flex:1;min-width:130px" onclick="richScaricaPDF()">📄 Scarica PDF</button>'
-    + '<button class="btn" style="flex:1;min-width:130px" onclick="richCondividiPDF()">📲 Condividi</button>'
+    + '<button class="btn btn-p" style="flex:1;min-width:160px" onclick="richInviaWhatsApp()">💬 Invia su WhatsApp</button>'
+    + '<button class="btn" style="flex:1;min-width:120px" onclick="richCopiaLink()">🔗 Copia link</button>'
+    + '<button class="btn" style="flex:1;min-width:120px" onclick="richScaricaPDF()">📄 Scarica PDF</button>'
     + '<button class="btn btn-r" style="min-width:90px" onclick="ngChiudiModale(document.getElementById(\'mo-rich-analisi\'))">Chiudi</button>'
     + '</div>'
     + '<div id="rich-stato" style="font-size:.75rem;color:var(--text3);margin-top:.5rem"></div>';
@@ -8985,7 +8983,7 @@ function _richCostruisciPDF(p, sezioni, motivo){
     y+=7;
     sez.voci.forEach(function(v, i){
       const testo=_richTxt(v.label);
-      const maxW=W-10-16;
+      const maxW=W-12;
       const righe=doc.splitTextToSize(testo, maxW);
       const h=Math.max(5.8, righe.length*3.9+2.4);
       spazio(h);
@@ -8996,10 +8994,6 @@ function _richCostruisciPDF(p, sezioni, motivo){
       doc.setFont('helvetica','normal'); doc.setFontSize(8.9); doc.setTextColor(TXT[0],TXT[1],TXT[2]);
       let ty=y+(h-righe.length*3.9)/2+2.9;
       righe.forEach(function(r){ doc.text(r, M+8.4, ty); ty+=3.9; });
-      // etichetta SSN / privato
-      doc.setFont('helvetica','bold'); doc.setFontSize(6.6);
-      if(v.ssn){ doc.setTextColor(22,101,52); doc.text('SSN', PW-M-2.6, y+h/2+1.2, {align:'right'}); }
-      else { doc.setTextColor(153,27,27); doc.text('PRIVATO', PW-M-2.6, y+h/2+1.2, {align:'right'}); }
       y+=h;
     });
     y+=3.6;
@@ -9010,7 +9004,7 @@ function _richCostruisciPDF(p, sezioni, motivo){
   y+=2;
   doc.setDrawColor(226,232,240); doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y+=4.5;
   doc.setFont('helvetica','italic'); doc.setFontSize(7.6); doc.setTextColor(GREY[0],GREY[1],GREY[2]);
-  const nota=_richTxt('Le voci indicate sono una proposta formulata a scopo di valutazione nutrizionale e sono sottoposte alla valutazione del Medico Curante, cui competono la prescrizione e ogni decisione clinica. Il professionista della nutrizione utilizza questi dati a scopo valutativo e di monitoraggio, non diagnostico. L\'indicazione SSN / privato è orientativa e può variare secondo la regione e il quadro clinico.');
+  const nota=_richTxt('Le voci indicate sono una proposta formulata a scopo di valutazione nutrizionale e sono sottoposte alla valutazione del Medico Curante, cui competono la prescrizione e ogni decisione clinica. Il professionista della nutrizione utilizza questi dati a scopo valutativo e di monitoraggio, non diagnostico.');
   doc.splitTextToSize(nota, W).forEach(function(r){ doc.text(r, M, y); y+=3.4; });
 
   // Numerazione pagine
@@ -9062,52 +9056,39 @@ function richScaricaPDF(){
   if(typeof renderPdAnalisi==='function') renderPdAnalisi(r.p);
 }
 
-// Condivisione col menu nativo (iPhone → WhatsApp con allegato).
-// Sul computer, dove la condivisione di file non e' supportata, scarica.
-function richCondividiPDF(){
-  const r=_richPrepara(); if(!r) return;
-  const nome=_richNomeFile(r.p);
-  const titolo='Richiesta analisi - '+((r.p.nome||'')+' '+(r.p.cognome||'')).trim();
-  let file=null;
-  try{ file=new File([r.doc.output('blob')], nome, {type:'application/pdf'}); }catch(e){ file=null; }
-  if(file && navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
-    navigator.share({files:[file], title:titolo, text:titolo}).catch(function(){});
-    _richRegistra(r.p, r.sezioni, r.motivo, '');
-    _richStato('📲 Condivisione aperta.');
-  } else {
-    r.doc.save(nome);
-    _richRegistra(r.p, r.sezioni, r.motivo, '');
-    _richStato('📄 Condivisione file non supportata da questo browser: PDF scaricato.');
-  }
-  if(typeof renderPdAnalisi==='function') renderPdAnalisi(r.p);
-}
-
-// Carica il PDF su Supabase Storage e ritorna l'indirizzo pubblico.
+// Carica il PDF su Supabase Storage e ritorna {url} oppure {err} col motivo
+// leggibile del fallimento (niente errori muti: se non funziona, si deve
+// capire perche'). Il caricamento usa l'identita' dell'utente collegato
+// (supaHeaders mette il suo access_token al posto della chiave anonima),
+// cosi' la policy dello Storage resta ristretta al ruolo `authenticated`.
 // Il nome file contiene una parte casuale: l'indirizzo non e' indovinabile.
-// Ritorna null se il bucket non esiste o la rete non risponde.
 const RICH_BUCKET='richieste';
 async function _richUpload(doc, p){
+  let blob;
+  try{ blob=doc.output('blob'); }catch(e){ return {err:'PDF non generato'}; }
+  const rnd=(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).slice(0,18);
+  const path=encodeURIComponent(p.id||'paz')+'/'+new Date().toISOString().slice(0,10)+'-'+rnd+'.pdf';
+  let h, autenticato=false;
   try{
-    const blob=doc.output('blob');
-    const rnd=(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).slice(0,18);
-    const path=encodeURIComponent(p.id||'paz')+'/'+new Date().toISOString().slice(0,10)+'-'+rnd+'.pdf';
-    // Carica con l'identita' dell'utente collegato (supaHeaders mette il suo
-    // access_token al posto della chiave anonima): cosi' la policy dello
-    // Storage puo' essere ristretta al ruolo `authenticated` e non a chiunque
-    // abbia la chiave pubblica dell'app. Senza sessione valida la fetch
-    // fallisce e si ricade sul percorso di riserva (PDF scaricato).
-    let h;
-    try{ h=Object.assign({}, supaHeaders()); }
-    catch(e){ h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}; }
-    delete h['Prefer'];
-    h['Content-Type']='application/pdf';
-    h['x-upsert']='true';
-    const r=await fetch(SUPA_URL+'/storage/v1/object/'+RICH_BUCKET+'/'+path,{
-      method:'POST', headers:h, body:blob
-    });
-    if(!r.ok) return null;
-    return SUPA_URL+'/storage/v1/object/public/'+RICH_BUCKET+'/'+path;
-  }catch(e){ return null; }
+    h=Object.assign({}, supaHeaders());
+    autenticato = h['Authorization'] !== ('Bearer '+SUPA_KEY);
+  }catch(e){ h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}; }
+  delete h['Prefer'];
+  h['Content-Type']='application/pdf';
+  h['x-upsert']='true';
+  let r;
+  try{
+    r=await fetch(SUPA_URL+'/storage/v1/object/'+RICH_BUCKET+'/'+path,{method:'POST', headers:h, body:blob});
+  }catch(e){ return {err:'rete non raggiungibile ('+(e&&e.message?e.message:'errore')+')'}; }
+  if(r.ok) return {url:SUPA_URL+'/storage/v1/object/public/'+RICH_BUCKET+'/'+path};
+  let testo='';
+  try{ testo=(await r.text()||'').slice(0,220); }catch(e){}
+  let spiega='';
+  if(r.status===400 && /bucket/i.test(testo)) spiega=' — sembra che il bucket "'+RICH_BUCKET+'" non esista';
+  else if(r.status===403 || r.status===401) spiega = autenticato
+      ? ' — manca il permesso di scrittura (policy INSERT per il ruolo authenticated sul bucket "'+RICH_BUCKET+'")'
+      : " — non risulti collegato all'app: rifai l'accesso e riprova";
+  return {err:'errore '+r.status+spiega, dettaglio:testo};
 }
 
 function _richWaUrl(p, testo){
@@ -9117,32 +9098,77 @@ function _richWaUrl(p, testo){
   const prefix=(tel.indexOf('39')===0)?'':'39';
   return 'https://wa.me/'+prefix+tel+'?text='+msg;
 }
+function _richTestoWa(p, url){
+  const nomePaz=(p.nome||'').trim();
+  const apertura="Ciao"+(nomePaz?" "+nomePaz:"")+", ecco l'elenco delle analisi da far prescrivere al tuo medico di base";
+  return url ? (apertura+'. Puoi aprirlo e stamparlo da qui: '+url) : (apertura+'.');
+}
 
-// Invio su WhatsApp. Prima prova col link (funziona anche da computer);
-// se il caricamento non riesce, scarica il PDF e apre WhatsApp col testo,
-// cosi' basta allegarlo a mano.
+// Invio su WhatsApp — prova sempre la strada migliore disponibile, in ordine:
+//   1) allegato vero col menu di condivisione del sistema (iPhone, e Chrome
+//      su Windows con WhatsApp installato): il paziente riceve il PDF;
+//   2) link: carica su Storage e apre WhatsApp col messaggio gia' scritto —
+//      serve dove la condivisione di file non esiste;
+//   3) PDF scaricato + WhatsApp col testo, da allegare a mano.
+// La finestra va aperta DENTRO il click e riempita dopo, altrimenti il
+// browser la blocca come popup.
 async function richInviaWhatsApp(){
   const r=_richPrepara(); if(!r) return;
-  const nomePaz=(r.p.nome||'').trim();
-  // La finestra va aperta subito, dentro il click, altrimenti il browser
-  // la blocca come popup: la riempiamo dopo, a caricamento finito.
+  const nomeFile=_richNomeFile(r.p);
+  const titolo='Richiesta analisi - '+((r.p.nome||'')+' '+(r.p.cognome||'')).trim();
+
+  let file=null;
+  try{ file=new File([r.doc.output('blob')], nomeFile, {type:'application/pdf'}); }catch(e){ file=null; }
+  if(file && navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+    try{
+      await navigator.share({files:[file], title:titolo, text:titolo});
+      _richRegistra(r.p, r.sezioni, r.motivo, '');
+      _richStato('📲 Condivisione aperta — scegli WhatsApp e il contatto.');
+      if(typeof renderPdAnalisi==='function') renderPdAnalisi(r.p);
+      return;
+    }catch(e){
+      if(e && e.name==='AbortError'){ _richStato('Invio annullato.'); return; }
+      // condivisione non riuscita: si prosegue col link
+    }
+  }
+
   const win=window.open('', '_blank');
   _richStato('⏳ Preparazione del link in corso…');
-  const url=await _richUpload(r.doc, r.p);
-  if(url){
-    const testo='Ciao'+(nomePaz?' '+nomePaz:'')+", ecco l'elenco delle analisi da far prescrivere al tuo medico di base. Puoi aprirlo e stamparlo da qui: "+url;
-    const wa=_richWaUrl(r.p, testo);
+  const up=await _richUpload(r.doc, r.p);
+  if(up.url){
+    const wa=_richWaUrl(r.p, _richTestoWa(r.p, up.url));
     if(win && !win.closed){ win.location.href=wa; } else { window.open(wa,'_blank'); }
-    _richRegistra(r.p, r.sezioni, r.motivo, url);
+    _richRegistra(r.p, r.sezioni, r.motivo, up.url);
     _richStato("✅ WhatsApp aperto col link gia' pronto."+(r.p.tel?"":" <em>(il paziente non ha un numero in scheda: scegli tu il contatto)</em>"));
   } else {
     if(win && !win.closed) win.close();
-    r.doc.save(_richNomeFile(r.p));
-    const testo='Ciao'+(nomePaz?' '+nomePaz:'')+", ti mando qui l'elenco delle analisi da far prescrivere al tuo medico di base.";
-    window.open(_richWaUrl(r.p, testo),'_blank');
+    r.doc.save(nomeFile);
+    window.open(_richWaUrl(r.p, _richTestoWa(r.p, '')),'_blank');
     _richRegistra(r.p, r.sezioni, r.motivo, '');
-    _richStato('📄 Caricamento non riuscito (spazio file non ancora attivo): PDF scaricato e WhatsApp aperto col messaggio. Allega il file alla chat.');
+    _richStato("📄 PDF scaricato e WhatsApp aperto: allega il file alla chat.<br><span style=\"color:#b45309\">Il link non e' partito — "+_richEsc(up.err||"motivo sconosciuto")+"</span>");
   }
+  if(typeof renderPdAnalisi==='function') renderPdAnalisi(r.p);
+}
+
+// Carica il PDF e copia negli appunti il link da incollare dove vuoi
+// (email, SMS, altra chat). Se non riesce, dice esattamente perche'.
+async function richCopiaLink(){
+  const r=_richPrepara(); if(!r) return;
+  _richStato('⏳ Caricamento in corso…');
+  const up=await _richUpload(r.doc, r.p);
+  if(!up.url){
+    _richStato('<span style="color:#b45309">Link non disponibile — '+_richEsc(up.err||'motivo sconosciuto')+'</span>');
+    return;
+  }
+  _richRegistra(r.p, r.sezioni, r.motivo, up.url);
+  const fatto=function(){ _richStato('🔗 Link copiato negli appunti — incollalo dove vuoi.<br><span style="font-size:.72rem;color:var(--text3)">'+_richEsc(up.url)+'</span>'); };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(up.url).then(fatto).catch(function(){ _richStato('🔗 Link pronto: <span style="font-size:.72rem">'+_richEsc(up.url)+'</span>'); });
+    } else {
+      _richStato('🔗 Link pronto: <span style="font-size:.72rem">'+_richEsc(up.url)+'</span>');
+    }
+  }catch(e){ _richStato('🔗 Link pronto: <span style="font-size:.72rem">'+_richEsc(up.url)+'</span>'); }
   if(typeof renderPdAnalisi==='function') renderPdAnalisi(r.p);
 }
 
