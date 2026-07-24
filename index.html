@@ -6163,6 +6163,53 @@ function _percorsoDataBreve(iso){
   return isNaN(d.getTime())?iso:d.getDate()+" "+mn[d.getMonth()]+(d.getFullYear()!==new Date().getFullYear()?" "+String(d.getFullYear()).slice(2):"");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P115 Tappa 3 — SERIE ENERGIA per la corsia sotto il grafico peso (pura).
+// Restituisce segmenti temporali [da,a] in ms, clampati a [t0,t1]:
+//  - intake: introito prescritto — PASSATO dagli slot di macrosStorico (ogni
+//    slot vale dal suo timestamp al successivo, semantica identica a
+//    _kcalMediaPrescrittaOss), FUTURO dalle fasi del percorso (pct del TDEE
+//    stimato corrente, cioè ciò che verrà prescritto);
+//  - tdee: fabbisogno STIMATO — passato dagli stessi slot (campo tdee
+//    fotografato al salvataggio), poi piatto al valore attuale fino a t1;
+//  - oss: fabbisogno OSSERVATO (P114 passo 4) come segmento sul suo tratto
+//    di calcolo [dal..al], null se non calcolabile.
+function _percorsoSerieEnergia(p, t0, t1){
+  const out={intake:[], tdee:[], oss:null};
+  const oggiMs=new Date(_percorsoIsoLocal(Date.now())+"T00:00:00").getTime();
+  const finePassato=Math.min(oggiMs, t1);
+  const ct=calcolaTDEE(p);
+  const slot=(p&&p.macrosStorico||[]).filter(function(sl){ return sl && sl.kcal>0 && sl.timestamp; })
+    .slice().sort(function(a,b){ return a.timestamp-b.timestamp; });
+  for(let i=0;i<slot.length;i++){
+    const da=Math.max(slot[i].timestamp, t0);
+    const a=Math.min(i+1<slot.length?slot[i+1].timestamp:finePassato, finePassato);
+    if(a>da){
+      out.intake.push({da:da, a:a, kcal:Math.round(slot[i].kcal), fonte:"storico"});
+      if(slot[i].tdee>0) out.tdee.push({da:da, a:a, kcal:Math.round(slot[i].tdee), fonte:"storico"});
+    }
+  }
+  const percorso=_percorsoGet(p);
+  if(percorso && ct && ct.tdee){
+    _percorsoIntervalli(percorso).forEach(function(f){
+      const da=Math.max(new Date(f.dal+"T00:00:00").getTime(), oggiMs, t0);
+      const a=Math.min(new Date(f.al+"T00:00:00").getTime(), t1);
+      if(a>da) out.intake.push({da:da, a:a, kcal:Math.round(ct.tdee*(1+f.pct/100)), fonte:"fase"});
+    });
+  }
+  if(ct && ct.tdee){
+    const daT=out.tdee.length?out.tdee[out.tdee.length-1].a:Math.max(t0, Math.min(oggiMs,t1));
+    if(t1>daT) out.tdee.push({da:daT, a:t1, kcal:ct.tdee, fonte:"attuale"});
+  }
+  let oss=null; try{ oss=calcolaTDEEOsservato(p); }catch(e){ oss=null; }
+  if(oss && oss.ok){
+    const da=Math.max(new Date(oss.dal+"T00:00:00").getTime(), t0);
+    const a=Math.min(new Date(oss.al+"T00:00:00").getTime(), t1);
+    if(a>da) out.oss={da:da, a:a, kcal:oss.tdeeOss};
+  }
+  return out;
+}
+
 // ── Mutatori (pattern: muta paziente → save → re-render) ──────────────────────
 function _percorsoPaz(pazId){ return (db.pazienti||[]).find(function(x){return x.id===pazId;}); }
 function percorsoInit(pazId){
@@ -6228,16 +6275,23 @@ function _percorsoChartSvg(p){
   if(projOk){ proj.punti.forEach(function(q){ kgMin=Math.min(kgMin,q.lo); kgMax=Math.max(kgMax,q.hi); }); }
   if(!isFinite(kgMin)){ kgMin=60; kgMax=90; }
   const span=Math.max(kgMax-kgMin,2); kgMin-=span*0.15; kgMax+=span*0.15;
-  const W=1000,H=400,L=52,R=20,T=58,B=34;
+  const W=1000,L=52,R=20,T=58,B=34;
+  // P115 Tappa 3 — layout a due corsie: peso sopra, energia (kcal) sotto.
+  // La corsia energia esiste solo se c'è un percorso con fasi.
+  const hasEnergia = ints.length>0;
+  const wBot = hasEnergia ? T+250 : 366;      // fondo corsia peso (366 = layout storico senza corsia)
+  const eTop = wBot+40, eBot = eTop+118;
+  const H = hasEnergia ? eBot+B : 400;
+  const axisY = hasEnergia ? eBot : H-B;
   const x=function(t){ return L+(t-t0)/(t1-t0)*(W-L-R); };
-  const y=function(kg){ return T+(1-(kg-kgMin)/(kgMax-kgMin))*(H-T-B); };
+  const y=function(kg){ return T+(1-(kg-kgMin)/(kgMax-kgMin))*(wBot-T); };
   let s="";
   // bande fasi + etichette
   ints.forEach(function(f){
     const xa=x(dParse(f.dal)), xb=x(dParse(f.al)), cfg=_PERCORSO_TIPI[f.tipo];
-    s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-T-B)+'" fill="'+cfg.band+'"/>';
-    if(f.dal>oggi) s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(H-T-B)+'" fill="url(#percorso-hatch)"/>';
-    s+='<line x1="'+xb.toFixed(1)+'" y1="'+T+'" x2="'+xb.toFixed(1)+'" y2="'+(H-B)+'" stroke="#e1e0d9"/>';
+    s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(wBot-T)+'" fill="'+cfg.band+'"/>';
+    if(f.dal>oggi) s+='<rect x="'+xa.toFixed(1)+'" y="'+T+'" width="'+(xb-xa).toFixed(1)+'" height="'+(wBot-T)+'" fill="url(#percorso-hatch)"/>';
+    s+='<line x1="'+xb.toFixed(1)+'" y1="'+T+'" x2="'+xb.toFixed(1)+'" y2="'+wBot+'" stroke="#e1e0d9"/>';
     if(xb-xa>52){
       const kcal=_percorsoKcalFase(p,f.pct);
       s+='<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(T-26)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="'+cfg.txt+'">'+cfg.label+'</text>'
@@ -6255,10 +6309,10 @@ function _percorsoChartSvg(p){
   const d0=new Date(t0); d0.setDate(1);
   for(let d=new Date(d0); d.getTime()<=t1; d.setMonth(d.getMonth()+1)){
     const xt=x(d.getTime()); if(xt<L||xt>W-R) continue;
-    s+='<text x="'+xt.toFixed(1)+'" y="'+(H-B+16)+'" text-anchor="middle" font-size="10.5" fill="#898781">'
+    s+='<text x="'+xt.toFixed(1)+'" y="'+(axisY+16)+'" text-anchor="middle" font-size="10.5" fill="#898781">'
       +d.toLocaleDateString("it-IT",{month:"short"})+(d.getMonth()===0?" "+String(d.getFullYear()).slice(2):"")+'</text>';
   }
-  s+='<line x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'" stroke="#c3c2b7"/>';
+  s+='<line x1="'+L+'" y1="'+axisY+'" x2="'+(W-R)+'" y2="'+axisY+'" stroke="#c3c2b7"/>';
   // peso target (se impostato): linea orizzontale tratteggiata
   if(p.pesoTarget && +p.pesoTarget>kgMin && +p.pesoTarget<kgMax){
     s+='<line x1="'+L+'" y1="'+y(+p.pesoTarget).toFixed(1)+'" x2="'+(W-R)+'" y2="'+y(+p.pesoTarget).toFixed(1)+'" stroke="#B8860B" stroke-width="1.2" stroke-dasharray="6 4" opacity=".7"/>'
@@ -6267,7 +6321,7 @@ function _percorsoChartSvg(p){
   // linea "oggi"
   const xo=x(dParse(oggi));
   if(xo>L && xo<W-R){
-    s+='<line x1="'+xo.toFixed(1)+'" y1="'+(T-4)+'" x2="'+xo.toFixed(1)+'" y2="'+(H-B)+'" stroke="#52514e" stroke-width="1.2" stroke-dasharray="3 3"/>'
+    s+='<line x1="'+xo.toFixed(1)+'" y1="'+(T-4)+'" x2="'+xo.toFixed(1)+'" y2="'+axisY+'" stroke="#52514e" stroke-width="1.2" stroke-dasharray="3 3"/>'
      +'<text x="'+xo.toFixed(1)+'" y="'+(T-34)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#52514e">oggi</text>';
   }
   // P115 Tappa 2 — cono di proiezione (sotto la linea del peso, sopra le bande)
@@ -6294,6 +6348,53 @@ function _percorsoChartSvg(p){
     });
     const ult=serie[serie.length-1];
     s+='<text x="'+(x(dParse(ult.data))+7).toFixed(1)+'" y="'+(y(ult.peso)-7).toFixed(1)+'" font-size="11" font-weight="700" fill="#2a78d6">'+ult.peso+' kg</text>';
+  }
+  // P115 Tappa 3 — CORSIA ENERGIA: introito prescritto vs fabbisogno (asse kcal separato)
+  if(hasEnergia){
+    // bande fasi anche qui (senza etichette), per continuità visiva con la corsia peso
+    ints.forEach(function(f){
+      const xa=x(dParse(f.dal)), xb=x(dParse(f.al)), cfg=_PERCORSO_TIPI[f.tipo];
+      s+='<rect x="'+xa.toFixed(1)+'" y="'+eTop+'" width="'+(xb-xa).toFixed(1)+'" height="'+(eBot-eTop)+'" fill="'+cfg.band+'"/>';
+      if(f.dal>oggi) s+='<rect x="'+xa.toFixed(1)+'" y="'+eTop+'" width="'+(xb-xa).toFixed(1)+'" height="'+(eBot-eTop)+'" fill="url(#percorso-hatch)"/>';
+      s+='<line x1="'+xb.toFixed(1)+'" y1="'+eTop+'" x2="'+xb.toFixed(1)+'" y2="'+eBot+'" stroke="#e1e0d9"/>';
+    });
+    // titolo/legenda della corsia
+    s+='<text x="'+L+'" y="'+(wBot+24)+'" font-size="11" font-weight="700" fill="#0b0b0b">Energia (kcal): '
+      +'<tspan fill="#b5641a">▬ introito prescritto</tspan>  <tspan fill="#0F6E56">▬ TDEE stimato</tspan>  <tspan fill="#5B3E8C">▬ TDEE osservato</tspan></text>';
+    const en=_percorsoSerieEnergia(p, t0, t1);
+    const vals=[];
+    en.intake.forEach(function(g){ vals.push(g.kcal); });
+    en.tdee.forEach(function(g){ vals.push(g.kcal); });
+    if(en.oss) vals.push(en.oss.kcal);
+    if(!vals.length){
+      s+='<text x="'+((L+W-R)/2)+'" y="'+((eTop+eBot)/2)+'" text-anchor="middle" font-size="10.5" fill="#898781">Salva un calcolo TDEE per vedere qui prescrizioni e fabbisogno nel tempo.</text>';
+    } else {
+      let eMin=Math.min.apply(null,vals), eMax=Math.max.apply(null,vals);
+      const mrg=Math.max(150,(eMax-eMin)*0.25); eMin=Math.max(0,eMin-mrg); eMax+=mrg;
+      const yE=function(k){ return eTop+(1-(k-eMin)/(eMax-eMin))*(eBot-eTop); };
+      // griglia kcal (3 livelli arrotondati a 100)
+      const gvals=[eMin,(eMin+eMax)/2,eMax].map(function(v){ return Math.round(v/100)*100; });
+      gvals.forEach(function(k){
+        if(k<eMin||k>eMax) return;
+        s+='<line x1="'+L+'" y1="'+yE(k).toFixed(1)+'" x2="'+(W-R)+'" y2="'+yE(k).toFixed(1)+'" stroke="#e1e0d9"/>'
+         +'<text x="'+(L-7)+'" y="'+(yE(k)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="#898781">'+k+'</text>';
+      });
+      // TDEE stimato (verde acqua): gradini storici pieni, tratto attuale/futuro tratteggiato
+      en.tdee.forEach(function(g){
+        const dash=g.fonte==="attuale"?' stroke-dasharray="5 4" opacity=".8"':'';
+        s+='<line x1="'+x(g.da).toFixed(1)+'" y1="'+yE(g.kcal).toFixed(1)+'" x2="'+x(g.a).toFixed(1)+'" y2="'+yE(g.kcal).toFixed(1)+'" stroke="#0F6E56" stroke-width="2"'+dash+'/>';
+      });
+      // introito prescritto (arancio): storico pieno, fasi future tratteggiate
+      en.intake.forEach(function(g){
+        const dash=g.fonte==="fase"?' stroke-dasharray="5 4" opacity=".85"':'';
+        s+='<line x1="'+x(g.da).toFixed(1)+'" y1="'+yE(g.kcal).toFixed(1)+'" x2="'+x(g.a).toFixed(1)+'" y2="'+yE(g.kcal).toFixed(1)+'" stroke="#eb6834" stroke-width="2.4"'+dash+'/>';
+      });
+      // TDEE osservato (viola): segmento spesso sul tratto di calcolo
+      if(en.oss){
+        s+='<line x1="'+x(en.oss.da).toFixed(1)+'" y1="'+yE(en.oss.kcal).toFixed(1)+'" x2="'+x(en.oss.a).toFixed(1)+'" y2="'+yE(en.oss.kcal).toFixed(1)+'" stroke="#5B3E8C" stroke-width="3.2" opacity=".9"/>'
+         +'<text x="'+((x(en.oss.da)+x(en.oss.a))/2).toFixed(1)+'" y="'+(yE(en.oss.kcal)-6).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#5B3E8C">osservato '+en.oss.kcal+'</text>';
+      }
+    }
   }
   return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="Timeline del percorso">'
     +'<defs><pattern id="percorso-hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(42,120,214,.15)" stroke-width="1.3"/></pattern></defs>'
@@ -6345,7 +6446,7 @@ function renderPdPercorso(p){
     html+= svg
       ? '<div style="border:1px solid var(--border);border-radius:10px;padding:.5rem .4rem .2rem;background:#fcfcfb">'+svg+'</div>'
       : '<div style="font-size:.75rem;color:var(--text3);padding:.6rem 0">Aggiungi almeno una fase (o un paio di pesate) per vedere il grafico.</div>';
-    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody · ○ pesata intermedia · fasi future tratteggiate · kcal indicative (% del TDEE attuale) · il cono azzurro è la proiezione del peso lungo le fasi: più si va lontano più si allarga, e si restringe man mano che registri pesate. Solo informativa: non tocca nessun calcolo.</div>';
+    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody · ○ pesata intermedia · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. Tutto informativo: nessun calcolo viene toccato.</div>';
     // editor fasi
     html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
       +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th></th></tr></thead><tbody>';

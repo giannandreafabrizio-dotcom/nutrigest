@@ -235,8 +235,8 @@ Righe 4870-6107
 
 ---
 
-### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-2, 24 lug 2026)
-Righe 6021-6390 (numeri ESATTI al 24/7 sera, dopo la Tappa 2). ⚠️ Questo blocco (~370 righe) fa slittare di +~370 tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
+### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-2-3, 24 lug 2026)
+Righe 6021-6500 (numeri ESATTI al 24/7 notte, dopo la Tappa 3). ⚠️ Questo blocco (~480 righe) fa slittare di +~480 tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
 
 - `6032` — _PERCORSO_TIPI (const: tipi fase, colori, pct default)
 - `6039` — _percorsoGet *(normalizza p.percorso, scarta fasi invalide)*
@@ -246,15 +246,10 @@ Righe 6021-6390 (numeri ESATTI al 24/7 sera, dopo la Tappa 2). ⚠️ Questo blo
 - `6079` — _percorsoKcalFase *(pct → kcal indicative via calcolaTDEE)*
 - `6102` — _percorsoProiezione *(Tappa 2 — proiezione ibrida teorica/calibrata, cono, obiettivo a intervallo)*
 - `6160` — _percorsoDataBreve *(ISO → "12 set")*
-- `6167` — _percorsoPaz
-- `6168` — percorsoInit
-- `6174` — percorsoSetInizio
-- `6178` — percorsoAddFase *(alternanza suggerita deficit↔mantenimento)*
-- `6187` — percorsoUpdFase
-- `6195` — percorsoDelFase
-- `6200` — percorsoMoveFase
-- `6209` — _percorsoChartSvg *(bande fasi + peso reale + cono proiezione + oggi + obiettivo)*
-- `6304` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, grafico, editor)*
+- `6177` — _percorsoSerieEnergia *(Tappa 3 — serie introito/TDEE stimato/TDEE osservato per la corsia energia)*
+- `6229` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
+- `6256` — _percorsoChartSvg *(due corsie: peso + cono proiezione sopra, energia (kcal) sotto)*
+- `6405` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, grafico, editor)*
 
 *(Tappa 2 tocca anche `calcolaMacros`: box obiettivo con intervallo al posto della data secca.)*
 

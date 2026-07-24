@@ -1610,9 +1610,20 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     bilancio; scenario prudente non stimabile → "almeno N settimane". Nota
     fissa: "a ritmo costante, senza fasi di mantenimento" + rimando alla
     scheda 📈 Percorso per la curva con le fasi.
+  CORSIA ENERGIA (P115 Tappa 3, 24 lug 2026): il grafico diventa a due
+    corsie SOLO quando esiste un percorso con fasi (senza, layout compatto
+    invariato): sopra il peso (kg), sotto "Energia (kcal)" con asse proprio.
+    _percorsoSerieEnergia(p,t0,t1) (pura) → {intake, tdee, oss}: introito
+    prescritto passato dagli slot macrosStorico (slot valido dal suo
+    timestamp al successivo, come _kcalMediaPrescrittaOss) e futuro dalle
+    fasi (pct del TDEE stimato corrente, tratteggiato); TDEE stimato a
+    gradini storici (campo tdee fotografato negli slot) + tratto attuale;
+    TDEE osservato come segmento viola sul tratto [dal..al]. Clamping
+    rigoroso a [t0,t1], passato mai oltre oggi, futuro mai prima di oggi.
+    Lettura clinica: distanza arancio↔verde/viola = deficit/surplus reale.
   PROSSIME TAPPE (design nel doc di progetto "NutriGest_P9_Timeline_
-  Ragionamento"): 3 corsia energia · 4 massa magra + interruttori strati ·
-  5 slot consuntivo "Piano vs Realtà" (si accende con l'app paziente P50).
+  Ragionamento"): 4 massa magra + interruttori strati · 5 slot consuntivo
+  "Piano vs Realtà" (si accende con l'app paziente P50).
 
 CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):
   Per pazienti sportivi (a prescindere dal dimagrimento) o non sportivi che

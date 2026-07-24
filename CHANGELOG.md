@@ -10,6 +10,43 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (2ª sessione, parte 4) — P115 TAPPA 3: CORSIA ENERGIA NEL
+GRAFICO PERCORSO. Sessione Cowork con Fabrizio (Fable 5). Baseline `666fa2a`.
+
+**COSA:** il grafico della scheda 📈 Percorso diventa a DUE CORSIE (solo
+quando esiste un percorso: senza fasi il layout resta quello compatto
+storico, fissato da test): sopra il peso, sotto la corsia "Energia (kcal)"
+con asse proprio — mai due scale sovrapposte, regola del design. Tre serie:
+(1) **introito prescritto** (arancio): PASSATO dagli slot di `macrosStorico`
+(ogni slot vale dal suo timestamp al successivo — semantica identica a
+`_kcalMediaPrescrittaOss`), FUTURO dalle fasi (pct del TDEE stimato
+corrente, tratteggiato); (2) **TDEE stimato** (verde): gradini storici dal
+campo `tdee` fotografato negli slot + tratto attuale tratteggiato fino a
+fine percorso; (3) **TDEE osservato** (viola, P114 passo 4): segmento
+spesso sul SUO tratto di calcolo [dal..al] con etichetta. Lettura clinica
+dichiarata in didascalia: la DISTANZA tra arancio e verde/viola È il
+deficit/surplus reale nel tempo — se il viola sta sotto una prescrizione
+"in deficit", il finto deficit si vede qui e nella proiezione che risale
+(coerenza tra corsie verificata a occhio nel collaudo). Bande fasi ripetute
+nella corsia (senza etichette) per continuità visiva; griglia kcal a 3
+livelli arrotondati a 100; stato-vuoto con invito a salvare un calcolo TDEE.
+
+**MOTORE (`_percorsoSerieEnergia`, pura):** segmenti [da,a] in ms clampati a
+[t0,t1]; passato mai oltre "oggi"; futuro mai prima di "oggi"; slot senza
+kcal/timestamp scartati; osservato assente se non calcolabile. Lezione di
+test: gli array che attraversano il realm JSDOM non passano
+`deepStrictEqual` (prototipo diverso) — confrontare con spread `[...arr]`.
+
+**VERIFICHE:** suite **98 → 103, tutte verdi** (`s2-percorso-energia.
+test.js`: semantica slot-fino-al-successivo, clamping, futuro=kcal fasi,
+segmento osservato, corsia presente solo col percorso + layout compatto
+invariato senza); collaudo visivo Chromium sui due casi (teorica: storico
+2100→2148 + fasi future; calibrata: viola 2070 sopra prescritto 1800 =
+deficit vero, sotto la prescrizione futura 2177 = finto deficit visibile).
+SHA ricontrollato invariato. Resta il collaudo di Fabrizio in produzione.
+Di P115 restano le Tappe 4 (massa magra + interruttori) e 5 (slot
+consuntivo).
+
 24 LUGLIO 2026 (2ª sessione, parte 3) — P115 TAPPA 2: PROIEZIONE IBRIDA DEL
 PESO. Sessione Cowork con Fabrizio (Fable 5). Baseline `107eadb`. Chiude nel
 merito il vecchio P114 passo 9 ("da data secca a range") dentro la scheda
