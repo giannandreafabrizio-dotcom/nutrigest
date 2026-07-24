@@ -355,7 +355,9 @@ Righe 9056-9607
 - `9519` — _larnLafStileVita
 - `9536` — _regimeOffset
 - `9546` — _componiRegimeText
-- `9558` — calcolaTDEE
+- `9550` — _mifflinBMR *(P114 passo 7 — MB teorico Mifflin-St Jeor)*
+- `9552` — _crossCheckMifflin *(P114 passo 7 — confronto MB InBody vs Mifflin, bandierina >15%)*
+- `9558` — calcolaTDEE *(dal 24/7 restituisce anche `crossCheck`, P114 passo 7)*
 - `9607` — renderPianoPage
 
 ---

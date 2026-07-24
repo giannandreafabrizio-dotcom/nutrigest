@@ -10,6 +10,53 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (2ª sessione) — P114 PASSI 7 + 8: CROSS-CHECK MIFFLIN +
+ORARIO ALLENAMENTO ALL'AI. Sessione Cowork con Fabrizio (Opus). Baseline
+`a570757`. Chiusi i due passi fattibili subito del motore TDEE; di P114
+resta ora SOLO il passo 9 (previsione dimagrimento a range), che attende una
+decisione clinica di Fabrizio. Autonomia L1: perimetro (7 e 8) e soglia
+Mifflin (±15%) approvati esplicitamente a inizio sessione.
+
+**PASSO 7 — Controllo incrociato Mifflin-St Jeor (bandierina anti-refuso).**
+Cosa: due funzioni pure nuove — `_mifflinBMR(p, lastIb)` calcola il
+metabolismo basale TEORICO con Mifflin (10×kg + 6.25×cm − 5×anni + M:+5/F:−161,
+leggendo peso/altezza da InBody con fallback su `p`, età da `p.nascita`,
+sesso da `p.sesso`) e `_crossCheckMifflin` lo confronta col MB del referto
+InBody che alimenta il motore. `calcolaTDEE` calcola `crossCheck` subito dopo
+aver letto il MB e lo restituisce in ENTRAMBI i return (MET additivo e LAF
+manuale). `_affidabilitaHtml` aggiunge una bandierina 🚩 rossa SOTTO il
+semaforo di affidabilità (quindi appare ovunque già appare quello: apertura
+paziente, Ricalcola, salvataggio) SOLO se la divergenza supera il 15%. Perché
+15% e non 10/20: soglia scelta da Fabrizio come compromesso — cattura refusi
+grossi (MB digitato storto, OCR del referto sbagliato, misura in condizioni
+errate) senza far scattare falsi allarmi per la muscolatura alta, dove il MB
+InBody (Katch-McArdle su FFM) supera legittimamente Mifflin. Sicurezza: NON
+tocca nessun calcolo — è pura trasparenza; se manca anche solo uno tra peso,
+altezza, età, sesso il cross-check è `null` e non compare. Lezione: la soglia
+è STRETTA (`> 15`, non `≥`) e il confronto è a livello di MB (non di TDEE)
+perché è lì che vive il refuso e il LAF è comunque comune ai due — confrontare
+i TDEE non aggiungerebbe informazione.
+
+**PASSO 8 — Orario di allenamento nel contesto AI.** Cosa: il campo
+`orarioAllenamento` (Mattina/Pomeriggio/Sera/Variabile, già raccolto ma mai
+passato all'AI) ora entra in `costruisciContestoPaziente` — costruttore unico
+del contesto usato sia dal generatore di piani sia dall'analisi del controllo.
+Aggiunta una riga "Orario allenamento: …" (con la nota se Variabile) più una
+direttiva peri-workout: carboidrati facilmente digeribili ~1-2 h prima,
+quota proteica + carboidrati nel pasto successivo, SEMPRE compatibilmente col
+regime e col budget di carboidrati impostato (così resta sicura anche in
+keto), giorni OFF distribuiti normalmente. Il blocco Attività ora si attiva
+anche col solo orario impostato. Nessun effetto sul calcolo.
+
+**VERIFICHE PRE-CONSEGNA:** `node --check` sul blocco script OK; nuovo file di
+test `s2-tdee-mifflin-orario.test.js` (5 test passo 7 + 3 test passo 8, con
+verifica esplicita che il TDEE è identico con/senza bandierina e che l'età
+Mifflin è ricalcolata, non hardcoded); **suite 77 → 85, tutti verdi**; grep di
+conferma su stringhe univoche; SHA di HEAD ri-controllato invariato
+(`a570757`) prima della consegna. Manca solo il collaudo in produzione di
+Fabrizio (bandierina su un paziente con dati anagrafici completi + verifica
+che l'AI usi l'orario nei suggerimenti). Di P114 resta il solo passo 9.
+
 24 LUGLIO 2026 — P74 FASE 1d (CUTOVER META-RECORD SU `collections`) + AVVIO
 FASE 2 (DOPPIA SCRITTURA ANALISI DEL SANGUE). Sessione Cowork con Fabrizio
 (Fable 5). Baseline `def73de`. **Pushato da Fabrizio in commit `97acb03`;

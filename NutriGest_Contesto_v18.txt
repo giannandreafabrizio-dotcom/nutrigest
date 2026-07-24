@@ -1462,6 +1462,29 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
       una fonte scartati perché incoerenti col Compendium — corsa 8km/h e
       nuoto lento erano invertiti/errati nella tabella originale)
   TEF: 10% di (MB+NEAT+EAT).
+  MODIFICATORE LAVORO nel NEAT (P114 passo 2, 22 lug 2026): campi `fontePassi`
+    (Misurati/Stimati) e `tipoLavoro` (Sedentario/In piedi/Pesante). Un lavoro
+    non sedentario aggiunge una frazione del MB al NEAT (in-piedi +0.06,
+    pesante +0.13), con tetto totale sulla frazione NEAT a 0.60. Anti doppio
+    conteggio: il bonus scatta SOLO se `fontePassi ≠ 'misurati'` (con passi da
+    smartwatch lo stare in piedi è già dentro il conteggio). Un lavoro attivo
+    basta ad attivare il metodo MET anche senza passi.
+  INDICE DI AFFIDABILITÀ + INTERVALLO (P114 passo 5, 22 lug 2026):
+    `_affidabilitaTDEE` classifica la stima 🟢 alta / 🟡 media / 🔴 bassa a
+    punti (passi misurati vs stimati vs mancanti · allenamento in minuti vs
+    ore approssimate · InBody >4 mesi · LAF manuale) e ne ricava un intervallo
+    (±8/13/18%, ±20% su LAF manuale). Reso da `_affidabilitaHtml` sotto i box
+    TDEE. NON entra in nessun calcolo (solo trasparenza).
+  CROSS-CHECK MIFFLIN (P114 passo 7, 24 lug 2026): `_mifflinBMR` calcola il MB
+    teorico con Mifflin-St Jeor (10×kg + 6.25×cm − 5×anni + M:+5/F:−161) e
+    `_crossCheckMifflin` lo confronta col MB del referto InBody. `calcolaTDEE`
+    restituisce `crossCheck` in entrambi i return; `_affidabilitaHtml` mostra
+    una bandierina 🚩 rossa SOLO se la divergenza supera il 15% (invito a
+    ricontrollare peso/altezza/età/sesso/MB — probabile refuso). Serve peso,
+    altezza, età (da `nascita`) e sesso: se manca un dato → `crossCheck` null,
+    niente bandierina. NON tocca nessun calcolo. Soglia scelta stretta (>15%,
+    non ≥) per non disturbare la muscolatura alta (MB InBody > Mifflin è
+    fisiologico).
   Fallback totale: nessun dato attività (né passi né sedute/ore) → LAF manuale
     da selettore (comportamento storico invariato).
   Confronto LARN (guardrail, non target): SINU stile di vita a 4 livelli
@@ -1689,6 +1712,13 @@ PASTO LIBERO SABATO CONFIGURABILE (P93, 17 lug 2026 · commit 4d50d15):
     mesi) — con istruzione esplicita di usarlo per calibrare l'interpretazione (es. peso
     fermo ma sgarri frequenti). Da questo commit ogni analisi AI del controllo considera
     anche ciò che il paziente riferisce a voce, non solo i dati clinici numerici.
+    ORARIO ALLENAMENTO ALL'AI (P114 passo 8, 24 lug 2026): costruisciContestoPaziente
+    ora aggiunge nel blocco Attività una riga "Orario allenamento: …" (con la nota se
+    Variabile) e una direttiva peri-workout (carboidrati facili ~1-2h prima, quota
+    proteica + carbo nel pasto successivo, sempre compatibile col regime/budget carbo →
+    sicura anche in keto; giorni OFF normali) per abilitare i suggerimenti pre/post-workout
+    del generatore/analisi AI. Il campo era già raccolto ma non veniva passato. Nessun
+    effetto sul calcolo.
 
 STIMA KCAL CENA LIBERA SABATO (per badge macros reali; usa p.weekend = opzione principale):
   Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750

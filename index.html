@@ -7247,11 +7247,16 @@ function costruisciContestoPaziente(p){
     ctx+='\n\nInBody: nessuna misurazione disponibile.';
   }
 
-  if(p.passiGiornalieri||p.oreAllenamento||p.tipoAllenamento){
+  if(p.passiGiornalieri||p.oreAllenamento||p.tipoAllenamento||p.orarioAllenamento){
     ctx+='\n\nAttivita fisica: '+(p.passiGiornalieri||'—')+' passi/giorno · '+(p.tipoAllenamento||'—')+' · intensita '+(p.intensitaAllenamento||'—')+' · '+(p.oreAllenamento||'—')+' ore/sett.';
     if((p.giorniAllenamento||[]).length)ctx+=' · giorni ON: '+p.giorniAllenamento.join(', ');
     if(p.cronotipo)ctx+=' · cronotipo: '+p.cronotipo;
     if(p.orarioPastoPrincipale)ctx+=' · pasto principale: '+p.orarioPastoPrincipale;
+    // P114 passo 8 — orario di allenamento → suggerimenti pre/post-workout
+    if(p.orarioAllenamento){
+      const _oa=(p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote)?('Variabile ('+p.orarioAllenamentoNote+')'):p.orarioAllenamento;
+      ctx+='\nOrario allenamento: '+_oa+'. Suggerimento peri-workout: avvicina la quota di carboidrati e uno spuntino ai pasti in questa fascia — pre-workout carboidrati facilmente digeribili ~1-2 h prima, post-workout quota proteica + carboidrati nel pasto successivo — sempre compatibilmente col regime e col budget di carboidrati impostato. Nei giorni OFF distribuisci normalmente.';
+    }
   }
 
   if(p.patologie||p.farmaci||p.familiarita){
@@ -10874,9 +10879,17 @@ function _affidabilitaHtml(ct){
   const map={alta:{e:'🟢',t:'affidabilità alta',c:'#0F6E56'},media:{e:'🟡',t:'affidabilità media',c:'#B8860B'},bassa:{e:'🔴',t:'affidabilità bassa',c:'#c0392b'}};
   const m=map[a.livello]||map.media;
   const motivi=(a.motivi&&a.motivi.length)?' — '+a.motivi.join('; '):'';
-  return '<div style="font-size:.72rem;color:'+m.c+';margin-top:.3rem;padding-top:.3rem;border-top:1px dashed var(--border);font-weight:600">'
+  let out='<div style="font-size:.72rem;color:'+m.c+';margin-top:.3rem;padding-top:.3rem;border-top:1px dashed var(--border);font-weight:600">'
     +m.e+' '+m.t+': stima probabile tra <strong>'+a.tdeeMin+'</strong> e <strong>'+a.tdeeMax+' kcal</strong>'
     +'<span style="font-weight:400;color:var(--text3)">'+motivi+'</span></div>';
+  // P114 passo 7 — bandierina cross-check Mifflin (solo se divergenza oltre soglia)
+  if(ct.crossCheck && ct.crossCheck.flag){
+    const cc=ct.crossCheck;
+    out+='<div style="font-size:.72rem;color:#c0392b;margin-top:.35rem;padding:.4rem .55rem;border:1px dashed #E24B4A;border-radius:6px;background:#FFF5F5;font-weight:600">'
+      +'🚩 Controllo incrociato: il MB del referto InBody (<strong>'+cc.mb+' kcal</strong>) si discosta del <strong>'+cc.divergenzaPct+'%</strong> dalla stima teorica Mifflin (<strong>'+cc.mifflin+' kcal</strong>).'
+      +'<div style="font-weight:400;color:var(--text2);margin-top:.15rem">Controlla peso, altezza, età, sesso o il valore del metabolismo basale inserito — potrebbe esserci un refuso.</div></div>';
+  }
+  return out;
 }
 
 // LARN "stile di vita" a 4 livelli (SINU) — SOLO per confronto/guardrail.
@@ -10931,11 +10944,41 @@ function _componiRegimeText(pct, strategia){
   return 'Ipercalorico chiaro';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P114 passo 7 — CONTROLLO INCROCIATO Mifflin-St Jeor (bandierina anti-refuso).
+// Calcola il metabolismo basale TEORICO con la formula Mifflin (peso, altezza,
+// età, sesso) e lo confronta col MB del referto InBody che alimenta il motore.
+// NON cambia NESSUN calcolo: se i due basali divergono oltre la soglia, alza
+// solo una bandierina che invita a ricontrollare i dati inseriti (probabile
+// errore di battitura). Soglia 15% = cattura refusi grossi senza disturbare
+// per le normali differenze fisiologiche (es. muscolatura alta → MB > Mifflin).
+const _MIFFLIN_SOGLIA_PCT = 15;
+function _mifflinBMR(p, lastIb){
+  if(!p) return null;
+  const peso=(lastIb&&lastIb.peso?parseFloat(lastIb.peso):null)||(p.peso?parseFloat(p.peso):null);
+  const altezza=(lastIb&&lastIb.altezza?parseFloat(lastIb.altezza):null)||(p.altezza?parseFloat(p.altezza):null);
+  let eta=null;
+  if(p.nascita){ const d=new Date(p.nascita); if(!isNaN(d)) eta=Math.floor((Date.now()-d.getTime())/31557600000); }
+  const sesso=p.sesso;
+  if(!peso||!altezza||eta==null||(sesso!=='M'&&sesso!=='F')) return null;
+  // Mifflin-St Jeor: 10×kg + 6.25×cm − 5×anni + (M:+5 / F:−161)
+  const s = sesso==='M' ? 5 : -161;
+  return Math.round(10*peso + 6.25*altezza - 5*eta + s);
+}
+function _crossCheckMifflin(p, lastIb, mb){
+  const mifflin=_mifflinBMR(p, lastIb);
+  if(!mifflin || !mb) return null;
+  const divPct = Math.round(Math.abs(mb - mifflin)/mifflin*100);
+  return {mifflin, mb:Math.round(mb), divergenzaPct:divPct, flag: divPct > _MIFFLIN_SOGLIA_PCT};
+}
+
 function calcolaTDEE(p){
   const lastIb=p&&p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const mb=lastIb?lastIb.mb:null;
   const peso=lastIb?lastIb.peso:(p&&p.peso?p.peso:null);
   if(!mb) return {tdee:null,laf:null,mb:null,peso};
+  // P114 passo 7 — controllo incrociato Mifflin (informativo, non tocca i calcoli)
+  const crossCheck=_crossCheckMifflin(p, lastIb, mb);
   const passi=p&&p.passiGiornalieri!=null?+p.passiGiornalieri:null;
   const sedute=p&&p.seduteSettimana!=null?+p.seduteSettimana:null;
   const minuti=p&&p.minutiSeduta!=null?+p.minutiSeduta:null;
@@ -10957,7 +11000,7 @@ function calcolaTDEE(p){
     const tdeeM=Math.round(mb*laf);
     const affM=_affidabilitaTDEE(p,{metodo:'LAF manuale'});
     affM.tdeeMin=Math.round(tdeeM*(1-affM.rangePct/100)); affM.tdeeMax=Math.round(tdeeM*(1+affM.rangePct/100));
-    return {tdee:tdeeM,laf,mb,peso,metodo:'LAF manuale',affidabilita:affM};
+    return {tdee:tdeeM,laf,mb,peso,metodo:'LAF manuale',affidabilita:affM,crossCheck};
   }
 
   // ── NEAT (movimento non-allenamento, dai passi + eventuale bonus lavoro) ──
@@ -10994,7 +11037,7 @@ function calcolaTDEE(p){
   aff.tdeeMax=Math.round(tdee*(1+aff.rangePct/100));
 
   return {tdee, laf, mb, peso, neat, eat, tef, metUsato, larnLaf, larnTdee,
-          bonusLavoro, neatFraz, affidabilita:aff,
+          bonusLavoro, neatFraz, affidabilita:aff, crossCheck,
           metodo:'MET additivo (Compendium 2024) · MB InBody'};
 }
 
