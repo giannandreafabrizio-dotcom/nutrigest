@@ -314,6 +314,29 @@ main{flex:1;overflow-y:auto;}
 .ai-range{font-size:.66rem;color:var(--text3);margin-top:.12rem;line-height:1.25;letter-spacing:.1px;}
 .ai-range-fonte{font-size:.58rem;font-weight:700;text-transform:uppercase;background:var(--teal-bg);color:var(--teal2);border-radius:3px;padding:0 3px;margin-left:2px;}
 .ai-range-nota{cursor:help;opacity:.65;}
+.ai-and{display:flex;align-items:center;gap:.4rem;margin-top:.28rem;flex-wrap:wrap;}
+.ai-spark{display:block;flex-shrink:0;}
+.ai-delta{display:inline-flex;align-items:center;gap:.22rem;font-size:.68rem;font-weight:600;border-radius:5px;padding:1px 5px;white-space:nowrap;cursor:help;}
+.ai-delta.good{background:var(--green-bg);color:#1c7a45;}
+.ai-delta.bad{background:var(--red-bg);color:#a5281c;}
+.ai-delta.neutro{background:var(--s2);color:var(--text2);}
+.ai-delta-g{font-size:.72rem;line-height:1;}
+.ai-and-n{font-size:.64rem;color:var(--text3);}
+.and-pannello{background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-top:1rem;overflow:hidden;}
+.and-hd{padding:.6rem .9rem;border-bottom:1px solid var(--border);font-weight:600;font-size:.86rem;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;}
+.and-hd-n{font-weight:400;font-size:.72rem;color:var(--text3);}
+.and-scelta{display:flex;gap:.4rem;flex-wrap:wrap;padding:.7rem .9rem .2rem;align-items:center;}
+.and-chip{font-size:.73rem;border:1px solid var(--border);background:var(--s1);border-radius:20px;padding:.2rem .7rem;cursor:pointer;font-family:inherit;color:var(--text);}
+.and-chip.on{background:var(--teal);color:#fff;border-color:var(--teal);}
+.and-sel{font-size:.78rem;padding:.25rem .5rem;border:1px solid var(--border);border-radius:8px;background:var(--card,var(--s1));font-family:inherit;max-width:260px;}
+.and-corpo{display:grid;grid-template-columns:1fr 190px;gap:1rem;padding:.6rem .9rem 1rem;align-items:start;}
+@media(max-width:760px){.and-corpo{grid-template-columns:1fr;}}
+.and-tab{width:100%;border-collapse:collapse;font-size:.77rem;}
+.and-tab th{text-align:left;font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:600;padding:.3rem .35rem;border-bottom:1px solid var(--border);}
+.and-tab td{padding:.28rem .35rem;border-bottom:1px solid var(--s2);}
+.and-tab td.n{text-align:right;font-variant-numeric:tabular-nums;}
+.and-t-good{color:#1c7a45;} .and-t-bad{color:#a5281c;} .and-t-neutro{color:var(--text3);}
+.and-dida{font-size:.7rem;color:var(--text3);margin-top:.45rem;}
 .ai-interp:empty{display:none;}
 .ai-sem{display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .ai-sem.verde{background:#22c55e;box-shadow:0 0 0 2px #dcfce7;}
@@ -9415,6 +9438,319 @@ function _rangeHtml(itemName, p, rf){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P118 TAPPA 3 — ANDAMENTO NEL TEMPO (opzione B + grafico grande)
+// ---------------------------------------------------------------------------
+// Sotto ogni valore: un tracciato dei referti in cui quell'esame e' stato
+// misurato, con dietro la fascia del range, e la variazione rispetto al
+// referto precedente. In fondo alla scheda: un grafico grande per l'esame
+// scelto, con la tabella dei referti a fianco.
+//
+// LA REGOLA DEL COLORE (l'unica cosa che potrebbe fare danno clinico).
+// Il colore NON guarda la direzione del movimento, guarda la DISTANZA DAL
+// RANGE. Una freccia verde perche' il valore sale sarebbe sbagliata: il TSH
+// che sale da 3 a 6 peggiora, la ferritina che sale da 12 a 42 migliora.
+//   distanza(v) = 0 se dentro il range · quanto manca al minimo se sotto ·
+//                 quanto eccede il massimo se sopra
+//   distanza scesa  → verde  (verso il range, o rientrato)
+//   distanza salita → rosso  (allontanato, o uscito)
+//   distanza 0 → 0  → grigio (era ed e' dentro: la variazione non significa)
+// Senza range (voci qualitative delle urine, esami senza riferimento) resta
+// SEMPRE grigio: si mostra il movimento senza giudicarlo. Mai inventare un
+// giudizio clinico su un esame di cui non si conosce la normalita'.
+// ═══════════════════════════════════════════════════════════════════════════
+
+window._andEsameSel = null;   // esame scelto nel grafico grande (solo interfaccia)
+
+// Estremi numerici del range: prima quello stampato dal laboratorio su quel
+// referto, poi la tabella standard. Ritorna {min,max} con null dove aperto,
+// oppure null se l'esame non ha un riferimento numerico.
+function _andLimiti(itemName, p, rf){
+  const key=ANALISI_KEY(itemName);
+  const daLab=(rf && rf.range && rf.range[key]) ? String(rf.range[key]) : '';
+  if(daLab){
+    const l=_andParseRangeLab(daLab);
+    if(l) return l;
+  }
+  const def=RANGE_STD[itemName];
+  if(!def || def.t) return null;
+  let c=def.r;
+  if(!c){
+    const sesso=p?p.sesso:'';
+    if(sesso==='M' && def.M) c=def.M;
+    else if(sesso==='F' && def.F) c=def.F;
+    else return null;   // sesso ignoto su voce sesso-specifica: nessun giudizio
+  }
+  if(!c) return null;
+  return {min:c[0], max:c[1]};
+}
+// Legge "70 - 99 mg/dL", "70-99", "< 150 mg/dL", "> 40". Se non capisce, null:
+// meglio nessun giudizio che un giudizio su un intervallo letto male.
+function _andParseRangeLab(txt){
+  // replace GLOBALE: 'replace(",",".")' cambierebbe solo la prima virgola e
+  // '0,8-1,2' verrebbe letto come 0.8-1 (bug trovato dai test, 24 lug).
+  const t=String(txt).replace(/,/g,'.');
+  let m=t.match(/(-?\d+(?:\.\d+)?)\s*[-–—]\s*(-?\d+(?:\.\d+)?)/);
+  if(m) return {min:parseFloat(m[1]), max:parseFloat(m[2])};
+  m=t.match(/[<≤]\s*(-?\d+(?:\.\d+)?)/);
+  if(m) return {min:null, max:parseFloat(m[1])};
+  m=t.match(/[>≥]\s*(-?\d+(?:\.\d+)?)/);
+  if(m) return {min:parseFloat(m[1]), max:null};
+  return null;
+}
+// Quanto un valore e' lontano dal range (0 = dentro).
+function _andDistanza(v, lim){
+  if(!lim || v==null) return null;
+  if(lim.min!=null && v<lim.min) return lim.min-v;
+  if(lim.max!=null && v>lim.max) return v-lim.max;
+  return 0;
+}
+// 'good' | 'bad' | 'neutro'
+function _andValutazione(prec, cur, lim){
+  if(prec==null || cur==null) return 'neutro';
+  const dp=_andDistanza(prec, lim), dc=_andDistanza(cur, lim);
+  if(dp==null || dc==null) return 'neutro';
+  if(dc<dp) return 'good';
+  if(dc>dp) return 'bad';
+  return 'neutro';
+}
+
+// Serie storica di un esame: solo i referti DATATI in cui quel valore e'
+// numerico, dal piu' vecchio al piu' recente. Un referto senza data non puo'
+// stare su un asse del tempo, quindi resta fuori dal grafico (e la barra in
+// cima invita a metterla).
+function _andSerie(p, itemName){
+  const key=ANALISI_KEY(itemName)+'_val';
+  const out=[];
+  (Array.isArray(p&&p.refertiSangue)?p.refertiSangue:[]).forEach(function(rf){
+    if(!rf || !rf.data) return;
+    const grezzo=(rf.valori||{})[key];
+    if(grezzo==null || String(grezzo).trim()==='') return;
+    const v=_parseAnalisiNum(grezzo);
+    if(v==null || isNaN(v)) return;
+    out.push({data:rf.data, v:v, rf:rf});
+  });
+  out.sort(function(a,b){ return a.data.localeCompare(b.data); });
+  return out;
+}
+function _andNum(v){
+  const s=String(Math.round(v*100)/100);
+  return s.replace('.', ',');
+}
+function _andDataBreve(iso){
+  const p=String(iso).split('-');
+  return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0].slice(2)) : String(iso);
+}
+const _AND_MESI=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+function _andMeseAnno(iso){
+  const p=String(iso).split('-');
+  if(p.length!==3) return String(iso);
+  return _AND_MESI[parseInt(p[1],10)-1]+' '+p[0].slice(2);
+}
+
+// Dominio verticale: i valori della serie piu' gli estremi finiti del range,
+// con un margine del 10% perche' la linea non tocchi mai i bordi.
+function _andDominio(serie, lim){
+  let min=Infinity, max=-Infinity;
+  serie.forEach(function(pt){ if(pt.v<min)min=pt.v; if(pt.v>max)max=pt.v; });
+  if(lim){
+    if(lim.min!=null){ if(lim.min<min)min=lim.min; if(lim.min>max)max=lim.min; }
+    if(lim.max!=null){ if(lim.max<min)min=lim.max; if(lim.max>max)max=lim.max; }
+  }
+  if(!isFinite(min)||!isFinite(max)) return null;
+  if(min===max){ min-=1; max+=1; }
+  const m=(max-min)*0.10;
+  return {min:min-m, max:max+m};
+}
+// Colore del tracciato: rosso se l'ultimo valore e' fuori range, verde se
+// l'ultimo movimento ha avvicinato al range, grigio negli altri casi.
+function _andColore(serie, lim){
+  if(!serie.length) return '#6b6560';
+  const ultimo=serie[serie.length-1].v;
+  const d=_andDistanza(ultimo, lim);
+  if(d!=null && d>0) return '#c0392b';
+  if(serie.length>1){
+    const val=_andValutazione(serie[serie.length-2].v, ultimo, lim);
+    if(val==='good') return '#27ae60';
+  }
+  return '#6b6560';
+}
+
+// ── Mini-tracciato sotto la casella (opzione B) ───────────────────────────
+function _andSparkHtml(serie, lim, itemName){
+  if(serie.length<2) return '';
+  const dom=_andDominio(serie, lim);
+  if(!dom) return '';
+  const W=118, H=30, TOP=2, BOT=28, L=6, R=112;
+  const y=function(v){ return BOT-((v-dom.min)/(dom.max-dom.min))*(BOT-TOP); };
+  const x=function(i){ return serie.length===1?R:(L+(R-L)*i/(serie.length-1)); };
+  const col=_andColore(serie, lim);
+  let banda='';
+  if(lim){
+    const yTop=Math.max(TOP, lim.max!=null?y(lim.max):TOP);
+    const yBot=Math.min(BOT, lim.min!=null?y(lim.min):BOT);
+    if(yBot>yTop) banda='<rect x="0" y="'+yTop.toFixed(1)+'" width="'+W+'" height="'+(yBot-yTop).toFixed(1)+'" fill="#2a7d6f" opacity="0.10"/>';
+  }
+  const punti=serie.map(function(pt,i){ return x(i).toFixed(1)+','+y(pt.v).toFixed(1); }).join(' ');
+  const ux=x(serie.length-1).toFixed(1), uy=y(serie[serie.length-1].v).toFixed(1);
+  const alt=itemName+': '+serie.map(function(pt){ return _andNum(pt.v)+' il '+_andDataBreve(pt.data); }).join(', ')+'.';
+  return '<svg class="ai-spark" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+_richEsc(alt)+'">'
+    +banda
+    +'<line x1="0" y1="'+BOT+'" x2="'+W+'" y2="'+BOT+'" stroke="#ddd8ce" stroke-width="1"/>'
+    +'<polyline points="'+punti+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    +'<circle cx="'+ux+'" cy="'+uy+'" r="4" fill="'+col+'" stroke="#ffffff" stroke-width="2"/>'
+    +'</svg>';
+}
+
+// ── Riga variazione + tracciato, sotto ogni valore ────────────────────────
+function _andRigaHtml(itemName, p, rf){
+  const serie=_andSerie(p, itemName);
+  if(serie.length<2) return '';
+  const lim=_andLimiti(itemName, p, rf);
+  const ultimo=serie[serie.length-1], prec=serie[serie.length-2];
+  const diff=ultimo.v-prec.v;
+  const val=_andValutazione(prec.v, ultimo.v, lim);
+  const glifo = diff>0 ? '↗' : (diff<0 ? '↘' : '→');
+  const segno = diff>0 ? '+' : (diff<0 ? '−' : '±');
+  const testo = segno+_andNum(Math.abs(diff));
+  const titolo = lim
+    ? 'Rispetto al referto del '+_andDataBreve(prec.data)+' ('+_andNum(prec.v)+'). Verde = verso il riferimento, rosso = lontano dal riferimento.'
+    : 'Rispetto al referto del '+_andDataBreve(prec.data)+' ('+_andNum(prec.v)+'). Questo esame non ha un intervallo di riferimento: la variazione non viene giudicata.';
+  return '<div class="ai-and">'
+    + _andSparkHtml(serie, lim, itemName)
+    + '<span class="ai-delta '+val+'" title="'+_richEsc(titolo)+'"><span class="ai-delta-g">'+glifo+'</span>'+testo+'</span>'
+    + '<span class="ai-and-n">'+serie.length+' referti</span>'
+    + '</div>';
+}
+
+// ── Grafico grande in fondo alla scheda ───────────────────────────────────
+// Esami seguibili = quelli misurati in almeno due referti datati.
+function _andEsamiSeguibili(p){
+  const out=[];
+  Object.values(ANALISI).flat().forEach(function(item){
+    const s=_andSerie(p, item);
+    if(s.length>=2) out.push({item:item, serie:s});
+  });
+  return out;
+}
+function andScegliEsame(nome){
+  const p=db.pazienti.find(function(x){ return x.id===currentPazId; });
+  if(!p) return;
+  window._andEsameSel=nome||null;
+  renderPdAnalisi(p);
+}
+function _andPannelloHtml(p){
+  const seguibili=_andEsamiSeguibili(p);
+  if(!seguibili.length) return '';
+
+  // Priorita' ai fuori range: sono quelli che vuoi guardare per primi.
+  const rfRec=_refertoPiuRecente(p);
+  const fuori=seguibili.filter(function(e){
+    const lim=_andLimiti(e.item, p, rfRec);
+    const d=_andDistanza(e.serie[e.serie.length-1].v, lim);
+    return d!=null && d>0;
+  });
+  let sel=window._andEsameSel;
+  if(!sel || !seguibili.some(function(e){ return e.item===sel; })){
+    sel=(fuori[0]||seguibili[0]).item;
+  }
+  const serie=_andSerie(p, sel);
+  const lim=_andLimiti(sel, p, rfRec);
+  const col=_andColore(serie, lim);
+  const dom=_andDominio(serie, lim);
+
+  let h='<div class="and-pannello"><div class="and-hd">📈 Andamento nel tempo'
+    +'<span class="and-hd-n">'+seguibili.length+' esami con almeno due referti</span></div>';
+
+  // Scelta rapida: i fuori range come pastiglie, tutto il resto nel menu.
+  h+='<div class="and-scelta">';
+  fuori.slice(0,6).forEach(function(e){
+    h+='<button class="and-chip'+(e.item===sel?' on':'')+'" onclick="andScegliEsame(\''+e.item.replace(/'/g,"\\'")+'\')">'+_richEsc(e.item)+'</button>';
+  });
+  h+='<select class="and-sel" onchange="andScegliEsame(this.value)">';
+  seguibili.forEach(function(e){
+    h+='<option value="'+_richEsc(e.item)+'"'+(e.item===sel?' selected':'')+'>'+_richEsc(e.item)+' ('+e.serie.length+')</option>';
+  });
+  h+='</select></div>';
+
+  h+='<div class="and-corpo"><div>'+_andGraficoGrande(sel, serie, lim, dom, col)+'</div>';
+
+  // Tabella: chi non distingue i colori legge comunque tutto (e i numeri
+  // esatti si leggono senza passare col mouse sui punti).
+  h+='<div><table class="and-tab"><thead><tr><th>Referto</th><th style="text-align:right">Valore</th></tr></thead><tbody>';
+  serie.slice().reverse().forEach(function(pt,i,arr){
+    const prec=arr[i+1];
+    let segn='<span class="and-t-neutro">—</span>';
+    if(prec){
+      const v=_andValutazione(prec.v, pt.v, lim);
+      const d=pt.v-prec.v;
+      segn='<span class="and-t-'+v+'">'+(d>0?'↗':(d<0?'↘':'→'))+'</span>';
+    }
+    h+='<tr><td>'+_andDataBreve(pt.data)+'</td><td class="n">'+(i===0?'<strong>'+_andNum(pt.v)+'</strong>':_andNum(pt.v))+' '+segn+'</td></tr>';
+  });
+  h+='</tbody></table><div class="and-dida">La tabella riporta gli stessi numeri del grafico: si legge anche senza distinguere i colori.</div></div>';
+  h+='</div></div>';
+  return h;
+}
+function _andGraficoGrande(nome, serie, lim, dom, col){
+  const W=560, H=220, ML=52, MR=22, MT=18, MB=32;
+  const x0=ML, x1=W-MR, y0=MT, y1=H-MB;
+  if(!dom) return '';
+  const y=function(v){ return y1-((v-dom.min)/(dom.max-dom.min))*(y1-y0); };
+  const x=function(i){ return serie.length===1?((x0+x1)/2):(x0+(x1-x0)*i/(serie.length-1)); };
+
+  let sv='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="'
+    +_richEsc(nome+' nel tempo: '+serie.map(function(pt){ return _andNum(pt.v)+' il '+_andDataBreve(pt.data); }).join(', ')+'.')+'">';
+
+  // fascia del riferimento
+  if(lim){
+    const yTop=Math.max(y0, lim.max!=null?y(lim.max):y0);
+    const yBot=Math.min(y1, lim.min!=null?y(lim.min):y1);
+    if(yBot>yTop){
+      sv+='<rect x="'+x0+'" y="'+yTop.toFixed(1)+'" width="'+(x1-x0)+'" height="'+(yBot-yTop).toFixed(1)+'" fill="#2a7d6f" opacity="0.10"/>';
+      const defU=RANGE_STD[nome];
+      const unita=(defU&&defU.u)?(' '+defU.u):'';
+      sv+='<text x="'+(x0+6)+'" y="'+(yTop+13).toFixed(1)+'" font-family="DM Sans" font-size="10" fill="#a09890">riferimento '
+        +(lim.min!=null?_andNum(lim.min):'')+(lim.min!=null&&lim.max!=null?'–':'')+(lim.max!=null?_andNum(lim.max):'')+unita+'</text>';
+    }
+  }
+  // griglia orizzontale a numeri tondi
+  const passo=_andPasso(dom.max-dom.min);
+  const primo=Math.ceil(dom.min/passo)*passo;
+  for(let t=primo; t<=dom.max; t+=passo){
+    const yy=y(t);
+    if(yy<y0-1||yy>y1+1) continue;
+    sv+='<line x1="'+x0+'" y1="'+yy.toFixed(1)+'" x2="'+x1+'" y2="'+yy.toFixed(1)+'" stroke="#ddd8ce" stroke-width="1"/>';
+    sv+='<text x="'+(x0-8)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="end" font-family="DM Sans" font-size="10" fill="#a09890">'+_andNum(Math.round(t*100)/100)+'</text>';
+  }
+  // linea e punti
+  sv+='<polyline points="'+serie.map(function(pt,i){ return x(i).toFixed(1)+','+y(pt.v).toFixed(1); }).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  serie.forEach(function(pt,i){
+    const ult=(i===serie.length-1);
+    sv+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(pt.v).toFixed(1)+'" r="'+(ult?5.5:4.5)+'" fill="'+col+'" stroke="#ffffff" stroke-width="2"><title>'
+      +_richEsc(_andDataBreve(pt.data)+' · '+_andNum(pt.v))+'</title></circle>';
+  });
+  // etichetta selettiva: solo l'ultimo valore
+  const iu=serie.length-1;
+  sv+='<text x="'+x(iu).toFixed(1)+'" y="'+(y(serie[iu].v)-11).toFixed(1)+'" text-anchor="middle" font-family="DM Sans" font-size="11.5" font-weight="700" fill="#1a1814">'+_andNum(serie[iu].v)+'</text>';
+  // asse del tempo
+  sv+='<line x1="'+x0+'" y1="'+(y1+8)+'" x2="'+x1+'" y2="'+(y1+8)+'" stroke="#ddd8ce" stroke-width="1"/>';
+  serie.forEach(function(pt,i){
+    if(serie.length>7 && i%2===1 && i!==serie.length-1) return;
+    sv+='<text x="'+x(i).toFixed(1)+'" y="'+(y1+22)+'" text-anchor="middle" font-family="DM Sans" font-size="10" fill="#a09890">'+_andMeseAnno(pt.data)+'</text>';
+  });
+  sv+='</svg>';
+  return sv;
+}
+// Passo di griglia "tondo" (1, 2, 5 × potenza di 10) per l'ampiezza data.
+function _andPasso(ampiezza){
+  if(!(ampiezza>0)) return 1;
+  const grezzo=ampiezza/4;
+  const pot=Math.pow(10, Math.floor(Math.log(grezzo)/Math.LN10));
+  const n=grezzo/pot;
+  return (n<1.5?1:n<3?2:n<7?5:10)*pot;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // P118 TAPPA 1 — REFERTI DATATI (storico delle analisi del sangue nel tempo)
 // ---------------------------------------------------------------------------
 // PRIMA: p.analisiSangue conteneva UN SOLO set di valori. Ogni import
@@ -9692,10 +10028,12 @@ function renderPdAnalisi(p){
         </div>
         ${_rangeHtml(item, p, _rfVista)}
         <div class="ai-interp" id="interp-${key}">${interpHtml}</div>
+        ${_andRigaHtml(item, p, _rfVista)}
       </div>`;
     });
     html+='</div></div>';
   });
+  html+=_andPannelloHtml(p);
   html+='</div></div>';
   document.getElementById('pd-analisi').innerHTML=html;
 }

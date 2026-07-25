@@ -10,6 +10,58 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (3ª sessione, parte 5) — P118 TAPPA 3: ANDAMENTO NEL TEMPO.
+Baseline `3db9488`. **Chiude P118** (tutte e tre le tappe). Preceduta da un
+mockup HTML mostrato a Fabrizio con tre alternative di interfaccia: ha scelto
+l'opzione B (variazione + tracciato sempre visibile) e il grafico grande.
+
+**COSA:** sotto ogni valore un tracciato di ~3 cm con dietro la fascia del
+range, la variazione rispetto al referto precedente e il numero di referti
+disponibili. In fondo alla scheda il pannello "📈 Andamento nel tempo":
+scelta dell'esame (pastiglie per i fuori range + menu con tutti quelli
+misurati almeno due volte), grafico grande con fascia, griglia a numeri
+tondi, etichetta solo sull'ultimo punto, e **tabella dei referti a fianco**
+— che non e' decorativa: e' il canale di lettura per chi non distingue i
+colori e per leggere i numeri esatti senza passare col mouse.
+
+**LA REGOLA DEL COLORE (il punto che poteva fare danno clinico).** Il colore
+NON guarda la direzione del movimento ma la **distanza dal range**:
+`distanza(v)` = 0 dentro, quanto manca al minimo se sotto, quanto eccede il
+massimo se sopra. Distanza scesa → verde, salita → rosso, 0→0 → grigio. Una
+freccia verde perche' il valore sale sarebbe stata sbagliata: il TSH che sale
+da 3 a 6 peggiora, la ferritina che sale da 12 a 42 migliora. **Senza range
+si resta SEMPRE grigi** — voci qualitative delle urine, esami senza
+riferimento, e anche una voce sesso-specifica su un paziente col sesso non
+compilato: mai un giudizio clinico su un esame di cui non si conosce la
+normalita'.
+
+**ALTRE SCELTE DI CAUTELA:** i referti **senza data non entrano** nella serie
+(non possono stare su un asse del tempo; la barra della tappa 1 invita a
+metterla); con meno di due misure non si disegna nulla invece di mostrare un
+punto solo; `_andParseRangeLab` accetta solo le forme che riconosce con
+certezza ("70 - 99", "0,8-1,2", "< 150", "> 40") e in caso di dubbio
+restituisce null, cioe' nessun giudizio.
+
+**BUG TROVATO DAI TEST:** `String.replace(',', '.')` sostituisce **solo la
+prima** occorrenza, quindi l'intervallo "0,8-1,2" veniva letto come 0.8–1 —
+un range sbagliato del 17% su ogni referto italiano con decimali in virgola.
+Corretto con `replace(/,/g,'.')`. E' esattamente il tipo di errore che non si
+vede a occhio sul rendering.
+
+**VERIFICHE:** `node --check`; suite **149 → 161, tutte verdi** (nuovo
+`s2-andamento-referti.test.js`: la regola del colore nei quattro casi
+clinici, nessun giudizio senza range, distanza sui due lati, parser degli
+intervalli di laboratorio incluso il caso della virgola, serie che scarta
+referti senza data e valori non numerici, colore del tracciato, contenuto
+della riga, pannello che compare solo con storico e mette per primi i fuori
+range, passi di griglia tondi). Rendering verificato a immagine costruendo la
+scheda vera con una paziente di prova a quattro referti.
+
+**LEZIONE:** prima di scrivere il codice di una funzione che *interpreta*
+dati clinici, mostrare un mockup e far scegliere. Il mockup ha fatto emergere
+la domanda giusta — "di che colore e' la freccia?" — prima che diventasse una
+riga di codice da correggere.
+
 24 LUGLIO 2026 (3ª sessione, parte 4) — P118 TAPPA 2: RANGE DI RIFERIMENTO
 SOTTO OGNI VALORE. Baseline `302edfa`.
 

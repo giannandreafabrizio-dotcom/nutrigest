@@ -705,6 +705,26 @@ p.refertiSangue[] = { id, data, dataStimata, lab, file, valori:{KEY_val}, range:
   // AAAA-MM-GG) per precompilarla, e "_range" con gli intervalli STAMPATI dal
   // laboratorio, salvati in rf.range solo per le voci effettivamente importate.
 
+ANDAMENTO NEL TEMPO (P118 tappa 3, 24 lug 2026)
+  _andSerie(p, nomeEsame) → [{data, v, rf}] dal piu' vecchio al piu' recente, SOLO
+  referti datati con valore numerico (un referto senza data non sta su un asse del
+  tempo). Con meno di 2 punti non si disegna niente.
+  REGOLA DEL COLORE — _andDistanza(v, lim): 0 dentro il range, quanto manca al minimo
+  se sotto, quanto eccede il massimo se sopra. _andValutazione(prec, cur, lim):
+  distanza scesa → 'good', salita → 'bad', 0→0 → 'neutro'. Il colore guarda la
+  DISTANZA DAL RANGE, mai la direzione: TSH 3→6 peggiora, ferritina 12→42 migliora.
+  Senza limiti (esame qualitativo, nessun riferimento, voce sesso-specifica con
+  p.sesso vuoto) si resta SEMPRE 'neutro': nessun giudizio su cio' che non si sa.
+  _andLimiti() prende prima il range del laboratorio su quel referto (parsato da
+  _andParseRangeLab, che accetta "70 - 99", "0,8-1,2", "< 150", "> 40" e in caso di
+  dubbio ritorna null), poi RANGE_STD.
+  _andRigaHtml() = sparkline 118x30 + badge variazione + numero referti, sotto ogni
+  casella (opzione B scelta da Fabrizio sul mockup del 24 lug).
+  _andPannelloHtml() = pannello in fondo alla card: pastiglie per i fuori range +
+  menu con tutti gli esami misurati >=2 volte, grafico 560x220 e TABELLA dei referti
+  a fianco (canale di lettura alternativo al colore, non decorazione).
+  window._andEsameSel = esame scelto nel pannello, solo stato di interfaccia.
+
 RANGE DI RIFERIMENTO (P118 tappa 2, 24 lug 2026)
   RANGE_STD = { 'Nome esame': {u:'unita', r:[min,max]} | {u, M:[..], F:[..]} | {t:'testo'} , n:'nota' }
   Copre tutte e 119 le voci di ANALISI (test di copertura in s2-range-riferimento).
