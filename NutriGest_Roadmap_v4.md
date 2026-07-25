@@ -50,8 +50,8 @@
 | **P33b** aggancio auto alternative | Opus | High | ON | Evoluzione P33, decisione dopo uso sul campo |
 | **P33c** piano lungo a ricetta singola | Opus | High | ON | Tocca struttura piano + export |
 | ~~P37~~ ❌ escluso, ~~P80~~ ✅ chiusa parziale, ~~P83~~ ❌ annullato (14 lug 2026) | — | — | — | — |
-| ~~**P119**~~ ✅ chiusa 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
-| ~~**P120**~~ ✅ chiusa 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
+| ~~**P119**~~ ✅ chiusa e collaudata 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
+| ~~**P120**~~ ✅ chiusa e collaudata 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
 | P35, P43, P90–P101 (UX/pulizia) | Sonnet | Low/Medium | OFF | Meccaniche o estetiche, rischio basso |
@@ -665,7 +665,9 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 
 **Trappola già esistente, da non dimenticare mentre si caricano ricette:** se un salvataggio mostra `⚠️ Ricetta salvata SOLO in locale — sync fallito`, va risalvata **prima** di sincronizzare o ricaricare la pagina. `syncNow()` fa prima il pull, e `pullRicetteSupabase()` **sostituisce** `db.ricette` con `[RICETTE_DEFAULT + quelle del server]`: una ricetta mai arrivata su Supabase viene cancellata in silenzio.
 
-**SCHEDA:** Stato: **CHIUSA 25 lug 2026** (fase 1) · fase 2 (3 punti sopra) **Da fare** · Priorità: Media · Categoria: Generatore piani / prompt AI · Dipendenze: nessuna a monte; il punto 2 della fase 2 va fatto con **P81** · Autonomia: L1 — è selezione dell'ispirazione, non una regola clinica: il prompt e i filtri clinici non sono stati toccati.
+**Collaudo in produzione 25 lug 2026 — esito positivo.** Console su generazione reale (`🔄 Rigenera`, che salta la cache 90gg): `[Prompt] Filtro stagionale ATTIVO (estate): 31/31 ricette candidate` → `[Prompt] Ispirazione: 31/31 ricette pescate (tetto 120, bilanciata per pasto attivo + casuale)`, e i 31 nomi presenti nel prompt completo. Con un ricettario sotto il tetto passano tutte, come atteso. **Osservazione dal collaudo:** 31/31 dopo il filtro stagionale significa che **nessuna ricetta ha `attributi.stagioni` valorizzato** — il pre-filtro esiste ma non ha su cosa lavorare. Da ricordare quando si caricheranno ricette in quantità: metadata compilati = pool già su misura del paziente e tetto quasi mai raggiunto.
+
+**SCHEDA:** Stato: **CHIUSA E COLLAUDATA 25 lug 2026** (fase 1) · fase 2 (3 punti sopra) **Da fare** · Priorità: Media · Categoria: Generatore piani / prompt AI · Dipendenze: nessuna a monte; il punto 2 della fase 2 va fatto con **P81** · Autonomia: L1 — è selezione dell'ispirazione, non una regola clinica: il prompt e i filtri clinici non sono stati toccati.
 
 ---
 
@@ -688,7 +690,9 @@ Test 169 → **181**, tutti verdi (`s2-inbody-storico.test.js`).
 
 **Resta da fare (fase 2, non urgente):** import di più referti in un colpo con schermata di revisione in blocco (una riga per referto: data · peso · % grassa · basale, tutte modificabili, un solo Conferma). Ha senso con pazienti da 8-10 referti; da valutare dopo una decina di pazienti fatti a mano, misurando il tempo reale. ~2 ore. **Sonnet · Medium · OFF.**
 
-**SCHEDA:** Stato: **CHIUSA 25 lug 2026** (fase 1) · fase 2 **Da fare** · Priorità: Media · Categoria: Composizione corporea / integrità del dato · Dipendenze: nessuna · Autonomia: L1 — nessuna soglia clinica toccata, solo ordine e data del dato.
+**Collaudo in produzione 25 lug 2026 — esito positivo** (verificato da Fabrizio su paziente reale): data del test letta dal referto invece di "oggi", secondo referto più vecchio caricato dopo il primo senza che diventi "l'attuale", avviso anti-doppione sulla stessa data. È il collaudo che sblocca il caricamento dei pazienti storici col metodo graduale.
+
+**SCHEDA:** Stato: **CHIUSA E COLLAUDATA 25 lug 2026** (fase 1) · fase 2 **Da fare** · Priorità: Media · Categoria: Composizione corporea / integrità del dato · Dipendenze: nessuna · Autonomia: L1 — nessuna soglia clinica toccata, solo ordine e data del dato.
 
 ---
 

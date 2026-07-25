@@ -10,6 +10,47 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+25 LUGLIO 2026 (3ª sessione) — COLLAUDI P119/P120 + RIALLINEAMENTO DOCUMENTALE.
+Baseline `339b08d`. Nessuna modifica funzionale: solo un commento rinominato,
+INDEX.md riallineato e documentazione messa in pari.
+
+**COLLAUDI, entrambi con esito positivo.**
+*P119* — generazione reale con `🔄 Rigenera` (il pulsante normale può rispondere
+dalla cache 90gg, e in quel caso `costruisciPrompt` non viene nemmeno eseguita:
+è il motivo per cui al primo tentativo la riga di log non compariva). Console:
+`[Prompt] Filtro stagionale ATTIVO (estate): 31/31 ricette candidate` →
+`[Prompt] Ispirazione: 31/31 ricette pescate (tetto 120, bilanciata per pasto
+attivo + casuale)`, con i 31 nomi presenti nel prompt completo.
+**Osservazione utile emersa dal collaudo:** 31/31 *dopo* il filtro stagionale
+significa che nessuna ricetta ha `attributi.stagioni` valorizzato — il pre-filtro
+esiste ma non ha su cosa lavorare. Da ricordare al momento del carico massivo:
+metadata compilati = pool già su misura del paziente e tetto quasi mai raggiunto.
+*P120* — verificato su paziente reale: data del test letta dal referto invece di
+"oggi", secondo referto più vecchio caricato dopo il primo senza che diventi
+"l'attuale", avviso anti-doppione sulla stessa data.
+
+**RIALLINEAMENTO DOCUMENTALE** (le tre inezie annotate a fine 2ª sessione):
+1. Commento del codice della pescata bilanciata rietichettato da `P37` a `P119`
+   (chi cercava "P119" in `index.html` non trovava nulla); il riferimento storico
+   a P37 resta nella riga del tetto token come "(P37, poi P119)".
+2. `INDEX.md` riallineato: ricalcolate **tutte** le 772 voci (l'ultimo
+   riallineamento era del 24 lug, su un file di 23.978 righe contro le 25.063 di
+   oggi), aggiunte `_ricPescaBilanciata`, `_ibNormalizzaData`, `_ibOrdinaPerData`,
+   e **ricalcolati anche i 40 range "Righe A-B" di sezione**, che erano rimasti
+   indietro rispetto alle voci da almeno due rigenerazioni (davano intervalli
+   scollegati dai numeri elencati sotto: chi li usava per un `view_range` mirato
+   apriva il pezzo di file sbagliato).
+3. Intestazione "Aggiornato:" del Contesto riportata al 25 luglio: era ferma al 17
+   pur essendo il file aggiornato nei contenuti in 5 sessioni successive.
+4. Schede P119 e P120 nella Roadmap: stato da "CHIUSA" a "CHIUSA E COLLAUDATA",
+   con l'esito dei collaudi registrato nella scheda.
+
+**LEZIONE:** i collaudi arrivano quasi sempre *dopo* il commit che consegna la
+modifica, quindi lo stato "collaudata" resta fuori dal repo se non si passa una
+seconda volta. Vale la pena chiudere la sessione con un giro di riallineamento
+dedicato invece di rimandarlo alla successiva — costa cinque minuti e evita che
+la prossima sessione legga "chiusa, collaudo da fare" per qualcosa già verificato.
+
 25 LUGLIO 2026 (2ª sessione) — P120: STORICO INBODY A PROVA DI CARICO GRADUALE.
 Baseline `c2f9800`. **Nasce e chiude P120.** Nata da un piano di lavoro di
 Fabrizio: ha molti pazienti storici con 1, 2 o anche 10 referti BIA e vuole

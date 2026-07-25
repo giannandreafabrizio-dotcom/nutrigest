@@ -1,7 +1,18 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NUTRIGEST — Documento di Contesto
 Dott. Fabrizio Giannandrea · Studio Magic e Centro Curae · Matera
-Aggiornato: 17 luglio 2026 — P84 Lista della spesa chiusa (in produzione, commit
+Aggiornato: 25 luglio 2026 — P119 + P120, entrambe chiuse e collaudate in giornata.
+  P119: l'elenco ispirazione del generatore non è più il taglio "primi 80" (che scartava
+  sempre le stesse ricette di coda) ma una pescata bilanciata per pasto attivo con tetto
+  120 e mescolata casuale dentro ogni gruppo — dettaglio nella sezione FILTRO STAGIONALE
+  RICETTE → PESCATA BILANCIATA DELL'ISPIRAZIONE.
+  P120: p.inbody è ora tenuto SEMPRE ordinato per data (l'ultima posizione è la misura più
+  recente: ~20 punti del codice la leggono come "misurazione attuale"), la data del test
+  viene estratta dal referto e senza data il salvataggio si blocca, più anti-doppione per
+  data — dettaglio nella sezione STRUTTURA DATI → p.inbody[] INVARIANTE DI ORDINAMENTO.
+  NB: questa intestazione era rimasta ferma al 17 luglio pur essendo il file aggiornato nei
+  contenuti; riallineata qui insieme al resto della documentazione.
+Aggiornamento precedente: 17 luglio 2026 — P84 Lista della spesa chiusa (in produzione, commit
   919dce6→c75df24) + fix max_tokens generatore piani (commit 2eec7bc). Lista della
   spesa: pulsante 🛒 sotto al piano, motore puro costruisciListaSpesa (solo prime
   scelte, no alternative; niente sabato sera libero; senza sale e olio; frutta/verdura/

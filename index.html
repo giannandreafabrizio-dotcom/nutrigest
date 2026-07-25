@@ -14871,7 +14871,7 @@ function costruisciPrompt(pazienteId) {
   // Manda all'AI solo i titoli pertinenti: esclude le ricette il cui pasto è
   // CHIARAMENTE uno che il paziente non fa. Le ricette senza pasto determinabile
   // (cat/tags assenti o ambigui) vengono SEMPRE tenute → la qualità non può peggiorare.
-  // Tetto di sicurezza per limitare i token quando il ricettario cresce (P37).
+  // Tetto di sicurezza per limitare i token quando il ricettario cresce (P37, poi P119).
   var _mealActive = {
     colazione: p.colazione!=='no',
     spuntino:  (p.spuntM==='si' || p.spuntP==='si'),
@@ -14937,7 +14937,7 @@ function costruisciPrompt(pazienteId) {
     }
   }
 
-  // ── P37 — PESCATA BILANCIATA al posto del taglio "primi 80" (25 lug 2026) ──
+  // ── P119 — PESCATA BILANCIATA al posto del taglio "primi 80" (25 lug 2026) ──
   // PRIMA: ricetteDB.slice(0,80). Il taglio prendeva sempre le PRIME 80 ricette
   // nell'ordine di arrivo da Supabase (pullRicetteSupabase interroga
   // `?select=id,data` SENZA ORDER BY, quindi l'ordine è arbitrario ma stabile):
