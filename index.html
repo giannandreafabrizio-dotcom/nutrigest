@@ -311,6 +311,9 @@ main{flex:1;overflow-y:auto;}
 .analisi-item{display:flex;flex-direction:column;align-items:stretch;gap:.25rem;padding:.3rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--s1);font-size:.75rem;color:var(--text);}
 .ai-row{display:flex;align-items:center;gap:.5rem;}
 .ai-interp{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;}
+.ai-range{font-size:.66rem;color:var(--text3);margin-top:.12rem;line-height:1.25;letter-spacing:.1px;}
+.ai-range-fonte{font-size:.58rem;font-weight:700;text-transform:uppercase;background:var(--teal-bg);color:var(--teal2);border-radius:3px;padding:0 3px;margin-left:2px;}
+.ai-range-nota{cursor:help;opacity:.65;}
 .ai-interp:empty{display:none;}
 .ai-sem{display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .ai-sem.verde{background:#22c55e;box-shadow:0 0 0 2px #dcfce7;}
@@ -9191,6 +9194,227 @@ function _richStoricoHtml(p){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P118 TAPPA 2 — RANGE DI RIFERIMENTO SOTTO OGNI VALORE
+// ---------------------------------------------------------------------------
+// TRE FONTI, IN ORDINE DI PRECEDENZA:
+//   1) il range STAMPATO DAL LABORATORIO su quel referto (rf.range[key]),
+//      letto dall'AI durante l'import — e' il piu' corretto, perche' i range
+//      variano da laboratorio a laboratorio (metodica, strumento, popolazione);
+//   2) RANGE_STD (qui sotto) — intervalli di riferimento per adulti, usati
+//      quando il laboratorio non li ha stampati o il valore e' inserito a mano;
+//   3) RANGE_RIF (gia' esistente, 10 voci) — NON e' la stessa cosa: quelle
+//      sono soglie DECISIONALI cliniche (es. LDL "ottimale") e continuano a
+//      pilotare il pallino colorato. Range e semaforo convivono e dicono cose
+//      diverse: "cosa considera normale il laboratorio" e "cosa ne penso io".
+//
+// ATTENZIONE CLINICA: RANGE_STD e' un riferimento ORIENTATIVO per adulti.
+// Non tiene conto di eta' pediatrica, gravidanza, fase del ciclo, metodica di
+// laboratorio. Dove il dato dipende troppo dal contesto la voce porta una nota
+// esplicita. Sul referto del paziente fa sempre fede il range del laboratorio.
+// Tabella proposta da Claude il 24 lug 2026 e VALIDATA DA FABRIZIO voce per
+// voce prima della messa in produzione (documento NutriGest_Range_Validazione).
+// ═══════════════════════════════════════════════════════════════════════════
+// Formato: {u:'unita', r:[min,max]}  ·  min o max a null = intervallo aperto
+//          {u:'unita', M:[min,max], F:[min,max]}  ·  sesso-specifico
+//          {t:'testo atteso'}  ·  esami qualitativi (urine, anticorpi)
+//          n:'nota'  ·  avvertenza mostrata come titolo al passaggio del mouse
+const RANGE_STD = {
+  // ── Emocromo — serie rossa ──
+  'Globuli rossi (RBC)':{u:'10⁶/µL', M:[4.5,5.9], F:[4.0,5.2]},
+  'Emoglobina':{u:'g/dL', M:[13.5,17.5], F:[12.0,16.0]},
+  'Ematocrito':{u:'%', M:[41,53], F:[36,46]},
+  'MCV':{u:'fL', r:[80,100]},
+  'MCH':{u:'pg', r:[27,33]},
+  'MCHC':{u:'g/dL', r:[32,36]},
+  'RDW':{u:'%', r:[11.5,14.5]},
+  // ── Emocromo — serie bianca (valori ASSOLUTI) ──
+  'Globuli bianchi (WBC)':{u:'10³/µL', r:[4.0,10.0]},
+  'Neutrofili':{u:'10³/µL', r:[1.8,7.7], n:"Valore assoluto. Se il referto riporta la percentuale, il riferimento e' 40-70%."},
+  'Linfociti':{u:'10³/µL', r:[1.0,4.0], n:"Valore assoluto. In percentuale: 20-45%."},
+  'Eosinofili':{u:'10³/µL', r:[0.0,0.5], n:"Valore assoluto. In percentuale: 0-5%."},
+  'Monociti':{u:'10³/µL', r:[0.2,0.9], n:"Valore assoluto. In percentuale: 2-10%."},
+  'Basofili':{u:'10³/µL', r:[0.0,0.2], n:"Valore assoluto. In percentuale: 0-2%."},
+  // ── Emocromo — piastrine ──
+  'Piastrine (PLT)':{u:'10³/µL', r:[150,400]},
+  'PCT':{u:'%', r:[0.17,0.35]},
+  'MPV':{u:'fL', r:[7.5,11.5]},
+  'PDW':{u:'%', r:[9,17]},
+  // ── Glicemia e metabolismo glucidico ──
+  'Glicemia a digiuno':{u:'mg/dL', r:[70,99]},
+  'Insulina a digiuno':{u:'µU/mL', r:[2.6,24.9], n:"Intervallo di laboratorio molto ampio: in valutazione nutrizionale il valore desiderabile e' sotto 10."},
+  'HbA1c (DCCT)':{u:'%', r:[4.0,5.6]},
+  'HbA1c (IFCC)':{u:'mmol/mol', r:[20,38]},
+  'Fruttosamina':{u:'µmol/L', r:[205,285]},
+  // ── Assetto lipidico ──
+  'Colesterolo totale':{u:'mg/dL', r:[null,200]},
+  'HDL':{u:'mg/dL', M:[40,null], F:[50,null]},
+  'LDL':{u:'mg/dL', r:[null,115], n:"Obiettivo personalizzato sul rischio cardiovascolare: puo' scendere a <100, <70 o <55."},
+  'Trigliceridi':{u:'mg/dL', r:[null,150]},
+  // ── Funzionalita renale e azotati ──
+  'Creatinina':{u:'mg/dL', M:[0.70,1.20], F:[0.50,0.90]},
+  'Creatinina umol/L':{u:'µmol/L', M:[62,106], F:[44,80]},
+  'e-GFR (MDRD)':{u:'mL/min/1.73m²', r:[90,null]},
+  'Azotemia':{u:'mg/dL', r:[15,45], n:"Urea. Alcuni laboratori refertano l'azoto ureico (BUN), circa la meta'."},
+  'Acido urico':{u:'mg/dL', M:[3.4,7.0], F:[2.4,6.0]},
+  'Cistatina C':{u:'mg/L', r:[0.55,1.15]},
+  // ── Elettroliti e minerali ──
+  'Sodio':{u:'mmol/L', r:[135,145]},
+  'Potassio':{u:'mmol/L', r:[3.5,5.1]},
+  'Cloro':{u:'mmol/L', r:[98,107]},
+  'Calcio':{u:'mg/dL', r:[8.6,10.2], n:"Da correggere per l'albumina se questa e' alterata."},
+  'Fosforo':{u:'mg/dL', r:[2.5,4.5]},
+  // ── Funzionalita epatica e pancreatica ──
+  'AST (transaminasi)':{u:'U/L', M:[10,40], F:[10,35]},
+  'ALT (transaminasi)':{u:'U/L', M:[10,50], F:[10,35]},
+  'γ-GT':{u:'U/L', M:[10,60], F:[7,42]},
+  'Bilirubina totale':{u:'mg/dL', r:[0.2,1.2]},
+  'Bilirubina diretta':{u:'mg/dL', r:[0.0,0.3]},
+  'Bilirubina indiretta':{u:'mg/dL', r:[0.1,0.9]},
+  'Fosfatasi alcalina (ALP)':{u:'U/L', r:[40,130]},
+  'Amilasi':{u:'U/L', r:[28,100]},
+  'Lipasi':{u:'U/L', r:[13,60]},
+  'Colinesterasi':{u:'U/L', r:[4600,11500], n:"Molto dipendente dalla metodica: fare riferimento al range del laboratorio."},
+  // ── Coagulazione ──
+  'PT (Tempo di protrombina)':{u:'s', r:[11,13.5], n:"Spesso refertato come attivita' % (70-120) o come INR."},
+  'INR':{u:'', r:[0.8,1.2], n:"In terapia anticoagulante orale l'obiettivo e' di norma 2.0-3.0."},
+  'PTT':{u:'s', r:[25,35]},
+  'Fibrinogeno':{u:'mg/dL', r:[200,400]},
+  // ── Assetto marziale ──
+  'Ferritina':{u:'ng/mL', M:[30,400], F:[15,150], n:"Proteina della fase acuta: sale con l'infiammazione anche a scorte di ferro normali."},
+  'Sideremia':{u:'µg/dL', M:[65,175], F:[50,170]},
+  'Transferrina':{u:'mg/dL', r:[200,360]},
+  'Saturazione transferrina':{u:'%', r:[20,50]},
+  // ── Funzionalita tiroidea ──
+  'TSH':{u:'µU/mL', r:[0.4,4.0]},
+  'FT3':{u:'pg/mL', r:[2.3,4.2]},
+  'FT4':{u:'ng/dL', r:[0.8,1.8]},
+  'Reverse T3 (rT3)':{u:'ng/dL', r:[10,24]},
+  'Anti-TPO':{u:'U/mL', r:[null,34], n:"Cutoff molto variabile per metodica: fare riferimento al laboratorio."},
+  'Anti-TG':{u:'U/mL', r:[null,115], n:"Cutoff molto variabile per metodica: fare riferimento al laboratorio."},
+  'Iodio urinario':{u:'µg/L', r:[100,199], n:"Indicatore di popolazione: su singolo campione ha valore orientativo."},
+  // ── Metabolismo osseo ──
+  'Paratormone intatto (PTH)':{u:'pg/mL', r:[15,65]},
+  'Vitamina D (25-OH)':{u:'ng/mL', r:[30,100], n:"Sotto 20 carenza, 20-29 insufficienza, da 30 sufficienza."},
+  // ── Vitamine e omocisteina ──
+  'Vitamina B1 (tiamina)':{u:'µg/dL', r:[2.5,7.5], n:"Alcuni laboratori dosano la tiamina su sangue intero (70-180 nmol/L)."},
+  'Vitamina B6 (piridossina)':{u:'µg/L', r:[5,50]},
+  'Vitamina B12':{u:'pg/mL', r:[200,900], n:"Fra 200 e 300 il quadro puo' essere gia' carente: utile omocisteina o acido metilmalonico."},
+  'Folati':{u:'ng/mL', r:[3,17]},
+  'Vitamina C':{u:'mg/dL', r:[0.4,2.0]},
+  'Vitamina A (retinolo)':{u:'µg/dL', r:[30,80]},
+  'Vitamina E':{u:'mg/L', r:[5,18]},
+  'Vitamina K':{u:'ng/mL', r:[0.10,2.20]},
+  'Omocisteina':{u:'µmol/L', r:[5,15], n:"Sotto 10 il valore considerato ottimale in prevenzione cardiovascolare."},
+  // ── Stato nutrizionale proteico ──
+  'Proteine totali':{u:'g/dL', r:[6.4,8.3]},
+  'Albumina sierica':{u:'g/dL', r:[3.5,5.2]},
+  'Protidogramma (elettroforesi proteica)':{t:'quadro elettroforetico nella norma'},
+  'Prealbumina (transtiretina)':{u:'mg/dL', r:[20,40], n:"Emivita breve: riflette lo stato nutrizionale delle ultime 48-72 ore."},
+  // ── Infiammazione ──
+  'VES':{u:'mm/h', M:[null,15], F:[null,20], n:"Il limite superiore cresce con l'eta'."},
+  'PCR':{u:'mg/dL', r:[null,0.5], n:"Alcuni laboratori refertano in mg/L (limite <5)."},
+  'hsCRP (PCR alta sensibilità)':{u:'mg/L', r:[null,1.0], n:"Rischio cardiovascolare: <1 basso, 1-3 medio, >3 alto."},
+  // ── Profilo cardiovascolare avanzato ──
+  'ApoB (Apolipoproteina B)':{u:'mg/dL', r:[null,100], n:"Obiettivo personalizzato sul rischio: puo' scendere a <80 o <65."},
+  'ApoA1 (Apolipoproteina A1)':{u:'mg/dL', M:[120,null], F:[140,null]},
+  'Lipoproteina(a) [Lp(a)]':{u:'mg/dL', r:[null,30], n:"Geneticamente determinata: si dosa una volta nella vita. Alcuni laboratori usano nmol/L (<75)."},
+  // ── Endocrino ──
+  'Testosterone totale':{u:'ng/dL', M:[300,1000], F:[15,70]},
+  'Estradiolo':{u:'pg/mL', M:[10,40], F:[30,400], n:"Nella donna dipende dalla fase del ciclo; in menopausa <30."},
+  'SHBG':{u:'nmol/L', M:[10,57], F:[18,144]},
+  'Cortisolo':{u:'µg/dL', r:[6,23], n:"Riferimento per il prelievo del mattino (ore 8). Alla sera i valori sono molto piu' bassi."},
+  'DHEA-S':{u:'µg/dL', M:[80,560], F:[35,430], n:"Cala progressivamente con l'eta'."},
+  'IGF-1':{u:'ng/mL', r:[90,360], n:"Fortemente dipendente dall'eta': usare il range per fascia del laboratorio."},
+  // ── Muscolo e sport ──
+  'CK (creatinchinasi)':{u:'U/L', M:[30,200], F:[30,150], n:"Sale fisiologicamente dopo allenamento intenso: rivalutare a 72 ore di riposo."},
+  'LDH':{u:'U/L', r:[120,250]},
+  // ── Screening celiachia ──
+  'Anti-transglutaminasi IgA (tTG)':{u:'U/mL', r:[null,7], n:"Cutoff dipendente dalla metodica. Valido solo se le IgA totali sono normali."},
+  'Anti-endomisio (EMA)':{t:'Negativo'},
+  'IgA totali':{u:'mg/dL', r:[70,400], n:"Se basse, i test anticorpali IgA per la celiachia perdono validita'."},
+  // ── Insulino-resistenza ──
+  'OGTT 75g (glicemia + insulina 0-30-60-90-120 min)':{t:'glicemia a 120 min < 140 mg/dL'},
+  'Indice HOMA-IR':{u:'', r:[null,2.5], n:"Sopra 2.5 insulino-resistenza probabile; molti autori usano 2.0 come soglia di attenzione."},
+  'C-peptide':{u:'ng/mL', r:[0.8,4.0]},
+  'Matsuda Index':{u:'', r:[2.5,null], n:"Sotto 2.5 indica ridotta sensibilita' insulinica."},
+  'QUICKI':{u:'', r:[0.34,null], n:"Sotto 0.34 indica ridotta sensibilita' insulinica."},
+  // ── Microalbuminuria ──
+  'Albumina urinaria':{u:'mg/24h', r:[null,30], n:"Su campione estemporaneo: <20 mg/L, oppure rapporto albumina/creatinina <30 mg/g."},
+  'Creatinina urinaria':{u:'g/24h', M:[0.8,1.8], F:[0.6,1.5]},
+  // ── Esame completo delle urine ──
+  'Aspetto (urine)':{t:'Limpido'},
+  'Colore (urine)':{t:'Giallo paglierino'},
+  'Densità urine (peso specifico)':{u:'', r:[1.005,1.030]},
+  'pH (urine)':{u:'', r:[5.0,7.0]},
+  'Albumina (stick urine)':{t:'Assente'},
+  'Glucosio (urine)':{t:'Assente'},
+  'Chetoni (urine)':{t:'Assenti', n:"In chetogenica la positivita' e' attesa e desiderata."},
+  'Bilirubina (urine)':{t:'Assente'},
+  'Urobilinogeno (urine)':{t:'Normale (0.2-1.0 mg/dL)'},
+  'Emoglobina (urine)':{t:'Assente'},
+  'Esterasi leucocitaria (urine)':{t:'Assente'},
+  'Nitriti (urine)':{t:'Assenti'},
+  'Esame morfologico sedimento':{t:'Nella norma'},
+  // ── Micronutrienti ──
+  'Zinco sierico':{u:'µg/dL', r:[70,120]},
+  'Rame sierico':{u:'µg/dL', r:[70,140]},
+  'Selenio sierico':{u:'µg/L', r:[70,150]},
+  'Magnesio sierico':{u:'mg/dL', r:[1.7,2.4], n:"Il magnesio sierico e' solo l'1% del totale corporeo: puo' essere normale a fronte di carenza tissutale."},
+  '8-OHdG urinario':{u:'ng/mg creat.', r:[null,10], n:"Marcatore di ricerca: intervalli molto variabili fra laboratori."}
+};
+
+// Numero leggibile: niente zeri inutili in coda.
+function _rangeNum(v){
+  if(v==null) return '';
+  const s=String(Math.round(v*1000)/1000);
+  return s;
+}
+// Costruisce il testo dell'intervallo a partire da una definizione RANGE_STD.
+function _rangeTestoDa(def, sesso){
+  if(!def) return '';
+  if(def.t) return def.t;
+  let coppia=def.r;
+  let prefissoSesso='';
+  if(!coppia && (def.M||def.F)){
+    if(sesso==='M' && def.M) coppia=def.M;
+    else if(sesso==='F' && def.F) coppia=def.F;
+    else {
+      // Sesso non indicato in scheda: si mostrano entrambi, senza sceglierne uno a caso.
+      const m=def.M?('M '+_rangeCoppia(def.M)):'';
+      const f=def.F?('F '+_rangeCoppia(def.F)):'';
+      return [m,f].filter(Boolean).join(' · ')+(def.u?(' '+def.u):'');
+    }
+    prefissoSesso='';
+  }
+  if(!coppia) return '';
+  return prefissoSesso+_rangeCoppia(coppia)+(def.u?(' '+def.u):'');
+}
+function _rangeCoppia(c){
+  const min=c[0], max=c[1];
+  if(min!=null && max!=null) return _rangeNum(min)+'–'+_rangeNum(max);
+  if(min==null && max!=null) return '< '+_rangeNum(max);
+  if(min!=null && max==null) return '> '+_rangeNum(min);
+  return '';
+}
+
+// Riga "riferimento" mostrata sotto ogni valore.
+// Precedenza: range stampato dal laboratorio su QUESTO referto → tabella standard.
+function _rangeHtml(itemName, p, rf){
+  const key=ANALISI_KEY(itemName);
+  const daLab=(rf && rf.range && rf.range[key]) ? String(rf.range[key]).trim() : '';
+  if(daLab){
+    return '<div class="ai-range" title="Intervallo stampato dal laboratorio su questo referto">'
+      +'rif. '+_richEsc(daLab)+' <span class="ai-range-fonte">lab</span></div>';
+  }
+  const def=RANGE_STD[itemName];
+  const testo=_rangeTestoDa(def, p?p.sesso:'');
+  if(!testo) return '';
+  const nota=def&&def.n?def.n:'';
+  const tip=('Riferimento orientativo per adulti'+(nota?' — '+nota:'')+' Sul referto fa fede il range del laboratorio.').replace(/"/g,'&quot;');
+  return '<div class="ai-range" title="'+tip+'">rif. '+_richEsc(testo)+(nota?' <span class="ai-range-nota">ℹ</span>':'')+'</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // P118 TAPPA 1 — REFERTI DATATI (storico delle analisi del sangue nel tempo)
 // ---------------------------------------------------------------------------
 // PRIMA: p.analisiSangue conteneva UN SOLO set di valori. Ogni import
@@ -9466,6 +9690,7 @@ function renderPdAnalisi(p){
           <label for="an-val-${key}" style="cursor:text;flex:1;line-height:1.2">${item}</label>
           <div class="analisi-val"><input type="text" id="an-val-${key}" value="${val}" placeholder="val." oninput="updateAnalisi('${key}')"></div>
         </div>
+        ${_rangeHtml(item, p, _rfVista)}
         <div class="ai-interp" id="interp-${key}">${interpHtml}</div>
       </div>`;
     });
@@ -9517,9 +9742,10 @@ async function loadAnalisiSanguePDF(e){
       +'- Se un esame non è presente nel referto, NON includere quella chiave nel JSON (ometti, non mettere null).\n'
       +'- Per i valori numerici riporta solo il numero (es. "13.6"), senza unità di misura, usando il punto come separatore decimale.\n'
       +'- Per i valori testuali delle urine (es. Aspetto, Colore, Esame morfologico sedimento) riporta il testo come scritto nel referto (es. "Limpido", "Giallo chiaro", "Assente").\n'
-      +'- Riporta solo il risultato del paziente, non gli intervalli di riferimento del laboratorio.\n'
-      +'- Includi SEMPRE la chiave "_data_referto" con la data del prelievo (o, se assente, la data di refertazione) nel formato AAAA-MM-GG. Se nel documento non compare nessuna data, ometti la chiave.\n\n'
-      +'Formato risposta: {"_data_referto": "AAAA-MM-GG", "Nome esame 1": "valore", "Nome esame 2": "valore"}';
+      +'- Il valore dell\'esame deve essere il RISULTATO del paziente, mai l\'intervallo di riferimento.\n'
+      +'- Includi SEMPRE la chiave "_data_referto" con la data del prelievo (o, se assente, la data di refertazione) nel formato AAAA-MM-GG. Se nel documento non compare nessuna data, ometti la chiave.\n'
+      +'- Includi la chiave "_range" con, per ogni esame estratto, l\'intervallo di riferimento STAMPATO DAL LABORATORIO, copiato come appare sul referto comprensivo di unita di misura (es. "70 - 99 mg/dL", "< 150 mg/dL"). Ometti dall\'oggetto "_range" gli esami per cui il referto non stampa nessun intervallo. Non inventare mai un intervallo.\n\n'
+      +'Formato risposta: {"_data_referto": "AAAA-MM-GG", "_range": {"Nome esame 1": "70 - 99 mg/dL"}, "Nome esame 1": "valore", "Nome esame 2": "valore"}';
 
     const data=await aiCall({tipo:'import-analisi',max_tokens:2000,messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]});
     const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
@@ -9536,6 +9762,16 @@ async function loadAnalisiSanguePDF(e){
     if(estratti && typeof estratti._data_referto==='string' && /^\d{4}-\d{2}-\d{2}$/.test(estratti._data_referto.trim())){
       dataReferto=estratti._data_referto.trim();
     }
+    // P118 tappa 2 — intervalli stampati dal laboratorio, tenuti a parte e
+    // riferiti SOLO a questo referto (variano da laboratorio a laboratorio).
+    const rangeReferto={};
+    if(estratti && estratti._range && typeof estratti._range==='object'){
+      Object.entries(estratti._range).forEach(([nome,txt])=>{
+        if(!elencoSet.has(nome)) return;
+        if(txt==null || String(txt).trim()==='') return;
+        rangeReferto[ANALISI_KEY(nome)]=String(txt).trim().slice(0,60);
+      });
+    }
     const staging={};
     Object.entries(estratti).forEach(([nome,val])=>{
       if(val==null || String(val).trim()==='') return;
@@ -9546,7 +9782,7 @@ async function loadAnalisiSanguePDF(e){
     if(Object.keys(staging).length===0){
       notif('⚠ Nessun valore riconosciuto nel referto.');
     } else {
-      mostraDiffAnalisi(p, staging, file.name, dataReferto);
+      mostraDiffAnalisi(p, staging, file.name, dataReferto, rangeReferto);
     }
   } catch(err){
     notif('⚠ Errore estrazione referto: '+err.message);
@@ -9566,7 +9802,7 @@ async function loadAnalisiSanguePDF(e){
 // anomalo (>50% dal valore precedente, se numerico e precedente presente).
 // Provenienza salvata in p._analisiMeta[key] = {fonte:'ai-import', data, file}.
 // ═══════════════════════════════════════════════════════════════════════════
-function mostraDiffAnalisi(p, staging, fileName, dataReferto){
+function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
   const righe=Object.entries(staging).map(([nome,val])=>{
     const key=ANALISI_KEY(nome);
     const attuale=(p.analisiSangue||{})[key+'_val']||'';
@@ -9649,7 +9885,13 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto){
     // I valori non ripetuti restano validi nel quadro attuale grazie a
     // _refertiApplica (che prende, esame per esame, la misura piu' recente).
     _refertiMigra(p);
-    _refertoCrea(p, dataRef, valoriNuovi, fileName);
+    const _rfNuovo=_refertoCrea(p, dataRef, valoriNuovi, fileName);
+    if(rangeReferto){
+      Object.keys(valoriNuovi).forEach(function(kv){
+        const k=kv.replace(/_val$/,'');
+        if(rangeReferto[k]) _rfNuovo.range[k]=rangeReferto[k];
+      });
+    }
     save(p.id);
     renderPdAnalisi(p);
     notif('✓ Referto del '+_refertoDataIt(dataRef)+' creato con '+nImportati+' valori');

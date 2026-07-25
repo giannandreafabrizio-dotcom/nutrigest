@@ -10,6 +10,50 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (3ª sessione, parte 4) — P118 TAPPA 2: RANGE DI RIFERIMENTO
+SOTTO OGNI VALORE. Baseline `302edfa`.
+
+**PROBLEMA:** l'app aveva soglie per **10 voci su 119** (`RANGE_RIF`), e solo
+dentro il tooltip della ℹ️. Per le altre 109 il riferimento non esisteva da
+nessuna parte: il valore era un numero nudo.
+
+**COSA:** nuova `RANGE_STD` — 119 voci, unita' di misura, sesso-specifiche
+dove serve (emoglobina, ematocrito, creatinina, ferritina, transaminasi,
+acido urico, VES, testosterone, CK...), intervalli aperti dove il riferimento
+e' un tetto o un pavimento ("< 150 mg/dL", "> 90 mL/min"), e voci qualitative
+per le urine e gli anticorpi ("Assente", "Negativo"). Il riferimento compare
+**sempre visibile sotto ogni casella** (`ai-range`), accanto al pallino che
+c'era gia'.
+
+**TRE FONTI, PRECEDENZA ESPLICITA:** (1) il range **stampato dal laboratorio**
+su QUEL referto, che l'AI ora estrae durante l'import nella chiave `_range` e
+che finisce in `rf.range[key]` — e' il piu' corretto, perche' gli intervalli
+variano per metodica e strumento; (2) `RANGE_STD`; (3) `RANGE_RIF`, che NON e'
+la stessa cosa e non e' stata toccata: quelle sono **soglie decisionali
+cliniche** (LDL "ottimale") e continuano a pilotare il semaforo. Range e
+semaforo convivono e dicono cose diverse — "cosa considera normale il
+laboratorio" e "cosa ne penso io". Tenerli separati era il punto: fonderli
+avrebbe fatto sparire l'una o l'altra informazione.
+
+**SCELTE DI CAUTELA:** se il sesso non e' in scheda l'app **mostra entrambi**
+gli intervalli invece di sceglierne uno; il range del laboratorio e' marcato
+con l'etichetta "lab" per non confonderlo con quello standard; il prompt
+vieta esplicitamente di inventare intervalli assenti dal referto; 40 voci
+portano una nota (fase del ciclo, eta', metodica, percentuale vs assoluto,
+chetoni attesi in chetogenica) perche' il numero da solo ingannerebbe.
+
+**DA FARE — VALIDAZIONE CLINICA:** la tabella e' stata proposta da Claude e
+consegnata a Fabrizio come `NutriGest_Range_Validazione.md` per la revisione
+voce per voce. Finche' non e' rivista va considerata **orientativa**: e' tutta
+in un unico punto del codice, quindi correggerla e' veloce e a basso rischio.
+
+**VERIFICHE:** `node --check`; suite **140 → 149, tutte verdi** (nuovo
+`s2-range-riferimento.test.js`: copertura totale delle 119 voci, nessuna voce
+orfana, nessuna soglia malformata (min>max, unita' mancante, sesso-specifico a
+meta'), forma di intervalli chiusi/aperti/qualitativi, precedenza del range di
+laboratorio, note che non rompono l'attributo title, e non-regressione su
+`RANGE_RIF`).
+
 24 LUGLIO 2026 (3ª sessione, parte 3) — P118 TAPPA 1: REFERTI DEL SANGUE
 DATATI. Baseline `9d898a5`. Prima delle tre tappe chieste da Fabrizio
 (storico datato → range di riferimento → andamento nel tempo).

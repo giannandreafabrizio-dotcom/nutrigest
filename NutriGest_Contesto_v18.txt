@@ -682,7 +682,7 @@ p.gruppiCliniciSuggeriti[] = { id, nome, motivazione, applicato }  // BLOCCO 17,
   // ricalcola il semaforo (applicaRegoloSemaforo) e salva. Lo stato "già applicato"
   // mostrato nel box è l'OR di: voce.applicato | checkbox DOM | p.checkSemaforo[id].
 
-p.refertiSangue[] = { id, data, dataStimata, lab, file, valori:{KEY_val}, range:{}, note }
+p.refertiSangue[] = { id, data, dataStimata, lab, file, valori:{KEY_val}, range:{KEY:'70 - 99 mg/dL'}, note }
   // P118 tappa 1, 24 lug 2026 — archivio dei referti del sangue, uno per data.
   // Ogni referto contiene SOLO gli esami realmente misurati quel giorno.
   // `range` nasce vuoto (lo riempira' la tappa 2). `dataStimata` = la data non
@@ -702,7 +702,22 @@ p.refertiSangue[] = { id, data, dataStimata, lab, file, valori:{KEY_val}, range:
   // updateAnalisi() scrive sul referto in vista e poi richiama _refertiApplica.
   // L'import (mostraDiffAnalisi) CREA un referto nuovo e pretende la data;
   // il prompt di estrazione chiede anche "_data_referto" (accettata solo se
-  // AAAA-MM-GG) per precompilarla.
+  // AAAA-MM-GG) per precompilarla, e "_range" con gli intervalli STAMPATI dal
+  // laboratorio, salvati in rf.range solo per le voci effettivamente importate.
+
+RANGE DI RIFERIMENTO (P118 tappa 2, 24 lug 2026)
+  RANGE_STD = { 'Nome esame': {u:'unita', r:[min,max]} | {u, M:[..], F:[..]} | {t:'testo'} , n:'nota' }
+  Copre tutte e 119 le voci di ANALISI (test di copertura in s2-range-riferimento).
+  min o max a null = intervallo aperto ("< 150", "> 90").
+  _rangeHtml(nomeEsame, p, refertoInVista) produce la riga .ai-range sotto la casella.
+  PRECEDENZA: rf.range[key] (stampato dal laboratorio su quel referto, marcato
+  "lab") > RANGE_STD > niente. Se p.sesso e' vuoto e la voce e' sesso-specifica
+  si mostrano ENTRAMBI gli intervalli, non se ne sceglie uno.
+  RANGE_STD e RANGE_RIF sono cose DIVERSE e coesistono: RANGE_RIF (10 voci)
+  sono soglie decisionali cliniche e pilotano il semaforo/interpretaAnalisi;
+  RANGE_STD e' l'intervallo di normalita' di laboratorio. Non vanno fusi.
+  STATO: tabella proposta da Claude, in attesa di validazione clinica voce per
+  voce da parte di Fabrizio (documento NutriGest_Range_Validazione.md).
 
 p.richiesteAnalisi[] = { data, motivo, voci:[...], n, url }  // P116, 24 lug 2026
   // Storico delle richieste di esami consegnate al paziente per il medico di base.
