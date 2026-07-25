@@ -10,6 +10,78 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+25 LUGLIO 2026 (2ª sessione) — P120: STORICO INBODY A PROVA DI CARICO GRADUALE.
+Baseline `c2f9800`. **Nasce e chiude P120.** Nata da un piano di lavoro di
+Fabrizio: ha molti pazienti storici con 1, 2 o anche 10 referti BIA e vuole
+caricarli un paziente alla volta nel tempo — tipicamente il giorno che il
+paziente torna. L'analisi del codice ha trovato che **proprio quel piano era il
+caso in cui l'app sbagliava in silenzio.**
+
+**LA ROOT CAUSE (la parte da rileggere fra sei mesi):** una ventina di punti del
+codice leggono la misurazione corrente come `p.inbody[p.inbody.length-1]` —
+l'**ULTIMA INSERITA**, non la più recente per data. Fra questi: motore TDEE,
+contesto AI del generatore (`costruisciPrompt`), badge BMI in lista, cross-check
+Mifflin (P114 passo 7), PDF. Solo TRE punti ordinavano per data (`renderPdInbody`,
+`renderMemoriaInbody`, render scheda). E `salvaInbody()` faceva `push` senza
+riordinare. Scenario reale: paziente che torna → salvi la BIA nuova → recuperi
+5 referti vecchi e li carichi → l'ultimo inserito è del 2023 → **TDEE, macro e
+prompt AI calcolati sul peso di tre anni prima, senza un errore a video.**
+
+**COSA (tre interventi, tutti nell'area InBody):**
+1. `_ibOrdinaPerData(p)` — ordina `p.inbody` per data crescente. Chiamata da
+   `salvaInbody()` (dopo il push, prima del `save`), da `_pazFetchBlob()` e da
+   `loadLocal()` come migrazione idempotente sui dati già esistenti. **Una
+   funzione rende corretti tutti e ~20 i punti senza toccarne nessuno**: se
+   l'array è ordinato, l'ultima posizione È la misura più recente. Le voci senza
+   data finiscono in testa, così non possono diventare "l'attuale".
+2. `data_referto` aggiunta al prompt di `loadInbodyPDF()` + `_ibNormalizzaData()`
+   (accetta YYYY-MM-DD e DD/MM/YYYY con varianti punto/trattino, con o senza ora;
+   scarta futuro, pre-1990 e giorni inesistenti). Prima il campo data restava su
+   **oggi** (precompilato da `openInbody`) e la data del test non veniva nemmeno
+   chiesta all'AI: importare 10 referti storici produceva 10 misurazioni datate
+   oggi e lo storico non nasceva. Ora: data letta dal referto → campo compilato +
+   conferma verde; data non leggibile → **campo svuotato**, avviso arancione
+   (`#ib-data-hint`) e `salvaInbody()` che **blocca il salvataggio**. Il ripiego
+   `|| today()` è stato rimosso di proposito: era l'unica via per cui una
+   misurazione potesse prendere in silenzio la data sbagliata.
+3. Anti-doppione per data in `salvaInbody()`: se esiste già una misurazione con
+   quella data, `confirm()` con scelta sostituisci/aggiungi (mantenendo l'`id`
+   originale in caso di sostituzione). Due BIA nello stesso giorno restano
+   legittime (digiuno + post-pranzo), quindi la decisione resta a Fabrizio — non
+   una deduplica forzata come per le pesate intermedie.
+
+**PERCHÉ ORDINARE INVECE DI CORREGGERE I ~20 PUNTI:** correggerli uno per uno
+significava toccare motore TDEE, prompt AI e PDF nello stesso commit — rischio
+alto su codice clinico, per un beneficio identico. L'invariante "array ordinato"
+sposta la correttezza in un posto solo. Stessa logica della P118 tappa 1, dove i
+valori "attuali" del sangue sono diventati uno specchio derivato del referto più
+recente invece di 119 letture da correggere.
+
+**TEST:** 169 → **181**, tutti verdi. Nuovo `s2-inbody-storico.test.js` (12 test)
+sui due helper puri: formati data italiani e ISO con ora, valori non
+interpretabili → `null`, date implausibili scartate, ordinamento con referti
+sparsi (verifica esplicita che `p.inbody[length-1]` sia la più recente), array
+già ordinato → `false`, voce senza data in testa, casi limite (paziente nullo,
+`inbody` assente/vuoto/non-array), due misurazioni nello stesso giorno entrambe
+conservate, più un controllo sul testo del prompt (chiede `data_referto`, vieta
+di dedurla, avverte di non confonderla con la data di nascita).
+
+**LEZIONE PERMANENTE (codificata anche in CLAUDE.md, regola 10):** quando un
+array cronologico viene letto come "l'ultimo elemento = lo stato attuale", quella
+è una **invariante implicita di ordinamento** che nessuno dichiara e che il primo
+inserimento fuori ordine rompe in silenzio. Il rimedio giusto è garantire
+l'invariante nel punto di scrittura, non correggere i punti di lettura. Terzo
+caso della stessa famiglia dopo P118 tappa 1 e il pattern "doppia fonte" (F4).
+
+**NOTA OPERATIVA per il carico storico:** per far esistere un paziente bastano
+nome e cognome (`salvaPaz`); il primo referto InBody regala anche data di
+nascita, sesso e altezza (`window._ibAutofill`, `p.altezza`). Se si precaricano
+pazienti storici come **attivi** con `visitaData` vecchia, `renderScadenzeAlert`
+accende "👻 Paziente sparito" oltre i 28 giorni: archiviarli (`p.stato='archiviato'`,
+esclusi da allarmi/lista/menu generatore, dati conservati, ritorno con un click)
+oppure lasciare `visitaData` vuota. Metodo completo nel doc di progetto
+`NutriGest_Pazienti_Storici_Metodo.md`.
+
 25 LUGLIO 2026 — P119: PESCATA BILANCIATA DELL'ISPIRAZIONE (ricettario grande).
 Baseline `ccdf6c4`. **Nasce e chiude P119** (fase 1). Nata da una domanda di
 Fabrizio, non da un bug segnalato: ha molte ricette pronte da caricare e ha

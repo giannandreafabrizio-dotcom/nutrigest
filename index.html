@@ -1505,7 +1505,10 @@ main{flex:1;overflow-y:auto;}
 <div class="modal modal-lg">
   <h3>📊 Misurazione InBody</h3>
   <div class="fr-3">
-    <div class="fg"><label>Data</label><input type="date" id="ib-data"></div>
+    <div class="fg"><label>Data</label><input type="date" id="ib-data">
+      <!-- P120 — esito della lettura della data del test dal referto (vuoto se nessun import) -->
+      <div id="ib-data-hint" style="display:none;font-size:.7rem;line-height:1.35;margin-top:.25rem"></div>
+    </div>
     <div class="fg" style="grid-column:span 2">
       <label>Carica PDF InBody (opzionale)</label>
       <div class="upload-area" onclick="document.getElementById('ib-pdf-input').click()" style="padding:.5rem .9rem">
@@ -3711,7 +3714,13 @@ function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||{};}catc
 function saveCfgL(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 function getUrl(){return getCfg().scriptUrl||'';}
 function saveLocal(){localStorage.setItem(DB_KEY,JSON.stringify(db));if(document.getElementById('page-dashboard')?.classList.contains('active'))renderDashboard();}
-function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate','piani','templatePiani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(!db.alimentiCustom)db.alimentiCustom=[];caricaAlimentiCustom();}}catch(e){}}
+function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.parse(r);['pazienti','ricette','eventi','entrate','piani','templatePiani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(!db.alimentiCustom)db.alimentiCustom=[];
+  // P120 — migrazione idempotente: riordina per data lo storico InBody dei
+  // pazienti in cache. Serve perché ~20 punti del codice leggono la misurazione
+  // "attuale" come ultima posizione dell'array: su dati vecchi inseriti in
+  // ordine sparso quella posizione poteva non essere la misura più recente.
+  (db.pazienti||[]).forEach(function(p){ if(typeof _ibOrdinaPerData==='function') _ibOrdinaPerData(p); });
+  caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
 function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
@@ -3857,6 +3866,7 @@ async function _pazFetchBlob(id){
     const rows = await r.json();
     const row = rows && rows[0];
     if(!row || !row.data || !row.data.id || !row.data.nome) return null;
+    if(typeof _ibOrdinaPerData==='function') _ibOrdinaPerData(row.data); // P120 — migrazione: storico InBody ordinato per data appena il blob entra in memoria
     const i = db.pazienti.findIndex(x=>x&&x.id===id);
     if(i>=0) db.pazienti[i]=row.data; else db.pazienti.push(row.data);
     _p69SetBaseline(id, row.updated_at); // versione server ora vista da questo dispositivo
@@ -21591,6 +21601,7 @@ function openInbody(){
   ['ib-bia','ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-girovita','ib-pa-sbp','ib-pa-dbp','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
   const pdfInputEl=document.getElementById('ib-pdf-input');if(pdfInputEl)pdfInputEl.value='';
+  const hintEl=document.getElementById('ib-data-hint');if(hintEl){hintEl.style.display='none';hintEl.innerHTML='';} // P120 — esito lettura data: pulito a ogni apertura
   document.getElementById('mo-inbody').classList.add('open');
   if(window.b3Attach)setTimeout(window.b3Attach,50);
 }
@@ -21598,7 +21609,21 @@ function openInbody(){
 function salvaInbody(){
   const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
-  const ib={id:uid(),data:document.getElementById('ib-data').value||today(),
+  // P120 — la data è obbligatoria: niente più ripiego silenzioso su today().
+  // Il campo è precompilato con oggi da openInbody, quindi l'unico modo di
+  // arrivare qui vuoto è un import in cui la data non era leggibile sul referto
+  // (o una cancellazione voluta): in entrambi i casi fermarsi è la cosa giusta,
+  // perché una misurazione datata oggi per sbaglio falsa lo storico E, con
+  // l'ordinamento per data, diventerebbe anche "l'attuale".
+  const _ibData=(document.getElementById('ib-data')||{}).value||'';
+  if(!_ibData){
+    notif('⚠ Inserisci la data del test: senza data la misurazione non entra nello storico',4500);
+    const _hd=document.getElementById('ib-data-hint');
+    if(_hd){_hd.style.display='block';_hd.style.color='#b45309';_hd.innerHTML='⚠️ Manca la data del test — leggila sul referto e inseriscila qui sopra.';}
+    const _ed=document.getElementById('ib-data'); if(_ed&&_ed.focus)_ed.focus();
+    return;
+  }
+  const ib={id:uid(),data:_ibData,
     condizioneBia:(document.getElementById('ib-bia')||{}).value||'',
     peso:gn('ib-peso'),pg:gn('ib-pg'),g:gn('ib-g'),m:gn('ib-m'),
     musc:gn('ib-musc'),acqua:gn('ib-acqua'),mb:gn('ib-mb'),
@@ -21615,8 +21640,24 @@ function salvaInbody(){
     if(window._ibAutofill.sesso && !p.sesso) p.sesso=window._ibAutofill.sesso;
     window._ibAutofill=null;
   }
-  if(!p.inbody)p.inbody=[];p.inbody.push(ib);
-  save(p.id);closeM('mo-inbody');openPaz(currentPazId);notif('✓ Misurazione salvata!');
+  if(!p.inbody)p.inbody=[];
+  // P120 — anti-doppione per data: caricando due volte lo stesso referto si
+  // creavano due misurazioni identiche senza un avviso (le pesate intermedie
+  // invece deduplicano già per data). Qui la scelta resta a Fabrizio: due BIA
+  // nello stesso giorno sono rare ma legittime (es. digiuno + post-pranzo).
+  const _dupIdx=p.inbody.findIndex(function(x){ return x && x.data===ib.data; });
+  let _sostituita=false;
+  if(_dupIdx>=0){
+    const _sost=confirm('Esiste già una misurazione del '+fData(ib.data)+'.\n\nOK = sostituisci quella esistente\nAnnulla = aggiungi comunque come seconda misurazione dello stesso giorno');
+    if(_sost){ ib.id=p.inbody[_dupIdx].id; p.inbody[_dupIdx]=ib; _sostituita=true; }
+  }
+  if(!_sostituita) p.inbody.push(ib);
+  // P120 — ordine per data: l'ultima posizione dell'array è "la misurazione
+  // attuale" per una ventina di punti del codice. Ordinando qui, caricare i
+  // referti storici in qualsiasi ordine (anche dopo una BIA recente) non
+  // falsa più TDEE, macro, contesto AI e grafici.
+  _ibOrdinaPerData(p);
+  save(p.id);closeM('mo-inbody');openPaz(currentPazId);notif(_sostituita?'✓ Misurazione del '+fData(ib.data)+' sostituita':'✓ Misurazione salvata!');
 }
 
 function delInbody(ibId){
@@ -23140,6 +23181,59 @@ function salvaConcettiAllegati(btn) {
 // ═══════════════════════════════════════
 // INBODY PDF UPLOAD
 // ═══════════════════════════════════════
+// P120 — normalizza la data del test letta dal referto InBody in YYYY-MM-DD.
+// Accetta YYYY-MM-DD, DD/MM/YYYY, DD.MM.YYYY, DD-MM-YYYY (con o senza ora a seguire).
+// Restituisce null per tutto ciò che non è una data plausibile di misurazione:
+// così una data assurda non entra mai nello storico. Stessa filosofia di P118
+// tappa 1: meglio una data mancante (che chiede il tuo intervento) che una
+// data inventata (che sballa in silenzio l'ordine dello storico).
+function _ibNormalizzaData(raw){
+  if(raw == null) return null;
+  var s = String(raw).trim();
+  if(!s) return null;
+  var iso = null;
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m){ iso = m[1]+'-'+m[2]+'-'+m[3]; }
+  if(!iso){
+    m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/); // DD/MM/YYYY e varianti
+    if(m){
+      var gg = ('0'+m[1]).slice(-2), mm = ('0'+m[2]).slice(-2);
+      iso = m[3]+'-'+mm+'-'+gg;
+    }
+  }
+  if(!iso) return null;
+  var parti = iso.split('-');
+  var anno = +parti[0], mese = +parti[1], giorno = +parti[2];
+  if(!(mese>=1 && mese<=12) || !(giorno>=1 && giorno<=31)) return null;
+  // Finestra di plausibilità: nessuna BIA prima del 1990, nessuna nel futuro
+  // (una data futura è quasi sempre una data di nascita letta al contrario o un refuso OCR).
+  if(anno < 1990) return null;
+  var d = new Date(iso+'T12:00:00');
+  if(isNaN(d.getTime())) return null;
+  if(d.getTime() > Date.now() + 86400000) return null;
+  // Ricontrollo che la data esista davvero (31 febbraio → scartata)
+  if(d.getMonth()+1 !== mese || d.getDate() !== giorno) return null;
+  return iso;
+}
+
+// P120 — ordina le misurazioni InBody per data crescente.
+// PERCHÉ: una ventina di punti del codice (motore TDEE, contesto AI del
+// generatore, badge BMI, cross-check Mifflin, PDF) leggono la misurazione
+// "attuale" come p.inbody[p.inbody.length-1], cioè l'ULTIMA INSERITA, non la
+// più recente per data. Tenendo l'array ordinato per data, l'ultima posizione
+// È sempre la misurazione più recente: tutti quei punti diventano corretti
+// senza toccarli, e l'ordine con cui si caricano i referti storici non conta più.
+// Le voci senza data finiscono in testa: non possono diventare "l'attuale".
+// Restituisce true se l'ordine è cambiato (per sapere se vale la pena salvare).
+function _ibOrdinaPerData(p){
+  if(!p || !Array.isArray(p.inbody) || p.inbody.length < 2) return false;
+  var prima = p.inbody.map(function(x){ return x && x.id; }).join('|');
+  p.inbody.sort(function(a,b){
+    return String((a&&a.data)||'').localeCompare(String((b&&b.data)||''));
+  });
+  return p.inbody.map(function(x){ return x && x.id; }).join('|') !== prima;
+}
+
 async function loadInbodyPDF(e) {
   const file = e.target.files[0]; if(!file) return;
   document.getElementById('ib-pdf-name').textContent = file.name;
@@ -23155,7 +23249,7 @@ async function loadInbodyPDF(e) {
         : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
       const data = await aiCall({tipo:'import-inbody',max_tokens:1000,messages:[{role:'user', content:[
             contentBlock,
-            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- data_referto (formato YYYY-MM-DD — la DATA DEL TEST stampata sul referto, spesso etichettata "Data del test"/"Test Date"/"Data misurazione" e accompagnata dall\'ora. NON confonderla con la data di nascita. Se sul referto non c\'è, metti null: non dedurla e non inventarla)\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
           ]}]});
       const testo = data.content?.[0]?.text || '';
       const clean = testo.replace(/```json|```/g,'').trim();
@@ -23165,6 +23259,35 @@ async function loadInbodyPDF(e) {
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
       s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza); s('ib-peso-ideale',ib.peso_ideale);
       s('ib-cint-fianchi', ib.cintura_fianchi);
+      // ── P120 — DATA DEL TEST dal referto ────────────────────────────────────
+      // Prima il campo restava sulla data di OGGI (precompilata da openInbody):
+      // importando 10 referti storici si ottenevano 10 misurazioni datate oggi,
+      // e lo storico non nasceva nemmeno. Ora la data viene dal referto; se non
+      // è leggibile il campo viene SVUOTATO con avviso arancione e salvaInbody
+      // blocca il salvataggio — mai un ripiego silenzioso su oggi.
+      (function(){
+        var elData = document.getElementById('ib-data');
+        var elHint = document.getElementById('ib-data-hint');
+        if(!elData) return;
+        var iso = _ibNormalizzaData(ib.data_referto);
+        if(iso){
+          elData.value = iso;
+          if(elHint){
+            elHint.style.display = 'block';
+            elHint.style.color = 'var(--teal2,#0d9488)';
+            elHint.innerHTML = '✓ Data del test letta dal referto — controllala comunque a colpo d\'occhio.';
+          }
+          console.log('[InBody] data del test dal referto:', iso);
+        } else {
+          elData.value = '';
+          if(elHint){
+            elHint.style.display = 'block';
+            elHint.style.color = '#b45309';
+            elHint.innerHTML = '⚠️ Data del test non trovata sul referto: <strong>inseriscila a mano</strong>. Senza data la misurazione non si salva (non la mettiamo a oggi per non falsare lo storico).';
+          }
+          console.warn('[InBody] data del test NON trovata sul referto (valore grezzo:', ib.data_referto, ') — campo svuotato, richiesto inserimento manuale');
+        }
+      })();
       if(ib.magra_segmentale){
         s('ib-ms-bracsx', ib.magra_segmentale.braccio_sx);
         s('ib-ms-bracdx', ib.magra_segmentale.braccio_dx);

@@ -51,6 +51,7 @@
 | **P33c** piano lungo a ricetta singola | Opus | High | ON | Tocca struttura piano + export |
 | ~~P37~~ ❌ escluso, ~~P80~~ ✅ chiusa parziale, ~~P83~~ ❌ annullato (14 lug 2026) | — | — | — | — |
 | ~~**P119**~~ ✅ chiusa 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
+| ~~**P120**~~ ✅ chiusa 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
 | P35, P43, P90–P101 (UX/pulizia) | Sonnet | Low/Medium | OFF | Meccaniche o estetiche, rischio basso |
@@ -665,6 +666,29 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 **Trappola già esistente, da non dimenticare mentre si caricano ricette:** se un salvataggio mostra `⚠️ Ricetta salvata SOLO in locale — sync fallito`, va risalvata **prima** di sincronizzare o ricaricare la pagina. `syncNow()` fa prima il pull, e `pullRicetteSupabase()` **sostituisce** `db.ricette` con `[RICETTE_DEFAULT + quelle del server]`: una ricetta mai arrivata su Supabase viene cancellata in silenzio.
 
 **SCHEDA:** Stato: **CHIUSA 25 lug 2026** (fase 1) · fase 2 (3 punti sopra) **Da fare** · Priorità: Media · Categoria: Generatore piani / prompt AI · Dipendenze: nessuna a monte; il punto 2 della fase 2 va fatto con **P81** · Autonomia: L1 — è selezione dell'ispirazione, non una regola clinica: il prompt e i filtri clinici non sono stati toccati.
+
+---
+
+### P120 — Storico InBody a prova di carico graduale (nata e chiusa 25 lug 2026, 2ª sessione)
+
+**Origine:** Fabrizio ha molti pazienti storici con 1, 2 o anche 10 referti BIA e vuole caricarli **un paziente alla volta nel tempo**, tipicamente il giorno che il paziente torna. L'analisi ha mostrato che quel piano era esattamente lo scenario in cui il codice sbagliava in silenzio.
+
+**Il problema (silenzioso, quindi il peggiore):** una ventina di punti — motore TDEE, contesto AI del generatore, badge BMI, cross-check Mifflin, PDF — leggono la misurazione corrente come `p.inbody[p.inbody.length-1]`, cioè **l'ultima inserita, non la più recente per data**; solo tre punti ordinavano per data, e `salvaInbody()` faceva `push` senza riordinare. Salvi la BIA nuova, poi carichi 5 referti vecchi → "l'attuale" diventa un referto del 2023 e i calcoli girano su quello. In più la **data del test non veniva chiesta all'AI** e il campo restava sulla data di oggi: 10 referti storici importati = 10 misurazioni datate oggi.
+
+**✅ CHIUSA 25 lug 2026** — tre interventi nell'area InBody:
+1. `_ibOrdinaPerData(p)` mantiene `p.inbody` ordinato per data (chiamata in `salvaInbody`, `_pazFetchBlob`, `loadLocal` come migrazione idempotente). Una sola funzione rende corretti tutti e ~20 i punti di lettura **senza toccarne nessuno**; le voci senza data finiscono in testa e non possono diventare "l'attuale".
+2. `data_referto` nel prompt di `loadInbodyPDF` + `_ibNormalizzaData()` (ISO e DD/MM/YYYY con varianti, con o senza ora; scarta futuro, pre-1990, giorni inesistenti). Data trovata → campo compilato con conferma verde; non trovata → campo **svuotato**, avviso arancione e `salvaInbody` che blocca il salvataggio. Rimosso il ripiego `|| today()`.
+3. Anti-doppione per data con scelta sostituisci/aggiungi (due BIA nello stesso giorno restano legittime: digiuno + post-pranzo).
+
+Test 169 → **181**, tutti verdi (`s2-inbody-storico.test.js`).
+
+**Perché ordinare invece di correggere i ~20 punti:** correggerli uno per uno voleva dire toccare motore TDEE, prompt AI e PDF nello stesso commit — rischio alto su codice clinico per un beneficio identico. L'invariante "array ordinato" concentra la correttezza in un punto solo. Stessa scelta della P118 tappa 1.
+
+**Metodo di caricamento (nel doc di progetto `NutriGest_Pazienti_Storici_Metodo.md`):** bastano nome e cognome per creare il paziente; il primo referto regala nascita, sesso e altezza. Se si precaricano pazienti storici come attivi con `visitaData` vecchia, `renderScadenzeAlert` accende "👻 Paziente sparito" oltre i 28 giorni → archiviarli o lasciare `visitaData` vuota.
+
+**Resta da fare (fase 2, non urgente):** import di più referti in un colpo con schermata di revisione in blocco (una riga per referto: data · peso · % grassa · basale, tutte modificabili, un solo Conferma). Ha senso con pazienti da 8-10 referti; da valutare dopo una decina di pazienti fatti a mano, misurando il tempo reale. ~2 ore. **Sonnet · Medium · OFF.**
+
+**SCHEDA:** Stato: **CHIUSA 25 lug 2026** (fase 1) · fase 2 **Da fare** · Priorità: Media · Categoria: Composizione corporea / integrità del dato · Dipendenze: nessuna · Autonomia: L1 — nessuna soglia clinica toccata, solo ordine e data del dato.
 
 ---
 

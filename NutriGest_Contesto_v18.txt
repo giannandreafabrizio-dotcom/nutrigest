@@ -843,6 +843,32 @@ p.aggiustamentiMacros[] = { id, data, macro:'C'|'P'|'G', delta, totale, peso, no
   // al salvataggio aggiorna p.macrosTarget[campoMacro] e p.macrosTarget.kcal (delta×4 per C/P, ×9 per G)
   // eliminazione: non ripristina macrosTarget automaticamente (warning all'utente)
 
+p.inbody[] — INVARIANTE DI ORDINAMENTO (P120, 25 lug 2026):
+  L'array è tenuto SEMPRE ordinato per `data` crescente, quindi l'ultima posizione
+  è la misurazione più recente. NON è un dettaglio estetico: una ventina di punti
+  del codice leggono la misurazione corrente come p.inbody[p.inbody.length-1]
+  (motore TDEE, costruisciPrompt, badge BMI in lista, _crossCheckMifflin, generaPDF);
+  solo tre ordinano per data. Prima di P120 caricare un referto vecchio DOPO uno
+  recente rendeva "attuale" il vecchio, e i calcoli clinici giravano su quello
+  senza nessun errore a video.
+  Garanzia: `_ibOrdinaPerData(p)` (ritorna true se l'ordine è cambiato), chiamata da
+  salvaInbody() dopo il push e prima del save, da _pazFetchBlob() e da loadLocal()
+  come migrazione idempotente sui dati già esistenti. Le voci senza data finiscono
+  in testa: non possono diventare "l'attuale".
+  REGOLA per il futuro: chi aggiunge misurazioni a p.inbody per una via nuova deve
+  chiamare _ibOrdinaPerData prima di salvare. Chi legge preferisca l'ultima posizione
+  (ora affidabile) invece di introdurre un nuovo ordinamento locale.
+  Data del test: estratta dal referto (campo `data_referto` nel prompt di
+  loadInbodyPDF) e normalizzata da `_ibNormalizzaData()` — accetta YYYY-MM-DD e
+  DD/MM/YYYY con varianti punto/trattino, con o senza ora; scarta futuro, pre-1990 e
+  giorni inesistenti. Se la data non è leggibile il campo viene SVUOTATO, compare
+  l'avviso arancione #ib-data-hint e salvaInbody() BLOCCA il salvataggio: il vecchio
+  ripiego `|| today()` è stato rimosso di proposito (era l'unico modo per cui una
+  misurazione prendesse in silenzio la data sbagliata, rovinando lo storico).
+  Anti-doppione: se esiste già una misurazione con quella data, confirm() con scelta
+  sostituisci (mantiene l'id originale) / aggiungi — due BIA nello stesso giorno sono
+  legittime (digiuno + post-pranzo), quindi non c'è deduplica forzata.
+
 p.pesiIntermedi[] = { data, peso }
   // campo presente nel codice ma C4 SCARTATO (bilance domestiche ≠ bilancia studio, delta inaffidabile)
   // il campo resta in struttura per non rompere migrazione, ma nessuna UI attiva (da rimuovere)
