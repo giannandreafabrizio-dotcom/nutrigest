@@ -10,6 +10,22 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+24 LUGLIO 2026 (3ª sessione, parte 6) — SOGLIE DI RIFERIMENTO VALIDATE.
+Baseline `ca66bd5`. Solo documentazione, nessuna modifica al codice.
+
+Fabrizio ha rivisto `NutriGest_Range_Validazione.md` e ha **validato la
+tabella RANGE_STD** cosi' com'e'. Motivazione registrata perche' e' il tipo
+di ragionamento che serve rileggere fra sei mesi: nei referti reali il
+laboratorio stampa quasi sempre il proprio intervallo, che l'app estrae
+all'import e a cui da' la precedenza; RANGE_STD entra quindi in gioco solo
+per i valori inseriti a mano o per i pochi referti che non riportano il
+range. Il suo peso clinico e' marginale — ma NON nullo: e' anche la fonte
+del giudizio colore dell'andamento (tappa 3) quando il referto non porta un
+intervallo, quindi resta corretto averla validata invece di lasciarla
+"orientativa" a tempo indeterminato.
+
+**P118 e' ora chiusa in tutte e tre le tappe, senza pendenze documentali.**
+
 24 LUGLIO 2026 (3ª sessione, parte 5) — P118 TAPPA 3: ANDAMENTO NEL TEMPO.
 Baseline `3db9488`. **Chiude P118** (tutte e tre le tappe). Preceduta da un
 mockup HTML mostrato a Fabrizio con tre alternative di interfaccia: ha scelto

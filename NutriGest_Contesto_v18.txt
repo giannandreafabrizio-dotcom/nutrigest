@@ -736,8 +736,12 @@ RANGE DI RIFERIMENTO (P118 tappa 2, 24 lug 2026)
   RANGE_STD e RANGE_RIF sono cose DIVERSE e coesistono: RANGE_RIF (10 voci)
   sono soglie decisionali cliniche e pilotano il semaforo/interpretaAnalisi;
   RANGE_STD e' l'intervallo di normalita' di laboratorio. Non vanno fusi.
-  STATO: tabella proposta da Claude, in attesa di validazione clinica voce per
-  voce da parte di Fabrizio (documento NutriGest_Range_Validazione.md).
+  STATO: tabella VALIDATA da Fabrizio il 24 lug 2026 (documento
+  NutriGest_Range_Validazione.md). Motivazione della validazione: nei referti reali
+  il laboratorio stampa quasi sempre il proprio intervallo, che ha la precedenza —
+  RANGE_STD entra in gioco solo quando manca o quando il valore e' inserito a mano,
+  quindi il suo peso clinico e' marginale. Resta comunque la fonte usata per il
+  giudizio colore dell'andamento (P118 tappa 3) quando il referto non porta range.
 
 p.richiesteAnalisi[] = { data, motivo, voci:[...], n, url }  // P116, 24 lug 2026
   // Storico delle richieste di esami consegnate al paziente per il medico di base.
