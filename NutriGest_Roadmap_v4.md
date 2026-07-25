@@ -53,6 +53,8 @@
 | ~~**P119**~~ ✅ chiusa e collaudata 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
 | ~~**P120**~~ ✅ chiusa e collaudata 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
 | ~~**P121**~~ ✅ chiusa 25 lug 2026, **da collaudare** (motore unico grammature alternative — v. scheda) | Opus | High | ON | Tocca le grammature del piano: regole cliniche decise da Fabrizio |
+| **P122** Tappa 1 ✅ chiusa 25 lug 2026, **da collaudare** (traguardo dalla composizione corporea — v. scheda) · tappe 2-5 da fare | Opus/Fable | High | ON | Le soglie di grasso essenziale sono sicurezza clinica, non un parametro |
+| ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
 | P35, P43, P90–P101 (UX/pulizia) | Sonnet | Low/Medium | OFF | Meccaniche o estetiche, rischio basso |
@@ -718,6 +720,34 @@ Test 181 → **197**, tutti verdi (`s2-grammature-alternative.test.js`).
 **Resta da valutare (fase 2, non urgente):** estendere i gruppi semaforo così che "Frutta secca & Semi" e "Olio & Condimenti" siano intercambiabili nel menu "+ Aggiungi alternativa" — oggi l'avocado e la frutta secca nella cella dell'olio ci arrivano solo tramite l'AI, non si possono aggiungere a mano. ~30 min. **Sonnet · Low · OFF.**
 
 **SCHEDA:** Stato: **CHIUSA 25 lug 2026, da collaudare** · Priorità: Alta · Categoria: Generatore piani / grammature · Dipendenze: nessuna · Autonomia: L2 — le regole di equivalenza sono decisioni cliniche, prese da Fabrizio e non dedotte dal codice.
+
+---
+
+### P122 — L'obiettivo del paziente: dal peso deciso a mano al traguardo derivato (nata 25 lug 2026, 5ª sessione — Tappa 1 chiusa, tappe 2-5 aperte)
+
+**Origine:** in visita Fabrizio chiede al paziente "qual è il tuo obiettivo?", ma nell'app quella risposta vive solo come testo libero (`p.obiettivo`), mentre il numero che guida tutto (`p.pesoTarget`) lo digita lui a mano. Sua domanda diretta: chi dovrebbe deciderlo — lui, il paziente, il Peso Ideale InBody o il BMI? Analisi completa nel doc di progetto `NutriGest_Obiettivo_Ragionamento.md`.
+
+**Diagnosi:** "obiettivo" oggi è **tre cose schiacciate in una**: la motivazione del paziente, l'indicazione clinica e il traguardo operativo delle prossime 8-12 settimane. Nessuna delle quattro opzioni proposte regge da sola: deciderlo lui non è riproducibile né trasferibile a un altro professionista (e l'app va venduta); farlo decidere al paziente porta aspettative sistematicamente irrealistiche (Foster 1997: il "peso dei sogni" sta intorno a −30%, e persino il peso "deludente" resta sopra a ciò che i trattamenti ottengono → abbandono al 4°-6° mese); il Peso Ideale InBody **non usa la massa magra che la macchina ha appena misurato**; il BMI è statistica di popolazione. La strada giusta è che **il peso non si decida ma si derivi** dalla % di grasso obiettivo, con ruoli separati: il medico fissa il **corridoio** (soglie, ritmo, durata dei blocchi), il paziente sceglie **dove stare dentro il corridoio**, l'app fa i conti e registra chi ha deciso.
+
+**✅ TAPPA 1 CHIUSA 25 lug 2026 — il motore del traguardo.**
+1. `calcolaTraguardoComposizione` (pura): due scenari — massa magra conservata e quota del calo persa come magra (default 20%, regolabile: 10-15% con proteine alte e pesi, 25-30% senza allenamento). Il traguardo è una **fascia**, non un punto.
+2. Soglie di grasso essenziale **per sesso** (M: blocco <6%, avviso <10% · F: blocco <14%, avviso <20%): il 10-12% abituale di Fabrizio è una soglia maschile, l'equivalente femminile sta sul 18-22%. Senza sesso in anagrafica il motore si ferma e spiega perché.
+3. `_traguardoScrivi`: unico punto di scrittura, storico delle revisioni che non si sovrascrive mai, `p.pesoTarget` come specchio derivato (proiezione P115, PDF, contesto AI invariati).
+4. UI nel box riferimenti della scheda Macros; i chip esistenti declassati a "solo per confronto" con scritto perché.
+
+**✅ F5 chiusa nello stesso commit:** `salvaPaz` preservava dal paziente esistente solo una **whitelist** di campi, ferma a prima delle ultime funzioni — salvare l'anagrafica cancellava in silenzio `p.percorso` (P115), `p.refertiSangue` (P118), `p.richiesteAnalisi` (P116), `p.consuntivo` e `p.creato`. Risolto nel punto di scrittura con `_pazPreservaCampi` (si riporta per costruzione tutto ciò che il form non produce), non allungando la lista. Dettaglio e lezione nel CHANGELOG.
+
+Test 197 → **212** (`s2-traguardo-composizione.test.js`).
+
+**Resta da fare — tappe 2-5** (ordine consigliato: 2 → 3 → collaudo sul campo su 3-4 pazienti → 4 → 5):
+- **Tappa 2 — la domanda in visita strutturata** (~2 h): categoria dell'obiettivo, motivo ("cosa cambierebbe nella tua vita"), **aspettativa del paziente registrata anche se irrealistica** e mostrata contro il corridoio, scadenza personale (matrimonio, estate), importanza/fiducia 0-10. Entra nel contesto AI, nel PDF e nei messaggi.
+- **Tappa 3 — modelli di periodizzazione** (~3-4 h): dal traguardo l'app genera le fasi (ricomposizione / dimagrimento a cicli / massa poi definizione / mantenimento-salute), con blocchi di deficit max 10-12 settimane e mantenimenti da 3-6; pulsante **"riallinea"** che trasla il piano quando il paziente sparisce un mese; via il messaggio "Oggi fuori dalle fasi pianificate", che suona come una bocciatura.
+- **Tappa 4 — traguardi multipli e fasi non rigide** (~3-4 h): `traguardi[]` per composizione, peso, massa magra, esami del sangue (aggancio a P118), circonferenze e **comportamento** ("3 allenamenti a settimana") — l'unico tipo che si può vincere anche in un mese storto; condizione di uscita dalla fase ("finché %grasso ≤ 12 **oppure** 12 settimane, quello che arriva prima", con suggerimento e mai azione automatica); stato ed esito della fase chiusa.
+- **Tappa 5 — vista paziente del traguardo** (~2 h): solo il traguardo della fase in corso (vicino e vincibile), non-scale victories, e in fase di massa si mostra massa magra/grassa e **mai il peso**, che altrimenti spaventa.
+
+**Regole permanenti di questa voce:** (a) il traguardo si ricalcola a ogni nuovo InBody ma l'app **propone, non riscrive** — nessun cambiamento silenzioso su un dato clinico; (b) le soglie di grasso restano sesso-dipendenti; (c) tutti i campi nuovi sono opzionali: un paziente senza traguardo funziona esattamente come prima.
+
+**SCHEDA:** Stato: **Tappa 1 CHIUSA 25 lug 2026, da collaudare · tappe 2-5 aperte** · Priorità: Alta · Categoria: Percorso clinico / obiettivi · Dipendenze: P115 (timeline, per la tappa 3), P118 (referti datati, per i traguardi di laboratorio della tappa 4), P50 (app paziente, solo per l'aderenza) · Autonomia: **L0** sulle soglie di grasso essenziale (sicurezza clinica, le decide Fabrizio), L2 sul resto.
 
 ---
 

@@ -892,6 +892,24 @@ p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surpl
   // pct = % del TDEE della fase (stessa semantica dello slider regime), limiti -40..+25.
   // Date SEMPRE in locale via _percorsoIsoLocal (mai toISOString: UTC slitterebbe di 1 giorno).
 
+p.obiettivoPercorso = { clinico:{...}, paziente:{...}, storico:[], traguardi:[] }
+  // P122 Tappa 1, 25 lug 2026 — l'obiettivo del paziente come struttura, non piu'
+  // un numero secco. TUTTO OPZIONALE: un paziente senza questo campo funziona
+  // esattamente come prima (nessuna migrazione, nessun default scritto).
+  // clinico = { metodo:"pctGrasso"|"peso"|"bmi"|"inbodyIdeale"|"manuale",
+  //   pctGrassoTarget, quotaMagraPersa (% del calo attribuita alla massa magra),
+  //   pesoTarget, pesoOttimista, pesoRealistico, massaGrassaTargetKg,
+  //   massaMagraRif (la magra su cui e' stato fatto il conto), scenario,
+  //   decisoDa:"medico"|"condiviso"|"paziente", data }
+  // storico[] = { data, campo, etichetta, da, a, motivo, decisoDa, metodo }
+  //   append-only (max 60): il traguardo non si sovrascrive MAI in silenzio —
+  //   stessa scelta di p.refertiSangue (P118) e dell'ordinamento InBody (P120).
+  // paziente{} e traguardi[] sono previsti dal design (tappe 2 e 4) e oggi non
+  //   vengono ancora scritti da nessuna parte: leggerli deve degradare a vuoto.
+  // p.pesoTarget resta e diventa lo SPECCHIO DERIVATO di clinico.pesoTarget:
+  //   e' il campo che leggono proiezione P115, calcolaMacros, PDF e contesto AI.
+  //   Scritto SOLO da _traguardoScrivi (o a mano nel campo, metodo "manuale").
+
 p.consuntivo = { fonte:"app-paziente", giorni:[{ data:"YYYY-MM-DD",
     aderenza:"ok"|"parziale"|"sgarro", extraKcal:>=0,
     opzionali: extraProt/extraCarb/extraGrassi (g), passi, sonnoOre }] }
@@ -1886,6 +1904,62 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
   P115 COMPLETO (Tappe 1-5, tutte 24 lug 2026). Il livello Piano vs Realtà
   si accenderà da solo quando P50 scriverà p.consuntivo — architettura
   pronta, nessuna modifica al grafico necessaria.
+
+TRAGUARDO DALLA COMPOSIZIONE CORPOREA (P122 Tappa 1, 25 lug 2026):
+  Il peso obiettivo smette di essere un numero digitato e diventa la conseguenza
+  di una scelta clinica: la % di grasso a cui si punta.
+  peso obiettivo = massa magra / (1 - %grasso/100).
+  MOTORE PURO calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa):
+    legge la misurazione InBody piu' recente (_traguardoMisura: ultimo elemento
+    di p.inbody, ordinato per data da P120; massa magra dal campo "m", con
+    ripieghi espliciti su peso-grassa e peso x (1-%grassa)) e restituisce DUE
+    scenari — ottimista (massa magra conservata: m/(1-T)) e realistico (una
+    quota q del calo e' massa magra: X = (m - (1-T)*peso) / (q - (1-T)), default
+    q=20%, limitata a 0..50). Il realistico vale SOLO in dimagrimento: in
+    aumento o a parita' coincide con l'ottimista e viene dichiarato
+    (realeApplicabile:false). Output: {ok, bloccato, misura, soglie, direzione,
+    pctTarget, quotaMagraPersa, ottimista/realistico {peso,m,g,delta},
+    fascia:[lo,hi], avvisi:[{liv,txt}]}. Non scrive nulla sul paziente.
+  SOGLIE DI SICUREZZA PER SESSO (_TRAGUARDO_SOGLIE, _traguardoSoglie):
+    uomo blocco <6% / avviso <10% / fascia di lavoro 10-20% / default 15%;
+    donna blocco <14% / avviso <20% / fascia 18-30% / default 24%. Il "10-12%"
+    abituale e' una soglia MASCHILE (equivalente femminile 18-22%; sotto il 16%
+    amenorrea e alterazioni ormonali). Senza sesso in anagrafica il motore NON
+    calcola e lo dichiara (nessun ripiego: regola 11 CLAUDE.md). Con
+    bloccato:true i numeri si mostrano ma i bottoni di applicazione spariscono.
+    Altri avvisi: BMI del traguardo <18.5 o >24.9, calo oltre il 20% del peso
+    ("va spezzato in piu' cicli"), % fuori dalla fascia di lavoro abituale.
+  SCRITTURA — UNICO PUNTO _traguardoScrivi(p, dati) (regola 10 CLAUDE.md):
+    aggiorna p.obiettivoPercorso.clinico, appende a p.obiettivoPercorso.storico
+    una riga per OGNI campo chiave cambiato (data, campo, da, a, motivo,
+    decisoDa, metodo — max 60 righe) e allinea p.pesoTarget, che resta lo
+    SPECCHIO DERIVATO: proiezione P115, box "mancano X kg", contesto AI e PDF
+    leggono quello e non sono stati toccati. Il traguardo non si sovrascrive mai
+    in silenzio (stessa architettura di P118 referti e P120 storico InBody).
+    Registrato anche CHI ha deciso (medico/condiviso/paziente) e con che metodo.
+  UI: pannello dentro #mac-peso-rif-box, sopra i chip di confronto
+    (_traguardoPanelHtml guscio statico + _traguardoAnteprima che ridisegna solo
+    #trg-out, cosi' digitando non si perde il focus; _traguardoUsa(scenario)
+    applica, salva, ricompila mac-peso-target e ridisegna anche la scheda
+    Percorso). I chip esistenti (Peso Ideale InBody, BMI, Devine, Robinson)
+    restano ma sono dichiarati "solo per confronto": nessuno dei quattro usa la
+    massa magra misurata — il Peso Ideale InBody la ignora e deriva il valore da
+    altezza e sesso.
+  Tappe 2-5 (domanda in visita strutturata, modelli di periodizzazione,
+  traguardi multipli e comportamentali, vista paziente) restano nella Roadmap.
+
+SALVATAGGIO ANAGRAFICA — campi non gestiti dal form (F5, 25 lug 2026):
+  salvaPaz, nel ramo di modifica, ricostruisce il paziente dal form; prima
+  riportava dal vecchio oggetto solo una whitelist esplicita di campi, e quella
+  lista era ferma a prima di P115/P116/P118 — salvare l'anagrafica cancellava in
+  silenzio p.percorso, p.refertiSangue, p.richiesteAnalisi, p.consuntivo e
+  p.creato. Ora _pazPreservaCampi(pd, _old) riporta per costruzione TUTTO cio'
+  che il form non produce (if(!(k in pd)) pd[k]=old[k]): ogni campo futuro e' al
+  sicuro senza doversi ricordare di aggiungerlo. I campi che il form gestisce
+  restano quelli del form, anche quando vengono svuotati di proposito.
+  Nello stesso giro pesoTarget viene letto da mac-peso-target SOLO se la scheda
+  Macros aperta e' dello stesso paziente che si sta modificando, con ripiego sul
+  valore precedente invece che su null.
 
 CICLIZZAZIONE CARBOIDRATI carico/scarico (P34-ciclo, 4 lug 2026 — commit fd4c23c):
   Per pazienti sportivi (a prescindere dal dimagrimento) o non sportivi che

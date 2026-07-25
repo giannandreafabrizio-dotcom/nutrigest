@@ -10,6 +10,106 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+25 LUGLIO 2026 (5ª sessione) — P122 TAPPA 1: IL TRAGUARDO SI DERIVA DALLA COMPOSIZIONE CORPOREA · F5: LA MODIFICA DELL'ANAGRAFICA CANCELLAVA IN SILENZIO PERCORSO, REFERTI DEL SANGUE E RICHIESTE ESAMI.
+Baseline `924414b`. Test 197 → **212**, tutti verdi (`s2-traguardo-composizione.test.js`).
+
+**Origine.** Domanda di Fabrizio: in visita chiede sempre al paziente *"qual è il
+tuo obiettivo?"*, ma nell'app quella risposta finisce solo in `p.obiettivo`
+(testo libero, usato per estetica in intestazione/PDF/prompt), mentre il numero
+che conta davvero — `p.pesoTarget` — lo decide lui a mano. *"Chi dovrebbe
+decidere quel peso: io, il paziente, il Peso Ideale del referto InBody, il
+BMI?"* Analisi completa nel doc di progetto `NutriGest_Obiettivo_Ragionamento.md`
+(cinque tappe: questa è la prima).
+
+**La risposta è: nessuno dei quattro.** Il traguardo primario non è un peso, è
+una **percentuale di grasso**, e il peso ne è la conseguenza aritmetica:
+`peso obiettivo = massa magra / (1 − %grasso/100)`. È già il metodo clinico reale
+di Fabrizio ("li porto al 10-12% e poi faccio massa"): ragiona in composizione,
+non in chili. Gli altri riferimenti sono più deboli e restano solo di confronto —
+il **Peso Ideale InBody non usa la massa magra appena misurata** (lo deriva da
+altezza e sesso, di fatto un BMI di riferimento: su un muscoloso è sistematicamente
+basso), il BMI è statistica di popolazione, Devine e Robinson sono formule nate
+per dosare i farmaci.
+
+**Cosa è stato fatto (Tappa 1).**
+1. Motore puro `calcolaTraguardoComposizione(p, %target, quotaMagraPersa)`: dalla
+   misurazione InBody più recente produce **due scenari**, non un numero secco —
+   *ottimista* (massa magra tutta conservata) e *realistico* (una quota del calo
+   è massa magra, default 20%, regolabile). Vincolo del realistico:
+   `m − q·X = (1−T)·(peso − X)` → `X = (m − (1−T)·peso)/(q − (1−T))`.
+   Sul paziente di riferimento (92 kg, magra 68, grasso 26.1%) puntando al 12%:
+   **77.3 kg** ottimista, **72.9 kg** realistico. La fascia tra i due È il
+   traguardo onesto: dove cadrai dipende da quanto proteggi la massa magra, cioè
+   da proteine e allenamento coi pesi — le due leve su cui si può agire.
+2. **Soglie di sicurezza per sesso**, non negoziabili: uomo blocco <6% / avviso
+   <10%; donna blocco <14% / avviso <20%. Il "10-12%" di Fabrizio è una soglia
+   MASCHILE: l'equivalente clinico femminile sta sul 18-22% e sotto il 16%
+   compaiono amenorrea e alterazioni ormonali. **Senza il sesso in anagrafica il
+   motore non calcola** e lo dice: meglio fermarsi che riempire con un default
+   plausibile (regola 11). Avvisi anche su BMI fuori norma e su cali >20% del peso
+   ("va spezzato in più cicli").
+3. **Un solo punto di scrittura** (`_traguardoScrivi`, regola 10): aggiorna
+   `p.obiettivoPercorso.clinico`, appende le righe di **storico** dei campi
+   cambiati (data · da → a · motivo · chi ha deciso) e allinea `p.pesoTarget`
+   come **specchio derivato** — così proiezione P115, box "mancano X kg",
+   contesto AI e PDF continuano a funzionare senza toccare una riga.
+   Il traguardo non si sovrascrive mai in silenzio: è la stessa lezione di P118
+   (referti datati) e P120 (storico InBody ordinato), applicata al terzo dato che
+   racconta il tempo.
+4. Registrato **chi ha deciso** (medico / condiviso / paziente) e con quale
+   metodo. Costa due campi e, fra cento pazienti, risponde a una domanda che oggi
+   nessuno può porsi: con quale modo di fissare l'obiettivo i pazienti arrivano
+   in fondo più spesso.
+5. UI dentro `#mac-peso-rif-box` (scheda Macros): pannello 🎯 sopra i chip di
+   confronto, anteprima live che non ridisegna i campi mentre digiti (niente
+   perdita di focus), due bottoni "Usa X kg" — **assenti quando il traguardo è
+   sotto la soglia del grasso essenziale**, dove i numeri si mostrano ma non si
+   applicano. I chip esistenti (Peso Ideale InBody, BMI, Devine, Robinson) restano
+   ma sono stati **declassati a "solo per confronto"**, con scritto perché.
+
+**F5 — bug silenzioso trovato durante il lavoro (grave).** `salvaPaz`, nel ramo
+di modifica, ricostruiva il paziente da zero dal form e riportava dal vecchio
+oggetto solo un **elenco esplicito di campi**. Quella whitelist era ferma a
+prima delle ultime funzioni: **`p.percorso` (P115), `p.refertiSangue` (P118),
+`p.richiesteAnalisi` (P116), `p.consuntivo` e `p.creato` non c'erano**. Effetto:
+aprire l'anagrafica di un paziente e premere Salva **cancellava la timeline di
+periodizzazione e l'intero archivio dei referti del sangue datati**, senza un
+errore a video — restava solo `p.analisiSangue`, cioè lo specchio derivato, che
+faceva sembrare tutto a posto. Non era ancora emerso perché P115/P118 sono del
+24 luglio e il collaudo non era stato fatto.
+**Fix nel punto di scrittura, non un allungamento della lista:**
+`_pazPreservaCampi(pd, _old)` riporta per costruzione **tutto ciò che il form non
+produce** (`if(!(k in pd)) pd[k]=old[k]`), quindi ogni campo futuro è al sicuro
+dal primo giorno; i campi gestiti dal form restano quelli del form, anche quando
+vengono svuotati di proposito. Nello stesso giro protetto anche `pesoTarget`, che
+ora è uno specchio derivato: veniva letto da `mac-peso-target`, cioè dalla scheda
+Macros **aperta**, che può appartenere a un paziente diverso da quello che si sta
+modificando — ora il campo si usa solo se è lo stesso paziente, con ripiego sul
+valore precedente invece che su `null`.
+
+**Lezione (quarta della famiglia, dopo P118, P120 e F4).** Una **whitelist di
+campi da preservare è un elenco che qualcuno deve ricordarsi di allungare**: prima
+o poi non succede, e il dato sparisce in silenzio. Quando la scelta è tra
+"elencare ciò che si salva" e "elencare ciò che si sostituisce", la seconda è
+l'unica che regge il tempo — perché il codice nuovo è sempre nella categoria che
+non è stata elencata.
+
+**Da collaudare in produzione.** (1) Paziente con InBody e sesso impostato →
+scheda Macros → pannello 🎯: cambia la % obiettivo e guarda muoversi i due
+scenari; prova un valore assurdo (4% su un uomo) e verifica che i bottoni
+spariscano. (2) Premi "Usa X kg": il campo Obiettivo peso si compila e la scheda
+📈 Percorso aggiorna la data di raggiungimento. (3) Ripeti con una % diversa e
+controlla la riga "Storico: … ultima il … 77.3 → 74.0 kg". (4) **Verifica di
+F5:** apri un paziente che ha percorso e referti del sangue, modifica
+l'anagrafica, salva, e controlla che scheda 📈 Percorso e archivio referti siano
+ancora lì.
+
+**Resta da fare (P122 tappe 2-5):** la domanda in visita strutturata (categoria,
+motivo, aspettativa del paziente, scadenza personale, importanza/fiducia);
+i modelli di periodizzazione che generano le fasi dal traguardo + il pulsante
+"riallinea"; i traguardi multipli (composizione, esami, circonferenze,
+comportamento); la vista paziente del traguardo di fase.
+
 25 LUGLIO 2026 (4ª sessione) — P121: MOTORE UNICO DELLE GRAMMATURE DELLE ALTERNATIVE.
 Baseline `d905489`. Test 181 → **197**, tutti verdi (`s2-grammature-alternative.test.js`).
 

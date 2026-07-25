@@ -127,7 +127,7 @@ Il generatore automatico di piani alimentari (lettura dati paziente → ricette 
 ## Comandi utili
 ```bash
 # Vai al progetto
-cd C:\Users\User\Desktop\nutrigest
+cd C:\Users\giann\Desktop\nutrigest
 
 # Salva e pubblica una modifica (blocco unico, una riga)
 cd %USERPROFILE%\Desktop\nutrigest && git add index.html && git commit -m "descrizione breve" && git push

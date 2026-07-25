@@ -6077,6 +6077,24 @@ function trovaChiaveAlimento(nome){
   return null;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// F5 (25 lug 2026) — la modifica dell'anagrafica non deve cancellare i dati che
+// il form non gestisce. Prima esisteva un elenco esplicito di campi da riportare
+// da _old: una whitelist che qualcuno doveva ricordarsi di allungare a ogni
+// funzione nuova. Non è successo, e al primo salvataggio dell'anagrafica
+// sparivano in silenzio p.percorso (P115), p.refertiSangue (P118),
+// p.richiesteAnalisi (P116), p.consuntivo e p.creato — nessun errore a video.
+// Qui l'invariante si garantisce nel punto di SCRITTURA (regola 10 CLAUDE.md):
+// tutto ciò che il form non produce viene riportato per costruzione, quindi ogni
+// campo futuro è al sicuro da subito. I campi che il form gestisce restano
+// quelli del form, anche quando vengono svuotati di proposito.
+// ══════════════════════════════════════════════════════════════════════════════
+function _pazPreservaCampi(pd, old){
+  if(!pd||!old||typeof old!=="object") return pd;
+  Object.keys(old).forEach(function(k){ if(!(k in pd)) pd[k]=old[k]; });
+  return pd;
+}
+
 function salvaPaz(){
   const nome=document.getElementById('p-nome').value.trim();
   const cognome=document.getElementById('p-cognome').value.trim();
@@ -6105,7 +6123,19 @@ function salvaPaz(){
     dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
-    pesoTarget:gn('mac-peso-target')||gn('p-peso-target'),prenanna:gs('p-prenanna'),
+    // P122 — pesoTarget e' lo SPECCHIO del traguardo clinico: non deve poter
+    // sparire perche' un campo e' vuoto, ne' riempirsi col valore di un ALTRO
+    // paziente (mac-peso-target appartiene alla scheda Macros aperta, che puo'
+    // essere di un paziente diverso da quello che si sta modificando qui).
+    pesoTarget:(function(){
+      const _stessoPaz = !!editPazId && !!_macrosPaziente && _macrosPaziente.id===editPazId;
+      const _mac = _stessoPaz ? gn('mac-peso-target') : null;
+      if(_mac) return _mac;
+      const _anag = gn('p-peso-target');
+      if(_anag) return _anag;
+      const _prec = editPazId ? (db.pazienti.find(function(x){return x.id===editPazId;})||{}).pesoTarget : null;
+      return (_prec!=null?_prec:null);
+    })(),prenanna:gs('p-prenanna'),
     weekend:gs('p-weekend'),
     weekendAltre:(()=>{ return Array.prototype.slice.call(document.querySelectorAll('#p-weekend-altre .p-we-alt:checked')).map(function(cb){return cb.getAttribute('data-opt');}); })(),
     weekendAlcol:gs('p-weekend-alcol'),
@@ -6124,7 +6154,7 @@ function salvaPaz(){
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
-    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';if(_old.bia&&!pd.bia)pd.bia=_old.bia;db.pazienti[idx]=pd;}
+    if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';if(_old.bia&&!pd.bia)pd.bia=_old.bia;_pazPreservaCampi(pd,_old);db.pazienti[idx]=pd;}
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.refertiSangue=[];pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
@@ -11914,11 +11944,317 @@ function applicaSchema(laf,prot,grassi){
   notif('✓ Valori applicati — clicca Calcola');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// 🎯 TRAGUARDO DALLA COMPOSIZIONE CORPOREA (P122 Tappa 1 — 25 lug 2026)
+// Il peso obiettivo smette di essere un numero digitato a mano e diventa la
+// CONSEGUENZA di una scelta clinica: la % di grasso a cui si punta.
+//   peso obiettivo = massa magra / (1 − %grasso/100)
+// PERCHÉ: il "Peso Ideale" del referto InBody non usa la massa magra appena
+// misurata (lo deriva da altezza e sesso, di fatto un BMI di riferimento), il
+// BMI è una statistica di popolazione e Devine/Robinson sono formule nate per
+// dosare i farmaci. L'unico riferimento che parla del paziente che hai davanti
+// è la sua composizione corporea reale.
+// DUE SCENARI, non un numero secco:
+//   - ottimista  → tutta la massa magra conservata;
+//   - realistico → una quota del calo è massa magra (default 20%, regolabile:
+//     scende con proteine alte + pesi, sale senza allenamento).
+//     Vincolo: massaMagra − q·X = (1−T)·(peso − X)  →  X = (m − (1−T)·peso)/(q − (1−T))
+// La fascia tra i due È il traguardo onesto: dove cadrai dipende da quanto
+// proteggi la massa magra, cioè da come lavori.
+// SICUREZZA: soglie di grasso essenziale diverse per sesso (il "10-12%" è una
+// soglia maschile: sulla donna l'equivalente sta sul 18-22% e sotto il 16%
+// compaiono problemi ormonali). Senza sesso in anagrafica NON si calcola:
+// meglio fermarsi che riempire con un default plausibile (regola 11 CLAUDE.md).
+// SCRITTURA: un solo punto (_traguardoScrivi) aggiorna clinico + storico +
+// p.pesoTarget (specchio derivato, così proiezione/PDF/AI non cambiano di una
+// riga). Il traguardo non si sovrascrive mai in silenzio: ogni revisione è una
+// riga di storico con data, valore precedente, motivo e chi ha deciso.
+// Modello dati: p.obiettivoPercorso = {clinico:{…}, paziente:{…}, storico:[],
+// traguardi:[]} — tutto opzionale: un paziente senza traguardo funziona come prima.
+// ══════════════════════════════════════════════════════════════════════════════
+const _TRAGUARDO_SOGLIE = {
+  M:{blocco:6,  avviso:10, consMin:10, consMax:20, dflt:15, etichetta:"uomo"},
+  F:{blocco:14, avviso:20, consMin:18, consMax:30, dflt:24, etichetta:"donna"}
+};
+
+// Soglie per sesso — null se il sesso non è impostato (nessun ripiego).
+function _traguardoSoglie(sesso){
+  const s=String(sesso||"").trim().toUpperCase();
+  if(s!=="M" && s!=="F") return null;
+  return Object.assign({sesso:s}, _TRAGUARDO_SOGLIE[s]);
+}
+
+// Misurazione di riferimento = la più recente utilizzabile (array ordinato per
+// data da P120, quindi si scorre dal fondo). Massa magra: campo "m", con
+// ripieghi espliciti su peso−grassa e su peso×(1−%grassa).
+function _traguardoMisura(p){
+  const arr=(p&&Array.isArray(p.inbody))?p.inbody:[];
+  for(let i=arr.length-1;i>=0;i--){
+    const ib=arr[i]; if(!ib) continue;
+    const peso=parseFloat(ib.peso);
+    if(!peso||isNaN(peso)||peso<=0) continue;
+    let m=parseFloat(ib.m);
+    if(!m||isNaN(m)){
+      const g=parseFloat(ib.g);
+      if(!isNaN(g)&&g>0) m=peso-g;
+    }
+    if(!m||isNaN(m)){
+      const pgv=parseFloat(ib.pg);
+      if(!isNaN(pgv)&&pgv>0&&pgv<70) m=peso*(1-pgv/100);
+    }
+    if(!m||isNaN(m)||m<=0||m>=peso) continue;
+    const g=peso-m;
+    const pgIb=parseFloat(ib.pg);
+    return {data:ib.data||"", peso:+peso.toFixed(1), m:+m.toFixed(1), g:+g.toFixed(1),
+            pg:(!isNaN(pgIb)&&pgIb>0)?+pgIb:+((g/peso)*100).toFixed(1),
+            altezza:parseFloat(ib.altezza)||parseFloat(p&&p.altezza)||null};
+  }
+  return null;
+}
+
+// Motore puro: dalla % di grasso obiettivo alla fascia di peso, con avvisi.
+// Non scrive nulla sul paziente.
+function calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa){
+  const soglie=_traguardoSoglie(p&&p.sesso);
+  if(!soglie) return {ok:false, motivo:"sesso non impostato",
+    dettaglio:"Il grasso essenziale è diverso tra uomo e donna: senza il sesso in anagrafica il traguardo non è calcolabile."};
+  const mis=_traguardoMisura(p);
+  if(!mis) return {ok:false, motivo:"nessuna misurazione utilizzabile",
+    dettaglio:"Serve almeno un InBody con peso e massa magra (o % di grasso)."};
+  const T=parseFloat(pctTarget);
+  if(isNaN(T)||T<=0||T>=60) return {ok:false, motivo:"percentuale obiettivo non valida", misura:mis, soglie:soglie};
+
+  let q=(quotaMagraPersa===null||quotaMagraPersa===undefined||quotaMagraPersa==="")?20:parseFloat(quotaMagraPersa);
+  if(isNaN(q)||q<0) q=0;
+  if(q>50) q=50;
+  const frac=T/100, qf=q/100;
+  const direzione = T<mis.pg-0.05 ? "perdere" : (T>mis.pg+0.05 ? "aumentare" : "stabile");
+
+  // Scenario ottimista — massa magra intatta.
+  const pesoOtt=mis.m/(1-frac);
+  const ott={peso:+pesoOtt.toFixed(1), m:+mis.m.toFixed(1), g:+(pesoOtt-mis.m).toFixed(1), delta:+(pesoOtt-mis.peso).toFixed(1)};
+
+  // Scenario realistico — una quota del calo è massa magra (solo in dimagrimento).
+  let real=Object.assign({}, ott), realeApplicabile=false;
+  if(direzione==="perdere" && q>0){
+    const den=qf-(1-frac);
+    if(Math.abs(den)>1e-6){
+      const X=(mis.m-(1-frac)*mis.peso)/den;
+      if(X>0 && X<mis.peso*0.6){
+        const pesoR=mis.peso-X, mR=mis.m-qf*X;
+        if(mR>0 && pesoR>0){
+          real={peso:+pesoR.toFixed(1), m:+mR.toFixed(1), g:+(pesoR-mR).toFixed(1), delta:+(-X).toFixed(1)};
+          realeApplicabile=true;
+        }
+      }
+    }
+  }
+
+  const lo=Math.min(ott.peso, real.peso), hi=Math.max(ott.peso, real.peso);
+  const avvisi=[];
+  let bloccato=false;
+  if(T<soglie.blocco){
+    bloccato=true;
+    avvisi.push({liv:"blocco", txt:"Il "+T+"% è sotto la soglia del grasso essenziale ("+soglie.blocco+"% "+soglie.etichetta+"): traguardo non impostabile."});
+  } else if(T<soglie.avviso){
+    avvisi.push({liv:"avviso", txt:"Obiettivo molto aggressivo: sotto il "+soglie.avviso+"% ("+soglie.etichetta+") è territorio da atleta in gara"+(soglie.sesso==="F"?", con rischio di amenorrea e alterazioni ormonali":"")+". Da tenere per periodi brevi e sorvegliati."});
+  }
+  if(!bloccato && (T<soglie.consMin || T>soglie.consMax)){
+    avvisi.push({liv:"nota", txt:"Fuori dalla fascia di lavoro abituale per "+soglie.etichetta+" ("+soglie.consMin+"–"+soglie.consMax+"%)."});
+  }
+  if(direzione==="aumentare"){
+    avvisi.push({liv:"nota", txt:"Il traguardo è SOPRA la % di grasso attuale ("+mis.pg+"%): il percorso comporta un aumento, non un calo."});
+  } else if(direzione==="stabile"){
+    avvisi.push({liv:"nota", txt:"Il traguardo coincide con la % di grasso attuale: nessuna variazione di composizione prevista."});
+  } else if(!realeApplicabile){
+    avvisi.push({liv:"nota", txt:"Scenario realistico non calcolabile con questi valori: resta il solo scenario a massa magra conservata."});
+  }
+  if(mis.altezza){
+    const hM=mis.altezza/100;
+    const bmiLo=lo/(hM*hM), bmiHi=hi/(hM*hM);
+    if(bmiLo<18.5) avvisi.push({liv:"avviso", txt:"Il traguardo corrisponde a un BMI di "+bmiLo.toFixed(1)+", sotto la soglia di normopeso (18.5)."});
+    else if(bmiHi>24.9) avvisi.push({liv:"nota", txt:"Il traguardo resta sopra il normopeso da BMI ("+bmiHi.toFixed(1)+"): normale su un soggetto muscoloso, la composizione conta più del BMI."});
+  }
+  const kgMax=Math.abs(Math.min(ott.delta, real.delta));
+  if(direzione==="perdere" && kgMax>mis.peso*0.2){
+    avvisi.push({liv:"nota", txt:"Sono "+kgMax.toFixed(1)+" kg: un percorso di questa portata va spezzato in più cicli deficit → mantenimento."});
+  }
+
+  return {ok:true, bloccato:bloccato, misura:mis, soglie:soglie, direzione:direzione,
+          pctTarget:+T, quotaMagraPersa:+q, realeApplicabile:realeApplicabile,
+          ottimista:ott, realistico:real, fascia:[+lo.toFixed(1), +hi.toFixed(1)],
+          avvisi:avvisi};
+}
+
+// Lettura normalizzata di p.obiettivoPercorso (null se non c'è).
+function _traguardoGet(p){
+  const o=p&&p.obiettivoPercorso;
+  if(!o||typeof o!=="object") return null;
+  return {
+    clinico:(o.clinico&&typeof o.clinico==="object")?o.clinico:null,
+    paziente:(o.paziente&&typeof o.paziente==="object")?o.paziente:null,
+    storico:Array.isArray(o.storico)?o.storico:[],
+    traguardi:Array.isArray(o.traguardi)?o.traguardi:[]
+  };
+}
+
+// UNICO punto di scrittura del traguardo clinico (regola 10 CLAUDE.md:
+// l invariante si garantisce dove si SCRIVE). Aggiorna clinico, appende le
+// righe di storico per i campi cambiati e allinea p.pesoTarget.
+function _traguardoScrivi(p, dati){
+  if(!p||!dati||typeof dati!=="object") return null;
+  if(!p.obiettivoPercorso||typeof p.obiettivoPercorso!=="object") p.obiettivoPercorso={};
+  const o=p.obiettivoPercorso;
+  if(!Array.isArray(o.storico)) o.storico=[];
+  const prec=(o.clinico&&typeof o.clinico==="object")?o.clinico:{};
+  const oggi=(typeof _percorsoIsoLocal==="function")?_percorsoIsoLocal(Date.now()):new Date().toISOString().slice(0,10);
+  const num=function(v){ const n=parseFloat(v); return isNaN(n)?null:n; };
+  const nuovo={
+    metodo: dati.metodo||"pctGrasso",
+    pctGrassoTarget: num(dati.pctGrassoTarget),
+    quotaMagraPersa: num(dati.quotaMagraPersa),
+    pesoTarget: num(dati.pesoTarget),
+    pesoOttimista: num(dati.pesoOttimista),
+    pesoRealistico: num(dati.pesoRealistico),
+    massaGrassaTargetKg: num(dati.massaGrassaTargetKg),
+    massaMagraRif: num(dati.massaMagraRif),
+    scenario: dati.scenario||null,
+    decisoDa: dati.decisoDa||"medico",
+    data: oggi
+  };
+  [["pesoTarget","peso obiettivo (kg)"],["pctGrassoTarget","% grasso obiettivo"]].forEach(function(c){
+    const da=(prec[c[0]]!==undefined&&prec[c[0]]!==null)?prec[c[0]]:null;
+    const a=nuovo[c[0]];
+    if(a===null) return;
+    if(da===null || Math.abs(+da-+a)>0.001){
+      o.storico.push({data:oggi, campo:c[0], etichetta:c[1], da:da, a:a,
+                      motivo:dati.motivo||"", decisoDa:nuovo.decisoDa, metodo:nuovo.metodo});
+    }
+  });
+  if(o.storico.length>60) o.storico=o.storico.slice(-60);
+  o.clinico=nuovo;
+  if(nuovo.pesoTarget!==null) p.pesoTarget=nuovo.pesoTarget;   // specchio derivato
+  return nuovo;
+}
+
+// ── Pannello 🎯 nella scheda Macros (dentro #mac-peso-rif-box) ────────────────
+// Guscio statico: i due campi NON vengono ridisegnati mentre digiti (si
+// perderebbe il focus), si aggiorna solo #trg-out via _traguardoAnteprima.
+function _traguardoPanelHtml(p){
+  const soglie=_traguardoSoglie(p&&p.sesso);
+  const mis=_traguardoMisura(p);
+  const salvato=_traguardoGet(p);
+  const cl=salvato&&salvato.clinico?salvato.clinico:null;
+  const box=function(inner){
+    return '<div style="border:1.5px solid #B8860B;background:#FFFDF5;border-radius:10px;padding:.55rem .75rem;margin:-.3rem 0 .8rem">'
+      +'<div style="font-size:.73rem;font-weight:700;color:#8a6508;margin-bottom:.3rem">🎯 Traguardo dalla composizione corporea'
+      +' <span style="font-weight:600;font-size:.6rem;background:#B8860B;color:#fff;border-radius:4px;padding:1px 5px;vertical-align:1px">metodo consigliato</span></div>'
+      +inner+'</div>';
+  };
+  if(!soglie) return box('<div style="font-size:.7rem;color:#b45309">⚠️ Imposta il <strong>Sesso</strong> nell\'anagrafica del paziente: il grasso essenziale è diverso tra uomo e donna e senza quel dato il traguardo non è calcolabile.</div>');
+  if(!mis) return box('<div style="font-size:.7rem;color:#b45309">⚠️ Serve almeno una misurazione InBody con <strong>peso e massa magra</strong> per calcolare il traguardo dalla composizione.</div>');
+  const pctIni = cl&&cl.pctGrassoTarget!=null ? cl.pctGrassoTarget : soglie.dflt;
+  const quotaIni = cl&&cl.quotaMagraPersa!=null ? cl.quotaMagraPersa : 20;
+  const decisoIni = cl&&cl.decisoDa ? cl.decisoDa : "medico";
+  const opt=function(v,l){ return '<option value="'+v+'"'+(decisoIni===v?' selected':'')+'>'+l+'</option>'; };
+  return box(
+     '<div style="font-size:.66rem;color:var(--text3);margin-bottom:.4rem">Oggi: <strong>'+mis.peso+' kg</strong> · massa magra <strong>'+mis.m+' kg</strong> · massa grassa <strong>'+mis.g+' kg</strong> ('+mis.pg+'%)'+(mis.data?' — InBody del '+(typeof fData==="function"?fData(mis.data):mis.data):'')+'</div>'
+    +'<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.45rem">'
+      +'<div><div style="font-size:.63rem;color:var(--text3)">% grasso obiettivo</div>'
+        +'<input type="number" id="trg-pct" step="0.5" min="1" max="59" value="'+pctIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem;font-weight:700"></div>'
+      +'<div><div style="font-size:.63rem;color:var(--text3)">quota del calo da massa magra</div>'
+        +'<input type="number" id="trg-quota" step="5" min="0" max="50" value="'+quotaIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">%</span></div>'
+      +'<div><div style="font-size:.63rem;color:var(--text3)">deciso da</div>'
+        +'<select id="trg-deciso" style="font-size:.75rem">'+opt("medico","io (medico)")+opt("condiviso","condiviso")+opt("paziente","il paziente")+'</select></div>'
+    +'</div>'
+    +'<div style="font-size:.62rem;color:var(--text3);margin-bottom:.35rem">La quota di massa magra persa scende con proteine alte e allenamento coi pesi (10-15%), sale senza allenamento (25-30%).</div>'
+    +'<div id="trg-out"></div>'
+  );
+}
+
+// Ricalcola SOLO l anteprima (#trg-out): nessun dato scritto sul paziente.
+function _traguardoAnteprima(){
+  const out=document.getElementById("trg-out");
+  if(!out) return;
+  const p=_macrosPaziente;
+  const gv=function(id){ const el=document.getElementById(id); return el?el.value:""; };
+  const r=calcolaTraguardoComposizione(p, gv("trg-pct"), gv("trg-quota"));
+  if(!r||!r.ok){
+    out.innerHTML='<div style="font-size:.7rem;color:#b45309">'+((r&&r.dettaglio)||(r&&r.motivo)||"Traguardo non calcolabile")+'</div>';
+    return;
+  }
+  const o=r.ottimista, re=r.realistico;
+  const kgOtt=Math.abs(o.delta), kgReal=Math.abs(re.delta);
+  const verbo=r.direzione==="aumentare"?"da mettere":"da perdere";
+  let h='<div style="font-size:.72rem;line-height:1.55">'
+    +'<div>▸ massa magra conservata → <strong style="font-size:.85rem">'+o.peso+' kg</strong> <span style="color:var(--text3)">(magra '+o.m+' · grassa '+o.g+' kg)</span></div>';
+  if(r.realeApplicabile){
+    h+='<div>▸ scenario realistico ('+r.quotaMagraPersa+'% del calo da massa magra) → <strong style="font-size:.85rem">'+re.peso+' kg</strong> <span style="color:var(--text3)">(magra '+re.m+' · grassa '+re.g+' kg)</span></div>';
+  }
+  h+='<div style="margin-top:.25rem;padding:.3rem .5rem;background:#FFF3CD;border-radius:6px;color:#7a5b00"><strong>Fascia: '+r.fascia[0]+' – '+r.fascia[1]+' kg</strong>'
+    +(r.direzione!=="stabile"?' · '+verbo+' '+Math.min(kgOtt,kgReal).toFixed(1)+'–'+Math.max(kgOtt,kgReal).toFixed(1)+' kg':'')+'</div></div>';
+  (r.avvisi||[]).forEach(function(a){
+    const st = a.liv==="blocco" ? "background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c"
+             : a.liv==="avviso" ? "background:#fff7ed;border:1px solid #fdba74;color:#c2410c"
+             : "background:var(--bg2);border:1px solid var(--border);color:var(--text2)";
+    const ic = a.liv==="blocco" ? "⛔" : (a.liv==="avviso" ? "⚠️" : "ℹ️");
+    h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+st+'">'+ic+' '+a.txt+'</div>';
+  });
+  if(!r.bloccato){
+    h+='<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem">';
+    if(r.realeApplicabile){
+      h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'realistico\')">Usa '+re.peso+' kg (realistico)</button>';
+      h+='<button type="button" class="btn btn-g btn-sm" onclick="_traguardoUsa(\'ottimista\')">Usa '+o.peso+' kg (ottimista)</button>';
+    } else {
+      h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'ottimista\')">Usa '+o.peso+' kg</button>';
+    }
+    h+='</div>';
+  }
+  // storico delle revisioni: il traguardo non si sovrascrive mai in silenzio
+  const sal=_traguardoGet(p);
+  if(sal&&sal.storico.length){
+    const rig=sal.storico.filter(function(s){return s.campo==="pesoTarget";});
+    const ult=rig.length?rig[rig.length-1]:null;
+    if(ult){
+      h+='<div style="margin-top:.4rem;font-size:.64rem;color:var(--text3)">Storico: '+rig.length+' '+(rig.length===1?"impostazione":"revisioni")
+        +' · ultima il '+(typeof fData==="function"?fData(ult.data):ult.data)+': '
+        +(ult.da!=null?ult.da+' → ':'impostato a ')+ult.a+' kg'
+        +(ult.decisoDa?' ('+ult.decisoDa+')':'')+'</div>';
+    }
+  }
+  out.innerHTML=h;
+}
+
+// Applica il traguardo: unico punto che scrive (via _traguardoScrivi), allinea
+// il campo visibile, salva e ridisegna. Nessun ricalcolo automatico silenzioso.
+function _traguardoUsa(scenario){
+  const p=_macrosPaziente;
+  if(!p){ notif("⚠ Nessun paziente aperto"); return; }
+  const gv=function(id){ const el=document.getElementById(id); return el?el.value:""; };
+  const r=calcolaTraguardoComposizione(p, gv("trg-pct"), gv("trg-quota"));
+  if(!r||!r.ok){ notif("⚠ "+((r&&r.dettaglio)||(r&&r.motivo)||"traguardo non calcolabile"),4000); return; }
+  if(r.bloccato){ notif("⛔ Sotto la soglia del grasso essenziale: traguardo non impostabile",4000); return; }
+  const sc = scenario==="ottimista" ? r.ottimista : r.realistico;
+  _traguardoScrivi(p, {
+    metodo:"pctGrasso", pctGrassoTarget:r.pctTarget, quotaMagraPersa:r.quotaMagraPersa,
+    pesoTarget:sc.peso, pesoOttimista:r.ottimista.peso, pesoRealistico:r.realistico.peso,
+    massaGrassaTargetKg:sc.g, massaMagraRif:r.misura.m, scenario:scenario,
+    decisoDa:gv("trg-deciso")||"medico"
+  });
+  const el=document.getElementById("mac-peso-target");
+  if(el){ el.value=p.pesoTarget; el.dispatchEvent(new Event("input")); }
+  if(typeof save==="function") save(p.id);
+  notif("🎯 Traguardo impostato: "+p.pesoTarget+" kg ("+r.pctTarget+"% di grasso)");
+  _renderRifPesoBox();
+  if(typeof renderPdPercorso==="function") renderPdPercorso(p);
+}
+
 // P-RIF-PESO: box di riferimento per l'obiettivo peso — Peso Ideale InBody, range BMI normale, Devine, Robinson
 function _renderRifPesoBox(){
   var box=document.getElementById('mac-peso-rif-box');
   if(!box) return;
   var p=_macrosPaziente||{};
+  var trgHtml=_traguardoPanelHtml(p);   // P122 — il traguardo dalla composizione sta SOPRA i riferimenti
   var lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   var altezzaCm=(lastIb&&lastIb.altezza?parseFloat(lastIb.altezza):null)||(p.altezza?parseFloat(p.altezza):null);
   var sesso=p.sesso||null;
@@ -11945,7 +12281,8 @@ function _renderRifPesoBox(){
     hint='<div style="font-size:.63rem;color:#B8860B;margin-top:.35rem">Imposta il <strong>Sesso</strong> nell\'anagrafica del paziente per vedere anche le stime Devine e Robinson.</div>';
   }
   if(!refs.length){
-    box.innerHTML='<div style="font-size:.68rem;color:var(--text3);margin:-.3rem 0 .8rem">Inserisci altezza/sesso (o un referto InBody con Peso Ideale) per vedere qui dei riferimenti sull\'obiettivo peso.</div>';
+    box.innerHTML=trgHtml+'<div style="font-size:.68rem;color:var(--text3);margin:-.3rem 0 .8rem">Inserisci altezza/sesso (o un referto InBody con Peso Ideale) per vedere qui anche i riferimenti di confronto.</div>';
+    _traguardoAnteprima();
     return;
   }
   var chips=refs.map(function(r){
@@ -11957,11 +12294,12 @@ function _renderRifPesoBox(){
       +'<span style="font-size:.62rem;font-weight:400;opacity:.8">'+r.note+'</span>'
       +'</button>';
   }).join('');
-  box.innerHTML='<div style="margin:-.3rem 0 .8rem">'
-    +'<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem">Riferimenti per l\'obiettivo peso — clicca per usare il valore:</div>'
+  box.innerHTML=trgHtml+'<div style="margin:-.3rem 0 .8rem">'
+    +'<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem">Altri riferimenti, solo per confronto — clicca per usare il valore. <span style="color:#b45309">Nessuno di questi usa la massa magra misurata:</span> il Peso Ideale InBody lo deriva da altezza e sesso, il BMI è una statistica di popolazione, Devine e Robinson sono formule nate per dosare i farmaci.</div>'
     +'<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+chips+'</div>'
     +hint
     +'</div>';
+  _traguardoAnteprima();
 }
 function _usaRifPeso(val){
   var el=document.getElementById('mac-peso-target');

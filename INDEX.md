@@ -222,6 +222,7 @@ Righe 5172-7021
 - `5383` — editPaz
 - `5446` — applicaRegoloSemaforo
 - `5957` — trovaChiaveAlimento
+- `6092` — _pazPreservaCampi *(F5 — l'anagrafica non cancella i campi che il form non gestisce)*
 - `5966` — salvaPaz
 - `6024` — openPaz
 - `6708` — renderPdRoutine
@@ -456,7 +457,16 @@ Righe 11637-13112
 - `11637` — aggiornaLabelMacros
 - `11655` — calcolaMacros
 - `11796` — applicaSchema
-- `11804` — _renderRifPesoBox
+- `11975` — _TRAGUARDO_SOGLIE *(P122 — soglie grasso essenziale per sesso)*
+- `11981` — _traguardoSoglie *(null se il sesso manca: nessun ripiego)*
+- `11990` — _traguardoMisura *(InBody piu' recente + ripieghi sulla massa magra)*
+- `12017` — calcolaTraguardoComposizione *(P122 Tappa 1 — due scenari, fascia, avvisi)*
+- `12090` — _traguardoGet *(normalizza p.obiettivoPercorso)*
+- `12104` — _traguardoScrivi *(UNICO punto di scrittura: clinico + storico + specchio pesoTarget)*
+- `12143` — _traguardoPanelHtml *(guscio statico del pannello 🎯)*
+- `12176` — _traguardoAnteprima *(ridisegna solo #trg-out: niente perdita di focus)*
+- `12230` — _traguardoUsa *(applica lo scenario scelto, salva, ridisegna)*
+- `12253` — _renderRifPesoBox
 - `11852` — _usaRifPeso
 - `11856` — _aggiornaRifPesoTarget
 - `11859` — _aggiornaRegimeSlider
