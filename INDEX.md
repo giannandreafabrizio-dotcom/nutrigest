@@ -70,11 +70,16 @@ Righe 3439-3685
 
 - `3439` — getCategoriaSemaforo
 - `3456` — _getCategorieGruppo
-- `3470` — calcolaGrammaturaEquivalente
-- `3487` — criterioByCat
-- `3498` — suggerisciGrEquivalente
-- `3543` — arrotondaPorzioneDiscreta
-- `3557` — getCategoriaFunzionale
+- `3475` — calcolaGrammaturaEquivalente
+- `3515` — _gruppoEquiv  (P121: gruppo di equivalenza + criterio per categoria funzionale)
+- `3521` — _porzioneStandard  (P121: porzione `g` di database dell'alimento)
+- `3536` — suggerisciGrEquivalente  (P121: firma a 3 argomenti, il gruppo si deduce dai due alimenti)
+- `3562` — _etichettaCriterio  (P121: ≈carbo / ≈prot / ≈grassi / fissa / porzione)
+- `3577` — _promptAlternativeGrassi  (P121: riga del prompt AI generata dal motore)
+- `3593` — ricalcolaAlternative  (P121: MOTORE UNICO, unico punto che scrive la grammatura di un'alternativa)
+- `3612` — ricalcolaAlternativePiano  (P121: applica il motore a tutte le celle di un piano)
+- `3661` — arrotondaGrammatura  (P121: sostituisce arrotondaPorzioneDiscreta — pezzi interi senza tetto / 5g)
+- `3671` — getCategoriaFunzionale
 - `3597` — catArr
 - `3613` — _tagComuniTrova
 - `3617` — getTagComuniChip

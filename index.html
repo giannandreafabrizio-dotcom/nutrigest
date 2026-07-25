@@ -3391,6 +3391,11 @@ const _ALIMENTI_OVERRIDE_CATEGORIA = {
   'Cacao amaro': 'fit',
   'Acai in polvere': 'fit',
   'Moringa': 'fit',
+  // P121 — l'avocado sta nella categoria semaforo "Frutta" ma nutrizionalmente e' un
+  // grasso (1,8g di carboidrati per 100g). Con l'equivalenza della frutta sui carboidrati
+  // dava numeri rotti: 150g di mela → 833g di avocado. Come grasso rientra nel gruppo
+  // dell'olio, che e' il posto in cui Fabrizio lo usa davvero.
+  'Avocado': 'grasso',
   // Frutta secca specifica
   'Noci': 'grasso',
   'Mandorle': 'grasso',
@@ -3466,14 +3471,14 @@ function _getCategorieGruppo(catSemaforo) {
 // Fonte: tabelle Dott.ssa Colombo + database CREA_ALIMENTI
 // Calcola quanti grammi di alimentoAlt forniscono lo stesso apporto
 // del macronutriente scelto di grBase grammi di alimentoBase.
-// criterio: 'carbo' | 'proteine' | 'kcal'
+// criterio: 'carbo' | 'proteine' | 'grassi' | 'kcal'
 function calcolaGrammaturaEquivalente(alimentoBase, grBase, alimentoAlt, criterio) {
   criterio = criterio || 'carbo';
   var vBase = getValoriCREA(alimentoBase, null);
   var vAlt  = getValoriCREA(alimentoAlt,  null);
   if (!vBase || !vAlt) return null;
 
-  var key = criterio === 'proteine' ? 'p' : criterio === 'kcal' ? 'kcal' : 'c';
+  var key = criterio === 'proteine' ? 'p' : criterio === 'grassi' ? 'g' : criterio === 'kcal' ? 'kcal' : 'c';
   var valBase = vBase[key];
   var valAlt  = vAlt[key];
   if (!valBase || !valAlt || valAlt === 0) return null;
@@ -3483,73 +3488,182 @@ function calcolaGrammaturaEquivalente(alimentoBase, grBase, alimentoAlt, criteri
   return Math.round(grAlt);
 }
 
-// Determina il criterio di equivalenza migliore per una categoria funzionale
-function criterioByCat(cat) {
-  if (cat === 'carbo')    return 'carbo';
-  if (cat === 'proteine') return 'proteine';
-  if (cat === 'legumi')   return 'proteine';
-  if (cat === 'frutta')   return 'carbo';
-  if (cat === 'verdura')  return 'kcal';
-  if (cat === 'olio')     return 'kcal';
-  return 'kcal';
+// ── P121 — GRUPPI DI EQUIVALENZA (decisioni cliniche di Fabrizio, 25 lug 2026) ─
+// Due alimenti si equivalgono SOLO se appartengono allo stesso gruppo; il macro su
+// cui si calcola dipende dal gruppo. Alimenti di gruppi diversi (es. un legume come
+// alternativa alla pasta) NON si calcolano: prendono la loro porzione standard.
+//   carbo/frutta/legumi → carboidrati · proteine → proteine · olio+grasso → GRASSI
+//   verdura → nessun calcolo, stessa grammatura del principale (criterio null)
+// Perche' i grassi e non le kcal: l'olio e' 100% lipidi, sulle kcal l'equivalenza
+// faceva entrare anche carboidrati e proteine dell'alternativa (avocado, frutta secca).
+// Perche' i legumi sui carboidrati e non sulle proteine: nello schema di Fabrizio il
+// legume in barattolo sta nella cella glucidica; tra legumi diversi conta il carboidrato.
+// NESSUN tetto di plausibilita': 80g di pasta valgono davvero 354g di patate e 150g di
+// pollo valgono davvero 275g di uovo. Il valore vero si mostra sempre.
+var _GRUPPI_EQUIV = {
+  carbo:      {gruppo:'carbo',      criterio:'carbo'},
+  frutta:     {gruppo:'frutta',     criterio:'carbo'},
+  legumi:     {gruppo:'legumi',     criterio:'carbo'},
+  proteine:   {gruppo:'proteine',   criterio:'proteine'},
+  olio:       {gruppo:'grassi',     criterio:'grassi'},
+  grasso:     {gruppo:'grassi',     criterio:'grassi'},
+  verdura:    {gruppo:'verdura',    criterio:null},
+  fit:        {gruppo:'fit',        criterio:'kcal'},
+  condimento: {gruppo:'condimento', criterio:'kcal'}
+};
+
+function _gruppoEquiv(nomeAlimento) {
+  var cat = (typeof getCategoriaFunzionale === 'function') ? getCategoriaFunzionale(nomeAlimento) : 'condimento';
+  return _GRUPPI_EQUIV[cat] || _GRUPPI_EQUIV.condimento;
 }
 
-// Dato principale + alternativa + categoria, ritorna grammatura equivalente
-function suggerisciGrEquivalente(nPrinc, gPrinc, nAlt, cat) {
-  var criterio = criterioByCat(cat);
-  var gr = calcolaGrammaturaEquivalente(nPrinc, gPrinc, nAlt, criterio);
-  if (!gr) return null;
-  return { gr: gr, criterio: criterio };
+// Porzione standard dell'alimento dal database ALIMENTI (il campo `g` della voce).
+function _porzioneStandard(nomeAlimento) {
+  if (!nomeAlimento || typeof ALIMENTI !== 'object' || !ALIMENTI) return null;
+  for (var cat in ALIMENTI) {
+    var d = ALIMENTI[cat];
+    if (!d || !Array.isArray(d.items)) continue;
+    for (var i = 0; i < d.items.length; i++) {
+      if (d.items[i] && d.items[i].n === nomeAlimento) return d.items[i].g || null;
+    }
+  }
+  return null;
+}
+
+// Dato principale + alternativa, ritorna {gr, criterio} gia' arrotondato.
+// criterio: 'carbo' | 'proteine' | 'grassi' | 'kcal' | 'fissa' | 'porzione'
+// (il 4o parametro storico `cat` non serve piu': il gruppo si deduce dai due alimenti)
+function suggerisciGrEquivalente(nPrinc, gPrinc, nAlt) {
+  if (!nPrinc || !nAlt) return null;
+  var gP = parseFloat(gPrinc);
+  if (!isFinite(gP) || gP <= 0) return null;
+  var eP = _gruppoEquiv(nPrinc), eA = _gruppoEquiv(nAlt);
+
+  // Gruppi diversi → niente equivalenza, porzione standard di database
+  if (eP.gruppo !== eA.gruppo) {
+    var std = _porzioneStandard(nAlt);
+    return std ? { gr: arrotondaGrammatura(nAlt, std), criterio: 'porzione' } : null;
+  }
+  // Verdura → grammatura fissa, uguale a quella del principale
+  if (!eP.criterio) {
+    return { gr: arrotondaGrammatura(nAlt, gP), criterio: 'fissa' };
+  }
+  var gr = calcolaGrammaturaEquivalente(nPrinc, gP, nAlt, eP.criterio);
+  if (gr == null) {
+    var std2 = _porzioneStandard(nAlt);
+    return std2 ? { gr: arrotondaGrammatura(nAlt, std2), criterio: 'porzione' } : null;
+  }
+  return { gr: arrotondaGrammatura(nAlt, gr), criterio: eP.criterio };
+}
+
+// Etichetta breve del criterio, mostrata in interfaccia accanto alla grammatura:
+// serve a capire a colpo d'occhio se il numero e' un'equivalenza calcolata,
+// una quantita' fissa o la porzione standard dell'alimento.
+function _etichettaCriterio(criterio) {
+  return criterio === 'carbo'    ? '≈carbo'
+       : criterio === 'proteine' ? '≈prot'
+       : criterio === 'grassi'   ? '≈grassi'
+       : criterio === 'kcal'     ? '≈kcal'
+       : criterio === 'fissa'    ? 'fissa'
+       : criterio === 'porzione' ? 'porzione'
+       : '';
+}
+
+// P121 — la riga di prompt con le alternative alla cella olio/grassi era scritta a mano
+// e non coincideva col motore (diceva "Frutta secca mista 20g per 10g di olio", il valore
+// vero sui grassi e' 11g). Ora e' generata dal motore stesso: app e AI dicono lo stesso numero.
+var _ALT_GRASSI_PROMPT = ['Avocado','Frutta secca mista','Semi di chia','Semi di lino',
+                          'Olive verdi','Olive nere','Burro arachidi','Burro mandorle'];
+function _promptAlternativeGrassi(olioG) {
+  var base = parseFloat(olioG) || 10;
+  var out = [];
+  _ALT_GRASSI_PROMPT.forEach(function(n) {
+    var r = suggerisciGrEquivalente('Olio EVO', base, n);
+    if (r && r.gr > 0) out.push(n + ' ' + r.gr + 'g');
+  });
+  return out.join(', ');
+}
+
+// ── MOTORE UNICO: le alternative non si SCALANO, si RICALCOLANO dal principale ─
+// Prima di P121 esistevano due comportamenti opposti: la modifica dal piano scalava
+// le alternative in proporzione (moltiplicando anche gli errori di partenza), quella
+// dal pannello Macros non le toccava affatto — da cui il "delle volte cambiano e
+// delle volte no". Questa e' ora l'UNICA funzione che scrive la grammatura di
+// un'alternativa; va chiamata da ogni punto che modifica la cella.
+function ricalcolaAlternative(cella) {
+  if (!cella || !Array.isArray(cella.alimenti) || cella.alimenti.length < 2) return cella;
+  var princ = cella.alimenti[0];
+  if (!princ || !princ.n) return cella;
+  var gPrinc = parseFloat(princ.g);
+  if (!isFinite(gPrinc) || gPrinc <= 0) return cella;
+  for (var i = 1; i < cella.alimenti.length; i++) {
+    var alt = cella.alimenti[i];
+    if (!alt || !alt.n) continue;
+    // Le ricette composte (B7) hanno una grammatura propria legata ai loro macro: non toccarle
+    if (alt.ricettaComposta || alt.macrosOverride) continue;
+    var r = suggerisciGrEquivalente(princ.n, gPrinc, alt.n);
+    if (r && r.gr > 0) { alt.g = r.gr; alt.eq = r.criterio; }
+  }
+  return cella;
+}
+
+// Applica ricalcolaAlternative a tutte le celle di un piano (usato sull'output AI:
+// l'AI decide COSA mettere, l'app decide QUANTO).
+function ricalcolaAlternativePiano(piano) {
+  if (!Array.isArray(piano)) return piano;
+  piano.forEach(function(g) {
+    if (!g || !g.pasti) return;
+    Object.keys(g.pasti).forEach(function(k) {
+      var pa = g.pasti[k];
+      if (pa && Array.isArray(pa.celle)) pa.celle.forEach(ricalcolaAlternative);
+    });
+  });
+  return piano;
 }
 // ── FINE PRIORITA' 2A ────────────────────────────────────────────────────────
 
 
-// ── PRIORITA' 2B: PORZIONI DISCRETE COMMERCIALI ───────────────────────────────
-// Per alimenti a porzionamento forzato, arrotonda alla porzione commerciale
-// piu' vicina. Ritorna il valore arrotondato (o il valore originale se non applicabile).
-var PORZIONI_DISCRETE = {
-  // Latticini
-  'Yogurt':                     [125, 150, 200, 250],
-  'Yogurt greco 2%':            [150, 200],
-  'Mozzarella di vacca':        [100, 125, 200],
-  'Mozzarella Protinella':      [100, 125],
-  'Philadelphia light':         [30, 60, 100],
-  'Ricotta di vacca':           [100, 125, 200],
-  'Fiocchi di latte':           [150],
-  // Pesce
-  'Tonno al naturale':          [60, 120],
-  'Tonno sottolio sgocciolato': [60, 120],
-  'Sgombro al naturale':        [90, 120],
-  'Salmone affumicato':         [80, 100],
-  // Pane e sostituti
-  'Pane comune':                [50, 80, 100],
-  'Pane integrale':             [50, 80, 100],
-  'Pane di segale':             [50, 80, 100],
-  'Gallette di riso':           [20, 40, 60],
-  'Wasa (contiene glutine)':    [10, 20, 30],
-  'Frisella':                   [40, 80],
-  'Fette biscottate integrali': [6, 12, 18, 24, 30, 36],
-  'Crackers':                   [25, 50],
-  'Piadina':                    [70, 100, 140],
+// ── P121 — ARROTONDAMENTO: PESI UNITARI, NON PORZIONI CHIUSE ──────────────────
+// Sostituisce PORZIONI_DISCRETE, che era una lista CHIUSA di totali ammessi e
+// prendeva sempre il valore piu' vicino, senza limite di distanza: 102g di fette
+// biscottate (l'equivalente in carboidrati di 80g di pasta, cioe' 10 fette) finivano
+// schiacciati sul massimo della lista, 36g; 282g di uovo finivano a 150g. Errore
+// silenzioso, senza avvisi, fino al −65%.
+// Il modello giusto e' quello con cui ragiona il nutrizionista: si definisce quanto
+// pesa UN PEZZO e si arrotonda al numero intero di pezzi. Nessun tetto.
+// I latticini NON sono qui di proposito (decisione del 25 lug 2026): yogurt, mozzarella
+// e ricotta seguono il passo standard di 5g, cosi' restano liberi di salire a 150g o
+// 200g per chi compra la confezione grande, invece di essere incastrati sul vasetto.
+var _PESI_UNITARI = {
   // Uova
-  'Uovo intero':                [50, 100, 150],
-  'Albumi':                     [33, 66, 100],
-  'Tuorlo':                     [18, 36],
-  // Proteine vegetali
-  'Tofu':                       [125, 200, 250],
-  'Seitan':                     [180, 250],
+  'Uovo intero':                55,
+  'Albumi':                     33,
+  'Tuorlo':                     18,
+  // Pane e sostituti che si contano a pezzi
+  'Fette biscottate integrali': 10,
+  'Gallette di riso':           10,
+  'Wasa (contiene glutine)':    10,
+  'Crackers':                   25,
+  'Frisella':                   40,
+  'Piadina':                    70,
+  // Scatolette
+  'Tonno al naturale':          60,
+  'Tonno sottolio sgocciolato': 60,
+  'Sgombro al naturale':        90,
+  // Proteine vegetali in panetto
+  'Tofu':                      125,
+  'Seitan':                    180
 };
 
-function arrotondaPorzioneDiscreta(nomeAlimento, grammiCalcolati) {
-  var porzioni = PORZIONI_DISCRETE[nomeAlimento];
-  if (!porzioni || !porzioni.length) return grammiCalcolati;
-  var best = porzioni[0];
-  var bestDist = Math.abs(grammiCalcolati - best);
-  for (var i = 1; i < porzioni.length; i++) {
-    var dist = Math.abs(grammiCalcolati - porzioni[i]);
-    if (dist < bestDist) { best = porzioni[i]; bestDist = dist; }
-  }
-  return best;
+// Unico punto di arrotondamento delle grammature.
+// Alimento a pezzi → numero intero di pezzi (minimo 1, nessun massimo).
+// Tutto il resto → multipli di 5g (minimo 5g).
+function arrotondaGrammatura(nomeAlimento, grammiCalcolati) {
+  var g = parseFloat(grammiCalcolati);
+  if (!isFinite(g) || g <= 0) return 0;
+  var u = _PESI_UNITARI[nomeAlimento];
+  if (u) return Math.max(1, Math.round(g / u)) * u;
+  return Math.max(5, Math.round(g / 5) * 5);
 }
 // ── FINE PRIORITA' 2B ─────────────────────────────────────────────────────────
 
@@ -14231,6 +14345,9 @@ function pmgCambiaGrammi(input) {
   var cella = ctx.pasto.celle.find(function(c){return c.id===cellId;});
   if (!cella || !cella.alimenti[idx]) return;
   cella.alimenti[idx].g = nuovoG;
+  // P121: stesso comportamento della modifica dal piano — prima questo punto NON
+  // toccava le alternative, ed era la causa del "delle volte cambiano e delle volte no"
+  if (idx === 0) ricalcolaAlternative(cella);
 
   // Aggiorna piano principale (ri-render giorno senza toccare il pannello — evita loop)
   _aggiornaPianoBox();
@@ -15221,13 +15338,13 @@ REGOLE STRUTTURA CELLE:
 - Il primo alimento di ogni cella è il principale, gli altri sono alternative
 - MASSIMO 6 alimenti per cella (1 principale + max 5 alternative) per limitare output
 - Verdura, frutta: una sola voce per cella, NESSUNA alternativa
-- Cella olio/grasso (cat "oi"): principale Olio EVO, poi alternative isocaloriche tra queste (usa SOLO questi grammi, già equivalenti a 10g Olio EVO): Avocado 40g, Frutta secca mista 20g, Semi di chia 20g, Semi di lino 15g, Olive verdi 60g, Olive nere 30g, Burro arachidi 15g, Burro mandorle 15g. Non tutte vanno sempre incluse: scegline 2-4 in base alle preferenze del paziente.
+- Cella olio/grasso (cat "oi"): principale Olio EVO ${olioG}g, poi alternative tra queste (usa SOLO questi grammi, già equivalenti in grassi a ${olioG}g di Olio EVO): ${_promptAlternativeGrassi(olioG)}. Non tutte vanno sempre incluse: scegline 2-4 in base alle preferenze del paziente.
 ${isCeto ? `- Disposizione KETO pranzo: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2) — aggiungi una cella carbo/legumi/frutta (cat "ca") SOLO se il budget carboidrati del giorno lo consente ancora (vedi PROTOCOLLO CHETOGENICO), altrimenti ometti la cella
 - Disposizione KETO cena: cella1 (proteine, sx, or 1), cella2 (verdura, dx, or 1), cella3 (olio/grassi, sx, or 2) — stessa regola: carbo/legumi solo se c'è margine nel budget` : `- Disposizione default pranzo: cella1 (carbo, sx, or 1), cella2 (proteine, dx, or 1), cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2), cella5 (frutta, sx, or 3)
 - Disposizione default cena: cella1 (proteine, sx, or 1), cella2 (carbo, dx, or 1) se previsto, cella3 (verdura, sx, or 2), cella4 (olio, dx, or 2)`}
 
 ESEMPIO FORMATO (un giorno):
-[{"g":"Lunedì","macros":{"kcal":1850,"proteine":130,"carboidrati":200,"grassi":60},"pasti":{"colazione":{"ric":[],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Yogurt greco 0%","g":125,"cat":"pr","cl":"v"},{"n":"Skyr","g":125,"cat":"pr","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Noci","g":20,"cat":"gx","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Fiocchi d'avena","g":40,"cat":"ca","cl":"v"},{"n":"Muesli","g":40,"cat":"ca","cl":"v"}]}]},"pranzo":{"ric":["Pasta al pesto con pollo e verdure","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Pasta integrale","g":80,"cat":"ca","cl":"v"},{"n":"Riso","g":70,"cat":"ca","cl":"v"},{"n":"Farro","g":80,"cat":"ca","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Petto di pollo","g":150,"cat":"pr","cl":"v"},{"n":"Salmone","g":130,"cat":"pr","cl":"v"},{"n":"Tonno","g":120,"cat":"pr","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Verdura","g":200,"cat":"ve","cl":"v"}]},{"id":"c4","co":"dx","or":2,"al":[{"n":"Olio EVO","g":20,"cat":"oi","cl":"v"},{"n":"Avocado","g":80,"cat":"oi","cl":"v"},{"n":"Frutta secca mista","g":40,"cat":"oi","cl":"v"}]},{"id":"c5","co":"sx","or":3,"al":[{"n":"Frutta","g":150,"cat":"fr","cl":"v"}]}]}}}]
+[{"g":"Lunedì","macros":{"kcal":1850,"proteine":130,"carboidrati":200,"grassi":60},"pasti":{"colazione":{"ric":[],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Yogurt greco 0%","g":125,"cat":"pr","cl":"v"},{"n":"Skyr","g":125,"cat":"pr","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Noci","g":20,"cat":"gx","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Fiocchi d'avena","g":40,"cat":"ca","cl":"v"},{"n":"Muesli","g":40,"cat":"ca","cl":"v"}]}]},"pranzo":{"ric":["Pasta al pesto con pollo e verdure","Riso con salmone e zucchine","Farro con tonno e pomodorini"],"ce":[{"id":"c1","co":"sx","or":1,"al":[{"n":"Pasta integrale","g":80,"cat":"ca","cl":"v"},{"n":"Riso","g":70,"cat":"ca","cl":"v"},{"n":"Farro","g":80,"cat":"ca","cl":"v"}]},{"id":"c2","co":"dx","or":1,"al":[{"n":"Petto di pollo","g":150,"cat":"pr","cl":"v"},{"n":"Salmone","g":130,"cat":"pr","cl":"v"},{"n":"Tonno","g":120,"cat":"pr","cl":"v"}]},{"id":"c3","co":"sx","or":2,"al":[{"n":"Verdura","g":200,"cat":"ve","cl":"v"}]},{"id":"c4","co":"dx","or":2,"al":[{"n":"Olio EVO","g":20,"cat":"oi","cl":"v"},{"n":"Avocado","g":85,"cat":"oi","cl":"v"},{"n":"Frutta secca mista","g":35,"cat":"oi","cl":"v"}]},{"id":"c5","co":"sx","or":3,"al":[{"n":"Frutta","g":150,"cat":"fr","cl":"v"}]}]}}}]
 
 Genera TUTTI i ${nGiorni} giorni. Includi spuntino_mattina/pomeriggio e pre_nanna solo se appropriati. Macros: calcola valori REALI sommando tutti gli alimenti.`;
 }
@@ -16248,7 +16365,7 @@ function _normalizzaPianoNuovo(piano) {
   }
   // Esponi globalmente per riutilizzo (es. riapertura piano)
   window._risolviCollisioniCelle = _risolviCollisioniCelle;
-  return piano.map(function(g) {
+  var _out = piano.map(function(g) {
     if (!g.pasti) return g;
     var nuoviPasti = {};
     Object.keys(g.pasti).forEach(function(k) {
@@ -16278,6 +16395,12 @@ function _normalizzaPianoNuovo(piano) {
     });
     return { g: g.g, giorno: g.giorno || g.g, macros: g.macros, pasti: nuoviPasti };
   });
+  // P121 — l'AI decide COSA, l'app decide QUANTO: le grammature delle alternative
+  // generate dall'AI vengono riscritte dal motore di equivalenza. Il principale non
+  // si tocca. Qui e' il posto giusto perche' questa funzione gira SOLO sull'output
+  // grezzo di una generazione: riaprire un piano salvato non passa di qui, quindi le
+  // correzioni manuali di Fabrizio non vengono mai sovrascritte.
+  return ricalcolaAlternativePiano(_out);
 }
 
 function espandiPiano(piano) {
@@ -16515,7 +16638,10 @@ function _renderCelleGriglia(pasto, slotKey, giorno) {
           var catEscA=(alt.categoria||'').replace(/"/g,'&quot;');
           html += '<div draggable="true" ondragstart="_ngDragStartCella(event)" data-nome="'+nEscA+'" data-grammi="'+(alt.g||0)+'" data-cat="'+catEscA+'" data-src-cell="'+cella.id+'" title="Trascina per copiare in un altro pasto" style="display:flex;align-items:center;gap:3px;font-size:.71rem;color:var(--text3);padding-left:.5rem;margin-top:2px;cursor:grab;">';
           html += '<span style="font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+alt.n+'">↳ '+alt.n+'</span>';
+          // P121: da dove viene questo numero — equivalenza calcolata, quantita' fissa o porzione standard
+          var _eqLab = (typeof _etichettaCriterio === 'function') ? _etichettaCriterio(alt.eq) : '';
           html += '<span class="gram-edit" data-giorno="'+giornoEsc+'" data-slot="'+slotKey+'" data-cell="'+cella.id+'" data-idx="'+idx1+'" onclick="apriEditGrammatura(this)" style="cursor:pointer;border-bottom:1px dashed #94a3b8;padding:0 2px;white-space:nowrap;font-size:.7rem;" title="Modifica">'+alt.g+'g</span>';
+          if (_eqLab) html += '<span style="font-size:.58rem;color:#b0b8c4;white-space:nowrap;" title="Grammatura calcolata dal principale">'+_eqLab+'</span>';
           html += '<button class="alt-ctrl" onclick="cellaSwap(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Promuovi a principale" style="width:16px;height:16px;font-size:.6rem;">⇄</button>';
           html += '<button class="alt-ctrl alt-x" onclick="cellaRimuoviAlt(\''+giornoEsc+'\',\''+slotKey+'\',\''+cella.id+'\','+idx1+')" title="Rimuovi" style="width:16px;height:16px;font-size:.6rem;">×</button>';
           html += '</div>';
@@ -16790,17 +16916,10 @@ function apriEditGrammatura(span) {
     var nuovo = parseInt(input.value);
     if (isNaN(nuovo) || nuovo < 0) nuovo = oldG;
     alimento.g = nuovo;
-    // Se è la prima scelta e la grammatura cambia, scala le alternative proporzionalmente (arrotondato a 5g, min 5g)
-    if (idx === 0 && nuovo !== oldG && oldG > 0 && cella.alimenti.length > 1) {
-      var fattore = nuovo / oldG;
-      for (var _i = 1; _i < cella.alimenti.length; _i++) {
-        var _alt = cella.alimenti[_i];
-        var _scalato = _alt.g * fattore;
-        var _arrotondato = Math.round(_scalato / 5) * 5;
-        if (_arrotondato < 5) _arrotondato = 5;
-        _alt.g = _arrotondato;
-      }
-    }
+    // P121: se cambia la prima scelta, le alternative si RICALCOLANO dal principale
+    // (prima venivano scalate in proporzione, il che conservava e moltiplicava
+    // gli errori del punto di partenza invece di correggerli)
+    if (idx === 0 && nuovo !== oldG) ricalcolaAlternative(cella);
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
@@ -16825,6 +16944,9 @@ function cellaSwap(giorno, slotKey, cellaId, altIdx) {
   var tmp = cella.alimenti[0];
   cella.alimenti[0] = cella.alimenti[altIdx];
   cella.alimenti[altIdx] = tmp;
+  // P121: dopo lo scambio la base di riferimento e' cambiata → ricalcola tutto il resto
+  // (prima le grammature restavano quelle di prima, riferite a un principale che non c'era piu')
+  ricalcolaAlternative(cella);
   _aggiornaPianoBox();
   if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
@@ -16887,6 +17009,10 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
     var colore = (stato === 'si' || stato === 'verde') ? 'verde' : stato === 'arancione' ? 'arancione' : 'rosso';
     // Evita duplicati con alimenti già presenti nella cella
     if (cella.alimenti.some(function(a){ return a.n === nome; })) return;
+    // P121: in una cella di frutta non si propongono i grassi (l'avocado sta nella
+    // categoria semaforo "Frutta" ma non e' un'alternativa sensata a un frutto)
+    if (categoriaFunzionale === 'frutta' && typeof getCategoriaFunzionale === 'function'
+        && getCategoriaFunzionale(nome) === 'grasso') return;
     // Recupera grammatura di default dal database ALIMENTI
     var gDefault = 100;
     if (ALIMENTI[catSemAlimento] && ALIMENTI[catSemAlimento].items) {
@@ -16933,7 +17059,11 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
 
   // Mostra popup con calcolo equivalenza automatica
   _mostraPopupAggiungiAlt(compatibili, gSuggFallback, nPrinc, gPrinc, categoriaFunzionale, function(scelto, grCalcolato) {
-    cella.alimenti.push({n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore});
+    // P121: la categoria salvata e' quella dell'alimento scelto, non quella del principale
+    // (prima un avocado aggiunto sotto l'olio veniva salvato come categoria 'olio')
+    var _catScelto = (typeof getCategoriaFunzionale === 'function') ? getCategoriaFunzionale(scelto.n) : scelto.cat;
+    cella.alimenti.push({n: scelto.n, g: grCalcolato, categoria: _catScelto, colore: scelto.colore});
+    ricalcolaAlternative(cella);
     _aggiornaPianoBox();
     if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
@@ -16992,14 +17122,13 @@ function _mostraPopupAggiungiAlt(alimenti, gSuggFallback, nPrinc, gPrinc, catPri
       var borderStyle = st.dash ? 'dashed' : 'solid';
 
       var btn = document.createElement('button');
-      var eqResult = nPrinc ? suggerisciGrEquivalente(nPrinc, gPrinc, a.n, catPrinc) : null;
-      var grRaw = eqResult ? eqResult.gr : (a.g || gSuggFallback);
-      var grMostrato = arrotondaPorzioneDiscreta(a.n, grRaw);
-      var labelCriterio = eqResult ? (eqResult.criterio === 'carbo' ? 'carbo' : eqResult.criterio === 'proteine' ? 'prot' : 'kcal') : 'std';
-      var wasRounded = (grMostrato !== grRaw);
-      var labelEq = eqResult
-        ? grMostrato+'g <span style="font-size:.6rem;opacity:.7">'+(wasRounded?'porzione':'eq.')+labelCriterio+'</span>'
-        : grMostrato+'g';
+      var eqResult = nPrinc ? suggerisciGrEquivalente(nPrinc, gPrinc, a.n) : null;
+      // BUGFIX P121: gli oggetti costruiti da cellaAggiungiAlt hanno `gDefault`, non `g` —
+      // il ripiego leggeva `a.g`, era sempre undefined e cadeva sul generico di categoria
+      var grRaw = eqResult ? eqResult.gr : (a.gDefault || a.g || gSuggFallback);
+      var grMostrato = arrotondaGrammatura(a.n, grRaw);
+      var labelEq = grMostrato+'g'
+        + (eqResult ? ' <span style="font-size:.6rem;opacity:.7">'+_etichettaCriterio(eqResult.criterio)+'</span>' : '');
       btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:.5rem .7rem;border:1px '+borderStyle+' '+st.border+';background:'+st.bg+';border-radius:6px;cursor:pointer;font-size:.83rem;color:'+st.color+';text-align:left;transition:all .15s;width:100%';
       btn.title = st.label;
       btn.innerHTML = '<span style="flex:1;font-weight:500">'+a.n+'</span>'
@@ -17287,6 +17416,11 @@ function apriAggiungiCella(giorno, slotKey) {
     var colonnaNuova = (maxSx <= maxDx) ? 'sx' : 'dx';
     var ordineNuovo = (colonnaNuova === 'sx' ? maxSx : maxDx) + 1;
     var nuovoId = 'c' + Date.now();
+    // BUGFIX P121: `scelto.cat` qui e' la categoria SEMAFORO ("Cereali con Glutine"),
+    // ma il campo `categoria` degli alimenti contiene ovunque la categoria FUNZIONALE
+    // ("carbo"). Salvare quella semaforo impediva ai ripieghi di getValoriCREA di
+    // scattare: un alimento assente da CREA finiva a contare 0 kcal, in silenzio.
+    var _catFunz = (typeof getCategoriaFunzionale === 'function') ? getCategoriaFunzionale(scelto.n) : scelto.cat;
 
     // B7: se è ricetta composta, apri popup selezione avena
     if (scelto.ricettaComposta) {
@@ -17298,7 +17432,7 @@ function apriAggiungiCella(giorno, slotKey) {
           alimenti: [{
             n: scelto.n,
             g: avenaG,
-            categoria: scelto.cat,
+            categoria: _catFunz,
             ricettaComposta: scelto.ricettaComposta,
             avenaG: avenaG,
             macrosOverride: macros
@@ -17317,7 +17451,7 @@ function apriAggiungiCella(giorno, slotKey) {
       id: nuovoId,
       colonna: colonnaNuova,
       ordine: ordineNuovo,
-      alimenti: [{n: scelto.n, g: grCalcolato, categoria: scelto.cat, colore: scelto.colore}]
+      alimenti: [{n: scelto.n, g: grCalcolato, categoria: _catFunz, colore: scelto.colore}]
     });
 
     _aggiornaPianoBox();
@@ -17526,7 +17660,7 @@ function _mostraPopupSceltaCategoriaAlimento(risolviCompatibili, onScelto) {
         var st = STILE_STATO[stato] || STILE_STATO['verde'];
         var borderStyle = st.dash ? 'dashed' : 'solid';
         var grRaw = a.g || 100;
-        var grMostrato = arrotondaPorzioneDiscreta(a.n, grRaw);
+        var grMostrato = arrotondaGrammatura(a.n, grRaw);
         var cp = getEmojiCp(a.n, a.cat);
         var emoji = cp ? String.fromCodePoint.apply(null, cp.split('-').map(function(h){return parseInt(h,16);})) : null;
 

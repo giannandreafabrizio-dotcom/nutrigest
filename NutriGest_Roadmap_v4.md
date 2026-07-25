@@ -52,6 +52,7 @@
 | ~~P37~~ ❌ escluso, ~~P80~~ ✅ chiusa parziale, ~~P83~~ ❌ annullato (14 lug 2026) | — | — | — | — |
 | ~~**P119**~~ ✅ chiusa e collaudata 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
 | ~~**P120**~~ ✅ chiusa e collaudata 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
+| ~~**P121**~~ ✅ chiusa 25 lug 2026, **da collaudare** (motore unico grammature alternative — v. scheda) | Opus | High | ON | Tocca le grammature del piano: regole cliniche decise da Fabrizio |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
 | P35, P43, P90–P101 (UX/pulizia) | Sonnet | Low/Medium | OFF | Meccaniche o estetiche, rischio basso |
@@ -693,6 +694,30 @@ Test 169 → **181**, tutti verdi (`s2-inbody-storico.test.js`).
 **Collaudo in produzione 25 lug 2026 — esito positivo** (verificato da Fabrizio su paziente reale): data del test letta dal referto invece di "oggi", secondo referto più vecchio caricato dopo il primo senza che diventi "l'attuale", avviso anti-doppione sulla stessa data. È il collaudo che sblocca il caricamento dei pazienti storici col metodo graduale.
 
 **SCHEDA:** Stato: **CHIUSA E COLLAUDATA 25 lug 2026** (fase 1) · fase 2 **Da fare** · Priorità: Media · Categoria: Composizione corporea / integrità del dato · Dipendenze: nessuna · Autonomia: L1 — nessuna soglia clinica toccata, solo ordine e data del dato.
+
+---
+
+### P121 — Motore unico delle grammature delle alternative (nata e chiusa 25 lug 2026, 4ª sessione)
+
+**Origine:** cambiando la grammatura di un alimento, le alternative a volte si aggiornavano e a volte no, con numeri spesso strani (10g di olio → avocado ora 20g ora 75g; 60g di riso → 100g di patate). Analisi completa nel doc di progetto `NutriGest_Grammature_Analisi.md`.
+
+**Il problema non era una formula sbagliata:** esistevano **cinque sorgenti di grammatura che non si parlavano** (motore di equivalenza, porzioni commerciali, default di database, scalatura proporzionale, numeri inventati dall'AI) e **due comandi di modifica con comportamento opposto** — la modifica dal piano scalava le alternative, quella dal pannello Macros non le toccava. In più: verdure equivalate sulle kcal (200g zucchine ≡ 63g carote), avocado dentro la frutta con equivalenza sui carboidrati (150g mela ≡ 833g avocado), e un arrotondamento verso liste chiuse di porzioni che troncava in silenzio fino al −65% (102g di fette biscottate → 36g).
+
+**✅ CHIUSA 25 lug 2026** — regole decise con Fabrizio (`NutriGest_Grammature_Regole.md`) e un solo motore:
+1. `ricalcolaAlternative(cella)` è l'**unico punto** che scrive la grammatura di un'alternativa; le alternative non si scalano più, si **ricalcolano** dal principale. Chiamato da tutti e 4 i punti di modifica + `_normalizzaPianoNuovo` (l'AI decide *cosa*, l'app decide *quanto*).
+2. Gruppi di equivalenza: cereali/frutta → carboidrati · proteine → proteine · legumi → carboidrati ma solo tra legumi · olio+grassi → **grassi** (non più kcal) · verdura → **nessuna equivalenza**, stessa grammatura del principale. Gruppi diversi → porzione standard di database, che è come i "120g di legumi in barattolo" del prompt e l'equivalenza convivono senza contraddirsi.
+3. `arrotondaGrammatura` + `_PESI_UNITARI`: numero intero di **pezzi senza tetto** (uovo 55g, fetta biscottata 10g, scatoletta 60g), multipli di 5g per tutto il resto. Latticini esclusi di proposito: lo yogurt deve poter salire a 200g.
+4. **Nessun tetto di plausibilità**, scelta esplicita di Fabrizio: 80g di pasta valgono davvero 354g di patate, il valore vero si mostra sempre.
+
+Corretti nello stesso giro due bug silenziosi: il ripiego del popup "Aggiungi alternativa" leggeva `a.g` mentre gli oggetti hanno `gDefault` (codice morto che sembrava funzionante), e il popup "Aggiungi alimento" salvava la categoria semaforo al posto della funzionale, con la conseguenza che un alimento assente da CREA contava **0 kcal** senza alcun errore a video.
+
+Test 181 → **197**, tutti verdi (`s2-grammature-alternative.test.js`).
+
+**Da collaudare in produzione:** aprire un piano, cambiare la grammatura di un principale sia dal piano sia dal pannello Macros e verificare che le alternative si aggiornino allo stesso modo; controllare una cella olio/grassi, una di verdura e una con legumi sotto un cereale; generare un piano nuovo e verificare che le alternative arrivino già coerenti.
+
+**Resta da valutare (fase 2, non urgente):** estendere i gruppi semaforo così che "Frutta secca & Semi" e "Olio & Condimenti" siano intercambiabili nel menu "+ Aggiungi alternativa" — oggi l'avocado e la frutta secca nella cella dell'olio ci arrivano solo tramite l'AI, non si possono aggiungere a mano. ~30 min. **Sonnet · Low · OFF.**
+
+**SCHEDA:** Stato: **CHIUSA 25 lug 2026, da collaudare** · Priorità: Alta · Categoria: Generatore piani / grammature · Dipendenze: nessuna · Autonomia: L2 — le regole di equivalenza sono decisioni cliniche, prese da Fabrizio e non dedotte dal codice.
 
 ---
 

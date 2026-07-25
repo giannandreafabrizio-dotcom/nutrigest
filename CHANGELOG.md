@@ -10,6 +10,87 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+25 LUGLIO 2026 (4ª sessione) — P121: MOTORE UNICO DELLE GRAMMATURE DELLE ALTERNATIVE.
+Baseline `d905489`. Test 181 → **197**, tutti verdi (`s2-grammature-alternative.test.js`).
+
+**Origine.** Fabrizio segnala che cambiando la grammatura di un alimento le
+alternative a volte cambiano e a volte no, e che i numeri risultanti sono spesso
+strani: 10g di olio davano un avocado ora a 20g ora a 75g. L'analisi (doc di
+progetto `NutriGest_Grammature_Analisi.md`) ha trovato **cinque sorgenti di
+grammatura che non si parlavano** e due comandi di modifica con comportamento
+opposto — non una formula sbagliata.
+
+**Root cause.**
+1. `apriEditGrammatura` **scalava** le alternative in proporzione (`nuovo/vecchio`,
+   arrotondato a 5g ad ogni passaggio), mentre `pmgCambiaGrammi` (pannello Macros)
+   **non le toccava affatto**: da qui il "delle volte cambiano e delle volte no".
+   La scalatura è corretta solo se la cella partiva già equivalente — quasi mai,
+   perché i numeri arrivavano dall'AI o dai default di database. Moltiplicava
+   l'errore invece di correggerlo, e arrotondava ad ogni giro accumulando deriva.
+2. `PORZIONI_DISCRETE` era una **lista chiusa di totali ammessi** e prendeva sempre
+   il valore più vicino, senza limite di distanza: 102g di fette biscottate
+   (l'equivalente in carboidrati di 80g di pasta, cioè 10 fette) finivano
+   schiacciati sul massimo della lista, **36g**; 282g di uovo a 150g. Fino al −65%,
+   in silenzio. Il modello giusto è quello del nutrizionista: quanto pesa un pezzo,
+   e quanti pezzi servono.
+3. Il criterio di equivalenza era scelto per categoria del principale, con le
+   verdure sulle **kcal** (200g di zucchine ≡ 63g di carote) e l'avocado dentro la
+   categoria Frutta con equivalenza sui carboidrati (150g di mela ≡ **833g** di
+   avocado, ha 1,8g di carboidrati per 100g).
+4. L'output dell'AI non veniva mai ricontrollato: `_normalizzaPianoNuovo` copiava
+   `g` così com'era. E la riga del prompt con le alternative ai grassi era scritta
+   a mano e non coincideva col motore ("frutta secca mista 20g per 10g di olio",
+   valore vero sui grassi 11g).
+
+**Regole decise con Fabrizio** (doc di progetto `NutriGest_Grammature_Regole.md`):
+cereali/frutta **carboidrati** · proteine **proteine** · legumi **carboidrati ma solo
+tra legumi** · olio+grassi **grassi** (non più kcal: l'olio è 100% lipidi, sulle kcal
+entravano anche carboidrati e proteine dell'alternativa) · verdura **nessuna
+equivalenza**, stessa grammatura del principale. Alimenti di gruppi diversi (il legume
+sotto la pasta) non si calcolano: prendono la porzione standard di database — è così
+che i "120g di legumi in barattolo" del prompt e l'equivalenza convivono senza
+contraddirsi. **Nessun tetto di plausibilità**, deciso esplicitamente da Fabrizio:
+80g di pasta valgono davvero 354g di patate e 150g di pollo valgono davvero 275g di
+uovo, e il valore vero si mostra sempre.
+
+**Implementazione.**
+- `ricalcolaAlternative(cella)` è ora l'**unico punto** che scrive la grammatura di
+  un'alternativa, chiamato da `apriEditGrammatura`, `pmgCambiaGrammi`, `cellaSwap`,
+  `cellaAggiungiAlt` e da `_normalizzaPianoNuovo` (output AI: l'AI decide *cosa*,
+  l'app decide *quanto*). Il principale non si tocca mai. Le ricette composte (B7)
+  sono escluse, hanno macro propri.
+- `_GRUPPI_EQUIV` + `_gruppoEquiv` sostituiscono `criterioByCat`, che decideva sul
+  solo principale e non sapeva nulla dell'alternativa.
+- `arrotondaGrammatura` sostituisce `arrotondaPorzioneDiscreta`: `_PESI_UNITARI`
+  (uovo 55g, fetta biscottata 10g, scatoletta 60g, panetto di tofu 125g…) → numero
+  intero di pezzi **senza tetto**; tutto il resto multipli di 5g. I latticini sono
+  fuori dalla tabella di proposito: lo yogurt non va incastrato sul vasetto da 125g,
+  a molti pazienti va prescritto a 200g perché comprano la confezione grande.
+- Avocado spostato a categoria funzionale `grasso` in `_ALIMENTI_OVERRIDE_CATEGORIA`
+  (la categoria semaforo resta "Frutta", quindi **nessun dato paziente cambia**) e
+  non più proposto tra le alternative in una cella di frutta.
+- Interfaccia: accanto a ogni alternativa l'etichetta del criterio
+  (`≈carbo`/`≈prot`/`≈grassi`/`fissa`/`porzione`), che prima era impossibile dedurre.
+
+**Due bug silenziosi trovati strada facendo e corretti nello stesso giro:**
+- Il popup "Aggiungi alternativa" leggeva `a.g` ma `cellaAggiungiAlt` costruisce gli
+  oggetti con `gDefault`: il ripiego era sempre `undefined` e cadeva sul generico di
+  categoria. Codice morto che sembrava funzionante.
+- Il popup "Aggiungi alimento" salvava in `alimenti[].categoria` la categoria
+  **semaforo** ("Cereali con Glutine") dove tutto il resto del codice si aspetta
+  quella **funzionale** ("carbo"). Conseguenza: i ripieghi di `getValoriCREA` non
+  scattavano mai e un alimento assente da CREA contava **0 kcal** nel calcolo dei
+  macro, mostrando "—" senza alcun errore.
+
+**Lezione (famiglia di regola 10/11 di CLAUDE.md).** Quando lo stesso dato può essere
+scritto da più punti, il problema non è mai la formula: è che non esiste **un** punto
+di scrittura. Qui cinque sorgenti producevano numeri tutti "plausibili" e nessuno
+sbagliato in modo visibile — la diagnosi è arrivata solo ricalcolando a mano i valori
+della schermata e vedendo che 94g e 354g venivano dal motore mentre 75g era la porzione
+di default del database. **Corollario nuovo:** un arrotondamento verso una lista chiusa
+di valori ammessi è un troncamento travestito — se la lista non copre il dominio, il
+valore fuori scala non viene segnalato, viene silenziosamente riportato dentro.
+
 25 LUGLIO 2026 (3ª sessione) — COLLAUDI P119/P120 + RIALLINEAMENTO DOCUMENTALE.
 Baseline `339b08d`. Nessuna modifica funzionale: solo un commento rinominato,
 INDEX.md riallineato e documentazione messa in pari.

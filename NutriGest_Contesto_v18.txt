@@ -1323,6 +1323,40 @@ GENERATORE PIANO:
       Se nessun alimento nel profilo → confirm "Mostra tutto il database?"
       Funzioni: getCategoriaSemaforo(), _getCategorieGruppo(), _GRUPPI_SEMAFORO
     commit aggiungi-alternativa: 282a9ab → f287da2
+
+  GRAMMATURE DELLE ALTERNATIVE (P121, 25 lug 2026) — motore unico:
+    ricalcolaAlternative(cella) è l'UNICO punto che scrive la grammatura di
+    un'alternativa. Le alternative non si scalano in proporzione: si RICALCOLANO
+    sempre dal primo alimento della cella, che non viene mai toccato.
+    Chiamato da: apriEditGrammatura, pmgCambiaGrammi (pannello Macros), cellaSwap,
+    cellaAggiungiAlt e _normalizzaPianoNuovo (output AI — l'AI decide COSA, l'app
+    decide QUANTO). NON gira sulla riapertura di un piano salvato, così le
+    correzioni manuali non vengono mai sovrascritte.
+    Gruppi di equivalenza (_GRUPPI_EQUIV / _gruppoEquiv), su categoria funzionale:
+      carbo, frutta, legumi → carboidrati | proteine → proteine
+      olio + grasso → GRASSI (stesso gruppo: l'olio è 100% lipidi; sulle kcal
+        entravano anche carboidrati e proteine dell'alternativa)
+      verdura → nessun calcolo, stessa grammatura del principale
+      gruppi DIVERSI (es. legume sotto la pasta) → nessun calcolo, porzione
+        standard di database: è così che i "120g di legumi in barattolo" del
+        prompt e l'equivalenza convivono senza contraddirsi
+    Nessun tetto di plausibilità (decisione di Fabrizio): 80g di pasta valgono
+      davvero 354g di patate, 150g di pollo valgono 275g di uovo — valore vero sempre.
+    Arrotondamento (arrotondaGrammatura + _PESI_UNITARI): alimenti a pezzi →
+      numero intero di pezzi SENZA TETTO (uovo 55g, fetta biscottata/galletta/Wasa
+      10g, crackers 25g, frisella 40g, piadina 70g, scatoletta tonno 60g, sgombro
+      90g, tofu 125g, seitan 180g); tutto il resto → multipli di 5g, minimo 5g.
+      I latticini sono FUORI dalla tabella di proposito: lo yogurt non va incastrato
+      sul vasetto da 125g, a molti pazienti va prescritto a 200g.
+      Sostituisce PORZIONI_DISCRETE/arrotondaPorzioneDiscreta (lista chiusa di totali
+      ammessi che troncava in silenzio: 102g di fette biscottate → 36g).
+    Avocado: categoria funzionale 'grasso' (override), categoria semaforo invariata
+      "Frutta" — nessun dato paziente cambia. Non proposto tra le alternative in una
+      cella di frutta (sui carboidrati dava 833g come equivalente di 150g di mela).
+    UI: etichetta del criterio accanto a ogni alternativa (_etichettaCriterio):
+      ≈carbo · ≈prot · ≈grassi · fissa · porzione.
+    La riga del prompt AI con le alternative alla cella olio/grassi è generata dal
+      motore (_promptAlternativeGrassi), non più scritta a mano.
     (principale 40% + alt2 30% + alt3 30% | 100% se solo principale | 40/60 se due)
   Cache Supabase 90gg (pushCachePianoSupabase) | pulsante 🔄 Rigenera
     Chiave hash deterministico: pazienteId + regime + kcal + P/C/G +
