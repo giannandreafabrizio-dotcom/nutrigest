@@ -50,6 +50,7 @@
 | **P33b** aggancio auto alternative | Opus | High | ON | Evoluzione P33, decisione dopo uso sul campo |
 | **P33c** piano lungo a ricetta singola | Opus | High | ON | Tocca struttura piano + export |
 | ~~P37~~ ❌ escluso, ~~P80~~ ✅ chiusa parziale, ~~P83~~ ❌ annullato (14 lug 2026) | — | — | — | — |
+| ~~**P119**~~ ✅ chiusa 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
 | P35, P43, P90–P101 (UX/pulizia) | Sonnet | Low/Medium | OFF | Meccaniche o estetiche, rischio basso |
@@ -645,6 +646,25 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 **Tappa 3 — Andamento nel tempo ✅ CHIUSA 24 lug 2026.** Opzione B scelta da Fabrizio su mockup: tracciato + variazione sotto ogni valore, pannello con grafico grande e tabella in fondo alla scheda. La regola del colore guarda la distanza dal range, non la direzione (dettaglio nel Contesto). Test 149→161. Descrizione originale della tappa: Freccia con la variazione rispetto al referto precedente accanto a ogni valore, e mini-grafico per i valori che si vogliono seguire. Dipende dalla tappa 1 (fatta) e si appoggia alla tappa 2 per colorare la variazione rispetto al range. **Sonnet · Medium · OFF.**
 
 **SCHEDA:** Stato: **CHIUSA E VALIDATA 24 lug 2026** — tutte e tre le tappe complete, soglie validate da Fabrizio · Priorità: Media · Categoria: Motore clinico / UX · Dipendenze: nessuna a monte; la tappa 3 conviene dopo la 2 · Autonomia: L1 per le tappe 1 e 3, **L0 per la tappa 2** (soglie cliniche: Claude propone, Fabrizio valida).
+
+---
+
+### P119 — Ricettario grande: pescata bilanciata dell'ispirazione per l'AI (nata e chiusa 25 lug 2026)
+
+**Origine:** Fabrizio ha molte ricette pronte da caricare e ha rimandato per mesi per paura di "sovraccaricare" il generatore o di rendere più pesanti le modifiche al codice. Analisi fatta prima di rispondere (baseline `ccdf6c4`): **entrambe le paure erano infondate** — le ricette non stanno in `index.html` (solo le 6 di `RICETTE_DEFAULT`) ma nella tabella dedicata `ricette` su Supabase, quindi il file non cresce di una riga; e all'AI arrivano **solo i nomi**, quindi il costo in token non dipende dal numero di ricette. L'analisi ha però trovato un problema diverso e reale, ed è quello che questa voce chiude.
+
+**Il problema (reale):** `costruisciPrompt` costruiva l'elenco ispirazione con `ricetteDB.slice(0,80)` — le **prime** 80 nell'ordine di arrivo da `pullRicetteSupabase`, che interroga `?select=id,data` **senza `ORDER BY`**. Ordine arbitrario ma stabile ⇒ venivano scartate **sempre le stesse ricette di coda**, a ogni generazione e per ogni paziente. Con 200 ricette candidate, ~120 lavoravano e ~80 erano scritte per niente. Due effetti collaterali: rigenerare un piano per lo stesso paziente attingeva sempre allo stesso pool (poca varietà), e un ricettario sbilanciato (60 pranzi, 5 colazioni) poteva annegare le colazioni.
+
+**✅ CHIUSA 25 lug 2026** — `_ricPescaBilanciata()` dentro `costruisciPrompt`: tetto alzato a **120** nomi (80 nomi ≈ 600 token, il margine c'era tutto), posti ripartiti per **pasto attivo** con pesi (colazione 1 · spuntino 1 · pranzo 1,5 · cena 1,5 · pre-nanna 0,5), **mescolata Fisher-Yates dentro ogni gruppo**, quota max 15% per le ricette a pasto indeterminato, redistribuzione dei posti avanzati dai gruppi piccoli, deduplica dei nomi (una ricetta su pranzo+cena conta una volta). I tre filtri conservativi a monte (pasto attivo, stagione, keto) restano invariati. Test 161 → **169**, tutti verdi (`s2-ispirazione-pescata.test.js`: tetto, rappresentanza di ogni pasto, casualità fra due generazioni, ricettario sbilanciato, ricettario piccolo senza regressioni, doppio pasto, pasto indeterminato, ricettario vuoto).
+
+**Resta da fare (fase 2, non urgente, decisa con Fabrizio di rimandare):**
+1. **Casella di ricerca nei due popup di scelta ricetta** — `_ngPescaRicetta()` e `apriPannelloRicette()` elencano tutto il filtrato senza ricerca (la pagina Ricette invece la ha, `renderRic`): con 200+ ricette diventano scroll lunghissimi. Piccolo. **Sonnet · Low · OFF.**
+2. **Controllo anti-doppioni sui nomi** — `_ngScomponiRicettaNelPasto()` cerca la ricetta **per nome**, non per id: due omonime → prende sempre la prima. Con un ricettario grande le collisioni diventano probabili. È lo stesso controllo previsto da **P81**: farli insieme.
+3. **Import in blocco** se il totale supera ~300: `salvaRic()` chiama `pushRicetteSupabase()`, che rispedisce **tutte** le ricette custom a ogni salvataggio (nessun dirty-tracking come P68/P69 sui pazienti) → caricamento uno-a-uno O(n²). ~55 KB per salvataggio a 100 ricette, ~170 KB a 300, ~280 KB a 500. Impercettibile fino a ~150. *(Spazio localStorage non è un problema: 500 ricette ≈ 280 KB su ~5 MB — il peso vero sono i pazienti, v. P71.)*
+
+**Trappola già esistente, da non dimenticare mentre si caricano ricette:** se un salvataggio mostra `⚠️ Ricetta salvata SOLO in locale — sync fallito`, va risalvata **prima** di sincronizzare o ricaricare la pagina. `syncNow()` fa prima il pull, e `pullRicetteSupabase()` **sostituisce** `db.ricette` con `[RICETTE_DEFAULT + quelle del server]`: una ricetta mai arrivata su Supabase viene cancellata in silenzio.
+
+**SCHEDA:** Stato: **CHIUSA 25 lug 2026** (fase 1) · fase 2 (3 punti sopra) **Da fare** · Priorità: Media · Categoria: Generatore piani / prompt AI · Dipendenze: nessuna a monte; il punto 2 della fase 2 va fatto con **P81** · Autonomia: L1 — è selezione dell'ispirazione, non una regola clinica: il prompt e i filtri clinici non sono stati toccati.
 
 ---
 

@@ -10,6 +10,84 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+25 LUGLIO 2026 — P119: PESCATA BILANCIATA DELL'ISPIRAZIONE (ricettario grande).
+Baseline `ccdf6c4`. **Nasce e chiude P119** (fase 1). Nata da una domanda di
+Fabrizio, non da un bug segnalato: ha molte ricette pronte da caricare e ha
+rimandato per mesi per paura di "sovraccaricare" il generatore o di rendere
+più pesanti le modifiche al codice.
+
+**LE DUE PAURE ERANO INFONDATE — vale registrarlo perché tornerà la domanda:**
+(1) le ricette non stanno in `index.html` (solo le 6 di `RICETTE_DEFAULT`) ma
+nella tabella dedicata `ricette` su Supabase: caricarne 500 non aggiunge una
+riga al file, quindi costo in token e rischio delle modifiche restano identici;
+(2) all'AI arrivano **solo i nomi** delle ricette (`Per ispirazione attingi a:`),
+non ingredienti né macro, quindi il costo del prompt non dipende dal numero di
+ricette in archivio. Nessun sovraccarico era tecnicamente possibile.
+
+**IL PROBLEMA VERO, TROVATO CERCANDO ALTRO:** `costruisciPrompt` chiudeva con
+`ricetteDB.slice(0,80)` — le **prime** 80 nell'ordine di arrivo da
+`pullRicetteSupabase`, che interroga `?select=id,data` **senza `ORDER BY`**.
+Ordine arbitrario ma stabile ⇒ venivano scartate **sempre le stesse ricette di
+coda**, a ogni generazione e per ogni paziente. Con 200 ricette candidate ~120
+lavoravano e ~80 erano scritte per niente. Due effetti collaterali: rigenerare
+un piano per lo stesso paziente attingeva sempre allo stesso pool (varietà
+apparente ma non reale), e un ricettario sbilanciato (60 pranzi, 5 colazioni)
+poteva annegare le colazioni dentro i pranzi.
+
+**COSA:** `_ricPescaBilanciata()` (annidata in `costruisciPrompt`, accanto a
+`_ricSlots`) sostituisce il taglio. Tetto **80 → 120** nomi (80 nomi ≈ 600
+token: il margine c'era tutto). I posti sono ripartiti per **pasto ATTIVO** con
+pesi `colazione 1 · spuntino 1 · pranzo 1,5 · cena 1,5 · pre_nanna 0,5`,
+**mescolata Fisher-Yates dentro ogni gruppo**, quota max 15% del tetto per le
+ricette a pasto indeterminato (che restano tenute, come prima: filosofia
+conservativa invariata), redistribuzione dei posti avanzati dai gruppi più
+piccoli della loro quota, deduplica per nome (una ricetta su pranzo+cena conta
+una volta sola). I tre filtri conservativi a monte — pasto attivo, stagione con
+guardia anti-pool-vuoto, keto — sono **invariati**: il prompt clinico non è
+stato toccato in nessun punto.
+
+**PERCHÉ COSÌ e non solo alzando il tetto:** alzare il tetto da solo non
+risolveva niente — con 200 ricette avresti continuato a scartare sempre le
+stesse 80. È la **pescata casuale** il pezzo che conta; il tetto più alto serve
+solo a renderla più ricca. Registrato perché è la tentazione ovvia da evitare
+se la voce tornasse in discussione.
+
+**TEST:** 161 → **169**, tutti verdi. Nuovo file `s2-ispirazione-pescata.test.js`
+(8 test): tetto a 120 con 200 ricette e zero duplicati, ogni pasto attivo
+rappresentato, due generazioni consecutive che danno elenchi diversi,
+ricettario sbilanciato (5 colazioni + 150 pranzi → tutte e 5 le colazioni
+passano), ricettario piccolo che passa intero senza regressioni, ricetta su due
+pasti contata una volta, pasto indeterminato tenuto ma sotto il 15%, ricettario
+vuoto con fallback "cucina italiana tradizionale" invariato. La funzione è
+annidata e non esportata: i test la verificano dall'esterno leggendo la riga
+"Per ispirazione attingi a: ..." del prompt — pattern riusabile per le altre
+parti interne di `costruisciPrompt`.
+
+**LEZIONE (non sul codice, sul metodo):** la paura di Fabrizio era ragionevole
+ma puntava al bersaglio sbagliato, e la risposta giusta non era rassicurarlo:
+era leggere il codice. Il costo del prompt era un non-problema; lo spreco
+silenzioso di due terzi del suo lavoro futuro era un problema reale che nessuno
+avrebbe visto, perché non produce errori — produce solo piani meno vari.
+**Un tetto tarato su un archivio piccolo diventa un collo di bottiglia
+invisibile quando l'archivio cresce: quando si scrive un `slice(0,N)` "per i
+token", va scritto insieme al criterio di scelta, non solo al numero.**
+
+**RESTA DA FARE (fase 2 di P119, rimandata d'accordo con Fabrizio):** casella di
+ricerca in `_ngPescaRicetta()` e `apriPannelloRicette()` (oggi elencano tutto
+senza ricerca); controllo anti-doppioni sui nomi, da fare con **P81**, perché
+`_ngScomponiRicettaNelPasto()` cerca la ricetta **per nome** e con due omonime
+prende sempre la prima; import in blocco oltre le ~300 ricette, perché
+`salvaRic()` rispedisce **tutte** le ricette custom a ogni singolo salvataggio
+(nessun dirty-tracking come P68/P69 sui pazienti) → caricamento uno-a-uno
+O(n²), ~170 KB per salvataggio a 300 ricette. Dettagli e cifre nella scheda.
+
+**TRAPPOLA SEGNALATA A FABRIZIO prima di iniziare a caricare** (comportamento
+già esistente, non introdotto oggi): se un salvataggio mostra `⚠️ Ricetta
+salvata SOLO in locale — sync fallito`, va risalvata **prima** di sincronizzare
+o ricaricare la pagina. `syncNow()` fa prima il pull, e `pullRicetteSupabase()`
+**sostituisce** `db.ricette` con `[RICETTE_DEFAULT + quelle del server]`: una
+ricetta mai arrivata su Supabase viene cancellata senza avvisi.
+
 24 LUGLIO 2026 (3ª sessione, parte 6) — SOGLIE DI RIFERIMENTO VALIDATE.
 Baseline `ca66bd5`. Solo documentazione, nessuna modifica al codice.
 

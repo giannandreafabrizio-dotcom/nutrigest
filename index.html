@@ -14927,8 +14927,82 @@ function costruisciPrompt(pazienteId) {
     }
   }
 
-  var ricetteDB = _ricetteFinali.map(function(r){return r.nome||r.titolo||'';}).filter(Boolean);
-  if(ricetteDB.length>80) ricetteDB=ricetteDB.slice(0,80); // tetto token
+  // ── P37 — PESCATA BILANCIATA al posto del taglio "primi 80" (25 lug 2026) ──
+  // PRIMA: ricetteDB.slice(0,80). Il taglio prendeva sempre le PRIME 80 ricette
+  // nell'ordine di arrivo da Supabase (pullRicetteSupabase interroga
+  // `?select=id,data` SENZA ORDER BY, quindi l'ordine è arbitrario ma stabile):
+  // con un ricettario grande venivano scartate SEMPRE LE STESSE ricette di coda,
+  // invisibili all'AI a ogni generazione e per ogni paziente. Con 200 ricette
+  // candidate, ~120 lavoravano e ~80 erano scritte per niente.
+  // ORA: tetto alzato a 120 (80 nomi ≈ 600 token: il margine c'era tutto) e i
+  // posti ripartiti per pasto ATTIVO, con pescata casuale dentro ogni gruppo:
+  //  1) ogni ricetta ha la sua possibilità di arrivare all'AI;
+  //  2) due generazioni sullo stesso paziente partono da pool diversi → più
+  //     varietà reale quando si rigenera un piano;
+  //  3) un ricettario sbilanciato (60 pranzi, 5 colazioni) non annega più le
+  //     colazioni: la quota per pasto è garantita.
+  // Il costo in token resta lo stesso ordine di grandezza di prima (solo nomi).
+  var _RIC_TETTO = 120;
+  var _RIC_PESI  = {colazione:1, spuntino:1, pranzo:1.5, cena:1.5, pre_nanna:0.5};
+
+  function _ricPescaBilanciata(pool, tetto){
+    // 1) raggruppa per slot. Le ricette senza pasto determinabile (metadata
+    //    ambigua) vanno in '_altro': si tengono comunque, come prima, ma non
+    //    consumano la quota dei pasti veri.
+    var gruppi = {_altro:[]};
+    Object.keys(_RIC_PESI).forEach(function(s){ gruppi[s]=[]; });
+    pool.forEach(function(r){
+      var nome = (r && (r.nome||r.titolo)) || '';
+      if(!nome) return;
+      var slots = _ricSlots(r);
+      if(slots===null){ gruppi._altro.push(nome); return; }
+      var attivi = slots.filter(function(s){ return _mealActive[s]===true; });
+      if(!attivi.length){ gruppi._altro.push(nome); return; }
+      attivi.forEach(function(s){ gruppi[s].push(nome); });
+    });
+    // 2) mescola ogni gruppo (Fisher-Yates) — è ciò che rende la pescata equa
+    Object.keys(gruppi).forEach(function(k){
+      var a=gruppi[k];
+      for(var i=a.length-1;i>0;i--){
+        var j=Math.floor(Math.random()*(i+1));
+        var t=a[i]; a[i]=a[j]; a[j]=t;
+      }
+    });
+    // 3) quote proporzionali ai pesi, SOLO sui pasti attivi e non vuoti,
+    //    più una fetta (max 15%) per le ricette a pasto indeterminato
+    var slotAttivi = Object.keys(_RIC_PESI).filter(function(s){
+      return _mealActive[s]===true && gruppi[s].length>0;
+    });
+    var pesoTot = slotAttivi.reduce(function(a,s){ return a+_RIC_PESI[s]; },0);
+    var quotaAltro = gruppi._altro.length ? Math.min(gruppi._altro.length, Math.round(tetto*0.15)) : 0;
+    var disponibile = tetto - quotaAltro;
+    var quote = {};
+    slotAttivi.forEach(function(s){
+      quote[s] = pesoTot ? Math.floor(disponibile*_RIC_PESI[s]/pesoTot) : 0;
+    });
+    // 4) prendi le quote, poi redistribuisci i posti avanzati (gruppi più
+    //    piccoli della loro quota) finché il tetto non è pieno o il pool esaurito
+    var scelti = [], visti = {};
+    function _prendi(lista, quanti){
+      for(var i=0;i<lista.length && quanti>0;i++){
+        var nm=lista[i];
+        if(visti[nm]) continue;   // stessa ricetta su due pasti → una volta sola
+        visti[nm]=1; scelti.push(nm); quanti--;
+      }
+    }
+    slotAttivi.forEach(function(s){ _prendi(gruppi[s], quote[s]); });
+    _prendi(gruppi._altro, quotaAltro);
+    if(scelti.length < tetto){
+      var ordine = slotAttivi.concat(['_altro']);
+      for(var g=0; g<ordine.length && scelti.length<tetto; g++){
+        _prendi(gruppi[ordine[g]], tetto - scelti.length);
+      }
+    }
+    return scelti;
+  }
+
+  var ricetteDB = _ricPescaBilanciata(_ricetteFinali, _RIC_TETTO);
+  console.log('[Prompt] Ispirazione: '+ricetteDB.length+'/'+_ricetteFinali.length+' ricette pescate (tetto '+_RIC_TETTO+', bilanciata per pasto attivo + casuale)');
 
   var nGiorni = isCeto ? 7 : 6;
   var nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];

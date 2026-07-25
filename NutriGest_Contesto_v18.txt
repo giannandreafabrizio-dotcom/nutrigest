@@ -1246,6 +1246,32 @@ GENERATORE PIANO:
     conservativa di P1: metadata assente → si tiene, la qualità non può peggiorare).
     In entrambi i casi il prompt riceve comunque il suggerimento testuale della
     stagione corrente; log in console dichiara filtro ATTIVO/DISATTIVATO con i numeri.
+  PESCATA BILANCIATA DELL'ISPIRAZIONE (P119, 25 lug 2026):
+    Ultimo passaggio di costruisciPrompt prima di comporre il prompt, DOPO i tre filtri
+    conservativi (pasto attivo P1 → stagione → keto). Sostituisce il vecchio taglio
+    ricetteDB.slice(0,80), che prendeva le PRIME 80 nell'ordine di arrivo da
+    pullRicetteSupabase (query senza ORDER BY: ordine arbitrario ma stabile) e quindi
+    scartava sempre le stesse ricette di coda, a ogni generazione e per ogni paziente.
+    _ricPescaBilanciata(pool, tetto) — annidata in costruisciPrompt accanto a _ricSlots:
+      • tetto _RIC_TETTO = 120 nomi (solo i NOMI vanno all'AI: ~600 token per 80 nomi,
+        quindi il numero di ricette in archivio non influenza il costo del prompt);
+      • raggruppa per slot via _ricSlots; le ricette a pasto indeterminato finiscono in
+        '_altro' (si tengono, come prima, ma non consumano la quota dei pasti veri);
+      • mescolata Fisher-Yates dentro ogni gruppo → due generazioni sullo stesso paziente
+        attingono a pool diversi (varietà reale quando si rigenera un piano);
+      • quote proporzionali ai pesi _RIC_PESI {colazione 1, spuntino 1, pranzo 1.5,
+        cena 1.5, pre_nanna 0.5}, calcolate SOLO sui pasti attivi e non vuoti → un
+        ricettario sbilanciato (60 pranzi, 5 colazioni) non annega più le colazioni;
+      • quota max 15% del tetto per '_altro';
+      • redistribuzione dei posti avanzati dai gruppi più piccoli della loro quota, finché
+        il tetto è pieno o il pool esaurito;
+      • deduplica per nome: una ricetta su pranzo+cena compare una volta sola.
+    Ricettario vuoto → fallback testuale invariato ("cucina italiana tradizionale").
+    Log in console: "[Prompt] Ispirazione: N/M ricette pescate (tetto 120, ...)".
+    Coperta da test-suite/test/s2-ispirazione-pescata.test.js (8 test): la funzione è
+    annidata e non esportata, i test la verificano dall'esterno leggendo la riga
+    "Per ispirazione attingi a: ..." del prompt — pattern riusabile per le altre parti
+    interne di costruisciPrompt.
   Logica vegetariana/ciclizzata pranzi (vecchio schema, oggi sostituito da NARUTO/HINATA):
     Giorni 1-3-5 → legumi (barattolo 120g) + proteina leggera
     Giorni 2-4-6 → proteina principale senza legumi
