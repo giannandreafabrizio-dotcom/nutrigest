@@ -11182,7 +11182,8 @@ function _impPromptPagina(elencoVoci, nPag, totPag){
     +'- Per i valori testuali delle urine (Aspetto, Colore, Esame morfologico sedimento…) riporta il testo come scritto (es. "Limpido", "Assente").\n'
     +'- Se un esame compare due volte con unità diverse (es. Creatininemia in mg/dl e in micromol/L), riporta la riga in mg/dl o comunque quella nell\'unità più usata in Italia.\n'
     +'- Se questa pagina non contiene nessun esame (copertina, grafici, note di refertazione), rispondi {"esami": []}.\n'
-    +'- Includi "_data_referto" con la data del prelievo in formato AAAA-MM-GG solo se è visibile SU QUESTA pagina; altrimenti ometti la chiave.\n\n'
+    +'- Se un esame è riportato sia in percentuale sia in valore assoluto (tipico dei leucociti: "% Neutrofili" e "# Neutrofili"), riporta ENTRAMBE le righe con la loro unità: sceglierà il programma.\n'
+    +'- Includi "_data_referto" con la data del PRELIEVO (o, se manca, di refertazione) in formato AAAA-MM-GG, solo se è visibile SU QUESTA pagina. ATTENZIONE: nell\'intestazione compare anche la DATA DI NASCITA del paziente, di solito accanto al nome e all\'indirizzo: quella non va mai usata. Nel dubbio ometti la chiave.\n\n'
     +'Formato della risposta: {"_data_referto": "AAAA-MM-GG", "esami": [{"voce": "Emoglobina", "valore": "15,1", "unita": "g/dl", "rif": "12-18"}]}';
 }
 
@@ -11265,7 +11266,21 @@ async function loadAnalisiSanguePDF(e){
       // e si accetta solo se ha la forma AAAA-MM-GG (niente date inventate).
       if(!dataReferto && estratti && typeof estratti._data_referto==='string'
          && /^\d{4}-\d{2}-\d{2}$/.test(estratti._data_referto.trim())){
-        dataReferto=estratti._data_referto.trim();
+        const cand=estratti._data_referto.trim();
+        // Nell'intestazione dei referti la data di nascita del paziente sta a due
+        // centimetri da quella del prelievo, e l'AI ha gia' preso quella (26/7:
+        // "06/03/1990" al posto del 17/06/2026). Una data sbagliata ma plausibile
+        // e' il danno peggiore possibile su uno storico — stessa lezione di P120:
+        // meglio nessuna data che una data inventata. Quindi si scarta se coincide
+        // con la nascita del paziente o se e' nel futuro.
+        const oggi=_refertoOggi();
+        if(p.nascita && cand===String(p.nascita).slice(0,10)){
+          notif("⚠ La data letta è quella di nascita del paziente: indicala tu");
+        } else if(cand>oggi){
+          notif('⚠ La data letta è nel futuro: indicala tu');
+        } else {
+          dataReferto=cand;
+        }
       }
       const lista=(estratti && Array.isArray(estratti.esami))?estratti.esami:[];
       lista.forEach(function(riga){
@@ -11275,19 +11290,33 @@ async function loadAnalisiSanguePDF(e){
         const val=String(riga.valore==null?'':riga.valore).trim();
         if(!val) return;
         const key=ANALISI_KEY(nome);
-        let conflitto=(metaReferto[key]||{}).conflitto||'';
-        if(staging[nome]!=null && staging[nome]!==val){
-          // Stesso esame su due pagine con valori diversi: non si sceglie da
-          // soli quale sia quello buono, si segnala e decide Fabrizio.
-          conflitto=staging[nome]+' (pag. '+((metaReferto[key]||{}).pagina||'?')+')';
+        const unita=String(riga.unita==null?'':riga.unita).trim().slice(0,24);
+        const nuova={
+          rif:String(riga.rif==null?'':riga.rif).trim().slice(0,60),
+          unita:unita,
+          pagina:i+1,
+          conflitto:(metaReferto[key]||{}).conflitto||''
+        };
+        const gia=metaReferto[key];
+        if(gia && staging[nome]!=null){
+          // I leucociti sui referti italiani compaiono DUE VOLTE: in percentuale
+          // ("% Neutrofili 54,7") e in valore assoluto ("# Neutrofili 2,7").
+          // Non e' un conflitto, e' lo stesso esame in due unita': si tiene la
+          // riga la cui unita' corrisponde a quella che l'app usa davvero
+          // (ANALISI/RANGE_STD ragionano in valori assoluti). Segnalarlo come
+          // conflitto costringerebbe a deselezionare a mano meta' emocromo
+          // a ogni import — e un avviso che si impara a ignorare non protegge.
+          const uAttesa=(_impLimitiStd(nome, p)||{}).u||'';
+          const okNuova = uAttesa ? _impUnitaCompatibili(unita, uAttesa) : true;
+          const okGia   = uAttesa ? _impUnitaCompatibili(gia.unita, uAttesa) : true;
+          if(okGia && !okNuova) return;                       // la riga buona c'e' gia': questa si scarta
+          if(!(okNuova && !okGia) && staging[nome]!==val){
+            // Nessuna delle due unita' decide: allora e' un conflitto vero.
+            nuova.conflitto=staging[nome]+' (pag. '+(gia.pagina||'?')+')';
+          }
         }
         staging[nome]=val;
-        metaReferto[key]={
-          rif:String(riga.rif==null?'':riga.rif).trim().slice(0,60),
-          unita:String(riga.unita==null?'':riga.unita).trim().slice(0,24),
-          pagina:i+1,
-          conflitto:conflitto
-        };
+        metaReferto[key]=nuova;
       });
     }
 

@@ -272,3 +272,44 @@ test('P124b — il prompt chiede valore, unità e riferimento dalla STESSA riga'
     assert.ok(corpo.indexOf(t) > 0, 'manca dal prompt: ' + t);
   });
 });
+
+// ── P124b, seconda correzione dopo il collaudo del 26/7 ─────────────────────
+// Due cose emerse ricaricando il referto vero con le pagine finalmente dritte:
+// (a) i leucociti sui referti italiani compaiono DUE VOLTE, in percentuale e in
+//     valore assoluto — non è un conflitto, è lo stesso esame in due unità;
+// (b) come data del referto era stata letta la DATA DI NASCITA del paziente
+//     (06/03/1990 invece del 17/06/2026), che sta due centimetri più in là
+//     nella stessa intestazione. Una data sbagliata ma plausibile è il danno
+//     peggiore possibile su uno storico: stessa lezione di P118 e P120.
+function corpoImport() {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  const i = html.indexOf('async function loadAnalisiSanguePDF');
+  assert.ok(i > 0, 'loadAnalisiSanguePDF non trovata');
+  return html.slice(i, i + 12000);
+}
+
+test('P124b — percentuale e valore assoluto dello stesso esame si risolvono con l\'unità, non a caso', () => {
+  const fn = corpoImport();
+  assert.ok(fn.indexOf('_impUnitaCompatibili') > 0,
+    'la fusione non guarda più l\'unità: la riga in percentuale e quella in valore assoluto tornerebbero a darsi conflitto a ogni emocromo');
+  assert.ok(fn.indexOf('_impLimitiStd') > 0, 'senza l\'unità attesa non si può scegliere quale riga tenere');
+});
+
+test('P124b — la data di nascita del paziente non può diventare la data del referto', () => {
+  const fn = corpoImport();
+  assert.ok(/p\.nascita/.test(fn),
+    'tolto il confronto con la data di nascita: torna il caso del 26/7 (referto datato 06/03/1990)');
+  assert.ok(/cand\s*>\s*oggi/.test(fn), 'tolto il rifiuto delle date nel futuro');
+});
+
+test('P124b — il prompt avverte esplicitamente della data di nascita nell\'intestazione', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  const i = html.indexOf('function _impPromptPagina');
+  const corpo = html.slice(i, i + 6000);
+  assert.ok(corpo.indexOf('DATA DI NASCITA') > 0, 'il prompt non mette più in guardia sulla data di nascita');
+  assert.ok(corpo.indexOf('ENTRAMBE le righe') > 0, 'il prompt non chiede più sia la percentuale sia il valore assoluto');
+});

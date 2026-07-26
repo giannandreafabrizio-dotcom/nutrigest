@@ -10,6 +10,41 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 4) — P124b: LE DUE COSE VISTE NEL COLLAUDO CON LE PAGINE FINALMENTE DRITTE.
+Test 327 → **330**. Collaudo di P124b **superato**: emocromo, TSH e FT4 letti giusti, niente più scivolamento di riga.
+
+**(1) Percentuale e valore assoluto non sono un conflitto.** Sui referti italiani
+i leucociti compaiono DUE VOLTE — "% Neutrofili 54,7" e "# Neutrofili 2,7" — e
+l'AI, correttamente, leggeva entrambe le righe. L'app le trattava come due
+letture in disaccordo dello stesso esame e segnalava un conflitto su cinque voci
+a ogni emocromo. Il valore che teneva era anche quello giusto (ANALISI e
+RANGE_STD ragionano in valori ASSOLUTI), ma la riga arrivava deselezionata:
+metà emocromo da rispuntare a mano ogni volta. Ora la scelta la fa **l'unità di
+misura**: fra due righe dello stesso esame si tiene quella la cui unità
+corrisponde a quella attesa, e il conflitto si segnala solo quando l'unità non
+decide. Verificato che funziona **in tutti e due gli ordini** di arrivo delle
+righe. Il prompt ora chiede esplicitamente di riportare ENTRAMBE le righe: la
+scelta è dell'app, che sa quale unità usa, non del modello, che non lo sa.
+*Un avviso che suona su metà emocromo a ogni import è un avviso che si impara a
+ignorare — e allora non protegge più nemmeno quando ha ragione.*
+
+**(2) Era stata letta la DATA DI NASCITA al posto di quella del prelievo.**
+Nella finestra di conferma la data del referto diceva **06/03/1990**: è la data
+di nascita del paziente, stampata nell'intestazione a due centimetri da quella
+del prelievo (17/06/2026). Nessuno l'aveva segnalata perché è una data
+perfettamente formata e plausibile — ed è esattamente il danno peggiore
+possibile su uno storico datato: un referto del 2026 archiviato nel 1990 falsa
+ordinamento, andamento nel tempo e confronti, senza un errore a video. Ora:
+il prompt avverte esplicitamente della data di nascita nell'intestazione, e
+**l'app rifiuta** la data letta se coincide con `p.nascita` o se è nel futuro,
+dicendolo e lasciando il campo da compilare. *Terza applicazione della stessa
+regola di P118/P120: meglio nessuna data che una data inventata.*
+
+**File toccati:** `index.html` (fusione per unità di misura e guardia sulla data
+in `loadAnalisiSanguePDF`, prompt in `_impPromptPagina`),
+`test-suite/test/s2-import-referto-controlli.test.js`, `INDEX.md`,
+`NutriGest_Roadmap_v4.md`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 3) — P124b: LE PAGINE DEL REFERTO ARRIVAVANO ALL'AI CORICATE SU UN FIANCO.
 Test 318 → **327**. Aggiunte `vendor/pdf.min.js` e `vendor/pdf.worker.min.js` (pdf.js 3.11.174).
 
