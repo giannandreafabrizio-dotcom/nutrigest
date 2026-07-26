@@ -10,6 +10,86 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 8) — SCOPERTA #5 SALDATA: 32 NOMI DI ALIMENTI CHE LE REGOLE CLINICHE CERCAVANO E NON TROVAVANO.
+Test 370 → **382**. Commit precedente `f644b1a`. Nata da una domanda di Fabrizio
+sulle "scoperte tecniche chiave" in fondo alla roadmap: la #5 non era un
+promemoria, era un buco aperto.
+
+**IL PROBLEMA, MISURATO.** Il semaforo automatico funziona così: per ogni
+condizione (15 fra patologie, allergie e condizioni speciali) una lista di NOMI
+da sconsigliare (grigi) o consigliare (celesti); `applicaRegoloSemaforo` cerca
+ogni nome con `trovaChiaveAlimento` e — questo è il punto — `if(key){...}`: se
+non lo trova **non fa niente e non dice niente**. La casella resta bianca,
+indistinguibile da un alimento valutato e approvato. Contati sul commit
+`f644b1a`: **32 nomi in quello stato**, fra cui `Nduja` (sconsigliata in SEI
+condizioni — diabete, lipidi, ipertensione, reflusso, rene, gravidanza — e mai
+colorata), `Maiale arista` (parole invertite rispetto ad `Arista di maiale`, in
+quattro liste), `Dado da brodo` per il celiaco, `Mozzarella Protinella` per
+l'intollerante al lattosio, `Avena`/`Fiocchi avena`/`Cioccolato fondente` per il
+nichel. Stessa famiglia di F5/F6/F7 e della regola 10 di CLAUDE.md: un dato che
+sparisce senza rumore.
+
+**LE CORREZIONI.** Tre gruppi, i primi meccanici, gli altri decisi da Fabrizio:
+- **Refusi:** `Maiale arista` → `Arista di maiale` (sblocca 4 liste) ·
+  `Avena` + `Fiocchi avena` → `Fiocchi d'avena` (due voci per lo stesso alimento)
+  · `Cioccolato fondente` (doppione di `Cioccolato fondente 85%`, già accanto)
+  rimosso · `Mozzarella Protinella` → `Mozzarella di vacca`.
+- **Sette alimenti aggiunti al DB** (scelta di Fabrizio: aggiungerli, non togliere
+  le regole): `'Nduja` 30 g (Insaccati) · `Dado da brodo` 5 g e `Senape` 10 g
+  (Olio & Condimenti) · `Camomilla` 2 g (Spezie) · `Semi di lino` 10 g (Frutta
+  Secca & Semi) · `Pasta di riso` 80 g (Cereali senza Glutine) · `Frutti rossi
+  misti` 150 g (Frutta). Grammature allineate ai simili già in tabella.
+- **Decisioni cliniche:** `Vitellone carne semigrassa`/`tagli magri` (nomi da
+  tabella INRAN, mai esistiti nel DB) sostituiti dai tagli veri del ricettario —
+  `Macinato di manzo`+`Hamburger di manzo` fra i grigi, `Fettina di vitello`+
+  `Tagliata di manzo` fra i celesti. E la **senape spostata dai consigliati agli
+  sconsigliati** nella regola nichel: era fra i celesti, ma è alimento a nichel
+  alto — segnalato come probabile refuso e confermato da Fabrizio.
+- **Tre doppioni** rimossi (mozzarella nel lattosio, lenticchie e orata in
+  gravidanza): innocui, ma il test nuovo non li tollera.
+Risultato: **0 nomi orfani, 0 doppioni, 0 conflitti grigio/celeste**.
+
+**LA PARTE CHE VALE PIÙ DELLE CORREZIONI.** Il letterale delle regole è uscito da
+dentro `applicaRegoloSemaforo` ed è diventato `REGOLE_SEMAFORO_ALIMENTI` a
+livello globale (esposto su `window` insieme ad `ALIMENTI` — `const` a livello di
+script non finisce sull'oggetto globale, per questo i test non le vedevano).
+Serve al nuovo `s2-regole-nomi-alimenti.test.js` (12 test): ogni nome deve
+esistere nel DB, `trovaChiaveAlimento` deve risolverlo davvero, niente doppioni,
+niente alimento grigio e celeste insieme, più i casi concreti corretti oggi e due
+prove end-to-end (l'iperteso vede grigia la nduja; una scelta manuale del medico
+non viene sovrascritta dalla regola). **Da oggi un nome sbagliato fa diventare
+rossa la suite prima del commit, invece di restare muto per mesi.**
+
+**TROVATO CHIUDENDO — F9, APERTA E NON CORRETTA.** Il controllo finale sul file ha
+trovato due nomi appena corretti (`Maiale arista`, `Vitellone tagli magri`)
+ancora presenti **fuori** dal blocco sistemato: stanno in una SECONDA tabella di
+regole, `REGOLE_SEMAFORO` (18 condizioni, marcata DEPRECATA), che è **ancora
+attiva** — 114 nomi orfani, scala colori diversa (`grigio_scuro_1/2`), e guidata
+dal campo testuale `p.patologie` invece che dalle checkbox. Il pulsante
+**"🔄 Ricalcola"** (`resetSemaforoAuto`) cancella tutti i colori automatici e poi
+chiama SOLO quella vecchia: un paziente colorato dalle 15 condizioni validate,
+dopo un click, può ritrovarsi **senza colori** e senza avviso. Non corretta in
+questa consegna perché la tabella vecchia contiene condizioni che il sistema
+nuovo non ha (stitichezza, gonfiore, menopausa, e le interazioni coi farmaci:
+metformina, levotiroxina, statine, anticoagulanti, cortisone): vanno migrate, non
+buttate — ed è lavoro clinico. Scheda F9 in roadmap. **Nel frattempo il pulsante
+"🔄 Ricalcola" non va premuto.**
+
+**QUELLO CHE RESTA APERTO (detto qui perché è il vero seguito).** Le liste di
+nomi non scalano al DB da codice a barre: con migliaia di prodotti industriali
+nessuno le scrive a mano. La direzione discussa con Fabrizio: regole sui NUMERI
+dell'etichetta (sodio, zuccheri, saturi, fibra) per le patologie metaboliche,
+allergeni dichiarati per le intolleranze, categoria come rete di sicurezza, e le
+liste di nomi ridotte a eccezioni esplicite. Soprattutto: servirà un **quarto
+stato "non valutato"** distinto dal bianco — oggi bianco significa insieme "ok
+per lui" e "non l'ho guardato", e su 10.000 prodotti quella confusione diventa il
+rischio principale.
+
+**File toccati:** `index.html` (7 alimenti nel DB, correzione dei nomi nelle 15
+regole, `REGOLE_SEMAFORO_ALIMENTI` portata a livello globale + esposizione su
+window), `test-suite/test/s2-regole-nomi-alimenti.test.js` (nuovo, 12 test),
+`INDEX.md`, `NutriGest_Roadmap_v4.md`, `NutriGest_Contesto_v18.txt`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 7) — P126: IL CONTESTO AI CITAVA I CAMPI CHE IL MOTORE SCARTA · P127: LA VERIFICA AL CONTROLLO.
 Test 350 → **370**. Commit precedente `ee166ee`. Le due cose "promesse e non fatte"
 segnate in cima alla roadmap semplice, chiuse insieme. La parte keto delle strade

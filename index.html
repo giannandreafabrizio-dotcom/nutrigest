@@ -1934,7 +1934,8 @@ const ALIMENTI = {
     {n:'Patate dolci',g:280,gl:false},{n:'Gnocchi di patate',g:160,gl:false},
     {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:30,gl:false},
     {n:'Cornflakes',g:30,gl:false},
-    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false},{n:'Cous cous',g:80,gl:false}
+    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false},{n:'Cous cous',g:80,gl:false},
+    {n:'Pasta di riso',g:80,gl:false}
   ]},
   'Carne Bianca': {items:[
     {n:'Petto di pollo',g:220},{n:'Sovraccoscio di pollo',g:200},{n:'Fusi di pollo',g:200},{n:'Cosce di pollo',g:200},
@@ -1959,7 +1960,7 @@ const ALIMENTI = {
   'Insaccati & Salumi': {items:[
     {n:'Bresaola',g:80},{n:'Prosciutto crudo magro',g:80},{n:'Prosciutto cotto',g:80},
     {n:'Carpaccio',g:80},{n:'Speck',g:60},{n:'Fesa di tacchino',g:100},
-    {n:'Pancetta',g:50},{n:'Mortadella',g:60},{n:'Salame',g:50}
+    {n:'Pancetta',g:50},{n:'Mortadella',g:60},{n:'Salame',g:50},{n:"'Nduja",g:30}
   ]},
   'Legumi': {items:[
     {n:'Ceci (secchi)',g:40},{n:'Ceci (barattolo)',g:120},
@@ -1993,7 +1994,7 @@ const ALIMENTI = {
     {n:'Anacardi',g:20},{n:'Pinoli',g:15},{n:'Arachidi',g:20},{n:'Castagne',g:80},
     {n:'Datteri',g:30},{n:'Prugne secche',g:30},{n:'Cocco essiccato',g:20},
     {n:'Burro arachidi',g:30},{n:'Burro mandorle',g:30},
-    {n:'Semi di chia',g:10},{n:'Semi di zucca',g:15},{n:'Tahina',g:20}
+    {n:'Semi di chia',g:10},{n:'Semi di zucca',g:15},{n:'Tahina',g:20},{n:'Semi di lino',g:10}
   ]},
   'Superfoods': {items:[
     {n:'Bacche di goji',g:15},{n:'Gomasio',g:10},{n:'Berberina',g:5},
@@ -2018,7 +2019,7 @@ const ALIMENTI = {
     {n:'Anguria',g:200},{n:'Melone',g:200},{n:'Albicocca',g:150},{n:'Pesca',g:150},
     {n:'Ciliegia',g:150},{n:'Fichi',g:100},{n:'Melograno',g:150},{n:'Avocado',g:75},
     {n:'Ananas',g:150},{n:'Mango',g:100},{n:'Papaya',g:150},{n:'Cocco fresco',g:80},{n:'Clementina',g:100},{n:'Mirtilli',g:150},{n:'Lamponi',g:150},{n:'Susine',g:150},{n:'Prugne',g:150},
-    {n:'Kaki',g:150},{n:'Nespole',g:100}
+    {n:'Kaki',g:150},{n:'Nespole',g:100},{n:'Frutti rossi misti',g:150}
   ]},
   'Spezie': {items:[
     {n:'Pepe nero',g:2},{n:'Curcuma',g:3},{n:'Paprika',g:3},{n:'Peperoncino',g:2},
@@ -2027,7 +2028,7 @@ const ALIMENTI = {
     {n:'Rosmarino',g:3},{n:'Timo',g:2},{n:'Salvia',g:2},{n:'Prezzemolo',g:5},
     {n:'Chiodi di garofano',g:2},{n:'Noce moscata',g:2},{n:'Zafferano',g:1},
     {n:'Cardamomo',g:2},{n:'Anice stellato',g:3},{n:'Aglio in polvere',g:3},
-    {n:'Cipolla in polvere',g:3}
+    {n:'Cipolla in polvere',g:3},{n:'Camomilla',g:2}
   ]},
   'Fit': {items:[
     {n:'Pancake proteico',g:100},{n:'Pancake banana e albume',g:150},{n:'Crepes proteiche',g:150},
@@ -2039,6 +2040,7 @@ const ALIMENTI = {
   ]},
   'Olio & Condimenti': {items:[
     {n:'Olio EVO',g:10},{n:'Salsa di soia',g:10},{n:'Limone',g:20},
+    {n:'Dado da brodo',g:5,gl:true},{n:'Senape',g:10},
     {n:'Pesto basilico',g:20},{n:'Pesto rucola',g:20}
   ]},
   'Integratori sportivi': {items:[
@@ -5651,15 +5653,15 @@ function editPaz(){
   document.getElementById('mo-paz').classList.add('open');
 }
 
-function applicaRegoloSemaforo(p){
-  if(!p||!p.checkSemaforo)return;
-  const cs=p.checkSemaforo;
-  const al=p.alimenti||{};
-
-  // Regole: [chiave_checkbox, [grigi], [celesti]]
-  // Revisione clinica P3 - 11 maggio 2026
-  // 13 condizioni: 7 patologie + 4 allergie/intolleranze + 2 condizioni speciali
-  const REGOLE={
+// ══════════════════════════════════════════════════════════════════════════════
+// REGOLE COLORE ALIMENTI PER CONDIZIONE CLINICA (13 condizioni + 2 speciali).
+// Revisione clinica P3 - 11 maggio 2026. Portata fuori da applicaRegoloSemaforo il
+// 26 lug 2026 (Scoperta tecnica #5): i nomi qui dentro devono combaciare ESATTAMENTE
+// con le chiavi del DB ALIMENTI, altrimenti trovaChiaveAlimento restituisce null e
+// la regola viene ignorata SENZA alcun errore a video — 32 nomi erano in quello
+// stato. Da fuori, il test s2-regole-nomi-alimenti li verifica tutti a ogni run.
+// ══════════════════════════════════════════════════════════════════════════════
+const REGOLE_SEMAFORO_ALIMENTI={
 
     'pat-diabete':{
       // Diabete T2 / Insulino-resistenza / PCOS - Fonte: ADA 2024, AACE PCOS Guidelines
@@ -5667,8 +5669,8 @@ function applicaRegoloSemaforo(p){
         'Marmellata rid. zucchero','Miele','Biscotti integrali','Fette biscottate integrali',
         'Pane comune','Riso','Patate','Mais dolce in scatola','Popcorn','Cornflakes',
         'Uva','Fichi','Datteri','Kaki','Mango','Banana',
-        'Salame','Mortadella','Nduja',
-        'Vitellone carne semigrassa','Maiale arista','Agnello'
+        'Salame','Mortadella',"'Nduja",
+        'Macinato di manzo','Hamburger di manzo','Arista di maiale','Agnello'
       ],
       celesti:[
         'Spinaci','Broccoli','Zucchine','Carote','Finocchio','Cavolfiore','Cavolo nero',
@@ -5686,8 +5688,8 @@ function applicaRegoloSemaforo(p){
       grigi:[
         'Burro arachidi','Burro mandorle',
         'Parmigiano','Grana padano','Pecorino','Burrata','Stracchino',
-        'Salame','Mortadella','Nduja','Speck',
-        'Vitellone carne semigrassa','Maiale arista','Agnello',
+        'Salame','Mortadella',"'Nduja",'Speck',
+        'Macinato di manzo','Hamburger di manzo','Arista di maiale','Agnello',
         'Miele','Marmellata rid. zucchero','Uva','Fichi','Datteri','Mango',
         'Cioccolato fondente 85%','Cacao amaro',
         'Latte vaccino intero','Latte di cocco'
@@ -5707,7 +5709,7 @@ function applicaRegoloSemaforo(p){
       // Ipertensione - Fonte: ESH/ESC Guidelines 2024, dieta DASH
       grigi:[
         'Bresaola','Prosciutto crudo magro','Prosciutto cotto','Speck',
-        'Mortadella','Salame','Nduja','Carpaccio',
+        'Mortadella','Salame',"'Nduja",'Carpaccio',
         'Parmigiano','Grana padano','Pecorino','Feta',
         'Salsa di soia','Dado da brodo',
         'Crackers','Grissini','Tarallini'
@@ -5752,7 +5754,7 @@ function applicaRegoloSemaforo(p){
         'Peperoncino','Curry','Paprika','Pepe nero',
         'Salsa di soia',
         'Latte vaccino intero','Latte di cocco','Burrata','Parmigiano','Grana padano',
-        'Mortadella','Salame','Nduja','Speck','Salmone affumicato',
+        'Mortadella','Salame',"'Nduja",'Speck','Salmone affumicato',
         'Arancia','Limone','Mandarino','Clementina','Kiwi','Ananas'
       ],
       celesti:[
@@ -5778,10 +5780,10 @@ function applicaRegoloSemaforo(p){
         'Spinaci','Pomodori','Patate','Barbabietola',
         'Banana','Arancia','Kiwi','Albicocca','Avocado',
         // Alto sodio
-        'Salame','Mortadella','Nduja','Speck','Bresaola',
+        'Salame','Mortadella',"'Nduja",'Speck','Bresaola',
         'Salsa di soia','Dado da brodo',
         // Proteine animali eccessive
-        'Vitellone carne semigrassa','Maiale arista','Agnello',
+        'Macinato di manzo','Hamburger di manzo','Arista di maiale','Agnello',
         'Soia surgelata (edamame)','Seitan'
       ],
       celesti:[
@@ -5860,7 +5862,7 @@ function applicaRegoloSemaforo(p){
         'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
         // Lattosio medio (2-5g/100g) - evitare o limitare
         'Ricotta di vacca','Ricotta di pecora',
-        'Fiocchi di latte','Mozzarella di vacca','Mozzarella Protinella',
+        'Fiocchi di latte','Mozzarella di vacca',
         'Philadelphia light','Stracchino','Scamorza','Burrata','Robiola'
       ],
       celesti:[
@@ -5881,7 +5883,7 @@ function applicaRegoloSemaforo(p){
       // Aggiornata 24 maggio 2026: aggiunti Avena/Fiocchi avena/Calamari/Castagne/Burro frutta secca/Tè/Camomilla
       // Ceci spostati da celesti a grigi (PDF: secchi 130μg) per coerenza con altri legumi
       grigi:[
-        'Pasta integrale','Farro','Orzo','Grano saraceno','Avena','Fiocchi avena',
+        'Pasta integrale','Farro','Orzo','Grano saraceno',"Fiocchi d'avena",
         'Spinaci','Asparagi','Broccoli','Carciofi','Carote','Cavolfiore','Cipolla',
         'Fagiolini','Finocchio','Funghi champignon','Funghi porcini',
         'Pomodori','Radicchio','Rucola','Sedano','Verza','Cavolo cappuccio','Cavolo nero','Cime di rapa','Porro',
@@ -5897,20 +5899,20 @@ function applicaRegoloSemaforo(p){
         'Filetti di merluzzo/nasello','Polpo','Seppia','Cozze','Vongole','Sgombro','Sgombro sottolio',
         'Prosciutto cotto',
         'Origano','Basilico','Prezzemolo','Salsa di soia','Cannella',
-        'Cacao amaro','Cioccolato fondente','Cioccolato fondente 85%',
-        'Tè','Camomilla'
+        'Cacao amaro','Cioccolato fondente 85%',
+        'Tè','Camomilla','Senape'
       ],
       celesti:[
         'Riso','Riso basmati','Pasta','Pane comune','Pane integrale','Polenta','Mais dolce in scatola',
         'Cetriolo','Melanzane','Zucchine','Peperoni rossi','Peperoni verdi','Zucca','Patate','Aglio in polvere',
         'Banana','Mela','Pera','Pesca','Melone','Arancia','Mandarino','Clementina',
-        'Petto di pollo','Petto di tacchino','Vitellone tagli magri','Maiale arista',
+        'Petto di pollo','Petto di tacchino','Fettina di vitello','Tagliata di manzo','Arista di maiale',
         'Bresaola','Prosciutto crudo magro','Salame','Mortadella','Pancetta',
         'Orata','Spigola','Pesce spada','Tonno al naturale','Tonno sottolio sgocciolato','Trota','Sarago',
         'Uovo intero','Albumi','Tuorlo',
         'Latte vaccino intero','Latte vaccino p.scremato','Yogurt','Yogurt greco 2%',
         'Ricotta di vacca','Fiocchi di latte','Mozzarella di vacca','Parmigiano','Grana padano','Feta',
-        'Olio EVO','Pepe nero','Paprika','Limone','Senape'
+        'Olio EVO','Pepe nero','Paprika','Limone'
       ]
     },
 
@@ -5950,7 +5952,7 @@ function applicaRegoloSemaforo(p){
         'Banana','Fragole','Arancia','Mandarino','Clementina',
         'Kiwi','Ananas','Melone','Lamponi','Uva',
         // Proteine (tutte ok)
-        'Petto di pollo','Petto di tacchino','Vitellone tagli magri',
+        'Petto di pollo','Petto di tacchino','Fettina di vitello','Tagliata di manzo',
         'Orata','Spigola','Filetti di merluzzo/nasello','Salmone fresco',
         'Tonno al naturale','Uovo intero','Albumi',
         // Latticini senza lattosio / stagionati
@@ -5969,7 +5971,7 @@ function applicaRegoloSemaforo(p){
         // Alto mercurio
         'Pesce spada','Tonno rosso','Salmone affumicato',
         // Listeria / Toxoplasma (crudi o poco cotti)
-        'Prosciutto crudo magro','Bresaola','Carpaccio','Salame','Speck','Mortadella','Nduja',
+        'Prosciutto crudo magro','Bresaola','Carpaccio','Salame','Speck','Mortadella',"'Nduja",
         // Formaggi molli non pastorizzati (Listeria)
         'Stracchino','Robiola','Burrata','Philadelphia light',
         'Ricotta di vacca','Fiocchi di latte',
@@ -5985,9 +5987,9 @@ function applicaRegoloSemaforo(p){
         // Calcio (1000-1200mg/die)
         'Yogurt','Yogurt greco 2%','Latte vaccino intero','Parmigiano','Grana padano','Feta',
         // Ferro (27mg/die)
-        'Vitellone tagli magri','Uovo intero','Lenticchie (barattolo)',
+        'Fettina di vitello','Tagliata di manzo','Uovo intero',
         // Iodio (250mcg/die)
-        'Filetti di merluzzo/nasello','Orata'
+        'Filetti di merluzzo/nasello'
       ]
     },
 
@@ -6009,7 +6011,7 @@ function applicaRegoloSemaforo(p){
         'Yogurt','Yogurt greco 2%','Latte vaccino intero','Parmigiano','Grana padano','Ricotta di vacca',
         // Proteine +19g/die
         'Petto di pollo','Petto di tacchino','Uovo intero',
-        'Vitellone tagli magri',
+        'Fettina di vitello','Tagliata di manzo',
         'Ceci (barattolo)','Lenticchie (barattolo)',
         // Ferro e folati
         'Spinaci','Broccoli',
@@ -6071,7 +6073,23 @@ function applicaRegoloSemaforo(p){
       ]
     }
 
-  };
+};
+// Esposte su window perche' `const` a livello di script non finisce sull'oggetto
+// globale: senza questa riga i test non possono leggerle (stesso motivo per ALIMENTI).
+window.REGOLE_SEMAFORO_ALIMENTI=REGOLE_SEMAFORO_ALIMENTI;
+window.ALIMENTI=ALIMENTI;
+
+function applicaRegoloSemaforo(p){
+  if(!p||!p.checkSemaforo)return;
+  const cs=p.checkSemaforo;
+  const al=p.alimenti||{};
+
+  // Regole: [chiave_checkbox, [grigi], [celesti]]
+  // Revisione clinica P3 - 11 maggio 2026
+  // 13 condizioni: 7 patologie + 4 allergie/intolleranze + 2 condizioni speciali
+  // P5-nomi (26 lug 2026): il letterale vive fuori come REGOLE_SEMAFORO_ALIMENTI,
+  // cosi' un test puo' verificare che ogni nome citato esista davvero nel DB alimenti.
+  const REGOLE=window.REGOLE_SEMAFORO_ALIMENTI;
 
 
   // Pulisce solo i colori automatici (grigioScuro e celeste) — non tocca quelli manuali

@@ -62,6 +62,8 @@
 | **P125** ✅ chiusa 26 lug 2026 — **da collaudare** (ricerca fra i 119 parametri + LDL stimato con Friedewald — v. scheda) · **resta l'elettroforesi in frazioni** | Opus | High | ON | Una formula clinica fuori dal suo campo di validità è un numero che sembra un risultato |
 | **P126** ✅ chiusa 26 lug 2026 — **da collaudare** (il contesto AI citava ore/tipo/intensità: i campi che il motore MET scarta — v. scheda) | Opus | High | ON | L'AI commentava un carico allenante diverso da quello su cui erano calcolati i macro |
 | **P127** ✅ chiusa 26 lug 2026 — **da collaudare** (la verifica al controllo: cos'è successo davvero e la strada da ritarare — v. scheda) | Opus | High | ON | Ritmo reale, soglie di leggibilità del dato e proposta di ritaratura: decisioni cliniche |
+| **P128** — colorazione automatica quando il DB alimenti diventerà grande (codice a barre): regole sui numeri d'etichetta invece che su liste di nomi + stato "non valutato" — v. scheda | Opus | High | ON | Soglie nutrizionali e significato del "bianco": sicurezza clinica |
+| **F9** ⚠️ **APERTA 26 lug 2026** — esistono DUE tabelle di regole colore attive e il pulsante "🔄 Ricalcola" applica quella vecchia, cancellando i colori del sistema nuovo — v. scheda | Opus | High | ON | Colori clinici sostituiti in silenzio con quelli di un sistema superato |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
@@ -856,6 +858,43 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 ---
 
+### F9 — Due tabelle di regole colore attive insieme, e il pulsante "🔄 Ricalcola" applica quella sbagliata (aperta 26 lug 2026)
+
+**Come è saltata fuori:** chiudendo la Scoperta #5 il controllo finale ha trovato due nomi corretti (`Maiale arista`, `Vitellone tagli magri`) ancora presenti nel file, ma **fuori** dal blocco appena sistemato. Erano in una seconda tabella.
+
+**I fatti:**
+- `REGOLE_SEMAFORO_ALIMENTI` (15 condizioni, guidata dalle **checkbox** `p.checkSemaforo`) è il sistema vivo, quello validato clinicamente e ora coperto dai test: 0 nomi orfani.
+- `REGOLE_SEMAFORO` (18 condizioni, marcata DEPRECATA, guidata dal **testo libero** `p.patologie`) è ancora attiva: **114 nomi orfani** su una tabella mai ripulita, e usa una scala di colori diversa (`grigio_scuro_1/2`, `celeste_1/2` invece di `grigioScuro`/`celeste`).
+- `resetSemaforoAuto` — il pulsante **"🔄 Ricalcola"** nella scheda del paziente — cancella TUTTI i colori automatici (compresi quelli del sistema nuovo) e poi chiama solo `_applicaRegoloSemaforoLEGACY`. **Non chiama mai `applicaRegoloSemaforo`.**
+
+**Cosa succede in pratica:** un paziente colorato dalle 15 condizioni validate, se si preme "🔄 Ricalcola", perde quei colori e riceve quelli dedotti dal campo testuale `p.patologie` — che nel flusso attuale è spesso vuoto, quindi il risultato può essere **nessun colore**, senza un avviso. Stessa famiglia di F4/F5: una seconda fonte che sopravvive e vince in silenzio.
+
+**Perché NON basta cancellare la tabella vecchia:** contiene condizioni che il sistema nuovo non copre — stitichezza, gonfiore, menopausa, e soprattutto le **interazioni con i farmaci** (metformina, levotiroxina, statine, anticoagulanti, cortisone) più il ciclo abbondante. Quelle liste hanno valore clinico e vanno migrate, non buttate.
+
+**Rimedio proposto (da decidere con Fabrizio):** (1) subito, il pulsante chiama il sistema nuovo; (2) le condizioni presenti solo nella tabella vecchia si migrano nel nuovo come voci con la loro checkbox — lavoro clinico, nome per nome, con lo stesso test della Scoperta #5 a fare da rete; (3) a migrazione finita la tabella vecchia e `_applicaRegoloSemaforoLEGACY` si eliminano. **Nel frattempo: non premere "🔄 Ricalcola".**
+
+**SCHEDA:** Stato: **Aperta — da fare**, trovata il 26 lug 2026 chiudendo la Scoperta #5 · Priorità: **Alta** (perdita silenziosa di colori clinici) · Categoria: Semaforo clinico · Dipendenze: nessuna per il passo 1; il passo 2 è lavoro clinico sulle liste farmaci · Autonomia: **L0** sulla migrazione delle liste (sono regole cliniche), L2 sul passo 1.
+
+---
+
+### P128 — Colorazione automatica quando il database alimenti diventerà grande (aperta 26 lug 2026)
+
+**Origine:** domanda di Fabrizio subito dopo la saldatura della Scoperta #5: *"quando inizierò a ingrandire la lista degli alimenti col codice a barre, quegli alimenti futuri come faremo a capire se in base alla patologia dobbiamo colorarli grigio scuro, celeste o lasciarli normali?"* Domanda giusta al momento giusto: il meccanismo attuale (liste di nomi propri, 15 condizioni) regge a 278 alimenti scritti a mano e **non regge** a migliaia di prodotti industriali. Allungare le liste non è la strada.
+
+**La direzione discussa (da confermare quando si parte):**
+1. **Regole sui numeri dell'etichetta** per le patologie metaboliche: sodio, zuccheri, grassi saturi, fibra per 100 g arrivano insieme al codice a barre. Una regola diventa "sodio > X g/100 g → grigio per l'iperteso". Vale da sola su ogni prodotto futuro. **Le soglie sono decisioni cliniche di Fabrizio, una volta sola.**
+2. **Allergeni dichiarati** (obbligatori per legge) per glutine, lattosio, frutta a guscio, soia: coprono da soli le regole di intolleranza — oggi le peggio messe.
+3. **Categoria come rete di sicurezza** quando i numeri mancano (un prodotto in "Insaccati & Salumi" eredita il grigio dell'insaccato). Grossolana ma meglio del nulla.
+4. **Le liste di nomi restano solo come eccezione esplicita**, non come meccanismo.
+
+**Il punto di sicurezza, più importante del resto:** oggi la casella bianca significa due cose diverse — "valutato e va bene" e "non l'ho mai guardato" — e a schermo sono identiche. Con 278 alimenti curati a mano passa; con migliaia di prodotti diventa il rischio principale dell'app, perché un alimento mai valutato sembrerà approvato. Serve un **quarto stato "non valutato"**, visibile, prima di aprire il DB al codice a barre.
+
+**Non copribile dai numeri:** nichel, FODMAP, purine, ossalati non stanno in etichetta e non si deducono. O una tabella per ingrediente-base, o restano gestiti a mano — e finché sono a mano, i prodotti nuovi vanno marcati "non valutato" su quelle condizioni, non bianchi.
+
+**SCHEDA:** Stato: **Da fare** — si apre quando parte il codice a barre (dipende da **P90**, nuovo strumento alimenti e grammature) · Priorità: Alta *(diventa bloccante nel momento in cui il DB cresce)* · Categoria: Semaforo clinico / dati alimenti · Dipendenze: P90, Scoperta #5 (saldata) · Autonomia: **L0** — soglie nutrizionali e significato del bianco sono sicurezza clinica.
+
+---
+
 # VALUTAZIONI APERTE — verdetti del CTO
 
 - **Ricette fit (#2):** non cancellare, ARCHIVIARE: tag `archiviata` + filtro default che le nasconde. Cancellare dati per fare ordine è sempre la scelta sbagliata. → 20 min dentro P82/P80.
@@ -881,7 +920,7 @@ Test 290 → **301** (`s2-strade.test.js`).
 2. **Il vero buco del P20** era il **generatore del piano** (costruisciPrompt), che ignorava emotivo/farmaci/patologie/analisi — NON F1/F3. ✅ Risolto.
 3. **Input duplicato (P16) — RISOLTO 25 giu 2026 (84e776a):** F1 e F3 inviavano lo stesso contesto due volte; ora `avviaFX` lo invia una sola volta. Risparmio sull'input, output invariato.
 4. **Cache piano (90gg) + hash deterministico:** difesa token principale, da preservare ESATTAMENTE.
-5. **Nomi alimenti regole** devono combaciare esatti con le chiavi DB (`trovaChiaveAlimento`) o sono ignorati in silenzio.
+5. **Nomi alimenti regole** devono combaciare esatti con le chiavi DB (`trovaChiaveAlimento`) o sono ignorati in silenzio. ✅ **SALDATA 26 lug 2026 (coda 8):** erano **32 nomi** a vuoto (`Nduja` sconsigliata in 6 condizioni e mai colorata, `Maiale arista` invertito in 4 liste, `Dado da brodo` per il celiaco, `Mozzarella Protinella` per il lattosio). Corretti i refusi, aggiunti 7 alimenti al DB, sostituiti i nomi INRAN coi tagli veri, senape spostata fra gli sconsigliati del nichel. Il letterale è ora `REGOLE_SEMAFORO_ALIMENTI` a livello globale e `s2-regole-nomi-alimenti.test.js` (12 test) **fa fallire la suite** al primo nome inesistente. **Resta valido come regola di scrittura** — e va ripensato del tutto quando il DB crescerà col codice a barre: v. voce "Colorazione automatica su DB grande" sotto.
 6. **6 stati colore automatici** (grigioScuro, celeste, grigio_scuro_1/2, celeste_1/2) NON sono scelte del medico. Solo si/verde/arancione/rosso sono manuali.
 7. **P26 ✅ COMPLETATO 25 giu 2026 (c9fab21):** l'ancora finale NON è "TARGET MEDICO" nell'output FX, ma "TARGET FINALE" nel riassunto post-raffinamento (`_ragRiassunto`) — necessario perché il riassunto incorpora eventuali correzioni della chat. Stesso fix applicato anche al fallback del generatore (bug gemello non previsto inizialmente).
 8. **Twemoji 14.0.2 (P23-bis):** i codepoint emoji con variation selector (`-fe0f`) esistono su Twemoji solo per varianti con tono di pelle o genere specifico. Il file base è il codepoint nudo (`1f3cb.png`). Verificare sempre contro il catalogo reale — un 404 silenzioso non genera errore, semplicemente l'emoji non compare.

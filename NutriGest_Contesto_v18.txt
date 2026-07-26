@@ -1687,6 +1687,25 @@ SEMAFORO (15 condizioni validate):
     KDIGO 2024, ESPEN 2021, ATA 2014, ESPGHAN 2020, AIC, AIGO 2019, Monash University 2023,
     ISS/ACOG 2023, WHO | Nichel: tabella BraMa-Ni completa
     Gotta/Iperuricemia: EULAR 2016/2020, ACR 2020 | Calcolosi ossalica: EAU Urolithiasis 2023, AUA 2014
+  DOVE VIVONO LE REGOLE (dal 26 lug 2026, coda 8): il letterale e' `REGOLE_SEMAFORO_ALIMENTI`
+    a livello globale (prima era dentro applicaRegoloSemaforo, invisibile ai test), esposto
+    su window insieme ad ALIMENTI — `const` a livello di script NON finisce sull'oggetto
+    globale, ed e' il motivo per cui i test non riuscivano a leggerli.
+    IL RISCHIO STRUTTURALE: applicaRegoloSemaforo fa `const key=trovaChiaveAlimento(nome);
+    if(key){...}` — un nome che il DB non contiene viene ignorato SENZA errore, e la casella
+    resta bianca, identica a un alimento valutato e approvato. Il 26/7 erano 32 i nomi in
+    quello stato ('Nduja sconsigliata in 6 condizioni e mai colorata, "Maiale arista" con le
+    parole invertite in 4 liste, "Dado da brodo" per il celiaco, "Mozzarella Protinella" per
+    il lattosio). Nota storica che vale come lezione: il 24 giu 2026 la verifica nome-per-nome
+    era stata fatta — ma solo per le due condizioni nuove di allora (gotta, ossalati), e la
+    riga qui sopra la dichiarava senza dire che valeva solo per quelle.
+    LA GARANZIA: `test-suite/test/s2-regole-nomi-alimenti.test.js` (12 test) verifica a ogni
+    run che ogni nome esista nel DB, che trovaChiaveAlimento lo risolva davvero, che non ci
+    siano doppioni ne' alimenti grigi e celesti insieme, piu' due prove end-to-end (l'iperteso
+    vede grigia la nduja; una scelta manuale del medico non viene sovrascritta dalla regola).
+    Scrivere un nome inesistente rende ROSSA la suite: non e' piu' un errore silenzioso.
+    LIMITE NOTO: il meccanismo a liste di nomi non scala a un DB grande (codice a barre) —
+    v. P128 in roadmap: regole sui numeri d'etichetta + stato "non valutato" distinto dal bianco.
   Etichette descrittive: grigio "Alto X ✕" / celeste "Basso/Low X ✓"
   Ciclo colori togAl():
     Click celeste/arancio/rosso → ritorna celeste (cicla)
