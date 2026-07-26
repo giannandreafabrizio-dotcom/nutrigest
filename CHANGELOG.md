@@ -10,6 +10,68 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 3) — P124b: LE PAGINE DEL REFERTO ARRIVAVANO ALL'AI CORICATE SU UN FIANCO.
+Test 318 → **327**. Aggiunte `vendor/pdf.min.js` e `vendor/pdf.worker.min.js` (pdf.js 3.11.174).
+
+**IL SECONDO COLLAUDO, PEGGIO DEL PRIMO.** Con P124 pubblicata Fabrizio ricarica
+il referto — stavolta il PDF a 4 pagine invece della foto — e su 32 valori ne
+escono ~25 sbagliati. Ma sbagliati in modo NUOVO: non colonna sbagliata, **riga
+sbagliata**. Piastrine prendeva 15,1 (l'Emoglobina), Globuli bianchi 0,40 (%
+Basofili), TSH 1,17 (FT4) e FT4 1560 (TSH). E come "intervallo di riferimento"
+tornavano `pg` e `migliaia/mmc`: le UNITÀ DI MISURA di righe vicine.
+
+**LA CAUSA, trovata solo perché Fabrizio ha allegato il PDF vero.** Il file è
+una **scansione senza livello di testo** (`pdftotext` restituisce 4 byte) e le
+pagine, una volta convertite in immagini, arrivano **ruotate di 90°**. Su una
+tabella fitta letta di traverso l'allineamento delle righe collassa: è tutto lì.
+**E c'è il colpo di scena che ha deciso l'architettura: la rotazione DICHIARATA
+dal PDF era sbagliata.** Il file dice `/Rotate 270`; provate tutte e quattro le
+rotazioni in un browser vero, l'unica che raddrizza il referto è **180**. Quindi
+non ci si può fidare del metadato: l'orientamento va RILEVATO guardando la
+pagina. È la stessa lezione di F5/F6/F7 e dell'INDEX.md sbagliato — **le
+dichiarazioni non si credono, si controllano** — applicata stavolta a un file
+di terzi invece che al nostro codice.
+
+**LA CORREZIONE.**
+**1. Le pagine le rendiamo noi, dritte** (`vendor/pdf.min.js`). Per ogni referto:
+una chiamata piccola a bassa risoluzione che chiede *di quanti gradi va girata la
+pagina*, poi il rendering di tutte le pagine con quella rotazione. Se la risposta
+non è 0/90/180/270 si resta a 0: meglio non ruotare che ruotare a caso. Vale
+anche per le **foto** scattate storte, che avevano lo stesso identico problema.
+**2. Una pagina per chiamata.** Meno righe insieme, meno spazio per scivolare.
+Una pagina illeggibile non fa fallire il referto: si segnala e si prosegue.
+**3. L'impronta della riga.** L'AI deve riportare, per ogni esame e DALLA STESSA
+RIGA, quattro campi: voce, valore, **unità** e **riferimento**. I tre dati si
+controllano a vicenda, e l'app scarta la riga quando non tornano:
+   · il "riferimento" non è un intervallo (`pg`, `migliaia/mmc`, `1,17`) → riga disallineata;
+   · l'unità non è quella dell'esame (`%` dove servono 10³/µL) → riga disallineata;
+   · lo stesso esame compare su due pagine con valori diversi → conflitto, decide Fabrizio.
+Sul caso reale questi due soli controlli scartano 14 righe sbagliate su 25.
+`_impUnitaCanonica` normalizza le scritture dei laboratori italiani
+(`migliaia/mmc`↔`10³/µL`, `mcg/dl`↔`µg/dL`, `microU/ml`↔`µU/mL`): senza, il
+controllo avrebbe dato falsi allarmi su mezzo emocromo.
+
+**VERIFICATO IN UN BROWSER VERO, NON SOLO NEI TEST.** Il PDF di Mangini è stato
+aperto in Chromium headless: 4 pagine rese in ~1,7 s ciascuna (~200 KB), la
+pagina 1 raddrizzata e leggibile, e il flusso completo con `aiCall` finto
+produce esattamente la finestra attesa — righe buone spuntate, riga con
+riferimento `migliaia/mmc` scartata, riga con unità `%` scartata, conflitto fra
+pagine segnalato. Il primo tentativo di verifica era passato 180 invece di 270 e
+usciva storto: **l'errore era nel test, non nel codice** — ed è il motivo per cui
+la verifica va fatta guardando l'immagine, non leggendo il valore di ritorno.
+
+**Perché pdf.js e non un prompt migliore.** Era la tentazione: riscrivere le
+istruzioni. Ma quando un modello sbaglia in modo SISTEMATICO e non casuale, la
+causa non è quasi mai nel prompt — è in **cosa gli stiamo davvero facendo
+vedere**. Nessuna istruzione rende leggibile una tabella coricata.
+
+**File toccati:** `index.html` (blocco import riscritto: `_impPdfApri`,
+`_impPdfPagina`, `_impRuotaImmagine`, `_impRilevaRotazione`, `_impPromptPagina`,
+`loadAnalisiSanguePDF`; più `_impRifPlausibile`, `_impUnitaCanonica`,
+`_impUnitaCompatibili` nei controlli), `vendor/pdf.min.js` e
+`vendor/pdf.worker.min.js` (nuovi), `test-suite/test/s2-import-referto-controlli.test.js`,
+`INDEX.md`, `NutriGest_Roadmap_v4.md`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 2) — P124: L'IMPORT DEI REFERTI DEL SANGUE SMETTE DI ESSERE UN ATTO DI FEDE.
 Test 305 → **318**, tutti verdi (`s2-import-referto-controlli.test.js`, 13 nuovi).
 

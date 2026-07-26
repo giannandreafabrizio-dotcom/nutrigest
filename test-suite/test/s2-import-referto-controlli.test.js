@@ -149,3 +149,126 @@ test('P124 — la colonna Estratto della finestra di conferma è un campo scrivi
   assert.ok(corpo.indexOf('_impControllaValore') > 0,
     'la finestra non chiama più i controlli anti-errore');
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P124b — L'IMPRONTA DELLA RIGA (26 lug 2026, secondo caso reale)
+// Il PDF del referto era una SCANSIONE con le pagine ruotate di 90°: l'AI
+// leggeva la tabella coricata e scivolava di riga — Piastrine prendeva il
+// valore dell'Emoglobina, TSH quello di FT4. Il sintomo riconoscibile: come
+// "intervallo di riferimento" tornavano "pg" e "migliaia/mmc", cioè le UNITÀ
+// di righe vicine. Questi test bloccano quel sintomo.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('P124b — un "riferimento" che è in realtà un\'unità di misura smaschera la riga sbagliata', () => {
+  const ok = win.eval('_impRifPlausibile');
+  ['pg', 'migliaia/mmc', '%', 'g/dl', '1,17'].forEach(function (r) {
+    assert.strictEqual(ok(r), false, '"' + r + '" non è un intervallo di riferimento');
+  });
+  ['12-18', '0,27-4,20', '< 150', '>= 40', '> 30 valori ottimali', '150-450', ''].forEach(function (r) {
+    assert.strictEqual(ok(r), true, '"' + r + '" è un riferimento legittimo');
+  });
+});
+
+test('P124b — le unità dei laboratori italiani non generano falsi allarmi', () => {
+  const eq = win.eval('_impUnitaCompatibili');
+  [
+    ['migliaia/mmc', '10³/µL'],
+    ['milioni/mmc', '10⁶/µL'],
+    ['mcg/dl', 'µg/dL'],
+    ['mcmol/L', 'µmol/L'],
+    ['microU/ml', 'µU/mL'],
+    ['MG/DL', 'mg/dL'],
+    ['ng/ml', 'ng/mL'],
+    ['ml/min/1,73m', 'mL/min/1.73m²'],
+    ['g/dl', 'g/dL']
+  ].forEach(function ([lab, std]) {
+    assert.strictEqual(eq(lab, std), true, lab + ' e ' + std + ' sono la stessa unità');
+  });
+});
+
+test('P124b — unità di un altro esame: riga disallineata', () => {
+  const eq = win.eval('_impUnitaCompatibili');
+  assert.strictEqual(eq('%', '10³/µL'), false, 'una percentuale al posto di un valore assoluto');
+  assert.strictEqual(eq('pg', 'g/dL'), false, 'MCH al posto di Emoglobina');
+  assert.strictEqual(eq('migliaia/mmc', 'fL'), false, 'Piastrine al posto di MCV');
+});
+
+test('P124b — i casi veri dello scivolamento di riga vengono presi', () => {
+  // Piastrine 15.1 (era l'Emoglobina) con riferimento "migliaia/mmc"
+  const c1 = ctrl('Piastrine (PLT)', '15.1', { rif: 'migliaia/mmc', unita: 'migliaia/mmc' });
+  assert.ok(c1.sospetto, 'il riferimento non è un intervallo: doveva essere segnalata');
+  // Globuli bianchi 0.40 (era % Basofili): unità % invece di 10³/µL
+  const c2 = ctrl('Globuli bianchi (WBC)', '0.40', { rif: '0-1,5', unita: '%' });
+  assert.ok(c2.sospetto, 'unità percentuale su un valore assoluto: doveva essere segnalata');
+  assert.ok(c2.motivi.join(' ').indexOf('unità') >= 0);
+  // TSH 1.17 (era FT4) con "riferimento" 1,17
+  const c3 = ctrl('TSH', '1.17', { rif: '1,17', unita: 'NG/DL' });
+  assert.ok(c3.sospetto, 'riferimento non intervallo + unità di FT4: doveva essere segnalata');
+});
+
+test('P124b — la riga letta bene non viene toccata dall\'impronta', () => {
+  [
+    ['Emoglobina', '15,1', 'g/dl', '12-18'],
+    ['Piastrine (PLT)', '173', 'migliaia/mmc', '150-450'],
+    ['Globuli bianchi (WBC)', '5,0', 'migliaia/mmc', '4-11'],
+    ['MCH', '29,1', 'pg', '26-31'],
+    ['TSH', '1,560', 'microU/ml', '0,27-4,20'],
+    ['Ferro', '81', 'mcg/dl', '65-175'],
+    ['Vitamina B12', '546', 'pg/ml', '197-771'],
+    ['Vitamina D (25-OH)', '21,3', 'ng/ml', '> 30 valori ottimali']
+  ].forEach(function ([nome, valore, unita, rif]) {
+    const c = ctrl(nome, win.eval('_impNormalizzaNumero')(valore), { rif: rif, unita: unita });
+    assert.strictEqual(c.sospetto, false, nome + ' segnalato per sbaglio: ' + c.motivi.join(' · '));
+  });
+});
+
+test('P124b — lo stesso esame con due valori diversi su due pagine è un conflitto, non una scelta', () => {
+  const c = ctrl('Glicemia a digiuno', '95', { rif: '60-100', unita: 'MG/DL', conflitto: '112 (pag. 2)' });
+  assert.ok(c.sospetto);
+  assert.ok(c.motivi.join(' ').indexOf('112') >= 0, 'deve dire con quale altro valore va in conflitto');
+});
+
+test('P124b — sulle voci qualitative delle urine il riferimento a parole non è un errore', () => {
+  const c = ctrl('Colore', 'Giallo paglierino', { rif: 'giallo paglierino', unita: '' });
+  assert.strictEqual(c.sospetto, false);
+});
+
+// ── Guardie sul rendering delle pagine ──────────────────────────────────────
+test('P124b — il PDF viene reso pagina per pagina e le pagine arrivano dritte', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  assert.ok(html.indexOf('vendor/pdf.min.js') > 0, 'pdf.js non è più caricato: senza, il PDF torna a essere letto coricato');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', '..', 'vendor', 'pdf.min.js')), 'vendor/pdf.min.js mancante');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', '..', 'vendor', 'pdf.worker.min.js')), 'vendor/pdf.worker.min.js mancante');
+  const i = html.indexOf('async function _impPdfPagina');
+  assert.ok(i > 0, '_impPdfPagina non trovata');
+  const corpo = html.slice(i, i + 2500);
+  assert.ok(corpo.indexOf('getViewport') > 0, 'senza getViewport la pagina non viene resa');
+  assert.ok(/rotation\s*:\s*rot/.test(corpo), 'la rotazione rilevata non viene più applicata al rendering');
+  // Il PDF del 26/7 dichiarava /Rotate 270 ma andava girato di 180: la
+  // rotazione si RILEVA guardando la pagina, non si legge dal file.
+  assert.ok(html.indexOf('async function _impRilevaRotazione') > 0,
+    'tolto il rilevamento dell\'orientamento: si torna a fidarsi della rotazione dichiarata nel PDF, che era sbagliata');
+  const j2 = html.indexOf('async function _impRilevaRotazione');
+  const corpoRot = html.slice(j2, j2 + 1400);
+  assert.ok(/return\s*0/.test(corpoRot), 'senza ripiego a 0 una risposta strana ruoterebbe la pagina a caso');
+  const j = html.indexOf('async function loadAnalisiSanguePDF');
+  const fn = html.slice(j, j + 9000);
+  assert.ok(/for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*<\s*pagine\.length/.test(fn),
+    'l\'import non cicla più sulle pagine: si torna a mandare tutto il referto in una chiamata sola');
+  assert.ok(fn.indexOf('_impPromptPagina') > 0, 'il prompt per pagina non è più usato');
+  assert.ok(fn.indexOf('_impRilevaRotazione') > 0, 'l\'import non controlla più l\'orientamento prima di leggere');
+});
+
+test('P124b — il prompt chiede valore, unità e riferimento dalla STESSA riga', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  const i = html.indexOf('function _impPromptPagina');
+  assert.ok(i > 0);
+  const corpo = html.slice(i, i + 5000);
+  ['"voce"', '"valore"', '"unita"', '"rif"', 'STESSA riga', 'REGOLA DI COERENZA'].forEach(function (t) {
+    assert.ok(corpo.indexOf(t) > 0, 'manca dal prompt: ' + t);
+  });
+});

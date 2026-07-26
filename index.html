@@ -478,6 +478,12 @@ main{flex:1;overflow-y:auto;}
 @media(max-width:1130px){#panel-macros-giorno{display:none!important;}}
 </style>
 <script src="vendor/jspdf.umd.min.js"></script>
+<!-- pdf.js (P124b, 26 lug 2026): serve a RENDERE le pagine dei referti scansionati
+     prima di mandarle all'AI. I referti di laboratorio sono spesso scansioni con la
+     pagina ruotata di 90 gradi: getViewport applica da se' la rotazione, cosi' l'immagine
+     che vede l'AI e' dritta come nel visualizzatore. Senza questo l'AI legge la tabella
+     coricata e scambia le righe fra loro. jsPDF qui sopra SCRIVE i PDF, non li legge. -->
+<script src="vendor/pdf.min.js"></script>
 <!-- Self-hosted P72 (13 lug 2026): era https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js -->
 <!-- jsPDF v2.5.1 esatta, scaricata via npm registry (cdnjs non raggiungibile dal sandbox), sha384: 25c9ec8d43cfca59dad6cd5fbe2d6ed765f9aa363938be7a8b24a1ef915db6bc213bf4965e0323a15a9c2b220858e2e4 -->
 
@@ -11041,87 +11047,260 @@ function toggleAnalisiSection(secEl){
 // Funzione indipendente da loadInbodyPDF: l'InBody è un referto della bilancia
 // (massa grassa/magra/idrica ecc.), questa invece legge referti di laboratorio
 // (sangue e/o urine) inviati dal paziente via mail o fotografati su carta.
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// P124b — LE PAGINE DEL REFERTO ARRIVANO ALL'AI DRITTE E UNA ALLA VOLTA
+// ---------------------------------------------------------------------------
+// LA CAUSA VERA, trovata il 26/7 col PDF reale in mano e verificata in un
+// browser. Il referto era una SCANSIONE senza livello di testo, e le pagine
+// arrivavano all'AI CORICATE SU UN FIANCO. Su una tabella fitta letta di
+// traverso l'allineamento delle righe collassa: l'AI dava a Piastrine il
+// valore dell'Emoglobina, a TSH quello di FT4, e come "intervallo di
+// riferimento" restituiva "pg" o "migliaia/mmc" — cioe' le unita' di misura
+// di righe vicine. 25 valori sbagliati su 32.
+//
+// E C'E' UN SECONDO PEZZO, che e' il motivo per cui questo blocco esiste
+// invece di una riga di codice: **la rotazione dichiarata dentro il PDF era
+// SBAGLIATA**. Il file diceva `/Rotate 270`; l'orientamento in cui il referto
+// si legge davvero e' 180. Provate tutte e quattro le rotazioni su questo
+// documento, solo 180 lo raddrizza. Quindi non ci si puo' fidare del dato
+// scritto nel file: l'orientamento va RILEVATO guardando la pagina, ed e'
+// esattamente quello che facciamo con una chiamata piccola e a bassa
+// risoluzione prima di leggere i valori.
+//
+// La lezione, che vale oltre questo caso: quando un modello sbaglia in modo
+// SISTEMATICO e non casuale, la causa non e' quasi mai nel prompt — e' in cosa
+// gli stiamo davvero facendo vedere. Prima di riscrivere le istruzioni,
+// guardare l'input con gli occhi del modello. (Stessa famiglia di F5/F6/F7 e
+// dell'INDEX.md sbagliato: le dichiarazioni non si credono, si controllano.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _impPdfConfigurata=false;
+function _impPdfLib(){
+  const lib=window.pdfjsLib||window['pdfjs-dist/build/pdf'];
+  if(!lib) return null;
+  if(!_impPdfConfigurata){
+    try{ lib.GlobalWorkerOptions.workerSrc='vendor/pdf.worker.min.js'; }catch(e){}
+    _impPdfConfigurata=true;
+  }
+  return lib;
+}
+
+function _impPdfApri(base64){
+  const lib=_impPdfLib();
+  if(!lib) throw new Error('Libreria di lettura PDF non disponibile — ricarica la pagina con Ctrl+F5.');
+  const bin=atob(base64);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return lib.getDocument({data:bytes}).promise;
+}
+
+// Una pagina → immagine JPEG. `gradiExtra` si somma alla rotazione dichiarata
+// dal PDF (che, come spiegato sopra, puo' essere sbagliata).
+// Lato lungo ~1600px: oltre non serve (l'API ridimensiona comunque) e sotto,
+// i numeri piccoli dei referti diventano illeggibili.
+async function _impPdfPagina(doc, n, latoMax, gradiExtra){
+  const page=await doc.getPage(n);
+  const rot=(((page.rotate||0)+(gradiExtra||0))%360+360)%360;
+  const base=page.getViewport({scale:1, rotation:rot});
+  const lato=Math.max(base.width, base.height)||1;
+  const scala=Math.min(3, Math.max(0.3, (latoMax||1600)/lato));
+  const vp=page.getViewport({scale:scala, rotation:rot});
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1, Math.round(vp.width));
+  canvas.height=Math.max(1, Math.round(vp.height));
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);  // le scansioni hanno sfondo trasparente
+  await page.render({canvasContext:ctx, viewport:vp}).promise;
+  const out=canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+  canvas.width=canvas.height=1;                    // libera memoria: 8GB di RAM sul portatile
+  return out;
+}
+
+// Ruota una FOTO (non un PDF) di N gradi in senso orario. Stesso problema dei
+// PDF: una foto scattata di traverso e' illeggibile per l'AI quanto una
+// scansione ruotata.
+function _impRuotaImmagine(dataUrl, gradi){
+  return new Promise(function(res, rej){
+    const g=(((gradi||0)%360)+360)%360;
+    const img=new Image();
+    img.onload=function(){
+      const scambia=(g===90||g===270);
+      const canvas=document.createElement('canvas');
+      canvas.width = scambia?img.height:img.width;
+      canvas.height= scambia?img.width:img.height;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.rotate(g*Math.PI/180);
+      ctx.drawImage(img, -img.width/2, -img.height/2);
+      res(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+    };
+    img.onerror=function(){ rej(new Error('Immagine non leggibile')); };
+    img.src=dataUrl;
+  });
+}
+
+// Una sola chiamata piccola, a bassa risoluzione: di quanto va girata la
+// pagina perche' il testo si legga normalmente. Se la risposta non e' uno dei
+// quattro valori attesi si resta a 0 — un ripiego prudente, non una scelta
+// creativa: peggio di non ruotare c'e' solo ruotare a caso.
+async function _impRilevaRotazione(base64Img, mediaType){
+  try{
+    const blocco={type:'image', source:{type:'base64', media_type:mediaType||'image/jpeg', data:base64Img}};
+    const testo='Questa immagine è la pagina di un referto di laboratorio, che potrebbe essere stata scansionata o fotografata storta. '
+      +'Di quanti gradi va ruotata IN SENSO ORARIO perché il testo si legga normalmente, da sinistra a destra e dall\'alto verso il basso? '
+      +'Rispondi SOLO con uno di questi quattro numeri, senza nessun\'altra parola: 0, 90, 180, 270.';
+    const data=await aiCall({tipo:'import-analisi-rotazione',max_tokens:8,messages:[{role:'user', content:[blocco, {type:'text', text:testo}]}]});
+    const risp=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+    const m=risp.match(/\d{1,3}/);
+    const g=m?parseInt(m[0],10):0;
+    return (g===90||g===180||g===270)?g:0;
+  }catch(e){
+    return 0;
+  }
+}
+
+// Il prompt di una singola pagina. L'IMPRONTA DELLA RIGA e' la parte nuova:
+// chiedere valore + unita' + riferimento INSIEME costringe a leggere la riga
+// come un blocco, e da' all'app tre dati che si controllano a vicenda.
+function _impPromptPagina(elencoVoci, nPag, totPag){
+  return 'Sei un assistente clinico. L\'immagine allegata è UNA pagina'
+    +(totPag>1?(' (la pagina '+nPag+' di '+totPag+')'):'')
+    +' di un referto di laboratorio (analisi del sangue e/o delle urine). '
+    +'Estrai gli esami presenti IN QUESTA PAGINA. Rispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown.\n\n'
+    +'Le uniche chiavi ammesse per il campo "voce" sono ESATTAMENTE queste (anche se sul referto il nome è scritto in modo diverso o abbreviato):\n'
+    +elencoVoci.map(v=>'- "'+v+'"').join('\n')
+    +'\n\nPer OGNI esame presente riporta un oggetto con QUATTRO campi, letti TUTTI DALLA STESSA RIGA ORIZZONTALE:\n'
+    +'  "voce"   : la chiave presa dall\'elenco qui sopra\n'
+    +'  "valore" : il risultato del paziente (colonna "Esito" / "Risultato" / "Valore")\n'
+    +'  "unita"  : l\'unità di misura stampata su QUELLA riga (colonna "U.Misura"); stringa vuota se quella riga non ne ha\n'
+    +'  "rif"    : l\'intervallo di riferimento stampato su QUELLA riga; stringa vuota se quella riga non ne ha\n\n'
+    +'REGOLA DI COERENZA — è la più importante di tutte: valore, unità e riferimento devono venire dalla STESSA riga orizzontale, quella su cui è scritto il nome dell\'esame. NON prendere l\'unità o il riferimento dalla riga sopra o dalla riga sotto. Se per un esame non riesci a vedere i quattro campi allineati sulla stessa riga, OMETTI quell\'esame invece di indovinare.\n\n'
+    +'Altre regole:\n'
+    +'- COPIA IL NUMERO ESATTAMENTE COME È STAMPATO, cifra per cifra, virgola compresa. I referti italiani usano la VIRGOLA come separatore decimale: "1,560" vale uno-virgola-cinque-sei (NON millecinquecentosessanta) e "21,3" vale ventuno-virgola-tre. Non arrotondare, non togliere zeri, non spostare la virgola, non trasformare la virgola in punto: alla conversione ci pensa il programma.\n'
+    +'- In "valore" va solo il risultato, mai l\'intervallo di riferimento: un risultato non è MAI formato da due numeri separati da un trattino.\n'
+    +'- Per i valori testuali delle urine (Aspetto, Colore, Esame morfologico sedimento…) riporta il testo come scritto (es. "Limpido", "Assente").\n'
+    +'- Se un esame compare due volte con unità diverse (es. Creatininemia in mg/dl e in micromol/L), riporta la riga in mg/dl o comunque quella nell\'unità più usata in Italia.\n'
+    +'- Se questa pagina non contiene nessun esame (copertina, grafici, note di refertazione), rispondi {"esami": []}.\n'
+    +'- Includi "_data_referto" con la data del prelievo in formato AAAA-MM-GG solo se è visibile SU QUESTA pagina; altrimenti ometti la chiave.\n\n'
+    +'Formato della risposta: {"_data_referto": "AAAA-MM-GG", "esami": [{"voce": "Emoglobina", "valore": "15,1", "unita": "g/dl", "rif": "12-18"}]}';
+}
+
 async function loadAnalisiSanguePDF(e){
   const file=e.target.files[0]; if(!file) return;
   const p=db.pazienti.find(x=>x.id===currentPazId);
   if(!p){ notif('Nessun paziente selezionato'); e.target.value=''; return; }
   const nameEl=document.getElementById('as-pdf-name'); if(nameEl) nameEl.textContent=file.name;
   const loadingEl=document.getElementById('as-pdf-loading'); if(loadingEl) loadingEl.style.display='block';
+  const avanzamento=function(txt){ if(loadingEl) loadingEl.textContent='⏳ '+txt; };
   const isImage=file.type.startsWith('image/');
   try{
     if(!_aiPronto()) throw new Error('Devi essere collegato per usare l\'AI.');
+    avanzamento('Lettura del file…');
 
-    // Lettura file → base64 (Promise, cosi' il blocco try/catch copre anche eventuali errori di lettura)
-    const base64=await new Promise((res,rej)=>{
+    // Lettura file → dataURL (Promise, cosi' il try/catch copre anche la lettura)
+    const dataUrl=await new Promise((res,rej)=>{
       const reader=new FileReader();
-      reader.onload=ev=>res(ev.target.result.split(',')[1]);
+      reader.onload=ev=>res(ev.target.result);
       reader.onerror=()=>rej(new Error('Lettura file non riuscita'));
       reader.readAsDataURL(file);
     });
-    const mediaType=isImage?file.type:'application/pdf';
-    const contentBlock=isImage
-      ? {type:'image', source:{type:'base64', media_type:mediaType, data:base64}}
-      : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
+    const base64=dataUrl.split(',')[1];
+
+    // ── Pagine dritte ────────────────────────────────────────────────────────
+    let pagine=[], totalePagine=1, gradi=0;
+    if(isImage){
+      avanzamento('Controllo l\'orientamento della foto…');
+      gradi=await _impRilevaRotazione(base64, file.type);
+      pagine=[gradi?await _impRuotaImmagine(dataUrl, gradi):base64];
+    } else {
+      avanzamento('Preparazione delle pagine del PDF…');
+      const doc=await _impPdfApri(base64);
+      totalePagine=doc.numPages;
+      const n=Math.min(totalePagine, 8);
+      // Rilevamento su una miniatura della prima pagina: costa poco e vale per
+      // tutto il documento (le pagine di una stessa scansione sono concordi).
+      avanzamento('Controllo l\'orientamento delle pagine…');
+      gradi=await _impRilevaRotazione(await _impPdfPagina(doc, 1, 900, 0), 'image/jpeg');
+      for(let i=1;i<=n;i++){
+        avanzamento('Preparazione pagina '+i+' di '+n+'…');
+        pagine.push(await _impPdfPagina(doc, i, 1600, gradi));
+      }
+      if(totalePagine>n) notif('⚠ Referto di '+totalePagine+' pagine: ne leggo le prime '+n+'.');
+    }
+    if(!pagine.length) throw new Error('Nessuna pagina leggibile nel file.');
+    if(gradi) notif('↻ Pagine raddrizzate di '+gradi+'° prima della lettura');
+    const mediaType=(isImage&&!gradi)?file.type:'image/jpeg';
 
     // Elenco voci sempre sincronizzato con ANALISI: se in futuro si aggiungono altre
     // voci, il prompt le includerà automaticamente senza bisogno di aggiornare questa funzione.
     const elencoVoci=Object.values(ANALISI).flat();
-    const promptTesto='Sei un assistente clinico. Estrai dal referto di laboratorio allegato (analisi del sangue e/o delle urine) SOLO i valori dei seguenti esami, se realmente presenti nel documento. Rispondi SOLO con JSON valido, zero testo prima o dopo, zero markdown.\n\n'
-      +'Usa ESATTAMENTE queste chiavi (anche se nel referto sono scritte in modo leggermente diverso, es. abbreviazioni):\n'
-      +elencoVoci.map(v=>'- "'+v+'"').join('\n')
-      +'\n\nRegole:\n'
-      +'- Se un esame non è presente nel referto, NON includere quella chiave nel JSON (ometti, non mettere null).\n'
-      +'- COPIA IL NUMERO ESATTAMENTE COME È STAMPATO SUL REFERTO, cifra per cifra, virgola compresa. I referti italiani usano la VIRGOLA come separatore decimale: "1,560" vale uno-virgola-cinque-sei (NON millecinquecentosessanta) e "21,3" vale ventuno-virgola-tre. Non arrotondare, non togliere zeri, non spostare la virgola, non trasformare la virgola in punto: alla conversione ci pensa il programma. Riporta solo il numero, senza unità di misura.\n'
-      +'- Per i valori testuali delle urine (es. Aspetto, Colore, Esame morfologico sedimento) riporta il testo come scritto nel referto (es. "Limpido", "Giallo chiaro", "Assente").\n'
-      +'- Il valore dell\'esame deve essere il RISULTATO del paziente — la colonna "Esito" / "Risultato" / "Valore" — e MAI l\'intervallo di riferimento, che sta nella colonna "Valori di riferimento" / "Intervallo di riferimento". Le due colonne sono affiancate: prima di scrivere un valore, verifica di quale colonna fa parte.\n'
-      +'- Un risultato non è MAI formato da due numeri separati da un trattino (es. "0,72-1,18" oppure "197-771"): quello è l\'intervallo di riferimento. Se per un esame l\'unico numero che riesci a leggere ha quella forma, OMETTI l\'esame.\n'
-      +'- Il documento può essere una foto storta, sfocata o una pagina ruotata di 90 gradi. Se per un esame non riesci a leggere il numero con certezza, oppure non riesci a distinguere il risultato dall\'intervallo, OMETTI quell\'esame: un valore mancante è molto meglio di un valore sbagliato.\n'
-      +'- Includi SEMPRE la chiave "_data_referto" con la data del prelievo (o, se assente, la data di refertazione) nel formato AAAA-MM-GG. Se nel documento non compare nessuna data, ometti la chiave.\n'
-      +'- Includi la chiave "_range" con, per ogni esame estratto, l\'intervallo di riferimento STAMPATO DAL LABORATORIO, copiato come appare sul referto comprensivo di unita di misura (es. "70 - 99 mg/dL", "< 150 mg/dL"). Ometti dall\'oggetto "_range" gli esami per cui il referto non stampa nessun intervallo. Non inventare mai un intervallo.\n\n'
-      +'Formato risposta: {"_data_referto": "AAAA-MM-GG", "_range": {"Nome esame 1": "70 - 99 mg/dL"}, "Nome esame 1": "valore", "Nome esame 2": "valore"}';
-
-    const data=await aiCall({tipo:'import-analisi',max_tokens:2000,messages:[{role:'user', content:[contentBlock, {type:'text', text:promptTesto}]}]});
-    const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
-    const clean=testo.replace(/```json|```/g,'').trim();
-    const estratti=JSON.parse(clean);
+    const elencoSet=new Set(elencoVoci);
 
     // P63 — pattern staging: l'estrazione NON scrive mai su p.analisiSangue.
-    // Popola solo _staging; la scrittura avviene esclusivamente dopo conferma
-    // dell'utente riga per riga nel modal diff (confermaDiffAnalisi).
-    const elencoSet=new Set(elencoVoci);
-    // P118 — la data del referto non e' una voce di ANALISI: si estrae a parte,
-    // e si accetta solo se ha la forma AAAA-MM-GG (niente date inventate).
+    // Popola solo staging; la scrittura avviene esclusivamente dopo conferma
+    // dell'utente riga per riga nel modal diff.
+    const staging={};
+    const metaReferto={};     // key → {rif, unita, pagina, conflitto}
     let dataReferto='';
-    if(estratti && typeof estratti._data_referto==='string' && /^\d{4}-\d{2}-\d{2}$/.test(estratti._data_referto.trim())){
-      dataReferto=estratti._data_referto.trim();
-    }
-    // P118 tappa 2 — intervalli stampati dal laboratorio, tenuti a parte e
-    // riferiti SOLO a questo referto (variano da laboratorio a laboratorio).
-    const rangeReferto={};
-    if(estratti && estratti._range && typeof estratti._range==='object'){
-      Object.entries(estratti._range).forEach(([nome,txt])=>{
-        if(!elencoSet.has(nome)) return;
-        if(txt==null || String(txt).trim()==='') return;
-        rangeReferto[ANALISI_KEY(nome)]=String(txt).trim().slice(0,60);
+
+    for(let i=0;i<pagine.length;i++){
+      avanzamento(pagine.length>1
+        ? ('Lettura pagina '+(i+1)+' di '+pagine.length+'…')
+        : 'Estrazione dei valori dal referto…');
+      const blocco={type:'image', source:{type:'base64', media_type:mediaType, data:pagine[i]}};
+      const testoPrompt=_impPromptPagina(elencoVoci, i+1, pagine.length);
+      let estratti;
+      try{
+        const data=await aiCall({tipo:'import-analisi',max_tokens:2500,messages:[{role:'user', content:[blocco, {type:'text', text:testoPrompt}]}]});
+        const testo=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+        estratti=JSON.parse(testo.replace(/```json|```/g,'').trim());
+      }catch(errPag){
+        // Una pagina illeggibile non deve far fallire tutto il referto: si
+        // segnala e si prosegue con le altre.
+        notif('⚠ Pagina '+(i+1)+' non letta: '+errPag.message);
+        continue;
+      }
+      // P118 — la data del referto non e' una voce di ANALISI: si estrae a parte,
+      // e si accetta solo se ha la forma AAAA-MM-GG (niente date inventate).
+      if(!dataReferto && estratti && typeof estratti._data_referto==='string'
+         && /^\d{4}-\d{2}-\d{2}$/.test(estratti._data_referto.trim())){
+        dataReferto=estratti._data_referto.trim();
+      }
+      const lista=(estratti && Array.isArray(estratti.esami))?estratti.esami:[];
+      lista.forEach(function(riga){
+        if(!riga || typeof riga!=='object') return;
+        const nome=String(riga.voce==null?'':riga.voce).trim();
+        if(!elencoSet.has(nome)) return;                 // chiavi non riconosciute: ignorate per sicurezza
+        const val=String(riga.valore==null?'':riga.valore).trim();
+        if(!val) return;
+        const key=ANALISI_KEY(nome);
+        let conflitto=(metaReferto[key]||{}).conflitto||'';
+        if(staging[nome]!=null && staging[nome]!==val){
+          // Stesso esame su due pagine con valori diversi: non si sceglie da
+          // soli quale sia quello buono, si segnala e decide Fabrizio.
+          conflitto=staging[nome]+' (pag. '+((metaReferto[key]||{}).pagina||'?')+')';
+        }
+        staging[nome]=val;
+        metaReferto[key]={
+          rif:String(riga.rif==null?'':riga.rif).trim().slice(0,60),
+          unita:String(riga.unita==null?'':riga.unita).trim().slice(0,24),
+          pagina:i+1,
+          conflitto:conflitto
+        };
       });
     }
-    const staging={};
-    Object.entries(estratti).forEach(([nome,val])=>{
-      if(val==null || String(val).trim()==='') return;
-      if(!elencoSet.has(nome)) return; // ignora chiavi non riconosciute, per sicurezza
-      staging[nome]=String(val).trim();
-    });
 
     if(Object.keys(staging).length===0){
       notif('⚠ Nessun valore riconosciuto nel referto.');
     } else {
-      mostraDiffAnalisi(p, staging, file.name, dataReferto, rangeReferto);
+      mostraDiffAnalisi(p, staging, file.name, dataReferto, metaReferto);
     }
   } catch(err){
     notif('⚠ Errore estrazione referto: '+err.message);
   } finally {
-    const loadingEl2=document.getElementById('as-pdf-loading'); if(loadingEl2) loadingEl2.style.display='none';
+    const loadingEl2=document.getElementById('as-pdf-loading');
+    if(loadingEl2){ loadingEl2.style.display='none'; loadingEl2.textContent='⏳ Estrazione valori dal referto in corso…'; }
     e.target.value=''; // reset input: permette di ricaricare lo stesso file se necessario
   }
 }
@@ -11242,13 +11421,83 @@ function _impTestoLimiti(lim){
   return t+(lim.u?(' '+lim.u):'');
 }
 
+// ── P124b — L'IMPRONTA DELLA RIGA ─────────────────────────────────────────
+// Valore, unita' di misura e intervallo di riferimento vengono chiesti all'AI
+// INSIEME, dalla stessa riga del referto. Servono a controllarsi a vicenda: se
+// il "riferimento" di un esame e' "pg" o "migliaia/mmc" (cioe' un'unita' di
+// misura) oppure l'unita' non e' quella di quell'esame, la riga letta non e'
+// quella giusta — ed e' il modo in cui si e' manifestato lo scivolamento di
+// riga del 26/7, dove Piastrine aveva preso il valore dell'Emoglobina.
+
+// Un riferimento vero e' un intervallo o un limite. Tutto il resto tradisce
+// una colonna sbagliata. Il riferimento ASSENTE non e' un errore: molti
+// laboratori non lo stampano per certi esami.
+function _impRifPlausibile(rif){
+  const t=String(rif==null?'':rif).trim();
+  if(!t) return true;
+  if(/\d\s*[-\u2013\u2014]\s*\d/.test(t)) return true;          // 12-18 · 0,27-4,20
+  if(/[<>\u2264\u2265]\s*=?\s*\d/.test(t)) return true;          // < 150 · >= 40
+  if(/\b(assente|negativo|neg|tracce|positivo|nella norma)\b/i.test(t)) return true;
+  return false;
+}
+
+// Unita' di misura ridotte a una forma confrontabile: i laboratori italiani
+// scrivono "migliaia/mmc" dove la tabella standard dice "10^3/uL", "mcg/dl"
+// per "ug/dL", "microU/ml" per "uU/mL". Senza questa normalizzazione il
+// controllo darebbe falsi allarmi su meta' dell'emocromo.
+function _impUnitaCanonica(u){
+  let t=String(u==null?'':u).toLowerCase().trim();
+  if(!t) return '';
+  t=t.replace(/[\u00b5\u03bc]/g,'u').replace(/\u00b3/g,'^3').replace(/\u2076/g,'^6').replace(/\u00b2/g,'^2');
+  t=t.replace(/\s+/g,'').replace(/,/g,'.');
+  t=t.replace(/migliaia\/mmc|mila\/mmc|10\^3\/ul|x10\^3\/ul|10\^9\/l/g,'k/ul');
+  t=t.replace(/milioni\/mmc|10\^6\/ul|10\^12\/l/g,'m/ul');
+  t=t.replace(/microu|mcu/g,'uu');
+  t=t.replace(/mcg/g,'ug').replace(/mcmol/g,'umol');
+  t=t.replace(/\./g,'');
+  return t;
+}
+
+// Confronto prudente: uguali, oppure una contenuta nell'altra (copre
+// "ml/min/1.73m" contro "ml/min/1.73m^2"). Sotto i 2 caratteri niente
+// contenimento, altrimenti "%" combacerebbe con qualunque cosa.
+function _impUnitaCompatibili(a, b){
+  const x=_impUnitaCanonica(a), y=_impUnitaCanonica(b);
+  if(!x || !y) return true;                 // se una delle due manca, non si giudica
+  if(x===y) return true;
+  if(x.length>=2 && y.indexOf(x)>=0) return true;
+  if(y.length>=2 && x.indexOf(y)>=0) return true;
+  return false;
+}
+
 // Il controllo completo di una riga. Ritorna motivi leggibili in italiano,
 // l'eventuale correzione proposta e se la riga va deselezionata di default.
-function _impControllaValore(nome, val, rangeLab, p){
+function _impControllaValore(nome, val, ctx, p){
+  // ctx: {rif, unita, conflitto} — accetta anche la vecchia forma "solo stringa
+  // del range" (P124 prima tappa), cosi' nessun chiamante resta indietro.
+  const c=(ctx && typeof ctx==='object')?ctx:{rif:ctx};
+  const rangeLab=c.rif||'';
   const motivi=[]; let suggerito=null; let sospetto=false;
   const t=String(val==null?'':val).trim();
   if(!t) return {sospetto:false, motivi:[], suggerito:null};
   const lim=_impLimitiStd(nome, p);
+  // ── impronta della riga: i due controlli che smascherano lo scivolamento ──
+  // Solo sugli esami con un riferimento NUMERICO atteso: sulle voci qualitative
+  // delle urine il laboratorio stampa riferimenti a parole ("giallo paglierino")
+  // che non sono intervalli e non sono un errore.
+  if(lim && !_impRifPlausibile(rangeLab)){
+    motivi.push('il riferimento letto ("'+rangeLab+'") non è un intervallo: riga disallineata');
+    sospetto=true;
+  }
+  const uAttesa=lim?lim.u:'';
+  if(c.unita && uAttesa && !_impUnitaCompatibili(c.unita, uAttesa)){
+    motivi.push('unità letta "'+c.unita+'", attesa "'+uAttesa+'": riga disallineata');
+    sospetto=true;
+  }
+  if(c.conflitto){
+    motivi.push('lo stesso esame compare anche con il valore '+c.conflitto);
+    sospetto=true;
+  }
   const numerico=!!lim;                      // esame con un valore numerico atteso
   const paresInt=_impSembraIntervallo(t);
   if(paresInt){
@@ -11286,8 +11535,13 @@ function _impControllaValore(nome, val, rangeLab, p){
 // vedeva l'errore e non poteva correggerlo. Provenienza salvata in
 // p._analisiMeta[key] = {fonte:'ai-import' | 'ai-import-corretto', data, file}.
 // ═══════════════════════════════════════════════════════════════════════════
-function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
-  const rangeRef=rangeReferto||{};
+function mostraDiffAnalisi(p, staging, fileName, dataReferto, metaReferto){
+  // metaReferto[key] = {rif, unita, pagina, conflitto}. Accetta anche la forma
+  // vecchia {key: "stringa del range"} per non rompere chiamanti esistenti.
+  const metaRef={};
+  Object.entries(metaReferto||{}).forEach(function([k,v]){
+    metaRef[k]=(v && typeof v==='object')?v:{rif:String(v==null?'':v)};
+  });
   const righe=Object.entries(staging).map(([nome,valGrezzo])=>{
     const key=ANALISI_KEY(nome);
     const val=_impNormalizzaNumero(valGrezzo);
@@ -11301,15 +11555,16 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
     }
     const interp=interpretaAnalisi(nome, val, p);
     const fuoriRange = interp && (interp.sem==='giallo' || interp.sem==='rosso');
-    const rangeLab=rangeRef[key]||'';
+    const ctx=metaRef[key]||{};
+    const rangeLab=ctx.rif||'';
     const lim=_impLimitiStd(nome, p);
     const rifTesto=rangeLab||_impTestoLimiti(lim);
-    return {nome,key,val,attuale,deltaAnomalo,fuoriRange,interp,rangeLab,rifTesto};
+    return {nome,key,val,attuale,deltaAnomalo,fuoriRange,interp,rangeLab,rifTesto,ctx};
   });
 
   // Il testo di avviso di una riga, ricalcolato a ogni battuta sulla tastiera.
   function avvisoHtml(r, valCorrente){
-    const c=_impControllaValore(r.nome, valCorrente, r.rangeLab, p);
+    const c=_impControllaValore(r.nome, valCorrente, r.ctx, p);
     const bits=[];
     c.motivi.forEach(function(m){
       bits.push('<span style="color:#B91C1C;font-weight:700">⚠ '+_richEsc(m)+'</span>');
@@ -11455,12 +11710,11 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
     // _refertiApplica (che prende, esame per esame, la misura piu' recente).
     _refertiMigra(p);
     const _rfNuovo=_refertoCrea(p, dataRef, valoriNuovi, fileName);
-    if(rangeReferto){
-      Object.keys(valoriNuovi).forEach(function(kv){
-        const k=kv.replace(/_val$/,'');
-        if(rangeReferto[k]) _rfNuovo.range[k]=rangeReferto[k];
-      });
-    }
+    Object.keys(valoriNuovi).forEach(function(kv){
+      const k=kv.replace(/_val$/,'');
+      const rif=metaRef[k]?metaRef[k].rif:'';
+      if(rif) _rfNuovo.range[k]=rif;
+    });
     save(p.id);
     renderPdAnalisi(p);
     notif('✓ Referto del '+_refertoDataIt(dataRef)+' creato con '+nImportati+' valori'
