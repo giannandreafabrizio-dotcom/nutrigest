@@ -10,6 +10,73 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 2) — P124: L'IMPORT DEI REFERTI DEL SANGUE SMETTE DI ESSERE UN ATTO DI FEDE.
+Test 305 → **318**, tutti verdi (`s2-import-referto-controlli.test.js`, 13 nuovi).
+
+**IL CASO REALE.** Fabrizio stava caricando le analisi di un paziente e si è
+fermato a metà: la finestra di conferma mostrava **Creatinina "0.72-1.18",
+e-GFR "89-98", Azotemia "30-25", Vitamina B12 "197-771", Folati "4.5-23.2"**
+— cioè gli INTERVALLI DI RIFERIMENTO copiati al posto dei risultati —, **TSH
+1560** (il referto diceva `1,560`: virgola persa, valore ×1000) e **Vitamina D
+2.3** invece di `21,3` (una cifra caduta). Su sedici valori estratti, sette
+erano sbagliati. Referto fotografato, con una pagina ruotata di 90°.
+
+**LE TRE COSE CHE NON ANDAVANO, IN ORDINE DI GRAVITÀ.**
+**(1) La finestra di conferma era di sola lettura.** Vedeva l'errore e non
+poteva correggerlo: poteva solo togliere la spunta, e poi ricercarsi la voce a
+mano tra ~117 caselle della scheda. L'ultimo controllo prima che un dato entri
+nella cartella clinica è l'occhio del clinico sul referto vero — e quel
+controllo non aveva sbocco. **(2) Nessun controllo automatico.** Un valore
+formato da due numeri col trattino non è un risultato in nessun esame
+esistente, e un TSH di 1560 con riferimento 0.4–4.0 è fuori dal mondo di quel
+esame: nessuna delle due cose veniva notata. Gli unici avvisi presenti
+(fuori range, delta >50%) guardavano la *clinica*, non la *plausibilità della
+lettura* — e infatti tacevano proprio sui valori inventati. **(3) Il prompt
+chiedeva all'AI di convertire il numero** ("usa il punto come separatore
+decimale"): è esattamente la richiesta che ha prodotto `1,560` → `1560`.
+
+**LA CORREZIONE, IN TRE PEZZI.**
+**A — La colonna "Estratto" è un campo scrivibile.** Si corregge il numero lì,
+sul momento, col referto davanti. Chi corregge una riga sospetta si vede
+**rimettere la spunta da sola** (una riga corretta ma rimasta deselezionata
+sarebbe stato il vecchio bug con un passaggio in più). Il valore corretto a
+mano viene marcato in provenienza come `ai-import-corretto`, distinto da
+`ai-import`: fra sei mesi si potrà sapere quanto spesso l'AI sbaglia e su cosa.
+**B — Tre controlli deterministici** (`_impControllaValore`), che funzionano
+*proprio quando* l'AI sbaglia, perché non dipendono dall'AI: forma di
+intervallo (`0.72-1.18`), stesse cifre del range stampato dal laboratorio
+(`197-771`), ordine di grandezza oltre il fattore 10 rispetto a `RANGE_STD`
+(TSH 1560). Le righe sospette arrivano **deselezionate** e in rosso, con un
+banner che spiega le due cause tipiche. Il riferimento dell'esame è ora
+stampato accanto al nome: il confronto si fa a colpo d'occhio.
+**C — Il prompt non chiede più di convertire**: chiede di copiare il numero
+cifra per cifra *come è stampato*, virgola italiana compresa — la conversione
+la fa il programma (`_impNormalizzaNumero`). Aggiunte l'istruzione esplicita
+sulla colonna Esito/Risultato contro quella dei riferimenti, e l'istruzione di
+**omettere** l'esame quando la lettura è incerta (foto storta, pagina ruotata).
+
+**LA DECISIONE PIÙ IMPORTANTE: quando NON suggerire.** Il controllo 3 propone
+la correzione ("usa 1.56") **solo se** lo spostamento della virgola riporta il
+valore DENTRO il riferimento. Sulla Vitamina D, 2.3 × 10 = 23 — plausibile,
+vicino, e **sbagliato**: il valore vero era 21.3. Un suggerimento del genere
+verrebbe accettato senza riaprire il referto, e l'errore diventerebbe
+definitivo con l'aria di essere stato verificato. Quindi lì l'app dice solo
+"ricontrollalo sul referto" e non propone niente. **Un suggerimento sbagliato
+è peggio di nessun suggerimento: il primo si accetta, il secondo si controlla.**
+Stessa famiglia della lezione di P120/P118: un ripiego silenzioso su un dato
+clinico è un bug in attesa.
+
+**Perché non è servita una seconda chiamata AI di verifica.** Era l'opzione D
+(pulsante "rileggi questo valore"): scartata per ora — costa una chiamata a
+click e i tre controlli deterministici prendono già 7 errori su 7 del caso
+reale. Si riapre se il collaudo mostra errori che sfuggono a tutti e tre
+(es. Trigliceridi 91 letto 21: numero plausibile, dentro il riferimento —
+contro questo esiste solo l'occhio umano, ed è per questo che A viene prima di B).
+
+**File toccati:** `index.html` (prompt di estrazione, 9 funzioni `_imp*` nuove,
+`mostraDiffAnalisi` riscritta), `test-suite/test/s2-import-referto-controlli.test.js`
+(nuovo), `INDEX.md`, `NutriGest_Roadmap_v4.md`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda) — LA DOCUMENTAZIONE SI DIFENDE DA SOLA: INDEX.md RIALLINEATO (719 VOCI SU 730 ERANO SBAGLIATE) + AUDIT GLOBALE DEGLI ID ORFANI + TEST PERMANENTE.
 Test 301 → **305**, tutti verdi (`s1-doc-allineata.test.js`). Codice dell'app NON toccato.
 

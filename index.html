@@ -11072,9 +11072,11 @@ async function loadAnalisiSanguePDF(e){
       +elencoVoci.map(v=>'- "'+v+'"').join('\n')
       +'\n\nRegole:\n'
       +'- Se un esame non è presente nel referto, NON includere quella chiave nel JSON (ometti, non mettere null).\n'
-      +'- Per i valori numerici riporta solo il numero (es. "13.6"), senza unità di misura, usando il punto come separatore decimale.\n'
+      +'- COPIA IL NUMERO ESATTAMENTE COME È STAMPATO SUL REFERTO, cifra per cifra, virgola compresa. I referti italiani usano la VIRGOLA come separatore decimale: "1,560" vale uno-virgola-cinque-sei (NON millecinquecentosessanta) e "21,3" vale ventuno-virgola-tre. Non arrotondare, non togliere zeri, non spostare la virgola, non trasformare la virgola in punto: alla conversione ci pensa il programma. Riporta solo il numero, senza unità di misura.\n'
       +'- Per i valori testuali delle urine (es. Aspetto, Colore, Esame morfologico sedimento) riporta il testo come scritto nel referto (es. "Limpido", "Giallo chiaro", "Assente").\n'
-      +'- Il valore dell\'esame deve essere il RISULTATO del paziente, mai l\'intervallo di riferimento.\n'
+      +'- Il valore dell\'esame deve essere il RISULTATO del paziente — la colonna "Esito" / "Risultato" / "Valore" — e MAI l\'intervallo di riferimento, che sta nella colonna "Valori di riferimento" / "Intervallo di riferimento". Le due colonne sono affiancate: prima di scrivere un valore, verifica di quale colonna fa parte.\n'
+      +'- Un risultato non è MAI formato da due numeri separati da un trattino (es. "0,72-1,18" oppure "197-771"): quello è l\'intervallo di riferimento. Se per un esame l\'unico numero che riesci a leggere ha quella forma, OMETTI l\'esame.\n'
+      +'- Il documento può essere una foto storta, sfocata o una pagina ruotata di 90 gradi. Se per un esame non riesci a leggere il numero con certezza, oppure non riesci a distinguere il risultato dall\'intervallo, OMETTI quell\'esame: un valore mancante è molto meglio di un valore sbagliato.\n'
       +'- Includi SEMPRE la chiave "_data_referto" con la data del prelievo (o, se assente, la data di refertazione) nel formato AAAA-MM-GG. Se nel documento non compare nessuna data, ometti la chiave.\n'
       +'- Includi la chiave "_range" con, per ogni esame estratto, l\'intervallo di riferimento STAMPATO DAL LABORATORIO, copiato come appare sul referto comprensivo di unita di misura (es. "70 - 99 mg/dL", "< 150 mg/dL"). Ometti dall\'oggetto "_range" gli esami per cui il referto non stampa nessun intervallo. Non inventare mai un intervallo.\n\n'
       +'Formato risposta: {"_data_referto": "AAAA-MM-GG", "_range": {"Nome esame 1": "70 - 99 mg/dL"}, "Nome esame 1": "valore", "Nome esame 2": "valore"}';
@@ -11125,18 +11127,170 @@ async function loadAnalisiSanguePDF(e){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P124 — CONTROLLI ANTI-ERRORE SUI VALORI ESTRATTI DAL REFERTO (26 lug 2026)
+// ---------------------------------------------------------------------------
+// Nato da un caso reale: su un referto fotografato l'AI ha scritto Creatinina
+// "0.72-1.18", e-GFR "89-98", Vitamina B12 "197-771" (cioe' gli INTERVALLI DI
+// RIFERIMENTO al posto dei risultati), TSH "1560" invece di "1,560" (virgola
+// persa) e Vitamina D "2.3" invece di "21,3" (cifra persa). Nessuno di questi
+// errori veniva segnalato: la finestra di conferma mostrava i valori come
+// fatti compiuti e permetteva solo di togliere la spunta.
+//
+// LA REGOLA: l'estrazione AI e' una PROPOSTA, non un dato. Prima di finire
+// davanti a Fabrizio ogni valore passa tre controlli deterministici — che
+// funzionano anche quando l'AI sbaglia, perche' non dipendono dall'AI:
+//   1. forma di intervallo   → "0.72-1.18" non e' un risultato, sono due numeri
+//   2. uguale al range lab   → stesse cifre dell'intervallo stampato = colonna sbagliata
+//   3. ordine di grandezza   → un TSH di 1560 con riferimento 0.4-4.0 e' impossibile
+// Il controllo 3 propone anche la correzione quando lo spostamento della
+// virgola porta il valore DENTRO il riferimento (1560 → 1.56). Se la
+// correzione non ricade dentro il riferimento NON si propone niente: meglio
+// nessun suggerimento che un suggerimento plausibile e sbagliato (Vitamina D
+// 2.3 → 23 sarebbe stato accettato al volo, e il valore vero era 21.3).
+// Le righe sospette arrivano DESELEZIONATE: per importarle serve un gesto.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Numero scritto all'italiana → numero con il punto. Conversione deterministica
+// fatta QUI e non dall'AI: chiedere all'AI di convertire e' esattamente cio' che
+// ha trasformato "1,560" in 1560. Tocca solo le forme puramente numeriche;
+// qualsiasi altro testo (valori qualitativi delle urine) resta com'e'.
+function _impNormalizzaNumero(s){
+  const t=String(s==null?'':s).trim();
+  if(/^-?\d{1,3}(?:\.\d{3})+,\d+$/.test(t)) return t.replace(/\./g,'').replace(',','.'); // 1.234,5
+  if(/^-?\d+,\d+$/.test(t)) return t.replace(',','.');                                   // 21,3
+  return t;
+}
+
+// Tutti i numeri contenuti in un testo, normalizzati col punto. Il segno meno
+// e' volutamente ignorato: nessun esame di laboratorio ha valori negativi, e
+// leggerlo come segno farebbe di "197-771" i numeri 197 e -771, impedendo il
+// confronto con "197 - 771" (stesso intervallo, trattino spaziato).
+function _impNumeri(s){
+  const out=[]; const re=/\d+(?:[.,]\d+)?/g; let m;
+  while((m=re.exec(String(s==null?'':s)))!==null) out.push(m[0].replace(',','.'));
+  return out;
+}
+
+// "0.72-1.18", "197 - 771", "70 a 99" → sono intervalli, non risultati.
+// Il solo "< 150" NON basta: alcuni laboratori refertano davvero "<0,10".
+function _impSembraIntervallo(s){
+  const t=String(s==null?'':s).trim();
+  if(!t) return false;
+  return /\d\s*(?:[-–—÷]|\.\.\.|\ba\b|\bto\b)\s*\d/i.test(t);
+}
+
+// Stesse cifre, nello stesso ordine, di almeno due numeri → e' la colonna dei
+// riferimenti copiata al posto del risultato.
+function _impUgualeAlRange(val, rangeLab){
+  const a=_impNumeri(val), b=_impNumeri(rangeLab);
+  if(a.length<2 || !b.length) return false;
+  return a.join('|')===b.join('|');
+}
+
+// Estremi numerici attesi per un esame (tabella RANGE_STD, sesso-consapevole).
+// Se il sesso non e' noto si prende l'unione dei due intervalli: mai scegliere
+// a caso quello di un sesso, come gia' stabilito in P118.
+function _impLimitiStd(nome, p){
+  const def=(typeof RANGE_STD==='object'&&RANGE_STD)?RANGE_STD[nome]:null;
+  if(!def || def.t) return null;
+  let c=def.r;
+  if(!c && (def.M||def.F)){
+    const sx=p?p.sesso:'';
+    if(sx==='M' && def.M) c=def.M;
+    else if(sx==='F' && def.F) c=def.F;
+    else{
+      const a=def.M||def.F, b=def.F||def.M;
+      c=[ (a[0]==null||b[0]==null)?null:Math.min(a[0],b[0]),
+          (a[1]==null||b[1]==null)?null:Math.max(a[1],b[1]) ];
+    }
+  }
+  if(!c) return null;
+  if(c[0]==null && c[1]==null) return null;
+  return {min:(c[0]==null?null:+c[0]), max:(c[1]==null?null:+c[1]), u:def.u||''};
+}
+
+// Fuori scala = almeno un fattore 10 oltre il riferimento. Non "fuori range"
+// (che e' un dato clinico legittimo): fuori dal MONDO di quell'esame.
+function _impFuoriScala(num, lim){
+  if(num==null || !lim) return false;
+  if(lim.max!=null && num > lim.max*10) return true;
+  if(lim.min!=null && lim.min>0 && num < lim.min/10) return true;
+  return false;
+}
+
+// Correzione proposta SOLO se uno spostamento della virgola riporta il valore
+// DENTRO il riferimento. Si provano prima le correzioni piccole.
+function _impCorrezioneVirgola(num, lim){
+  if(num==null || !lim) return null;
+  const fattori=[0.1,10,0.01,100,0.001,1000];
+  for(let i=0;i<fattori.length;i++){
+    const v=num*fattori[i];
+    const okMin=(lim.min==null)||v>=lim.min;
+    const okMax=(lim.max==null)||v<=lim.max;
+    if(okMin && okMax) return String(Math.round(v*100000)/100000);
+  }
+  return null;
+}
+
+function _impTestoLimiti(lim){
+  if(!lim) return '';
+  const n=function(v){ return String(Math.round(v*1000)/1000); };
+  let t;
+  if(lim.min!=null && lim.max!=null) t=n(lim.min)+'–'+n(lim.max);
+  else if(lim.max!=null) t='< '+n(lim.max);
+  else t='> '+n(lim.min);
+  return t+(lim.u?(' '+lim.u):'');
+}
+
+// Il controllo completo di una riga. Ritorna motivi leggibili in italiano,
+// l'eventuale correzione proposta e se la riga va deselezionata di default.
+function _impControllaValore(nome, val, rangeLab, p){
+  const motivi=[]; let suggerito=null; let sospetto=false;
+  const t=String(val==null?'':val).trim();
+  if(!t) return {sospetto:false, motivi:[], suggerito:null};
+  const lim=_impLimitiStd(nome, p);
+  const numerico=!!lim;                      // esame con un valore numerico atteso
+  const paresInt=_impSembraIntervallo(t);
+  if(paresInt){
+    motivi.push('sembra un intervallo di riferimento, non un risultato');
+    if(numerico) sospetto=true;              // sui referti qualitativi "1-2" puo' essere vero
+  }
+  if(_impUgualeAlRange(t, rangeLab)){
+    motivi.push('identico all\'intervallo stampato dal laboratorio');
+    sospetto=true;
+  }
+  const num=_parseAnalisiNum(_impNormalizzaNumero(t));
+  if(numerico && !paresInt){
+    if(num==null){
+      motivi.push('non è un numero, ma questo esame ha un valore numerico');
+      sospetto=true;
+    } else if(_impFuoriScala(num, lim)){
+      suggerito=_impCorrezioneVirgola(num, lim);
+      motivi.push('lontanissimo dal riferimento ('+_impTestoLimiti(lim)+')'
+        +(suggerito!=null?' — sembra una virgola persa':' — ricontrollalo sul referto'));
+      sospetto=true;
+    }
+  }
+  return {sospetto:sospetto, motivi:motivi, suggerito:suggerito};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // P63 — CONFERMA CON DIFF PER GLI IMPORT AI DEI REFERTI (Analisi del sangue)
 // Componente generico guidato dallo schema: legge ANALISI (elenco campi) e
 // RANGE_RIF (soglie, dove disponibili) — non serve una tabella scritta a mano
 // per le ~117 voci. L'estrazione scrive SOLO in staging (mai su p.analisiSangue
 // diretto); la conferma applica solo le righe con checkbox spuntato.
-// Evidenzia: valore fuori range (interpretaAnalisi → sem giallo/rosso) e delta
-// anomalo (>50% dal valore precedente, se numerico e precedente presente).
-// Provenienza salvata in p._analisiMeta[key] = {fonte:'ai-import', data, file}.
+// P124: la colonna "Estratto" e' MODIFICABILE — l'ultimo controllo prima che il
+// dato entri nella cartella clinica e' l'occhio di Fabrizio sul referto vero,
+// e finche' la casella era di sola lettura quel controllo non aveva sbocco:
+// vedeva l'errore e non poteva correggerlo. Provenienza salvata in
+// p._analisiMeta[key] = {fonte:'ai-import' | 'ai-import-corretto', data, file}.
 // ═══════════════════════════════════════════════════════════════════════════
 function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
-  const righe=Object.entries(staging).map(([nome,val])=>{
+  const rangeRef=rangeReferto||{};
+  const righe=Object.entries(staging).map(([nome,valGrezzo])=>{
     const key=ANALISI_KEY(nome);
+    const val=_impNormalizzaNumero(valGrezzo);
     const attuale=(p.analisiSangue||{})[key+'_val']||'';
     const nuovoNum=_parseAnalisiNum(val);
     const attualeNum=_parseAnalisiNum(attuale);
@@ -11147,28 +11301,75 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
     }
     const interp=interpretaAnalisi(nome, val, p);
     const fuoriRange = interp && (interp.sem==='giallo' || interp.sem==='rosso');
-    return {nome,key,val,attuale,deltaAnomalo,fuoriRange,interp};
+    const rangeLab=rangeRef[key]||'';
+    const lim=_impLimitiStd(nome, p);
+    const rifTesto=rangeLab||_impTestoLimiti(lim);
+    return {nome,key,val,attuale,deltaAnomalo,fuoriRange,interp,rangeLab,rifTesto};
   });
+
+  // Il testo di avviso di una riga, ricalcolato a ogni battuta sulla tastiera.
+  function avvisoHtml(r, valCorrente){
+    const c=_impControllaValore(r.nome, valCorrente, r.rangeLab, p);
+    const bits=[];
+    c.motivi.forEach(function(m){
+      bits.push('<span style="color:#B91C1C;font-weight:700">⚠ '+_richEsc(m)+'</span>');
+    });
+    if(!c.sospetto){
+      // gli avvisi clinici storici restano, ma solo quando il valore e' credibile
+      const interp=interpretaAnalisi(r.nome, valCorrente, p);
+      if(interp && (interp.sem==='giallo'||interp.sem==='rosso')){
+        bits.push('<span style="color:#DC2626;font-weight:700">⚠ '+_richEsc(interp.et||'fuori range')+'</span>');
+      }
+      const nuovoNum=_parseAnalisiNum(valCorrente);
+      const attualeNum=_parseAnalisiNum(r.attuale);
+      if(nuovoNum!=null && attualeNum!=null && attualeNum!==0
+         && Math.abs(nuovoNum-attualeNum)/Math.abs(attualeNum)>0.5){
+        bits.push('<span style="color:#D97706;font-weight:700">⚠ variazione &gt;50%</span>');
+      }
+    }
+    let h = bits.length ? '<div style="font-size:.68rem;margin-top:.2rem;line-height:1.35">'+bits.join(' · ')+'</div>' : '';
+    if(c.suggerito!=null){
+      h+='<button type="button" class="diff-analisi-fix" data-val="'+_richEsc(c.suggerito)+'" '
+        +'style="margin-top:.25rem;padding:.15rem .45rem;font-size:.68rem;border:1px solid var(--teal-light);'
+        +'background:var(--teal-bg);color:var(--teal2);border-radius:6px;cursor:pointer">usa '+_richEsc(c.suggerito)+'</button>';
+    }
+    return {html:h, sospetto:c.sospetto};
+  }
 
   const modal=document.createElement('div');
   modal.className='overlay open';
+  let nSospetti=0;
   let rowsHtml=righe.map((r,i)=>{
-    const warnBits=[];
-    if(r.fuoriRange) warnBits.push('<span style="color:#DC2626;font-weight:700">⚠ '+(r.interp.et||'fuori range')+'</span>');
-    if(r.deltaAnomalo) warnBits.push('<span style="color:#D97706;font-weight:700">⚠ variazione &gt;50%</span>');
-    const warnHtml = warnBits.length ? '<div style="font-size:.68rem;margin-top:.15rem">'+warnBits.join(' · ')+'</div>' : '';
-    const rowBg = (r.fuoriRange||r.deltaAnomalo) ? 'background:#FFFBEB;' : '';
-    return '<tr style="'+rowBg+'border-bottom:1px solid var(--border)">'
-      +'<td style="padding:.4rem .5rem"><input type="checkbox" class="diff-analisi-chk" data-idx="'+i+'" checked></td>'
-      +'<td style="padding:.4rem .5rem;font-size:.78rem">'+r.nome+'</td>'
-      +'<td style="padding:.4rem .5rem;font-size:.78rem;color:var(--text3)">'+(r.attuale||'—')+'</td>'
-      +'<td style="padding:.4rem .5rem;font-size:.78rem;font-weight:700">'+r.val+warnHtml+'</td>'
+    const a=avvisoHtml(r, r.val);
+    if(a.sospetto) nSospetti++;
+    const rowBg = a.sospetto ? 'background:#FEF2F2;' : (r.fuoriRange||r.deltaAnomalo ? 'background:#FFFBEB;' : '');
+    const bordo = a.sospetto ? 'border:1px solid #FCA5A5;' : 'border:1px solid var(--border);';
+    return '<tr data-idx="'+i+'" style="'+rowBg+'border-bottom:1px solid var(--border)">'
+      +'<td style="padding:.4rem .5rem;vertical-align:top"><input type="checkbox" class="diff-analisi-chk" data-idx="'+i+'"'+(a.sospetto?'':' checked')+'></td>'
+      +'<td style="padding:.4rem .5rem;font-size:.78rem;vertical-align:top">'+_richEsc(r.nome)
+        +(r.rifTesto?'<div style="font-size:.66rem;color:var(--text3);margin-top:.1rem">rif. '+_richEsc(r.rifTesto)+(r.rangeLab?' <span style="opacity:.7">lab</span>':'')+'</div>':'')
+      +'</td>'
+      +'<td style="padding:.4rem .5rem;font-size:.78rem;color:var(--text3);vertical-align:top">'+_richEsc(r.attuale||'—')+'</td>'
+      +'<td style="padding:.4rem .5rem;vertical-align:top">'
+        +'<input type="text" class="diff-analisi-val" data-idx="'+i+'" value="'+_richEsc(r.val)+'" '
+        +'style="width:100%;min-width:90px;padding:.28rem .4rem;'+bordo+'border-radius:6px;font-size:.82rem;font-weight:700;background:var(--card);color:inherit">'
+        +'<div class="diff-analisi-warn" data-idx="'+i+'">'+a.html+'</div>'
+      +'</td>'
       +'</tr>';
   }).join('');
 
-  modal.innerHTML='<div class="modal" style="width:640px;max-width:94vw;max-height:82vh;overflow-y:auto">'
+  const bannerHtml = nSospetti>0
+    ? '<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:.55rem .8rem;margin-bottom:.7rem;font-size:.78rem;color:#991B1B">'
+      +'<strong>⚠ '+nSospetti+' valor'+(nSospetti===1?'e sospetto':'i sospetti')+'.</strong> '
+      +'Le righe in rosso arrivano <strong>deselezionate</strong>: aprile sul referto, correggi il numero nella casella e la spunta si rimette da sola. '
+      +'Le cause tipiche sono due: l\'AI ha copiato l\'intervallo di riferimento invece del risultato, oppure ha perso la virgola.'
+      +'</div>'
+    : '';
+
+  modal.innerHTML='<div class="modal" style="width:720px;max-width:96vw;max-height:82vh;overflow-y:auto">'
     +'<h3 style="margin:0 0 .3rem">📋 Conferma valori estratti</h3>'
-    +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem">Referto: '+fileName+' — '+righe.length+' valori riconosciuti. Deseleziona le righe che non vuoi importare.</div>'
+    +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem">Referto: '+_richEsc(fileName)+' — '+righe.length+' valori riconosciuti. <strong>I numeri sono modificabili</strong>: correggi quelli letti male prima di confermare, e deseleziona le righe che non vuoi importare.</div>'
+    +bannerHtml
     // P118: ogni import crea un REFERTO DATATO. La data e' obbligatoria, perche'
     // un referto senza data non entra nell'andamento nel tempo. Se l'AI l'ha
     // trovata nel documento arriva gia' compilata, ma resta correggibile.
@@ -11181,12 +11382,43 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
     +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)"></th>'
     +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Esame</th>'
     +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Attuale</th>'
-    +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Estratto</th>'
+    +'<th style="padding:.4rem .5rem;text-align:left;font-size:.72rem;color:var(--text3)">Estratto — correggibile</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table>'
     +'</div>';
   const mf=document.createElement('div');mf.className='mf';
   mf.innerHTML='<button class="btn btn-r" style="flex:1">Annulla</button><button class="btn btn-v" style="flex:1">Conferma selezionati</button>';
   modal.querySelector('.modal').appendChild(mf);
+
+  // ── Ricontrollo dal vivo mentre si digita ───────────────────────────────
+  // Correggere il numero DEVE rimettere la spunta da solo: se la riga resta
+  // deselezionata dopo la correzione, il valore giusto non entra lo stesso —
+  // sarebbe il vecchio bug con un passaggio in piu'.
+  function aggiornaRiga(idx){
+    const inp=modal.querySelector('.diff-analisi-val[data-idx="'+idx+'"]');
+    const box=modal.querySelector('.diff-analisi-warn[data-idx="'+idx+'"]');
+    const chk=modal.querySelector('.diff-analisi-chk[data-idx="'+idx+'"]');
+    const tr=modal.querySelector('tr[data-idx="'+idx+'"]');
+    if(!inp||!box) return;
+    const a=avvisoHtml(righe[idx], inp.value);
+    box.innerHTML=a.html;
+    if(tr) tr.style.background = a.sospetto ? '#FEF2F2' : '';
+    inp.style.border = a.sospetto ? '1px solid #FCA5A5' : '1px solid var(--border)';
+    if(chk && !a.sospetto && String(inp.value).trim()!=='') chk.checked=true;
+    if(chk && a.sospetto) chk.checked=false;
+  }
+  modal.querySelectorAll('.diff-analisi-val').forEach(function(inp){
+    inp.addEventListener('input', function(){ aggiornaRiga(+inp.getAttribute('data-idx')); });
+  });
+  modal.addEventListener('click', function(ev){
+    const b=ev.target.closest?ev.target.closest('.diff-analisi-fix'):null;
+    if(!b) return;
+    ev.preventDefault();
+    const tr=b.closest('tr'); if(!tr) return;
+    const idx=+tr.getAttribute('data-idx');
+    const inp=modal.querySelector('.diff-analisi-val[data-idx="'+idx+'"]');
+    if(inp){ inp.value=b.getAttribute('data-val'); aggiornaRiga(idx); inp.focus(); }
+  });
+
   mf.children[0].onclick=function(){ngChiudiModale(modal);};
   mf.children[1].onclick=function(){
     const dataEl=document.getElementById('diff-analisi-data');
@@ -11198,14 +11430,19 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
     }
     const checks=modal.querySelectorAll('.diff-analisi-chk');
     const valoriNuovi={};
-    let nImportati=0;
+    let nImportati=0, nCorretti=0;
     if(!p._analisiMeta) p._analisiMeta={};
     checks.forEach(function(chk){
       if(!chk.checked) return;
       const idx=+chk.getAttribute('data-idx');
       const r=righe[idx];
-      valoriNuovi[r.key+'_val']=r.val;
-      p._analisiMeta[r.key]={fonte:'ai-import', data:new Date().toISOString(), file:fileName};
+      const inp=modal.querySelector('.diff-analisi-val[data-idx="'+idx+'"]');
+      const valFinale=_impNormalizzaNumero(inp?inp.value:r.val);
+      if(String(valFinale).trim()==='') return;      // svuotare la casella = non importare
+      const corretto = valFinale!==r.val;
+      if(corretto) nCorretti++;
+      valoriNuovi[r.key+'_val']=valFinale;
+      p._analisiMeta[r.key]={fonte:corretto?'ai-import-corretto':'ai-import', data:new Date().toISOString(), file:fileName};
       nImportati++;
     });
     modal.remove();
@@ -11226,7 +11463,8 @@ function mostraDiffAnalisi(p, staging, fileName, dataReferto, rangeReferto){
     }
     save(p.id);
     renderPdAnalisi(p);
-    notif('✓ Referto del '+_refertoDataIt(dataRef)+' creato con '+nImportati+' valori');
+    notif('✓ Referto del '+_refertoDataIt(dataRef)+' creato con '+nImportati+' valori'
+      +(nCorretti?(' ('+nCorretti+' corretti a mano)'):''));
   };
   document.body.appendChild(modal);
 }
