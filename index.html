@@ -369,6 +369,7 @@ main{flex:1;overflow-y:auto;}
 .calc-info-btn:hover{color:var(--teal);}
 .calc-val{font-size:1.05rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
 .calc-unit{font-size:.65rem;font-weight:500;color:var(--text3);margin-left:.2rem;}
+.calc-nota{font-size:.66rem;color:#6b7280;line-height:1.3;margin-top:.25rem}
 .calc-sem{display:inline-block;width:11px;height:11px;border-radius:50%;flex-shrink:0;}
 .calc-sem.verde{background:#22c55e;box-shadow:0 0 0 2px #dcfce7;}
 .calc-sem.giallo{background:#eab308;box-shadow:0 0 0 2px #fef3c7;}
@@ -2806,6 +2807,43 @@ const CALCOLI_CLINICI = [
    cosa:'Rapporto LDL/HDL — bilancio tra colesterolo aterogeno e protettivo.',
    range:'<2.5 ottimo · 2.5–3.5 borderline · >3.5 alto rischio.',
    alert:'Più sensibile del solo LDL nel predire eventi cardiovascolari.'},
+  // ── P125 — LDL stimato con Friedewald (26 lug 2026) ────────────────────────
+  // NON scrive nella casella LDL: vive qui, fra i calcoli derivati, e la casella
+  // LDL resta quella del laboratorio. Mettere un valore calcolato dove a volte
+  // sta un valore misurato creerebbe una doppia fonte — la famiglia di bug che
+  // ha gia' colpito tre volte (F4, P118 tappa 1, P120): fra sei mesi, davanti a
+  // "91.8", nessuno saprebbe piu' se l'ha misurato il laboratorio o l'abbiamo
+  // stimato noi. Qui invece il nome dice da dove viene.
+  // NESSUN SEMAFORO, come per la voce 'LDL' in RANGE_RIF (livello B): il target
+  // dipende dal rischio cardiovascolare del singolo (<55 molto alto · <70 alto ·
+  // <100 moderato · <116 basso), quindi un verde/rosso fisso direbbe una cosa
+  // che nessuna linea guida dice.
+  {id:'ldl_fw', nome:'LDL stimato (Friedewald)', deps:['Colesterolo totale','HDL','Trigliceridi'],
+   valido:(v)=> v['Trigliceridi']>400
+       ? 'non applicabile: trigliceridi > 400 mg/dL'
+       : ((v['Colesterolo totale']-v['HDL']-v['Trigliceridi']/5) < 0
+           ? 'valori incoerenti fra loro: ricontrolla il referto'
+           : ''),
+   formula:(v)=> v['Colesterolo totale'] - v['HDL'] - v['Trigliceridi']/5,
+   unit:'mg/dL',
+   dec:0,
+   soglie:[{sem:'info'}],
+   avviso:(v,p,val)=>{
+     const note=[];
+     const mis=_parseAnalisiNum((p.analisiSangue||{})['LDL_val']);
+     if(mis!=null){
+       const diff=Math.abs(mis-val);
+       note.push(diff > Math.max(10, mis*0.15)
+         ? 'il laboratorio ha misurato '+mis+': differenza di '+diff.toFixed(0)+' mg/dL — fa fede il valore misurato'
+         : 'in linea con il valore misurato dal laboratorio ('+mis+')');
+     }
+     if(v['Trigliceridi']>200) note.push('con trigliceridi sopra 200 Friedewald sottostima: guarda il non-HDL');
+     else if(val<70) note.push('sotto 70 la stima di Friedewald perde precisione');
+     return note.join(' · ');
+   },
+   cosa:'Colesterolo LDL stimato dagli altri tre valori del profilo lipidico, quando il laboratorio non lo ha misurato: LDL = Totale − HDL − Trigliceridi/5 (formula di Friedewald).',
+   range:'Il target non è unico: dipende dal rischio cardiovascolare — <55 rischio molto alto · <70 alto · <100 moderato · <116 basso (ESC/EAS). Per questo qui non c\'è un semaforo verde/rosso.',
+   alert:'Vale solo su prelievo A DIGIUNO e con trigliceridi sotto 400 mg/dL: sopra quella soglia il calcolo non viene fatto. Sottostima l\'LDL quando i trigliceridi sono alti o l\'LDL è basso — in quei casi il non-HDL è più affidabile. Se il laboratorio ha misurato l\'LDL, fa fede quello: questo resta una stima.'},
   {id:'tg_hdl', nome:'TG/HDL', deps:['Trigliceridi','HDL'],
    formula:(v)=>v['Trigliceridi']/v['HDL'],
    unit:'',
@@ -2987,6 +3025,17 @@ function calcolaIndice(p, def){
     }
   }
   if(missing.length) return {ok:false, missing};
+  // P125 — CONDIZIONE DI VALIDITA'. Alcune formule cliniche non sono sbagliate
+  // fuori dal loro campo di applicazione: sono INAPPLICABILI, e il numero che
+  // producono e' peggio di un numero mancante perche' sembra un risultato.
+  // Friedewald sopra 400 di trigliceridi e' il caso di scuola. L'aggancio e'
+  // generico perche' la prossima formula con un limite di validita' non deve
+  // reinventarlo (ne', peggio, dimenticarselo).
+  if(typeof def.valido==='function'){
+    let motivo='';
+    try{ motivo=def.valido(vals, p)||''; }catch(e){ motivo=''; }
+    if(motivo) return {ok:false, error:motivo};
+  }
   let val;
   try{ val = def.formula(vals); } catch(e){ return {ok:false, error:e.message}; }
   if(val == null || !isFinite(val)) return {ok:false, error:'risultato non valido'};
@@ -2998,7 +3047,11 @@ function calcolaIndice(p, def){
     const okMax = s.max == null || val <= s.max;
     if(okMin && okMax){ sem = s.sem; break; }
   }
-  return {ok:true, val, sem};
+  let avviso='';
+  if(typeof def.avviso==='function'){
+    try{ avviso=def.avviso(vals, p, val)||''; }catch(e){ avviso=''; }
+  }
+  return {ok:true, val, sem, avviso};
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -10989,6 +11042,66 @@ function _refertiBarraHtml(p){
   return h;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P125 — RICERCA FRA I PARAMETRI DELLE ANALISI (26 lug 2026)
+// 119 voci in 23 sezioni: trovarne una voleva dire aprire le sezioni a una a una.
+// La ricerca NON e' per sottostringa secca ma per PAROLE-PREFISSO: "vit d" deve
+// trovare "Vitamina D (25-OH)", e la sottostringa "vit d" dentro "vitamina d"
+// non esiste. Ogni parola scritta deve essere l'inizio di una parola del nome.
+// Cosi' "glob bianc", "ferrit", "b12", "tsh" funzionano tutti.
+// ═══════════════════════════════════════════════════════════════════════════
+function _anNorm(s){
+  return String(s==null?'':s).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // via gli accenti
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}
+// Ogni parola cercata e' l'inizio di una parola del testo.
+function _anCorrisponde(testo, parole){
+  const parti=_anNorm(testo).split(' ').filter(Boolean);
+  return parole.every(function(q){
+    return parti.some(function(w){ return w.indexOf(q)===0; });
+  });
+}
+function filtraAnalisi(q){
+  const parole=_anNorm(q).split(' ').filter(Boolean);
+  const attivo=parole.length>0;
+  let trovate=0;
+  document.querySelectorAll('#pd-analisi .analisi-section').forEach(function(sez){
+    const h4=sez.querySelector('h4');
+    // Cercare anche nel titolo: "tiroid" deve dare tutta la sezione tiroidea.
+    const sezOk = attivo && _anCorrisponde(h4?h4.textContent:'', parole);
+    let nSez=0;
+    sez.querySelectorAll('.analisi-item').forEach(function(it){
+      const lab=it.querySelector('label');
+      const ok = !attivo || sezOk || _anCorrisponde(lab?lab.textContent:'', parole);
+      it.style.display = ok ? '' : 'none';
+      if(attivo && ok) nSez++;
+    });
+    if(!attivo){
+      sez.style.display='';
+      // Ripristino dello stato di partenza: chiusa se non ha niente di compilato.
+      sez.classList.toggle('collapsed', sez.querySelectorAll('.analisi-item.compilata').length===0);
+    } else {
+      sez.style.display = nSez ? '' : 'none';
+      if(nSez) sez.classList.remove('collapsed');
+      trovate+=nSez;
+    }
+  });
+  const esito=document.getElementById('an-cerca-esito');
+  if(esito){
+    esito.textContent = !attivo ? ''
+      : (trovate ? (trovate+' voc'+(trovate===1?'e trovata':'i trovate')) : 'nessuna voce trovata');
+    esito.style.color = (attivo && !trovate) ? '#B91C1C' : 'var(--text3)';
+  }
+  const btn=document.getElementById('an-cerca-pulisci');
+  if(btn) btn.style.display = attivo ? '' : 'none';
+}
+function pulisciRicercaAnalisi(){
+  const el=document.getElementById('an-cerca');
+  if(el){ el.value=''; el.focus(); }
+  filtraAnalisi('');
+}
+
 function renderPdAnalisi(p){
   _refertiMigra(p);
   const _rfVista=_refertoInVista(p);
@@ -11003,6 +11116,13 @@ function renderPdAnalisi(p){
   // P17 Fase B: pannello "Calcoli automatici" in cima — mostra solo gli indici calcolabili,
   // gli altri con avviso "manca X". Indici sesso-specifici hidden se non applicabili.
   html+=_renderCalcoliPannello(p);
+  html+='<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.7rem 0 .5rem">'
+      +'<input type="text" id="an-cerca" placeholder="🔎 Cerca un esame… (es. ferrit, vit d, tsh, tiroid)" '
+      +'oninput="filtraAnalisi(this.value)" onkeydown="if(event.key===\'Escape\'){pulisciRicercaAnalisi();}" '
+      +'style="flex:1;min-width:200px;padding:.42rem .7rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem;background:var(--card);color:inherit">'
+      +'<button id="an-cerca-pulisci" class="btn btn-sm" onclick="pulisciRicercaAnalisi()" style="display:none">✕ Pulisci</button>'
+      +'<span id="an-cerca-esito" style="font-size:.73rem;color:var(--text3)"></span>'
+      +'</div>';
   Object.entries(ANALISI).forEach(([sez,items])=>{
     // P18 Fase A: conta voci compilate per decidere stato di partenza (collapsed se 0)
     let nCompil=0;
@@ -11812,11 +11932,15 @@ function _renderCalcoliPannello(p){
     const r=calcolaIndice(p,def);
     if(r.hidden) return; // es. T/E2 su femmina
     const id='calc-'+def.id;
-    let body;
+    let body, nota='';
     if(r.ok){
-      const valTxt = r.val.toFixed(r.val>=100?0:2);
+      // Cifre decimali: la regola generica va bene per i rapporti, ma su una
+      // STIMA come l'LDL scrivere "91.80 mg/dL" comunica una precisione che
+      // il calcolo non ha. Chi definisce l'indice puo' imporre le decimali.
+      const valTxt = r.val.toFixed(def.dec!=null ? def.dec : (r.val>=100?0:2));
       body = `<div class="calc-val">${valTxt}<span class="calc-unit">${def.unit||''}</span></div>
               <span class="calc-sem ${r.sem}" title="${r.sem}"></span>`;
+      if(r.avviso) nota = `<div class="calc-nota">${_richEsc(r.avviso)}</div>`;
     } else if(r.missing) {
       body = `<div class="calc-missing">manca: ${r.missing.join(', ')}</div>`;
     } else {
@@ -11831,6 +11955,7 @@ function _renderCalcoliPannello(p){
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">${body}</div>
+      ${nota}
       <div class="calc-glossario" id="${id}-gloss">
         <div><b>Cosa misura:</b> ${def.cosa}</div>
         <div><b>Range:</b> ${def.range}</div>

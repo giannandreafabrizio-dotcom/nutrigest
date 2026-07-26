@@ -10,6 +10,72 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 6) — P125: RICERCA FRA I PARAMETRI + LDL STIMATO CON FRIEDEWALD.
+Test 334 → **350**. Nate da tre proposte di Fabrizio, discusse prima di scrivere codice; la terza (elettroforesi in frazioni) è stata rimandata di proposito.
+
+**1. RICERCA FRA LE 119 VOCI.** Casella in cima alla scheda Analisi: filtra dal
+vivo, apre da sole le sezioni con risultati, le richiude alla cancellazione,
+ESC pulisce. Cerca anche nei TITOLI di sezione ("tiroid" → tutte e 7 le voci
+tiroidee).
+**Il dettaglio che decide se funziona o no:** la corrispondenza è per
+**parole-prefisso**, non per sottostringa. Con la sottostringa, `"vit d"` NON
+trova "Vitamina D (25-OH)" — la sequenza "vit d" dentro "vitamina d" non
+esiste. Con le parole-prefisso ogni parola scritta deve essere l'inizio di una
+parola del nome, e allora funzionano tutte le ricerche che si fanno davvero:
+`vit d`, `ferrit`, `glob bianc`, `b12`, `wbc`, `ttg`, `col tot`. Un test
+verifica che **ognuna delle 119 voci sia raggiungibile** scrivendo la sua prima
+parola.
+
+**2. LDL STIMATO (FRIEDEWALD).** `LDL = Totale − HDL − Trigliceridi/5`. Sul
+referto reale: 158 − 48 − 18,2 = **92 mg/dL**.
+**Sta nel pannello dei calcoli derivati e NON scrive nella casella LDL.** Un
+valore calcolato dentro un campo che a volte contiene un valore misurato è una
+doppia fonte: la famiglia di bug che ha già colpito tre volte (F4, P118 tappa 1,
+P120). Fra sei mesi, davanti a un "92", nessuno saprebbe più chi l'ha prodotto.
+Qui il nome della scheda lo dice.
+**Nessun semaforo verde/rosso**, coerentemente con la voce 'LDL' in RANGE_RIF
+(livello B): il target dipende dal rischio cardiovascolare individuale (<55
+molto alto · <70 alto · <100 moderato · <116 basso), quindi un colore fisso
+direbbe una cosa che nessuna linea guida dice. Il glossario spiega i target.
+**Campo di validità applicato, non solo scritto:** sopra 400 di trigliceridi il
+calcolo NON viene fatto e la scheda dice perché — Friedewald lì non è impreciso,
+è **inapplicabile**, e un numero inapplicabile è peggio di un numero mancante
+perché sembra un risultato. Stessa logica sui valori incoerenti (LDL negativo).
+La scheda avverte inoltre quando i trigliceridi superano 200 (Friedewald
+sottostima → guarda il non-HDL, che c'è già), quando la stima scende sotto 70, e
+quando **il laboratorio ha misurato un LDL diverso** — in quel caso fa fede il
+misurato, e la differenza è scritta.
+
+**DUE AGGANCI GENERICI, NON DUE CASI SPECIALI.** `calcolaIndice` ha ora
+`def.valido(vals,p)` (condizione di applicabilità → motivo scritto) e
+`def.avviso(vals,p,val)` (nota contestuale sotto il numero), più `def.dec` per
+le decimali. Scritti generici apposta: la prossima formula con un limite di
+validità non deve reinventarlo né — peggio — dimenticarselo. Su `ldl_fw` le
+decimali sono 0: "91.80 mg/dL" comunicherebbe una precisione che una stima non ha.
+
+**RIMANDATA: elettroforesi proteica in frazioni.** Oggi è UNA casella di testo
+libero — l'unica voce del database costruita così: non entra in nessun calcolo,
+non ha andamento nel tempo, non ha semaforo. Trasformarla in 5 frazioni
+numeriche (albumina, α1, α2, β, γ) la renderebbe utile, ma richiede decisioni
+cliniche di Fabrizio. **Decisione già presa e da non rimettere in discussione:
+si useranno le PERCENTUALI** (sempre stampate, riferimenti standard) — la scelta
+serve proprio a non ripetere il pasticcio % / valore assoluto dei leucociti visto
+oggi con P124b. Da valutare anche l'avviso sul picco monoclonale nelle γ, che
+però non è materia da nutrizionista: se ci sarà, dovrà dire "manda dal medico",
+non interpretare.
+
+**Verificato in un browser vero** oltre che nei test: ricerca provata con "vit d"
+(1 voce), "ferrit" (1), "tiroid" (7 voci, sezione aperta da sola), "zzz"
+(nessuna voce trovata), campo vuoto (119 voci, sezioni richiuse); scheda LDL a
+92 mg/dL con pallino grigio e **casella LDL del paziente rimasta vuota**.
+
+**File toccati:** `index.html` (ricerca: `_anNorm`, `_anCorrisponde`,
+`filtraAnalisi`, `pulisciRicercaAnalisi` + casella in `renderPdAnalisi`; LDL:
+`ldl_fw` in CALCOLI_CLINICI, agganci `valido`/`avviso`/`dec` in `calcolaIndice`
+e `_renderCalcoliPannello`, CSS `.calc-nota`),
+`test-suite/test/s2-analisi-ricerca-ldl.test.js` (nuovo, 16 test), `INDEX.md`,
+`NutriGest_Roadmap_v4.md`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 5) — P124b: I PREFISSI DELLE UNITÀ FACEVANO SUONARE L'ALLARME SU RIGHE GIUSTE.
 Test 330 → **334**. Commit precedente `df47356`.
 
