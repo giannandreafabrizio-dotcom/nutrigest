@@ -52,11 +52,11 @@
 | ~~P37~~ ❌ escluso, ~~P80~~ ✅ chiusa parziale, ~~P83~~ ❌ annullato (14 lug 2026) | — | — | — | — |
 | ~~**P119**~~ ✅ chiusa e collaudata 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
 | ~~**P120**~~ ✅ chiusa e collaudata 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
-| ~~**P121**~~ ✅ chiusa 25 lug 2026, **da collaudare** (motore unico grammature alternative — v. scheda) | Opus | High | ON | Tocca le grammature del piano: regole cliniche decise da Fabrizio |
-| ~~**P122**~~ ✅ **CHIUSA 26 lug 2026** — tutte e 5 le tappe + 5 correzioni post-collaudo (v. scheda) · da collaudare in studio | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
+| ~~**P121**~~ ✅ chiusa 25 lug e **collaudata 26 lug 2026** (motore unico grammature alternative — v. scheda) | Opus | High | ON | Tocca le grammature del piano: regole cliniche decise da Fabrizio |
+| ~~**P122**~~ ✅ **CHIUSA E COLLAUDATA 26 lug 2026** — 5 tappe + 5 correzioni, provata in studio su paziente reale (v. scheda) | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
 | ~~**F6**~~ ✅ chiusa 25 lug 2026 (campo obiettivo sparito dal modal: ogni salvataggio lo azzerava — v. scheda P122) | Fable | High | ON | Perdita silenziosa di un dato di anamnesi |
 | ~~**F7**~~ ✅ chiusa 26 lug 2026 (altezza, peso e «non rinuncia a» spariti dal modulo: azzerati a ogni salvataggio — audit su tutti i 56 campi) | Opus | High | ON | Perdita silenziosa di dati anagrafici |
-| **P123** ✅ chiusa 26 lug 2026 (le strade: dal traguardo alle calorie e alle settimane — v. scheda) · **resta la parte keto** | Opus/Fable | High | ON | Ritmi di dimagrimento e guardrail: decisioni cliniche |
+| **P123** ✅ chiusa e **collaudata** 26 lug 2026 (le strade: dal traguardo alle calorie e alle settimane — v. scheda) · **resta la parte keto** | Opus/Fable | High | ON | Ritmi di dimagrimento e guardrail: decisioni cliniche |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
@@ -718,11 +718,11 @@ Corretti nello stesso giro due bug silenziosi: il ripiego del popup "Aggiungi al
 
 Test 181 → **197**, tutti verdi (`s2-grammature-alternative.test.js`).
 
-**Da collaudare in produzione:** aprire un piano, cambiare la grammatura di un principale sia dal piano sia dal pannello Macros e verificare che le alternative si aggiornino allo stesso modo; controllare una cella olio/grassi, una di verdura e una con legumi sotto un cereale; generare un piano nuovo e verificare che le alternative arrivino già coerenti.
+**✅ COLLAUDATA 26 lug 2026.** *(Prove originali: aprire un piano, cambiare la grammatura di un principale sia dal piano sia dal pannello Macros e verificare che le alternative si aggiornino allo stesso modo; controllare una cella olio/grassi, una di verdura e una con legumi sotto un cereale; generare un piano nuovo e verificare che le alternative arrivino già coerenti.)*
 
 **Resta da valutare (fase 2, non urgente):** estendere i gruppi semaforo così che "Frutta secca & Semi" e "Olio & Condimenti" siano intercambiabili nel menu "+ Aggiungi alternativa" — oggi l'avocado e la frutta secca nella cella dell'olio ci arrivano solo tramite l'AI, non si possono aggiungere a mano. ~30 min. **Sonnet · Low · OFF.**
 
-**SCHEDA:** Stato: **CHIUSA 25 lug 2026, da collaudare** · Priorità: Alta · Categoria: Generatore piani / grammature · Dipendenze: nessuna · Autonomia: L2 — le regole di equivalenza sono decisioni cliniche, prese da Fabrizio e non dedotte dal codice.
+**SCHEDA:** Stato: **CHIUSA 25 lug 2026, COLLAUDATA 26 lug** (equivalenza sui carboidrati verificata nel popup alternative: riso 60g · crackers 75g · frisella 40g · pasta integrale 75g · gnocchi 150g, con i semafori corretti) · Priorità: Alta · Categoria: Generatore piani / grammature · Dipendenze: nessuna · Autonomia: L2 — le regole di equivalenza sono decisioni cliniche, prese da Fabrizio e non dedotte dal codice.
 
 ---
 
@@ -766,11 +766,11 @@ Test 254 → **270** (`s2-traguardi-multipli.test.js`).
 
 **P122 COMPLETA** — 5 tappe + 5 correzioni post-collaudo in due giorni. Resta il collaudo in studio su pazienti veri.
 
-**Resta da fare: solo il collaudo in studio** su pazienti veri, con lo storico InBody completo. Le cinque tappe e le cinque correzioni sono tutte nel codice.
+**✅ Collaudo in studio fatto il 26 lug 2026** su un paziente reale con 7 referti InBody e nessuna analisi del sangue: tutte e cinque le tappe e le cinque correzioni funzionano. Verificata anche la degradazione pulita del traguardo di tipo *esame* su un paziente senza referti del sangue.
 
 **Regole permanenti di questa voce:** (a) il traguardo si ricalcola a ogni nuovo InBody ma l'app **propone, non riscrive** — nessun cambiamento silenzioso su un dato clinico; (b) le soglie di grasso restano sesso-dipendenti; (c) tutti i campi nuovi sono opzionali: un paziente senza traguardo funziona esattamente come prima.
 
-**SCHEDA:** Stato: **CHIUSA 26 lug 2026 — tutte e 5 le tappe + 5 correzioni post-collaudo. Da collaudare in studio su pazienti veri** · Priorità: Alta · Categoria: Percorso clinico / obiettivi · Dipendenze: P115 (timeline, per la tappa 3), P118 (referti datati, per i traguardi di laboratorio della tappa 4), P50 (app paziente, solo per l'aderenza) · Autonomia: **L0** sulle soglie di grasso essenziale (sicurezza clinica, le decide Fabrizio), L2 sul resto.
+**SCHEDA:** Stato: **CHIUSA E COLLAUDATA 26 lug 2026** — 5 tappe + 5 correzioni, provata in studio su paziente reale (Mariano, 7 referti InBody, nessuna analisi del sangue: verificata anche la degradazione del traguardo di tipo esame). Percorso generato giudicato clinicamente corretto. · Priorità: Alta · Categoria: Percorso clinico / obiettivi · Dipendenze: P115 (timeline, per la tappa 3), P118 (referti datati, per i traguardi di laboratorio della tappa 4), P50 (app paziente, solo per l'aderenza) · Autonomia: **L0** sulle soglie di grasso essenziale (sicurezza clinica, le decide Fabrizio), L2 sul resto.
 
 ---
 
@@ -789,7 +789,7 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 **Resta da fare — la parte chetogenica.** In keto i protocolli sono definiti in **kcal assolute** con bande proprie (PSMF 400-800, VLCKD 600-800, LCKD 800-1500; Mediterranea e WKD in %), e la domanda non è "quanto ci mette" ma **"quanto può durare"**. Servono: le durate massime per protocollo (nel codice ci sono già come testo di avviso: PSMF 2-4 settimane, sotto-basale 8-12), e la proposta di ciclo keto → uscita graduale (P47, già implementata) → mantenimento quando il tempo necessario supera la durata. Rinviata per scelta di Fabrizio. **Autonomia L0:** durate e limiti sono decisioni cliniche sue.
 
-**SCHEDA:** Stato: **CHIUSA 26 lug 2026 (parte bilanciata), da collaudare · parte keto aperta** · Priorità: Alta · Categoria: Percorso clinico / programmazione · Dipendenze: P122 (traguardo e scadenza personale), P115 (fasi) · Autonomia: L0 su ritmi e guardrail.
+**SCHEDA:** Stato: **CHIUSA E COLLAUDATA 26 lug 2026 (parte bilanciata) · parte keto aperta** · Priorità: Alta · Categoria: Percorso clinico / programmazione · Dipendenze: P122 (traguardo e scadenza personale), P115 (fasi) · Autonomia: L0 su ritmi e guardrail.
 
 ---
 

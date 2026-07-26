@@ -10,6 +10,33 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, chiusura) — COLLAUDO SUL CAMPO: TUTTO VERDE.
+Nessuna modifica al codice: questa voce registra solo gli esiti, perché lo stato
+di una funzione lo decide l'uso in studio, non il fatto che i test passino.
+
+Fabrizio ha collaudato su **Mariano** (paziente reale, 7 referti InBody, nessuna
+analisi del sangue) l'intera catena costruita in due giorni:
+- **P122 tappe 1-5 + le 5 correzioni post-collaudo** — traguardo dalla
+  composizione, domanda in visita strutturata, modelli di periodizzazione e
+  riallineo, traguardi multipli e condizione di uscita, vista paziente:
+  **tutto funziona**. Il percorso generato su Mariano (deficit 6 sett. −20% →
+  mantenimento 6 → surplus 16) è stato giudicato corretto.
+- **P123 — le strade**: le tre velocità, il pulsante «Usa» che imposta il regime
+  e riscrive le fasi, la riga della scadenza personale: **funziona**.
+- **F7** — altezza inserita, salvata e **rimasta salvata** dopo riapertura: il
+  bug dei campi che si azzeravano è chiuso davvero.
+- **P121 — grammature delle alternative (arretrato dal 25/7)**: **collaudata,
+  funziona**. Era l'unico collaudo aperto che toccava i piani alimentari veri.
+  Verificata l'equivalenza sui carboidrati nel popup "Aggiungi alternativa"
+  (riso 60g · crackers 75g · frisella 40g · pasta integrale 75g · gnocchi 150g,
+  tutte marcate ≈carbo) con i semafori Consigliato / Con moderazione / Sconsigliato.
+
+**Resta aperto, per scelta di Fabrizio:** la parte chetogenica di P123 (durate
+massime per protocollo e ciclo keto → uscita graduale → mantenimento), più le
+due cose promesse in sessione e non ancora fatte — il contesto AI che cita i
+campi scartati dal motore TDEE, e la verifica al controllo (quanto muscolo ha
+messo dall'ultimo referto, ritmo reale contro ritmo scelto).
+
 26 LUGLIO 2026 (6ª sessione, seguito) — P123: LE STRADE PER ARRIVARE AL TRAGUARDO (+ pannello 🎯 reso leggibile).
 Baseline `cbf5aae`. Test 290 → **301**, tutti verdi (`s2-strade.test.js`).
 
