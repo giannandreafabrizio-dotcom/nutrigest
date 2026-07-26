@@ -11487,6 +11487,29 @@ function _impUnitaCanonica(u){
   return t;
 }
 
+// Stessa GRANDEZZA FISICA a meno del prefisso: "nanomoli/L", "micromoli/L" e
+// "mmol/L" misurano tutte una concentrazione molare. Serve perche' i prefissi
+// sono un solo carattere (u/n/m/p) e l'AI li trascrive male con facilita': al
+// primo collaudo del 26/7 aveva scritto "nanomoli/L" per l'omocisteina e
+// "mmol/L" per la creatinina in micromoli, facendo scattare due allarmi su
+// righe perfettamente allineate. Un allarme che suona sulle righe giuste e' il
+// modo piu' rapido per far smettere di leggere gli allarmi.
+// Nota: il controllo di ordine di grandezza (_impFuoriScala) resta e copre il
+// caso vero e proprio del valore espresso in un'altra scala.
+function _impStessaGrandezza(a, b){
+  const base=function(u){
+    let t=_impUnitaCanonica(u);
+    if(!t) return '';
+    t=t.replace(/nanomoli|nanomol/g,'nmol').replace(/micromoli|micromol/g,'umol')
+       .replace(/millimoli|millimol/g,'mmol').replace(/^moli/,'mol')
+       .replace(/nanogrammi/g,'ng').replace(/microgrammi/g,'ug').replace(/milligrammi/g,'mg');
+    const m=t.match(/^[numpfkcd]?(mol|g)(\/.*)?$/);
+    return m ? (m[1]+(m[2]||'')) : '';
+  };
+  const x=base(a), y=base(b);
+  return !!x && x===y;
+}
+
 // Confronto prudente: uguali, oppure una contenuta nell'altra (copre
 // "ml/min/1.73m" contro "ml/min/1.73m^2"). Sotto i 2 caratteri niente
 // contenimento, altrimenti "%" combacerebbe con qualunque cosa.
@@ -11519,8 +11542,9 @@ function _impControllaValore(nome, val, ctx, p){
     sospetto=true;
   }
   const uAttesa=lim?lim.u:'';
-  if(c.unita && uAttesa && !_impUnitaCompatibili(c.unita, uAttesa)){
-    motivi.push('unità letta "'+c.unita+'", attesa "'+uAttesa+'": riga disallineata');
+  if(c.unita && uAttesa && !_impUnitaCompatibili(c.unita, uAttesa)
+     && !_impStessaGrandezza(c.unita, uAttesa)){
+    motivi.push('unità letta "'+c.unita+'" invece di "'+uAttesa+'": riga disallineata o valore in un\'altra scala');
     sospetto=true;
   }
   if(c.conflitto){

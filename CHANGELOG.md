@@ -10,6 +10,43 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 5) — P124b: I PREFISSI DELLE UNITÀ FACEVANO SUONARE L'ALLARME SU RIGHE GIUSTE.
+Test 330 → **334**. Commit precedente `df47356`.
+
+**IL FALSO ALLARME.** Terzo giro di collaudo, due righe segnate in rosso che
+erano perfettamente allineate: **Omocisteina 11,3** ("unità letta *nanomoli/L*,
+attesa µmol/L") e **Creatinina umol/L 97** ("unità letta *mmol/L*"). Il valore,
+il riferimento del laboratorio e l'esame erano tutti corretti: l'AI aveva solo
+trascritto male il PREFISSO dell'unità — un carattere solo (u/n/m/p), la cosa
+più facile da sbagliare leggendo una scansione.
+
+**PERCHÉ È UN PROBLEMA SERIO E NON UN FASTIDIO.** Il controllo sull'unità nasce
+per smascherare la RIGA SBAGLIATA (`%` dove servono 10³/µL). Ma nanomoli,
+micromoli e millimoli misurano tutte la stessa cosa — una concentrazione molare
+— quindi lì non c'è nessuna riga sbagliata da smascherare. Un allarme che suona
+sulle righe giuste è il modo più rapido per far smettere di leggere gli allarmi,
+e a quel punto non protegge più nemmeno quando ha ragione. È la stessa regola
+già scritta per il suggerimento della virgola: **meglio nessun avviso che un
+avviso che si impara a saltare**.
+
+**LA CORREZIONE.** `_impStessaGrandezza` confronta la GRANDEZZA FISICA a meno
+del prefisso (nanomoli/micromoli/millimoli → moli; mg/µg → grammi): se le due
+unità sono la stessa grandezza, nessun allarme. Restano segnalate le grandezze
+davvero diverse (`%` contro 10³/µL, `pg` contro g/dL, `migliaia/mmc` contro fL).
+**Il caso in cui il prefisso conta davvero — il valore espresso in un'altra
+scala — non resta scoperto:** lo prende `_impFuoriScala`, che ragiona sui numeri
+(una creatinina di 97 in una casella che si aspetta 0,7-1,2 è 80 volte il
+massimo e viene segnalata comunque). Verificato con un test apposta.
+
+**Costo accettato consapevolmente:** l'unità non distingue più mg/dL da µg/dL né
+ng/mL da pg/mL, quindi uno scambio di riga fra due esami che differiscono solo
+per il prefisso non viene più preso *dall'unità*. Restano su quel caso il
+controllo del riferimento e quello di ordine di grandezza.
+
+**File toccati:** `index.html` (`_impStessaGrandezza`, messaggio del controllo
+unità riscritto), `test-suite/test/s2-import-referto-controlli.test.js`,
+`INDEX.md`, `NutriGest_Roadmap_v4.md`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 4) — P124b: LE DUE COSE VISTE NEL COLLAUDO CON LE PAGINE FINALMENTE DRITTE.
 Test 327 → **330**. Collaudo di P124b **superato**: emocromo, TSH e FT4 letti giusti, niente più scivolamento di riga.
 

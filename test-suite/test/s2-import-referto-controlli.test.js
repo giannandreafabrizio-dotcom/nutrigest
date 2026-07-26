@@ -313,3 +313,40 @@ test('P124b — il prompt avverte esplicitamente della data di nascita nell\'int
   assert.ok(corpo.indexOf('DATA DI NASCITA') > 0, 'il prompt non mette più in guardia sulla data di nascita');
   assert.ok(corpo.indexOf('ENTRAMBE le righe') > 0, 'il prompt non chiede più sia la percentuale sia il valore assoluto');
 });
+
+// ── P124b, terza correzione: i PREFISSI delle unità ─────────────────────────
+// Secondo collaudo: due allarmi su righe perfettamente allineate, perché l'AI
+// aveva trascritto "nanomoli/L" per l'omocisteina (µmol/L) e "mmol/L" per la
+// creatinina in micromoli. I prefissi sono un carattere solo (u/n/m/p) e si
+// sbagliano con facilità: far scattare un allarme lì insegna a ignorare gli
+// allarmi. La grandezza fisica resta la stessa, e la scala sbagliata la prende
+// comunque il controllo di ordine di grandezza.
+test('P124b — un prefisso sbagliato sulla stessa grandezza non è una riga disallineata', () => {
+  const sg = win.eval('_impStessaGrandezza');
+  [['nanomoli/L', 'µmol/L'], ['mmol/L', 'µmol/L'], ['micromoli/L', 'µmol/L'],
+   ['mg/dL', 'µg/dL'], ['ng/mL', 'pg/mL']].forEach(function ([a, b]) {
+    assert.strictEqual(sg(a, b), true, a + ' e ' + b + ' misurano la stessa grandezza');
+  });
+});
+
+test('P124b — grandezze davvero diverse restano segnalate', () => {
+  const sg = win.eval('_impStessaGrandezza');
+  [['pg', 'g/dL'], ['%', '10³/µL'], ['migliaia/mmc', 'fL'], ['µmol/L', 'mg/dL'], ['', 'g/dL']]
+    .forEach(function ([a, b]) {
+      assert.strictEqual(sg(a, b), false, a + ' e ' + b + ' NON sono la stessa grandezza');
+    });
+});
+
+test('P124b — i due falsi allarmi del collaudo non suonano più', () => {
+  const c1 = ctrl('Omocisteina', '11.3', { rif: '1-20', unita: 'nanomoli/L' });
+  assert.strictEqual(c1.sospetto, false, 'omocisteina 11,3 è una riga giusta: ' + c1.motivi.join(' · '));
+  const c2 = ctrl('Creatinina umol/L', '97', { rif: '64-104', unita: 'mmol/L' });
+  assert.strictEqual(c2.sospetto, false, 'creatinina 97 µmol/L è una riga giusta: ' + c2.motivi.join(' · '));
+});
+
+test('P124b — ma se il valore è anche in un\'altra scala, l\'ordine di grandezza lo prende lo stesso', () => {
+  // Creatinina in µmol/L (≈97) finita nella casella in mg/dL (rif 0,7-1,2):
+  // l'unità non basta più a segnalarlo, ma 97 è 80 volte il massimo.
+  const c = ctrl('Creatinina', '97', { rif: '64-104', unita: 'mmol/L' });
+  assert.ok(c.sospetto, 'una creatinina di 97 mg/dL non può passare');
+});
