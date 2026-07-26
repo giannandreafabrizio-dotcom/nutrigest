@@ -2107,6 +2107,44 @@ LE STRADE PER ARRIVARE AL TRAGUARDO (P123, 26 lug 2026):
   riga sola piccola. Riquadro solo per blocco/avviso e per il confronto con
   l'aspettativa quando e' in conflitto.
 
+LA VERIFICA AL CONTROLLO (P127, 26 lug 2026):
+  Blocco "🔎 Com'e' andata davvero" generato da _verificaControlloHtml(p, r, opz)
+  e mostrato in DUE punti dalla stessa funzione: nel pannello 🎯 SOPRA le strade
+  (_traguardoAnteprima, con opz.azioni=true) e nella scheda Percorso
+  (renderPdPercorso, azioni=false, e mai in vista paziente). Chiude il cerchio di
+  P123: li' si e' deciso di NON prevedere il muscolo, qui lo si MISURA.
+  _misuraDaReferto(ib, p) — estratta dal ciclo di _traguardoMisura, che ora la
+  usa: la misurazione di UN referto con le stesse regole (magra dal campo "m",
+  ripieghi espliciti, % SEMPRE derivata dalla magra usata, incoerenza dichiarata,
+  piu' `musc` quando c'e'). Serve a leggere i referti passati con lo stesso metro
+  dell'ultimo: due metodi diversi darebbero un delta di METODO, non del paziente.
+  _mediaSlotPrescritta(p, d0, d1, fn) — media pesata sui giorni di un campo dello
+  storico target nella finestra; ogni slot vale dal suo timestamp al successivo.
+  _kcalMediaPrescrittaOss la usa (una sola copia dell'aritmetica).
+  _vcDeficitSlot(s) — deficit di uno slot: campo `offset`, oppure kcal-tdee per
+  gli slot vecchi salvati prima che offset esistesse.
+  _vcTratto(p, a, b) — cosa e' cambiato fra due misurazioni: giorni, dPeso,
+  dGrasso, dMagra, dMusc, grassoSett (positivo = grasso perso), magraMese;
+  `previsto` = deficit REALMENTE PRESCRITTO nel tratto (fonte "prescritto") o, se
+  lo storico copre <60% dei giorni, il regime attuale (fonte "regime-attuale",
+  dichiarata a schermo); `giudizio` = in-linea (±20%) / piu-lento / piu-veloce /
+  non-deficit; `tdeeReale` = kcalMedie - dPeso x 7700 / giorni, calcolato SOLO
+  con >=21 giorni, copertura >=60% e |dPeso| <=2 kg/sett, risultato 600-6000.
+  _vcTraguardoSalvato(p) — ricostruisce il traguardo dal salvato (serve nella
+  scheda Percorso, dove non c'e' l'anteprima viva del pannello).
+  _verificaControllo(p, r) — motore puro: ordina i referti in LETTURA (l'ordine e'
+  garantito in scrittura da P120, ma questa lettura non deve dipenderne), prende
+  gli ultimi due come tratto principale e il primo-ultimo come quadro complessivo
+  (solo con >=3 referti), e calcola `residuo` = grasso ancora da togliere,
+  settimane AL RITMO REALE, data d'arrivo e confronto con la scadenza personale.
+  ok:false con motivo se i referti sono <2 o distano <7 giorni.
+  _vcRitara(kcal) — scrive nel campo mac-off-kcal e lascia ricalcolare lo slider:
+  PROPONE, non salva (il salvataggio resta 💾 Salva dati).
+  COSTANTI: _VC_TOLLERANZA_PCT 20 · _VC_GIORNI_MIN 7 · _VC_GIORNI_MIN_RITARO 21 ·
+  _VC_COPERTURA_MIN_PCT 60 · _VC_MAGRA_PRUDENZA_GG 21. Sono soglie CLINICHE (L0).
+  Nessun campo nuovo su `p`: la verifica legge inbody, macrosStorico e
+  obiettivoPercorso, non scrive niente.
+
 TRAGUARDO DALLA COMPOSIZIONE CORPOREA (P122 Tappa 1, 25 lug 2026):
   Il peso obiettivo smette di essere un numero digitato e diventa la conseguenza
   di una scelta clinica: la % di grasso a cui si punta.
@@ -2416,6 +2454,21 @@ PASTO LIBERO SABATO CONFIGURABILE (P93, 17 lug 2026 · commit 4d50d15):
     sicura anche in keto; giorni OFF normali) per abilitare i suggerimenti pre/post-workout
     del generatore/analisi AI. Il campo era già raccolto ma non veniva passato. Nessun
     effetto sul calcolo.
+    ATTIVITÀ COERENTE COL MOTORE (P126, 26 lug 2026): il blocco Attività elencava
+    "passi · tipo · intensità · ore/sett", ma tipo/intensità/ore generiche sono proprio i
+    campi che il motore MET additivo SCARTA quando esistono attività specifica e
+    sedute×minuti — l'AI commentava quindi un carico allenante diverso da quello su cui
+    erano calcolati i macro. Ora il blocco è "ATTIVITA FISICA — i numeri che il motore ha
+    davvero usato": NEAT dai passi (+ bonus lavoro), MET usato con la sua provenienza, ore
+    EFFETTIVE col conto che le produce (sedute × minuti), EAT, TEF, somma = TDEE; poi una
+    riga separata "Dichiarato ma NON usato dal calcolo" con il motivo di ogni scarto e
+    l'istruzione di non commentarlo come carico reale ma di segnalarlo se contraddice i
+    dati usati. Senza dati di attività si dichiara il fallback LAF manuale. I numeri NON
+    vengono ricalcolati qui: calcolaTDEE espone oreEffSett, oreEffGiorno, fonteOre
+    ('sedute-minuti'|'ore-legacy'), fonteMet ('attivita-specifica'|'tipo-intensita') e
+    passiUsati, e il contesto li legge — una seconda aritmetica sarebbe divergenza in
+    attesa. Cronotipo, giorni ON e orario del pasto principale restano ma sotto l'etichetta
+    "Ritmi (non entrano nel TDEE)". La riga LAF/MB/TDEE in testa cita ora il metodo.
 
 STIMA KCAL CENA LIBERA SABATO (per badge macros reali; usa p.weekend = opzione principale):
   Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750

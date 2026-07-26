@@ -60,6 +60,8 @@
 | **P123** ✅ chiusa e **collaudata** 26 lug 2026 (le strade: dal traguardo alle calorie e alle settimane — v. scheda) · **resta la parte keto** | Opus/Fable | High | ON | Ritmi di dimagrimento e guardrail: decisioni cliniche |
 | **P124** ✅ chiusa 26 lug 2026 — **da collaudare** (import referti del sangue: valori correggibili a mano + tre controlli anti-errore — v. scheda) | Opus | High | ON | Un valore di laboratorio sbagliato che entra nella cartella clinica è sicurezza clinica |
 | **P125** ✅ chiusa 26 lug 2026 — **da collaudare** (ricerca fra i 119 parametri + LDL stimato con Friedewald — v. scheda) · **resta l'elettroforesi in frazioni** | Opus | High | ON | Una formula clinica fuori dal suo campo di validità è un numero che sembra un risultato |
+| **P126** ✅ chiusa 26 lug 2026 — **da collaudare** (il contesto AI citava ore/tipo/intensità: i campi che il motore MET scarta — v. scheda) | Opus | High | ON | L'AI commentava un carico allenante diverso da quello su cui erano calcolati i macro |
+| **P127** ✅ chiusa 26 lug 2026 — **da collaudare** (la verifica al controllo: cos'è successo davvero e la strada da ritarare — v. scheda) | Opus | High | ON | Ritmo reale, soglie di leggibilità del dato e proposta di ritaratura: decisioni cliniche |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
@@ -817,7 +819,40 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 **Resta da fare — la parte chetogenica.** In keto i protocolli sono definiti in **kcal assolute** con bande proprie (PSMF 400-800, VLCKD 600-800, LCKD 800-1500; Mediterranea e WKD in %), e la domanda non è "quanto ci mette" ma **"quanto può durare"**. Servono: le durate massime per protocollo (nel codice ci sono già come testo di avviso: PSMF 2-4 settimane, sotto-basale 8-12), e la proposta di ciclo keto → uscita graduale (P47, già implementata) → mantenimento quando il tempo necessario supera la durata. Rinviata per scelta di Fabrizio. **Autonomia L0:** durate e limiti sono decisioni cliniche sue.
 
-**SCHEDA:** Stato: **CHIUSA E COLLAUDATA 26 lug 2026 (parte bilanciata) · parte keto aperta** · Priorità: Alta · Categoria: Percorso clinico / programmazione · Dipendenze: P122 (traguardo e scadenza personale), P115 (fasi) · Autonomia: L0 su ritmi e guardrail.
+**SCHEDA:** Stato: **CHIUSA E COLLAUDATA 26 lug 2026 (parte bilanciata) · parte keto aperta** — parte keto **rinviata una seconda volta la sera del 26/7** su richiesta esplicita di Fabrizio ("la voglio fare più in là"): resta com'è scritto sopra, con l'avviso in pagina al posto delle strade. Il cerchio "misura al controllo" che questa scheda annunciava è stato chiuso da **P127**. · Priorità: Alta · Categoria: Percorso clinico / programmazione · Dipendenze: P122 (traguardo e scadenza personale), P115 (fasi) · Autonomia: L0 su ritmi e guardrail.
+
+---
+
+### P126 — Il contesto AI citava i campi che il motore TDEE scarta (nata e chiusa 26 lug 2026, coda 7)
+
+**Origine:** una delle due "cose promesse e non fatte" segnate in cima alla roadmap semplice, nate parlando il 26/7.
+
+**Il problema:** il blocco Attività di `costruisciContestoPaziente` passava al ragionamento clinico *"passi · tipo · intensità · ore/sett"*. Ma dal motore MET additivo quei campi vengono **scartati** quando esistono i dati migliori: con un'attività specifica selezionata il MET viene da quella (Circuit training = 8 MET) e non dalla griglia tipo×intensità; con sedute e minuti compilati le ore effettive sono `3 × 36 min = 1,8 h/sett`, non le 3 del campo generico. L'AI riceveva quindi un profilo di allenamento che il calcolo non aveva usato, e commentava numeri diversi da quelli su cui erano tarati i macro che aveva davanti.
+
+**✅ CHIUSA 26 lug 2026.** Il contesto ora racconta la scomposizione vera (NEAT dai passi + eventuale bonus lavoro · MET usato e la sua provenienza · ore EFFETTIVE col conto che le produce · EAT · TEF · somma = TDEE) e, in una riga separata, **"Dichiarato ma NON usato dal calcolo"** con il motivo di ogni scarto e l'istruzione di non commentarlo come carico allenante — ma di segnalarlo se contraddice i dati usati. Un campo dichiarato e inutilizzato resta informazione clinica: si toglie dal posto sbagliato, non si nasconde.
+
+**La scelta che regge nel tempo:** i numeri **non si ricalcolano** nel contesto. `calcolaTDEE` espone ora `oreEffSett`, `oreEffGiorno`, `fonteOre` e `fonteMet`, e il contesto li legge. Ricalcolarli avrebbe creato la seconda fonte che diverge alla prima modifica del motore — la famiglia di bug F4/P118/P120. Un test confronta la stringa scritta con l'output di `calcolaTDEE`. Test 350 → 356 (`s2-contesto-attivita.test.js`).
+
+**SCHEDA:** Stato: **CHIUSA 26 lug 2026 — da collaudare** · Priorità: Alta · Categoria: Ragionamento clinico AI / motore TDEE · Dipendenze: P7 (motore MET), P114 (sedute×minuti, lavoro, orario) · Autonomia: L2 (nessuna soglia clinica: si dichiara ciò che il calcolo già fa).
+
+---
+
+### P127 — La verifica al controllo (nata e chiusa 26 lug 2026, coda 7)
+
+**Origine:** la seconda "cosa promessa e non fatta", e la più richiesta nella pratica: *"quando torna il paziente, l'app dovrebbe dirti quanto muscolo ha messo davvero dall'ultimo controllo e se il ritmo reale è più lento o più veloce della strada scelta, proponendo di ritararla"*. È il pezzo che chiude il cerchio di P123: lì si è deciso di **non prevedere** il muscolo perché la previsione è difficile ed è anche irrilevante per programmare — il muscolo si **misura al controllo**. Questa voce è quella misura.
+
+**✅ CHIUSA 26 lug 2026.** Blocco 🔎 *"Com'è andata davvero"* in **due posti** (scelta di Fabrizio: pannello 🎯 sopra le strade + scheda Percorso), generato da una sola funzione: il tasto che ritara le calorie compare solo dove il campo delle calorie è in pagina, e in vista paziente il blocco non compare affatto. Dice: cosa è cambiato (grasso, massa magra, muscolo scheletrico, peso, % grasso) col ritmo settimanale · cosa era atteso a quelle calorie e se il reale è in linea (±20%), più lento o più veloce · il consumo reale che quel calo implica, con la proposta di ritaratura · quanto manca **al ritmo reale** e se la data che conta per il paziente regge · una riga sul cammino dall'inizio quando i referti sono ≥3.
+
+**Le scelte di metodo — tutte per non inventare numeri:**
+- Il **"previsto"** viene dal deficit **realmente prescritto** in quel tratto (media pesata sui giorni degli slot di `macrosStorico`), non dal regime impostato oggi: confrontare il calo di maggio col regime di luglio darebbe uno scarto finto. Il regime attuale è solo un ripiego, e il riquadro lo dichiara.
+- Il ritmo si legge sul **grasso**, non sul peso (acqua e glicogeno sono peso).
+- Le due misurazioni vengono dallo **stesso `_misuraDaReferto`**, estratto da `_traguardoMisura`: leggere il referto vecchio da `peso−grassa` e quello nuovo dal campo `m` produrrebbe un delta **di metodo, non del paziente**.
+- La **ritaratura** si propone solo con ≥21 giorni fra i referti e ≥60% del tratto coperto da un target salvato; sotto quelle soglie un "consumo misurato" è rumore travestito da numero. E **propone, non applica**: scrive nel campo calorie, il salvataggio resta esplicito.
+- Sotto le tre settimane avverte che la massa magra è in buona parte acqua; in regime non in deficit non parla di velocità di calo ma di massa magra.
+
+**Soglie decise in questa sessione (rivedibili, sono cliniche):** tolleranza ±20% · tratto minimo leggibile 7 giorni · minimo 21 giorni per la ritaratura · copertura minima 60%. Fabrizio non ha scelto l'intervallo di confronto ("la soluzione migliore"): implementato **ultimo referto vs precedente** come riga principale — è il tratto su cui quelle calorie sono state davvero prescritte — con il cammino complessivo come riga di contesto. Test 356 → 370 (`s2-verifica-controllo.test.js`).
+
+**SCHEDA:** Stato: **CHIUSA 26 lug 2026 — da collaudare** · Priorità: Alta · Categoria: Percorso clinico / controllo · Dipendenze: P122 (traguardo, scadenza personale), P123 (le strade), P120 (storico InBody ordinato), P114 passo 4 (TDEE osservato: stessa aritmetica) · Autonomia: **L0** sulle soglie (tolleranza, giorni minimi, copertura) — sono decisioni cliniche di Fabrizio.
 
 ---
 

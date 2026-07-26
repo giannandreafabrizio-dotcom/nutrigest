@@ -7594,6 +7594,10 @@ function renderPdPercorso(p){
     } else if(!_vistaPaz && _proj && !_proj.ok && ints.length){
       html+='<div style="font-size:.7rem;color:var(--text3);margin:-.2rem 0 .55rem">Proiezione non disponibile: '+_proj.motivo+'.</div>';
     }
+    // P127 — la stessa verifica al controllo del pannello 🎯, qui senza il tasto di
+    // ritaratura: il campo delle calorie vive nella scheda Macros. In vista
+    // paziente non compare (è il ragionamento del medico, non il suo).
+    if(!_vistaPaz && typeof _verificaControlloHtml==="function") html+=_verificaControlloHtml(p, null, {azioni:false});
     // P115 Tappa 5 — riga "Piano vs Realtà": compare solo quando l'app paziente (P50)
     // avrà scritto dati di automonitoraggio; oggi resta invisibile per tutti.
     const _cons=_percorsoConsuntivo(p);
@@ -8883,7 +8887,7 @@ function costruisciContestoPaziente(p){
   let ctx='PAZIENTE: '+p.nome+' '+p.cognome+(eta?' — '+eta+' anni':'')+(p.sesso?' · '+p.sesso:'')
     +'\nPeso: '+(peso||'—')+' kg · Altezza: '+(p.altezza||'—')+' cm'
     +'\nRegime: '+(p.regime||'—')+' · Peso obiettivo: '+(p.pesoTarget||'—')+' kg · Obiettivo clinico: '+(p.obiettivo||'—')
-    +'\nLAF: '+(laf||'—')+' · MB InBody: '+(mb||'—')+' kcal · TDEE: '+(tdee||'—')+' kcal'
+    +'\nLAF: '+(laf||'—')+' · MB InBody: '+(mb||'—')+' kcal · TDEE: '+(tdee||'—')+' kcal'+(_ct&&_ct.metodo?' ('+_ct.metodo+')':'')
     +'\n'+_macrosLabel
     +avvisoInbody;
   // P122 Tappa 2 — la voce del paziente e il traguardo derivato entrano nel contesto AI
@@ -8927,11 +8931,60 @@ function costruisciContestoPaziente(p){
     ctx+='\n\nInBody: nessuna misurazione disponibile.';
   }
 
-  if(p.passiGiornalieri||p.oreAllenamento||p.tipoAllenamento||p.orarioAllenamento){
-    ctx+='\n\nAttivita fisica: '+(p.passiGiornalieri||'—')+' passi/giorno · '+(p.tipoAllenamento||'—')+' · intensita '+(p.intensitaAllenamento||'—')+' · '+(p.oreAllenamento||'—')+' ore/sett.';
-    if((p.giorniAllenamento||[]).length)ctx+=' · giorni ON: '+p.giorniAllenamento.join(', ');
-    if(p.cronotipo)ctx+=' · cronotipo: '+p.cronotipo;
-    if(p.orarioPastoPrincipale)ctx+=' · pasto principale: '+p.orarioPastoPrincipale;
+  // ── P126 — l'attivita fisica raccontata come la USA il motore, non come e' scritta nei campi ──
+  // Il blocco precedente elencava "ore/sett · tipo · intensita": i tre campi che il
+  // motore MET additivo SCARTA quando ci sono sedute×minuti e un'attivita specifica.
+  // L'AI commentava quindi numeri diversi da quelli su cui erano calcolati i macro
+  // ("3 ore/sett di Misto a intensita media" contro 1,8 ore effettive a 8 MET).
+  // Regola: si dichiara cosa e' entrato nel calcolo e, separatamente, cosa e' stato
+  // scartato e perche' — un dato dichiarato ma inutilizzato resta un'informazione
+  // clinica (l'AI puo' notare l'incoerenza), ma non deve piu' passare per il dato usato.
+  if(p.passiGiornalieri||p.oreAllenamento||p.tipoAllenamento||p.orarioAllenamento||p.seduteSettimana||p.attivitaSpecifica||p.tipoLavoro){
+    const _metMET = _ct && _ct.metodo && _ct.metodo.indexOf('MET additivo')===0;
+    if(_metMET){
+      const _fmtOre=function(h){ return String(+(+h).toFixed(2)).replace('.',','); };
+      ctx+='\n\nATTIVITA FISICA — i numeri che il motore ha davvero usato per il TDEE (i macro sono calcolati su QUESTI):';
+      ctx+='\nMovimento quotidiano: '+(_ct.passiUsati!=null?_ct.passiUsati+' passi/giorno':'passi non registrati (base prudenziale)')
+        +(p.fontePassi?' ('+p.fontePassi+')':'')
+        +' → NEAT '+(_ct.neat||0)+' kcal'+(_ct.neatFraz!=null?' ('+String(_ct.neatFraz).replace('.',',')+' del metabolismo basale':'')
+        +(_ct.bonusLavoro>0?', di cui bonus lavoro '+(p.tipoLavoro||'non sedentario')+' +'+String(_ct.bonusLavoro).replace('.',',')+')':')');
+      if(_ct.eat>0){
+        ctx+='\nAllenamento strutturato: '+(_ct.fonteMet==='attivita-specifica'
+              ? p.attivitaSpecifica+' → '+_ct.metUsato+' MET (valore dell attivita specifica selezionata)'
+              : (p.tipoAllenamento||'Misto')+' a intensita '+(p.intensitaAllenamento||'media')+' → '+_ct.metUsato+' MET')
+          +' · '+(_ct.fonteOre==='sedute-minuti'
+              ? (p.seduteSettimana+' sedute × '+p.minutiSeduta+' minuti = '+_fmtOre(_ct.oreEffSett)+' ore EFFETTIVE/settimana')
+              : (_fmtOre(_ct.oreEffSett)+' ore/settimana (campo ore generico)'))
+          +' → EAT '+_ct.eat+' kcal/giorno spalmate sulla settimana.';
+      } else {
+        ctx+='\nAllenamento strutturato: NON entra nel calcolo (mancano sedute e minuti per seduta, oppure il peso).';
+      }
+      ctx+='\nTEF (effetto termico del cibo, 10%): '+(_ct.tef||0)+' kcal.'
+        +'\nTotale: MB '+(_ct.mb||'—')+' + NEAT '+(_ct.neat||0)+' + EAT '+(_ct.eat||0)+' + TEF '+(_ct.tef||0)+' = TDEE '+(_ct.tdee||'—')+' kcal (LAF risultante '+(_ct.laf||'—')+', non impostato a mano).';
+      // Cosa e' stato DICHIARATO ma non e' entrato nel calcolo: va detto, e va detto perche'.
+      const _scartati=[];
+      if(_ct.fonteOre==='sedute-minuti' && p.oreAllenamento) _scartati.push('"'+p.oreAllenamento+' ore/settimana" nel campo generico (sostituito da sedute × minuti)');
+      if(_ct.fonteMet==='attivita-specifica'){
+        if(p.tipoAllenamento) _scartati.push('tipo "'+p.tipoAllenamento+'"');
+        if(p.intensitaAllenamento) _scartati.push('intensita "'+p.intensitaAllenamento+'"');
+      }
+      if(_ct.eat===0 && p.oreAllenamento) _scartati.push('"'+p.oreAllenamento+' ore/settimana" (nessun MET applicabile)');
+      if(_scartati.length){
+        ctx+='\nDichiarato ma NON usato dal calcolo: '+_scartati.join(' · ')
+          +'. Non commentare questi valori come se fossero il carico allenante su cui sono tarati i macro: se ti sembrano in contraddizione con i dati usati, segnalalo come possibile dato da aggiornare in anagrafica.';
+      }
+    } else {
+      ctx+='\n\nATTIVITA FISICA: dati insufficienti per il motore MET additivo — TDEE ottenuto con il LAF manuale '+(_ct&&_ct.laf!=null?_ct.laf:'—')+' (fallback). '
+        +'Dichiarato in anagrafica: '+(p.passiGiornalieri||'—')+' passi/giorno · '+(p.tipoAllenamento||'—')+' · intensita '+(p.intensitaAllenamento||'—')+' · '+(p.oreAllenamento||'—')+' ore/sett. — non entrano in nessun calcolo.';
+    }
+    {
+      const _rit=[];
+      if((p.giorniAllenamento||[]).length) _rit.push('giorni ON: '+p.giorniAllenamento.join(', '));
+      if(p.cronotipo) _rit.push('cronotipo: '+p.cronotipo);
+      if(p.orarioPastoPrincipale) _rit.push('pasto principale: '+p.orarioPastoPrincipale);
+      // Ritmo della settimana e della giornata: non entra nel TDEE, serve a COME distribuire.
+      if(_rit.length) ctx+='\nRitmi (non entrano nel TDEE, servono per la distribuzione dei pasti): '+_rit.join(' · ');
+    }
     // P114 passo 8 — orario di allenamento → suggerimenti pre/post-workout
     if(p.orarioAllenamento){
       const _oa=(p.orarioAllenamento==='Variabile'&&p.orarioAllenamentoNote)?('Variabile ('+p.orarioAllenamentoNote+')'):p.orarioAllenamento;
@@ -13511,17 +13564,21 @@ function _traguardoSoglie(sesso){
 // del referto non tornano fra loro il dato NON viene aggiustato in silenzio:
 // esce in `incoerenza` e la scheda lo dichiara — perché il traguardo si calcola
 // sulla massa magra, e 70 kg invece di 74.7 spostano l'obiettivo di 5 kg.
-function _traguardoMisura(p){
-  const arr=(p&&Array.isArray(p.inbody))?p.inbody:[];
-  for(let i=arr.length-1;i>=0;i--){
-    const ib=arr[i]; if(!ib) continue;
+// P127 — la misurazione di UN referto, estratta dal ciclo di _traguardoMisura il
+// 26/7: la verifica al controllo deve leggere i referti PASSATI con lo stesso
+// metro con cui il traguardo legge l'ultimo. Due misure ricavate in due modi
+// diversi (una dal campo "m", l'altra da peso−grassa) darebbero un delta
+// inventato: la differenza sarebbe di metodo, non del paziente.
+function _misuraDaReferto(ib, p){
+  {
+    if(!ib) return null;
     const peso=parseFloat(ib.peso);
-    if(!peso||isNaN(peso)||peso<=0) continue;
+    if(!peso||isNaN(peso)||peso<=0) return null;
     const mCampo=parseFloat(ib.m), gCampo=parseFloat(ib.g), pgCampo=parseFloat(ib.pg);
     let m=(!isNaN(mCampo)&&mCampo>0)?mCampo:null, fonte="campo massa magra";
     if(m===null && !isNaN(gCampo) && gCampo>0){ m=peso-gCampo; fonte="peso − massa grassa"; }
     if(m===null && !isNaN(pgCampo) && pgCampo>0 && pgCampo<70){ m=peso*(1-pgCampo/100); fonte="peso × (1 − %grasso)"; }
-    if(m===null||isNaN(m)||m<=0||m>=peso) continue;
+    if(m===null||isNaN(m)||m<=0||m>=peso) return null;
     const g=peso-m, pgDer=(g/peso)*100;
     // Il controllo vale solo quando la massa magra viene dal SUO campo: negli
     // altri casi grassa e % sono per costruzione coerenti (le abbiamo derivate).
@@ -13540,7 +13597,16 @@ function _traguardoMisura(p){
     }
     return {data:ib.data||"", peso:+peso.toFixed(1), m:+m.toFixed(1), g:+g.toFixed(1),
             pg:+pgDer.toFixed(1), fonteMagra:fonte, incoerenza:incoerenza,
+            musc:(!isNaN(parseFloat(ib.musc))?+parseFloat(ib.musc):null),
             altezza:parseFloat(ib.altezza)||parseFloat(p&&p.altezza)||null};
+  }
+}
+
+function _traguardoMisura(p){
+  const arr=(p&&Array.isArray(p.inbody))?p.inbody:[];
+  for(let i=arr.length-1;i>=0;i--){
+    const mis=_misuraDaReferto(arr[i], p);
+    if(mis) return mis;
   }
   return null;
 }
@@ -13950,6 +14016,275 @@ function _stradeVerso(p, r, pctExtra){
   return {ok:true, tdee:tdee, grasso:g, strade:lista};
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// P127 — LA VERIFICA AL CONTROLLO (26 lug 2026)
+//
+// P123 dice dove andare e con quante calorie; P122 dice qual è il traguardo.
+// Mancava il pezzo che chiude il cerchio: quando il paziente TORNA, cos'è
+// successo davvero e la strada scelta va ritarata?
+//
+// Il muscolo NON si prevede (è la scoperta di P123: prevederlo è difficile ed è
+// anche irrilevante per programmare) — si MISURA al controllo. Questo blocco è
+// quella misura, più il confronto fra il ritmo reale e quello che quelle
+// calorie avrebbero dovuto produrre.
+//
+// Tre scelte di metodo, tutte per non inventare numeri:
+// 1. Il "previsto" viene dal deficit REALMENTE PRESCRITTO nel tratto (media
+//    pesata sui giorni degli slot di macrosStorico), non dal regime impostato
+//    oggi: se a maggio erano −500 kcal e da luglio sono −300, confrontare il
+//    calo di maggio col regime di luglio darebbe uno scarto finto. Il regime
+//    attuale resta solo come ripiego dichiarato quando lo storico non copre.
+// 2. Il ritmo si legge sul GRASSO, non sul peso (stessa ragione di P123: acqua
+//    e glicogeno sono peso, non grasso), e le due misure vengono dallo stesso
+//    _misuraDaReferto usato dal traguardo — altrimenti il delta sarebbe di
+//    metodo, non del paziente.
+// 3. La ritaratura si propone SOLO se il tratto è abbastanza lungo e coperto da
+//    un target salvato: sotto i 21 giorni, o con calorie prescritte ignote per
+//    metà del periodo, un TDEE "misurato" sarebbe rumore travestito da numero.
+//    E propone, non applica: il tasto lo si preme a mano.
+// ══════════════════════════════════════════════════════════════════════════════
+const _VC_TOLLERANZA_PCT = 20;        // entro ±20% dal previsto → "in linea"
+const _VC_GIORNI_MIN = 7;             // sotto: due referti troppo vicini per un ritmo
+const _VC_GIORNI_MIN_RITARO = 21;     // sotto: niente TDEE misurato, niente proposta
+const _VC_COPERTURA_MIN_PCT = 60;     // % del tratto coperta da un target salvato
+const _VC_MAGRA_PRUDENZA_GG = 21;     // sotto: la magra è in buona parte acqua
+
+// Media pesata sui giorni di un campo dello storico target nella finestra
+// [d0,d1]: ogni slot vale dal suo timestamp fino al successivo. Generalizzata da
+// _kcalMediaPrescrittaOss (che ora la usa) per non avere due copie della stessa
+// aritmetica che possono divergere.
+function _mediaSlotPrescritta(p, d0, d1, fn){
+  const slot=((p&&p.macrosStorico)||[]).filter(function(s){return s&&s.kcal>0&&s.timestamp;}).slice().sort(function(a,b){return a.timestamp-b.timestamp;});
+  if(!slot.length) return null;
+  const t0=new Date(d0+"T00:00:00").getTime();
+  const t1=new Date(d1+"T00:00:00").getTime();
+  if(isNaN(t0)||isNaN(t1)||!(t1>t0)) return null;
+  let somma=0, giorniCoperti=0;
+  for(let i=0;i<slot.length;i++){
+    const v=fn(slot[i]);
+    if(v==null||isNaN(v)) continue;
+    const a=Math.max(slot[i].timestamp, t0);
+    const b=Math.min(i+1<slot.length?slot[i+1].timestamp:t1, t1);
+    if(b>a){ const gg=(b-a)/864e5; somma+=v*gg; giorniCoperti+=gg; }
+  }
+  if(giorniCoperti<=0) return null;
+  return {media:somma/giorniCoperti, coperturaGiorni:giorniCoperti};
+}
+
+// Il deficit prescritto di uno slot: il campo `offset` se c'è, altrimenti
+// ricostruito da kcal−TDEE (slot vecchi, salvati prima che offset esistesse).
+function _vcDeficitSlot(s){
+  if(s.offset!=null && !isNaN(s.offset)) return +s.offset;
+  if(s.tdee && s.kcal) return s.kcal - s.tdee;
+  return null;
+}
+
+// Un tratto fra due misurazioni: cos'è cambiato, a che ritmo, contro cosa era
+// previsto, e — se i dati lo permettono — il TDEE che quel calo implica.
+function _vcTratto(p, a, b){
+  const t0=new Date(a.data+"T00:00:00").getTime(), t1=new Date(b.data+"T00:00:00").getTime();
+  if(isNaN(t0)||isNaN(t1)||!(t1>t0)) return null;
+  const giorni=Math.round((t1-t0)/864e5);
+  if(giorni<_VC_GIORNI_MIN) return {ok:false, giorni:giorni,
+    motivo:"i due referti distano "+giorni+" giorni: troppo poco perché una differenza di composizione voglia dire qualcosa"};
+  const dPeso=+(b.peso-a.peso).toFixed(1);
+  const dGrasso=+(b.g-a.g).toFixed(1);
+  const dMagra=+(b.m-a.m).toFixed(1);
+  const dMusc=(a.musc!=null&&b.musc!=null)?+(b.musc-a.musc).toFixed(1):null;
+  const grassoSett=+(-dGrasso/giorni*7).toFixed(3);   // positivo = grasso perso
+  const magraMese=+(dMagra/giorni*30).toFixed(2);
+
+  // ── quanto ci si aspettava, dalle calorie davvero prescritte in quel tratto ──
+  const dm=_mediaSlotPrescritta(p, a.data, b.data, _vcDeficitSlot);
+  const km=_mediaSlotPrescritta(p, a.data, b.data, function(s){ return s.kcal; });
+  let previsto=null;
+  if(dm && (dm.coperturaGiorni/giorni*100)>=_VC_COPERTURA_MIN_PCT){
+    previsto={deficitKcal:Math.round(dm.media), kgSett:+(Math.abs(dm.media)*7/7700).toFixed(3),
+              coperturaPct:Math.round(dm.coperturaGiorni/giorni*100), fonte:"prescritto"};
+  } else {
+    const ct=(typeof calcolaTDEE==="function")?calcolaTDEE(p):null;
+    const off=(typeof _regimeOffset==="function")?_regimeOffset(p, ct&&ct.tdee):null;
+    if(off!=null && off!==0)
+      previsto={deficitKcal:Math.round(off), kgSett:+(Math.abs(off)*7/7700).toFixed(3),
+                coperturaPct:dm?Math.round(dm.coperturaGiorni/giorni*100):0, fonte:"regime-attuale"};
+  }
+
+  let giudizio=null;
+  if(previsto && previsto.deficitKcal<0 && previsto.kgSett>0){
+    const scarto=Math.round((grassoSett-previsto.kgSett)/previsto.kgSett*100);
+    giudizio={scartoPct:scarto,
+      stato: Math.abs(scarto)<=_VC_TOLLERANZA_PCT ? "in-linea" : (scarto<0 ? "piu-lento" : "piu-veloce")};
+  } else if(previsto && previsto.deficitKcal>=0){
+    giudizio={stato:"non-deficit"};   // mantenimento o massa: qui conta il muscolo
+  }
+
+  // ── il TDEE che quel calo implica (kcal medie − energia dei kg persi) ──
+  let tdeeReale=null;
+  if(km && (km.coperturaGiorni/giorni*100)>=_VC_COPERTURA_MIN_PCT
+        && giorni>=_VC_GIORNI_MIN_RITARO && Math.abs(dPeso/giorni*7)<=2){
+    const v=Math.round(km.media - dPeso*_TDEE_OSS_K_PER_KG/giorni);
+    if(v>600 && v<6000) tdeeReale={kcal:v, kcalMedia:Math.round(km.media),
+      coperturaPct:Math.round(km.coperturaGiorni/giorni*100)};
+  }
+
+  return {ok:true, dal:a.data, al:b.data, giorni:giorni, dPeso:dPeso, dGrasso:dGrasso, dMagra:dMagra,
+          dMusc:dMusc, grassoSett:grassoSett, magraMese:magraMese, previsto:previsto,
+          giudizio:giudizio, tdeeReale:tdeeReale, pgDal:a.pg, pgAl:b.pg,
+          magraBreve: giorni < _VC_MAGRA_PRUDENZA_GG};
+}
+
+// Il traguardo SALVATO, ricostruito col motore: serve dove non c'è l'anteprima
+// viva del pannello 🎯 (scheda Percorso).
+function _vcTraguardoSalvato(p){
+  const s=(typeof _traguardoGet==="function")?_traguardoGet(p):null;
+  const c=s&&s.clinico?s.clinico:null;
+  if(!c || c.pctGrassoTarget==null) return null;
+  return calcolaTraguardoComposizione(p, c.pctGrassoTarget,
+    {modo:c.modo||"dimagrimento", quotaMagraPersa:c.quotaMagraPersa, guadagnoMagra:c.guadagnoMagra});
+}
+
+// Motore puro della verifica. `r` = traguardo corrente (anteprima del pannello);
+// se manca si usa quello salvato. Non scrive niente sul paziente.
+function _verificaControllo(p, r){
+  const arr=(p&&Array.isArray(p.inbody))?p.inbody.slice():[];
+  // l'ordine è garantito in scrittura (P120), ma qui si legge: ordinare costa
+  // niente ed evita che un referto inserito storto racconti un ritmo al contrario
+  arr.sort(function(a,b){ return String((a&&a.data)||"").localeCompare(String((b&&b.data)||"")); });
+  const mis=[];
+  arr.forEach(function(ib){ const m=_misuraDaReferto(ib,p); if(m && m.data) mis.push(m); });
+  if(mis.length<2) return {ok:false, motivo:"serve un secondo referto InBody: la verifica confronta due misurazioni"};
+  const ultimo=mis[mis.length-1], prec=mis[mis.length-2];
+  const recente=_vcTratto(p, prec, ultimo);
+  if(!recente) return {ok:false, motivo:"le date dei due referti non sono confrontabili"};
+  if(recente.ok===false) return {ok:false, motivo:recente.motivo};
+  const complessivo = (mis.length>=3) ? _vcTratto(p, mis[0], ultimo) : null;
+
+  // ── quanto manca, al ritmo REALE (non a quello sperato) ──
+  const rr = (r && r.ok) ? r : _vcTraguardoSalvato(p);
+  let residuo=null;
+  if(rr && rr.ok && recente.grassoSett>0){
+    const g=_traguardoGrassoDaTogliere(rr);
+    if(g && g.kg>0.05){
+      const sett=+(g.kg/recente.grassoSett).toFixed(1);
+      const arrivo=_percorsoIsoLocal(Date.now()+Math.round(sett*7)*864e5);
+      residuo={kgGrasso:g.kg, settimane:sett, arrivo:arrivo, pctTarget:rr.pctTarget};
+      const sc=(p&&p.obiettivoPercorso&&p.obiettivoPercorso.paziente)?p.obiettivoPercorso.paziente:null;
+      if(sc && sc.scadenzaPersonale){
+        residuo.scadenza=sc.scadenzaPersonale;
+        residuo.evento=sc.eventoScadenza||null;
+        residuo.arrivaEntro = new Date(arrivo+"T00:00:00").getTime() <= new Date(sc.scadenzaPersonale+"T00:00:00").getTime();
+      }
+    }
+  }
+  return {ok:true, recente:recente, complessivo:complessivo, residuo:residuo,
+          ultimo:ultimo, prec:prec, nReferti:mis.length};
+}
+
+// ── UI della verifica: un solo generatore di HTML per i due posti in cui compare
+// (pannello 🎯 nella scheda Macros e scheda Percorso). Le AZIONI (il tasto che
+// ritara le calorie) esistono solo dove il campo delle calorie è in pagina.
+function _verificaControlloHtml(p, r, opz){
+  const azioni=!!(opz && opz.azioni);
+  const v=_verificaControllo(p, r);
+  if(!v.ok){
+    // silenzio totale sul paziente nuovo: il riquadro compare quando ha senso
+    if((p&&p.inbody&&p.inbody.length>=2)||false)
+      return '<div style="margin-top:.6rem;padding:.4rem .6rem;background:var(--bg2);border:1px dashed var(--border);border-radius:8px;font-size:.68rem;color:var(--text3)">🔎 Verifica al controllo: non ancora leggibile — '+v.motivo+'.</div>';
+    return '';
+  }
+  const t=v.recente;
+  const n=function(x){ return String(x).replace(".",","); };
+  const segno=function(x){ return (x>0?"+":"")+n(x); };
+  const dataBreve=function(iso){ return (typeof _percorsoDataBreve==="function")?_percorsoDataBreve(iso):iso; };
+
+  // colore del riquadro: verde se in linea o più veloce, ambra se più lento
+  const stato=t.giudizio?t.giudizio.stato:null;
+  const col = stato==="piu-lento" ? {bg:"#fff7ed", bd:"#fdba74", tx:"#c2410c"}
+            : stato==="in-linea"||stato==="piu-veloce" ? {bg:"#f0fdf4", bd:"#86efac", tx:"#166534"}
+            : {bg:"#f4f8fd", bd:"#d9e6f5", tx:"#185FA5"};
+
+  let h='<div style="margin-top:.7rem;padding:.5rem .7rem;border-radius:8px;background:'+col.bg+';border:1px solid '+col.bd+'">'
+    +'<div style="font-size:.76rem;font-weight:700;color:'+col.tx+';margin-bottom:.25rem">🔎 Com\'è andata davvero — dal controllo del '+dataBreve(t.dal)+' ('+t.giorni+' giorni)</div>';
+
+  // 1. i fatti: grasso, muscolo, peso
+  h+='<div style="font-size:.72rem;color:var(--text1);line-height:1.5">'
+    +'<strong>Grasso '+segno(t.dGrasso)+' kg</strong>'+(t.grassoSett>0?' ('+n(t.grassoSett.toFixed(2))+' kg/settimana persi)':'')
+    +' · <strong>Massa magra '+segno(t.dMagra)+' kg</strong>'+(t.magraMese!==0?' ('+segno(+t.magraMese.toFixed(2))+' kg al mese)':'')
+    +(t.dMusc!=null?' · muscolo scheletrico '+segno(t.dMusc)+' kg':'')
+    +' · peso '+segno(t.dPeso)+' kg · grasso dal '+n(t.pgDal)+'% al '+n(t.pgAl)+'%'
+    +'</div>';
+  if(t.magraBreve)
+    h+='<div style="font-size:.64rem;color:var(--text3);margin-top:.2rem">Tratto corto: sotto le tre settimane la massa magra si muove soprattutto per acqua e glicogeno — leggi quel numero con prudenza.</div>';
+
+  // 2. il confronto col previsto
+  if(t.previsto && t.giudizio && t.giudizio.stato!=="non-deficit"){
+    const fonteTxt = t.previsto.fonte==="prescritto"
+      ? "deficit medio davvero prescritto in quel periodo "+t.previsto.deficitKcal+" kcal"
+      : "nessun target salvato copriva il periodo: confronto col regime impostato oggi ("+t.previsto.deficitKcal+" kcal)";
+    const giudTxt = t.giudizio.stato==="in-linea"
+      ? "<strong>in linea con quanto previsto</strong> (scarto "+segno(t.giudizio.scartoPct)+"%)"
+      : t.giudizio.stato==="piu-lento"
+        ? "<strong>più lento del previsto del "+Math.abs(t.giudizio.scartoPct)+"%</strong>"
+        : "<strong>più veloce del previsto del "+Math.abs(t.giudizio.scartoPct)+"%</strong>";
+    h+='<div style="font-size:.72rem;color:'+col.tx+';margin-top:.3rem">A quelle calorie erano attesi <strong>'+n(t.previsto.kgSett.toFixed(2))+' kg/settimana</strong> di grasso — '+giudTxt
+      +' <span style="color:var(--text3);font-size:.65rem">('+fonteTxt+')</span></div>';
+  } else if(t.giudizio && t.giudizio.stato==="non-deficit"){
+    h+='<div style="font-size:.72rem;color:'+col.tx+';margin-top:.3rem">Nel periodo il regime non era in deficit: qui il numero che conta è la <strong>massa magra</strong>, non la velocità di calo.</div>';
+  } else {
+    h+='<div style="font-size:.68rem;color:var(--text3);margin-top:.3rem">Nessun target calorico salvato per quel periodo: il confronto col previsto non è calcolabile, restano i fatti qui sopra.</div>';
+  }
+
+  // 3. la ritaratura: proposta, mai automatica
+  if(t.tdeeReale){
+    const ct=(typeof calcolaTDEE==="function")?calcolaTDEE(p):null;
+    const stimato=ct&&ct.tdee?ct.tdee:null;
+    const pctAtt=(p&&p.regimeOffsetPct!=null&&!isNaN(p.regimeOffsetPct))?+p.regimeOffsetPct:null;
+    h+='<div style="font-size:.7rem;color:var(--text2);margin-top:.35rem;padding-top:.3rem;border-top:1px dashed '+col.bd+'">'
+      +'Con '+t.tdeeReale.kcalMedia+' kcal medie prescritte e questo andamento del peso, il suo consumo reale è stato di <strong>'+t.tdeeReale.kcal+' kcal</strong>'
+      +(stimato?' (il motore ne stima '+stimato+')':'')+'.';
+    if(pctAtt!=null && pctAtt<0){
+      const kcalRit=Math.round(t.tdeeReale.kcal*(1+pctAtt/100));
+      h+=' Lo stesso '+pctAtt+'% su quel numero vale <strong>'+kcalRit+' kcal</strong>.';
+      if(azioni) h+=' <button type="button" class="btn btn-g btn-sm" style="margin-left:.2rem" onclick="_vcRitara('+kcalRit+')">Ritara a '+kcalRit+' kcal</button>';
+      else h+=' <span style="color:var(--text3);font-size:.65rem">— per applicarlo, dal pannello 🎯 nella scheda Macros.</span>';
+    }
+    h+='</div>';
+  } else if(t.giorni<_VC_GIORNI_MIN_RITARO){
+    h+='<div style="font-size:.65rem;color:var(--text3);margin-top:.3rem">Per ritarare le calorie sul consumo reale servono almeno '+_VC_GIORNI_MIN_RITARO+' giorni fra i due referti.</div>';
+  }
+
+  // 4. quanto manca, al ritmo reale
+  if(v.residuo){
+    const rs=v.residuo;
+    h+='<div style="font-size:.72rem;color:var(--text1);margin-top:.35rem">Restano <strong>'+n(rs.kgGrasso)+' kg di grasso</strong>: a questo ritmo <strong>'+n(rs.settimane)+' settimane</strong>, intorno al <strong>'+dataBreve(rs.arrivo)+'</strong>'
+      +(rs.scadenza
+        ? ' — '+(rs.evento?rs.evento:'la data che conta per lui')+' è il '+dataBreve(rs.scadenza)+': '+(rs.arrivaEntro?'<strong>ci arriva</strong>.':'<strong>a questo ritmo non ci arriva</strong> — o si cambia strada, o si dice adesso.')
+        : '.')
+      +'</div>';
+  }
+
+  // 5. il quadro d'insieme, quando c'è più di un tratto
+  if(v.complessivo && v.complessivo.ok){
+    const c=v.complessivo;
+    h+='<div style="font-size:.66rem;color:var(--text3);margin-top:.3rem">Dall\'inizio ('+dataBreve(c.dal)+', '+c.giorni+' giorni, '+v.nReferti+' referti): grasso '+segno(c.dGrasso)+' kg · massa magra '+segno(c.dMagra)+' kg · peso '+segno(c.dPeso)+' kg.</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// Applica la ritaratura: scrive le calorie nel campo del regime e lascia che sia
+// lo slider a ricalcolare la %. Nessun salvataggio automatico — resta il tasto
+// "Salva dati" a decidere, come per ogni altra modifica del pannello.
+function _vcRitara(kcalTarget){
+  const kcalEl=document.getElementById("mac-off-kcal");
+  const tdee=window._tdeeRegime;
+  if(!kcalEl){ notif("⚠ Apri la scheda Macros per applicare la ritaratura"); return; }
+  if(!tdee){ notif("⚠ TDEE non disponibile — clicca prima Ricalcola LAF"); return; }
+  kcalEl.value=Math.round(kcalTarget-tdee);
+  _aggiornaRegimeSlider("kcal");
+  notif("🔎 Target portato a "+Math.round(kcalTarget)+" kcal — controlla e poi 💾 Salva dati");
+}
+
 // ── UI: il blocco "Come ci arrivi", sotto il pannello 🎯 ────────────────────
 let _stradePctExtra = "";     // valore libero digitato, solo di sessione
 
@@ -14193,6 +14528,9 @@ function _traguardoAnteprima(){
         +(ult.decisoDa?' ('+ult.decisoDa+')':'')+'</div>';
     }
   }
+  // P127 — la verifica al controllo sta SOPRA le strade: prima cos'è successo,
+  // poi dove si va. Con le azioni attive: qui il campo delle calorie è in pagina.
+  h+=_verificaControlloHtml(p, r, {azioni:true});
   if(!r.bloccato) h+=_stradeHtml(p, r);   // P123 — le strade per arrivarci
   out.innerHTML=h;
 }
@@ -15049,20 +15387,12 @@ function _serieePesoOss(p){
 
 // kcal media prescritta nella finestra [d0,d1]: ogni slot di macrosStorico vale
 // dal suo timestamp fino allo slot successivo; media pesata sui giorni coperti.
+// P127 — l'aritmetica è passata in _mediaSlotPrescritta (che serve anche al
+// deficit medio della verifica al controllo): una copia sola, così le due letture
+// dello storico target non possono divergere.
 function _kcalMediaPrescrittaOss(p, d0, d1){
-  const slot=(p.macrosStorico||[]).filter(function(s){return s.kcal>0 && s.timestamp;}).slice().sort(function(a,b){return a.timestamp-b.timestamp;});
-  if(!slot.length) return null;
-  const t0=new Date(d0+"T00:00:00").getTime();
-  const t1=new Date(d1+"T00:00:00").getTime();
-  if(!(t1>t0)) return null;
-  let kcalGiorni=0, giorniCoperti=0;
-  for(let i=0;i<slot.length;i++){
-    const a=Math.max(slot[i].timestamp, t0);
-    const b=Math.min(i+1<slot.length?slot[i+1].timestamp:t1, t1);
-    if(b>a){ const gg=(b-a)/864e5; kcalGiorni+=slot[i].kcal*gg; giorniCoperti+=gg; }
-  }
-  if(giorniCoperti<=0) return null;
-  return {kcalMedia:kcalGiorni/giorniCoperti, coperturaGiorni:giorniCoperti};
+  const r=_mediaSlotPrescritta(p, d0, d1, function(s){ return s.kcal; });
+  return r ? {kcalMedia:r.media, coperturaGiorni:r.coperturaGiorni} : null;
 }
 
 function calcolaTDEEOsservato(p){
@@ -15519,12 +15849,15 @@ function calcolaTDEE(p){
 
   // ── EAT (allenamento strutturato): (MET−1) × peso × ore_effettive/giorno ──
   // MET−1 perché 1 MET è il riposo, già contato nel MB (no doppio conteggio).
-  let eat=0, metUsato=null, oreEffGiorno=0;
+  let eat=0, metUsato=null, oreEffGiorno=0, fonteOre=null, fonteMet=null;
   if(peso){
-    if(sedute&&minuti){ oreEffGiorno = (sedute*minuti/60)/7; }
-    else if(oreLegacy&&oreLegacy>0){ oreEffGiorno = oreLegacy/7; }
+    if(sedute&&minuti){ oreEffGiorno = (sedute*minuti/60)/7; fonteOre='sedute-minuti'; }
+    else if(oreLegacy&&oreLegacy>0){ oreEffGiorno = oreLegacy/7; fonteOre='ore-legacy'; }
     if(oreEffGiorno>0){
       metUsato=_metAllenamento(p);
+      // P126 — da dove viene il MET: serve al contesto AI per non citare tipo/intensità
+      // quando in realtà a decidere è stata l'attività specifica selezionata.
+      fonteMet = (p && p.attivitaSpecifica && _MET_ATTIVITA[p.attivitaSpecifica]) ? 'attivita-specifica' : 'tipo-intensita';
       eat = Math.round((metUsato-1) * peso * oreEffGiorno);
     }
   }
@@ -15547,6 +15880,10 @@ function calcolaTDEE(p){
 
   return {tdee, laf, mb, peso, neat, eat, tef, metUsato, larnLaf, larnTdee,
           bonusLavoro, neatFraz, affidabilita:aff, crossCheck,
+          // P126 — ciò che il motore ha DAVVERO usato per l'allenamento, esposto
+          // così chi racconta il calcolo (contesto AI) non deve ricalcolarlo per conto suo.
+          oreEffGiorno:+oreEffGiorno.toFixed(3), oreEffSett:+(oreEffGiorno*7).toFixed(2), fonteOre, fonteMet,
+          passiUsati:(passi!==null?passi:null),
           metodo:'MET additivo (Compendium 2024) · MB InBody'};
 }
 

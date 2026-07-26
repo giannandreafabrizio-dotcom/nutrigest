@@ -10,6 +10,92 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 7) — P126: IL CONTESTO AI CITAVA I CAMPI CHE IL MOTORE SCARTA · P127: LA VERIFICA AL CONTROLLO.
+Test 350 → **370**. Commit precedente `ee166ee`. Le due cose "promesse e non fatte"
+segnate in cima alla roadmap semplice, chiuse insieme. La parte keto delle strade
+(P123) resta aperta per scelta di Fabrizio: "la voglio fare più in là".
+
+**P126 — L'AI COMMENTAVA NUMERI DIVERSI DA QUELLI SU CUI ERANO CALCOLATI I MACRO.**
+Il blocco Attività di `costruisciContestoPaziente` scriveva *"6000 passi/giorno ·
+Misto · intensità media · 3 ore/sett."*: tre di quei campi il motore MET additivo
+**li scarta**. Con un'attività specifica selezionata il MET viene da lì (Circuit
+training = 8), non dalla griglia tipo×intensità; con sedute e minuti compilati le
+ore effettive sono `3 × 36 min = 1,8 h/sett`, non le 3 del campo generico. Il
+ragionamento clinico riceveva quindi il profilo di allenamento **sbagliato** e
+commentava un carico che non esiste, mentre le kcal che aveva davanti erano
+calcolate su un altro.
+**La correzione non è cosmetica:** il contesto ora racconta la scomposizione vera
+(NEAT dai passi + bonus lavoro · MET usato e da dove viene · ore EFFETTIVE e il
+conto che le produce · EAT · TEF · somma = TDEE) e in fondo dichiara, separata,
+la riga **"Dichiarato ma NON usato dal calcolo"** con il motivo di ogni scarto.
+Un dato dichiarato e inutilizzato resta un'informazione clinica — l'AI può
+notarne l'incoerenza e suggerire di aggiornare l'anagrafica — ma non deve più
+passare per il dato usato.
+**Dove sta la garanzia:** i numeri non vengono ricalcolati dal contesto. È
+`calcolaTDEE` a restituire ora anche `oreEffSett`, `oreEffGiorno`, `fonteOre`
+(`sedute-minuti` | `ore-legacy`) e `fonteMet` (`attivita-specifica` |
+`tipo-intensita`); il contesto li legge e basta. Ricalcolarli lì avrebbe creato
+la solita seconda fonte destinata a divergere alla prima modifica del motore. Un
+test confronta la stringa scritta con l'output di `calcolaTDEE`.
+
+**P127 — LA VERIFICA AL CONTROLLO: COSA È SUCCESSO DAVVERO, E LA STRADA VA RITARATA?**
+P122 dice qual è il traguardo, P123 con quante calorie arrivarci. Mancava il
+pezzo che serve ogni settimana in studio: **quando il paziente torna**. Nuovo
+blocco 🔎 *"Com'è andata davvero"*, in **due posti** (scelta di Fabrizio): nel
+pannello 🎯 sopra le strade e nella scheda Percorso — stessa funzione HTML, non
+due copie; il tasto che ritara le calorie esiste solo dove il campo delle calorie
+è in pagina.
+Dice quattro cose: **(1)** grasso, massa magra, muscolo scheletrico e peso
+cambiati dall'ultimo controllo, col ritmo settimanale; **(2)** quanto era atteso
+a quelle calorie e se il reale è in linea (±20%), più lento o più veloce;
+**(3)** il consumo reale che quel calo implica e la proposta di ritaratura;
+**(4)** quanto manca **al ritmo reale** e se la data che conta per il paziente
+regge. Con tre o più referti, una riga finale sul cammino dall'inizio.
+**Le scelte di metodo, tutte per non inventare numeri:**
+- **Il "previsto" viene dal deficit REALMENTE PRESCRITTO nel tratto** (media
+  pesata sui giorni degli slot di `macrosStorico`), non dal regime impostato
+  oggi: confrontare il calo di maggio col regime di luglio darebbe uno scarto
+  finto. Il regime attuale resta solo come ripiego, e il riquadro lo dichiara.
+- **Il ritmo si legge sul grasso, non sul peso** (stessa ragione di P123: acqua e
+  glicogeno sono peso, non grasso).
+- **Le due misure vengono dallo stesso `_misuraDaReferto`** — estratto dal ciclo
+  di `_traguardoMisura`, che ora lo usa. Se il referto vecchio fosse letto da
+  `peso−grassa` e quello nuovo dal campo `m`, la differenza sarebbe **di metodo,
+  non del paziente**: un "delta" inventato su cui si prendono decisioni.
+- **La ritaratura si propone solo con ≥21 giorni fra i referti e ≥60% del tratto
+  coperto da un target salvato.** Sotto quelle soglie un "consumo misurato"
+  sarebbe rumore travestito da numero. E **propone, non applica**: scrive nel
+  campo calorie, il salvataggio resta un gesto esplicito.
+- **Sotto le tre settimane** il riquadro avverte che la massa magra si muove
+  soprattutto per acqua e glicogeno.
+- **In regime non in deficit** (mantenimento o massa) non parla di velocità di
+  calo: dice che il numero da guardare è la massa magra.
+- **In vista paziente non compare**: è il ragionamento del medico.
+Un test verifica che la lettura resti cronologica anche con referti inseriti
+fuori ordine: P120 garantisce l'ordine in scrittura, ma questa lettura non deve
+dipendere da quell'invariante per non invertire i segni.
+
+**Debito tecnico saldato di passaggio:** `_kcalMediaPrescrittaOss` e il nuovo
+deficit medio condividono ora `_mediaSlotPrescritta` — una sola copia
+dell'aritmetica sullo storico target.
+
+**Trovato durante la sessione:** su `main` la suite era **rossa** — `INDEX.md`
+era rimasto a 26.883 righe contro le 27.552 reali (573 voci disallineate). È
+esattamente ciò per cui il test `s1-doc-allineata` è nato ieri: la sessione
+precedente aveva toccato `index.html` senza rigenerare l'indice. Rigenerato in
+questa consegna.
+
+**File toccati:** `index.html` (P126: `calcolaTDEE` espone `oreEffSett`/
+`oreEffGiorno`/`fonteOre`/`fonteMet`/`passiUsati`, blocco Attività di
+`costruisciContestoPaziente` riscritto, metodo nella riga LAF; P127:
+`_misuraDaReferto` estratta da `_traguardoMisura`, `_mediaSlotPrescritta`,
+`_vcDeficitSlot`, `_vcTratto`, `_vcTraguardoSalvato`, `_verificaControllo`,
+`_verificaControlloHtml`, `_vcRitara`, agganci in `_traguardoAnteprima` e
+`renderPdPercorso`, `_kcalMediaPrescrittaOss` generalizzata),
+`test-suite/test/s2-contesto-attivita.test.js` (nuovo, 6 test),
+`test-suite/test/s2-verifica-controllo.test.js` (nuovo, 14 test), `INDEX.md`,
+`NutriGest_Roadmap_v4.md`, `NutriGest_Contesto_v18.txt`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 6) — P125: RICERCA FRA I PARAMETRI + LDL STIMATO CON FRIEDEWALD.
 Test 334 → **350**. Nate da tre proposte di Fabrizio, discusse prima di scrivere codice; la terza (elettroforesi in frazioni) è stata rimandata di proposito.
 
