@@ -10,6 +10,81 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda 9) — F9 CHIUSA: IL SEMAFORO ALIMENTI HA UNA SOLA FONTE.
+Test 382 → **394**. `index.html` da 27.908 a **27.444 righe** (−464). Commit
+precedente `a1251c5`. Decisione di Fabrizio: **cancellare** la tabella vecchia,
+non migrarla — "erano 19, siamo arrivati a 15 ma fatte bene e validate".
+
+**COSA C'ERA.** Due motori del semaforo attivi insieme: `applicaRegoloSemaforo`
+(15 condizioni validate, guidato dalle checkbox `p.checkSemaforo`, colori
+`grigioScuro`/`celeste`) e `_applicaRegoloSemaforoLEGACY` (19 condizioni dedotte
+dal testo libero `p.patologie`/`p.farmaci`, colori `grigio_scuro_1/2` e
+`celeste_1/2`), quest'ultimo agganciato al pulsante 🔄 Ricalcola.
+
+**IL DANNO VERO NON ERA IL PULSANTE.** Verificato leggendo tutti i consumatori:
+le schermate (editor, scheda, popup) riconoscono entrambi i vocabolari, ma
+**prompt AI (`costruisciPrompt`), validatore del piano (`_validaCostruisciListe`),
+avvisi allergeni e rilevatore conflitti (`_alimentiEsclusiPaziente`) riconoscono
+SOLO `grigioScuro`**. Un alimento marcato dal motore vecchio si vedeva grigio a
+schermo ed era **invisibile ai controlli**: non finiva fra gli "Esclusi (mai
+usare)" del generatore e, se allergene, non produceva né blocco né nota. E
+restava lì per sempre, perché `applicaRegoloSemaforo` ripuliva solo i suoi due
+colori. Il pulsante, per contro, si è rivelato quasi-irraggiungibile: compare
+solo `if(p.regolaAttive.length)`, e `regolaAttive` lo scriveva **solo il motore
+vecchio** — quindi invisibile su ogni paziente creato con la build attuale, ma
+armato su dati storici e su qualunque backup importato.
+
+**COSA È STATO FATTO.**
+1. **Un solo vocabolario**, dichiarato in un posto solo: `_SEM_COLORI_LEGACY` +
+   `_SEM_COLORI_AUTO`. `applicaRegoloSemaforo` ora ripulisce **tutti e sei** i
+   colori automatici, non solo i suoi due.
+2. **Migrazione idempotente** (stesso schema di P120, e negli stessi punti):
+   `_semaforoMigraPaziente` toglie i colori legacy e — se il paziente ha
+   condizioni spuntate — li rifà col sistema valido; `_semaforoMigraTutti` gira
+   in `loadLocal`, sul blob che arriva dal server e sull'**import di un backup**
+   (l'altra porta d'ingresso dei dati vecchi), e logga quanto ha toccato.
+   Nessuna riscrittura di massa sul server: il dato si allinea al primo
+   salvataggio, e rigirare la migrazione non cambia niente. **I colori manuali
+   del medico non vengono mai toccati.**
+3. **Pulsante 🔄 Ricalcola** → chiama il sistema valido, ridisegna la scheda e
+   dice su quante condizioni ha lavorato (o che non ce n'è nessuna spuntata). Il
+   riquadro in testa elenca ora le **condizioni spuntate** (`NOMI_CONDIZIONE`
+   portato fuori dalla funzione, una copia sola) invece di `p.regolaAttive`, ed è
+   sempre visibile. Il campo `p.regolaAttive` resta sui dati ma non viene più né
+   scritto né letto — cancellare dati per fare ordine è sempre la scelta
+   sbagliata.
+4. **Eliminati** `REGOLE_SEMAFORO` (19 condizioni, 565 righe),
+   `_applicaRegoloSemaforoLEGACY`, e `selTuttiAl` — codice morto che scriveva sui
+   colori del paziente senza essere chiamato da nessuna parte.
+5. **BONUS, stessa famiglia:** `_pianoCacheKey` costruiva la chiave della cache
+   leggendo `p.alimentiVerdi`, `p.alimentiRossi`, `p.alimentiEsclusi` — **tre
+   campi che nessuna riga del programma scrive mai**. Valevano sempre stringa
+   vuota, quindi il semaforo non entrava nella chiave: si cambiavano i colori, si
+   rigenerava il piano e tornava quello vecchio dalla cache. Ora la chiave
+   contiene l'impronta reale di `p.alimenti`. *Effetto collaterale voluto: le
+   cache piano esistenti sono invalidate una volta sola.*
+
+**PERCHÉ CANCELLARE E NON MIGRARE.** La tabella vecchia non era una copia
+sbiadita: era una **seconda opinione clinica mai riconciliata**. Riso basmati
+sconsigliato lì e consigliato qui; ceci e lenticchie in scatola sconsigliati per
+il colon irritabile lì, consigliati qui; spirulina invertita. E la sua qualità
+era bassa: **118 nomi su 42 distinti non esistono nel DB alimenti** — compreso il
+`Pompelmo` delle statine, cioè la voce che rende quella regola sensata, che era
+**muta**. Le 15 condizioni nuove hanno invece copertura DB del 100% dal commit
+precedente.
+
+**COSA NON È STATO BUTTATO.** Le 9 condizioni che vivevano solo lì — stitichezza,
+gonfiore, menopausa, ciclo abbondante e le 5 interazioni con i farmaci
+(metformina, levotiroxina, statine, anticoagulanti, cortisone) — sono
+clinicamente utili e non hanno equivalente. Vanno **riscritte da zero** con nomi
+verificati: **P129** in roadmap, con le liste originali riportate come materiale
+di partenza e la proposta del suggeritore dal campo farmaci (propone, non
+applica).
+
+**File toccati:** `index.html`, `test-suite/test/s2-semaforo-fonte-unica.test.js`
+(nuovo, 12 test), `INDEX.md`, `NutriGest_Roadmap_v4.md`,
+`NutriGest_Contesto_v18.txt`, `CHANGELOG.md`.
+
 26 LUGLIO 2026 (6ª sessione, coda 8) — SCOPERTA #5 SALDATA: 32 NOMI DI ALIMENTI CHE LE REGOLE CLINICHE CERCAVANO E NON TROVAVANO.
 Test 370 → **382**. Commit precedente `f644b1a`. Nata da una domanda di Fabrizio
 sulle "scoperte tecniche chiave" in fondo alla roadmap: la #5 non era un

@@ -1687,6 +1687,35 @@ SEMAFORO (15 condizioni validate):
     KDIGO 2024, ESPEN 2021, ATA 2014, ESPGHAN 2020, AIC, AIGO 2019, Monash University 2023,
     ISS/ACOG 2023, WHO | Nichel: tabella BraMa-Ni completa
     Gotta/Iperuricemia: EULAR 2016/2020, ACR 2020 | Calcolosi ossalica: EAU Urolithiasis 2023, AUA 2014
+  UNA SOLA FONTE (F9, 26 lug 2026 coda 9): fino a questa data esisteva un SECONDO
+    motore — `REGOLE_SEMAFORO` (19 condizioni dedotte dal testo libero p.patologie /
+    p.farmaci) applicato da `_applicaRegoloSemaforoLEGACY` dal pulsante 🔄 Ricalcola,
+    con un vocabolario di colori tutto suo: grigio_scuro_1/2, celeste_1/2.
+    PERCHE' ERA GRAVE: le schermate (renderAlEditor, renderPdAlimenti, popup)
+    riconoscono entrambi i vocabolari, ma costruisciPrompt (contesto AI),
+    _validaCostruisciListe (validatore piano + allergeni) e _alimentiEsclusiPaziente
+    (conflitti col template) riconoscono SOLO 'grigioScuro'. Un alimento marcato dal
+    motore vecchio si vedeva grigio a schermo ed era invisibile ai controlli: non
+    finiva fra gli "Esclusi (mai usare)" del generatore e, se allergene, non produceva
+    avvisi. Restava inoltre per sempre, perche' applicaRegoloSemaforo ripuliva solo i
+    suoi due colori.
+    COSA C'E' ORA: `_SEM_COLORI_AUTO` (i sei nomi, dichiarati in un posto solo) ·
+    applicaRegoloSemaforo li ripulisce TUTTI · `_semaforoMigraPaziente(p)` /
+    `_semaforoMigraTutti(pazienti)` — migrazione idempotente che toglie i colori
+    legacy e, se ci sono condizioni spuntate, li rifa' col sistema valido; gira in
+    loadLocal, sul blob paziente che arriva da Supabase e sull'import di un backup.
+    Non riscrive nulla sul server: il dato si allinea al primo salvataggio.
+    I colori MANUALI (si/verde/arancione/rosso/no) non vengono mai toccati.
+    `resetSemaforoAuto` (pulsante 🔄 Ricalcola) usa il sistema valido e ridisegna;
+    il riquadro in testa alla scheda elenca `_semaforoCondizioniAttive(p)`, cioe' le
+    checkbox spuntate. `p.regolaAttive` resta sui dati ma non e' piu' scritto ne' letto.
+    Le 9 condizioni che vivevano SOLO nella tabella vecchia (stitichezza, gonfiore,
+    menopausa, ciclo abbondante, metformina, levotiroxina, statine, anticoagulanti,
+    cortisone) sono da riscrivere: P129 in roadmap.
+    NOTA CACHE: `_pianoCacheKey` leggeva tre campi mai scritti (p.alimentiVerdi /
+    alimentiRossi / alimentiEsclusi) e il semaforo non entrava nella chiave — cambiare
+    i colori non faceva rigenerare il piano. Ora la chiave contiene l'impronta di
+    p.alimenti (chiave:colore ordinate).
   DOVE VIVONO LE REGOLE (dal 26 lug 2026, coda 8): il letterale e' `REGOLE_SEMAFORO_ALIMENTI`
     a livello globale (prima era dentro applicaRegoloSemaforo, invisibile ai test), esposto
     su window insieme ad ALIMENTI — `const` a livello di script NON finisce sull'oggetto

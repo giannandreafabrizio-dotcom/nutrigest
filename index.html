@@ -3923,6 +3923,9 @@ function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.pars
   // "attuale" come ultima posizione dell'array: su dati vecchi inseriti in
   // ordine sparso quella posizione poteva non essere la misura più recente.
   (db.pazienti||[]).forEach(function(p){ if(typeof _ibOrdinaPerData==='function') _ibOrdinaPerData(p); });
+  // F9 — migrazione idempotente: via i colori del vecchio sistema semaforo, che
+  // a schermo si vedevano ma erano invisibili al generatore e ai controlli.
+  if(typeof _semaforoMigraTutti==='function') _semaforoMigraTutti(db.pazienti);
   caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -4070,6 +4073,7 @@ async function _pazFetchBlob(id){
     const row = rows && rows[0];
     if(!row || !row.data || !row.data.id || !row.data.nome) return null;
     if(typeof _ibOrdinaPerData==='function') _ibOrdinaPerData(row.data); // P120 — migrazione: storico InBody ordinato per data appena il blob entra in memoria
+    if(typeof _semaforoMigraPaziente==='function') _semaforoMigraPaziente(row.data); // F9 — stesso punto, stesso motivo: si migra appena il dato entra
     const i = db.pazienti.findIndex(x=>x&&x.id===id);
     if(i>=0) db.pazienti[i]=row.data; else db.pazienti.push(row.data);
     _p69SetBaseline(id, row.updated_at); // versione server ora vista da questo dispositivo
@@ -5233,16 +5237,20 @@ function _pianoCacheKey(pazienteId) {
   const prot = act ? act.protG : '';
   const carb = act ? act.carbG : '';
   const gras = act ? act.grassiG : '';
-  // Includi preferenze e regime nella chiave
-  const verdi  = (p.alimentiVerdi||[]).slice().sort().join(',');
-  const rossi  = (p.alimentiRossi||[]).slice().sort().join(',');
-  const esclusi= (p.alimentiEsclusi||[]).slice().sort().join(',');
+  // F9 (26 lug 2026) — qui si leggevano p.alimentiVerdi / p.alimentiRossi /
+  // p.alimentiEsclusi: tre campi che NESSUNA riga del programma scrive mai.
+  // Valevano sempre stringa vuota, quindi il semaforo alimenti non entrava
+  // nella chiave: si cambiavano i colori, si rigenerava il piano e tornava
+  // quello di prima, preso dalla cache. Ora la chiave contiene l'impronta
+  // reale di p.alimenti (solo le voci colorate, ordinate).
+  const semaforo = Object.keys(p.alimenti||{}).filter(function(k){ return p.alimenti[k]; })
+                    .sort().map(function(k){ return k+':'+p.alimenti[k]; }).join(',');
   const regime = p.regime||'';
   const giorniVeg = p.giorniVegetariani||0;
   // P34 — la ciclizzazione cambia i target ON/OFF: deve invalidare la cache
   const _cic = p.ciclizzazione||{};
   const cicKey = (_cic.attiva?('on'+(_cic.kcalON||'')+'off'+(_cic.kcalOFF||'')+'g'+((p.giorniAllenamento||[]).slice().sort().join(''))):'nocic');
-  const raw = [pazienteId, regime, kcal, prot, carb, gras, verdi, rossi, esclusi, giorniVeg, cicKey].join('|');
+  const raw = [pazienteId, regime, kcal, prot, carb, gras, semaforo, giorniVeg, cicKey].join('|');
   // Hash semplice (djb2) per chiave compatta
   let hash = 5381;
   for (let i = 0; i < raw.length; i++) {
@@ -5286,7 +5294,7 @@ function initAntCard(){
   try{ localStorage.removeItem('anthropicApiKey'); localStorage.removeItem('anthropic_api_key'); }catch(e){}
 }
 function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
-function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
+function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(typeof _semaforoMigraTutti==='function')_semaforoMigraTutti(db.pazienti);/* F9 — un backup vecchio è l'altra porta d'ingresso dei colori legacy */save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
 
 // ════════════════════════════════════════════════════════════════
 // NAV
@@ -6079,6 +6087,80 @@ const REGOLE_SEMAFORO_ALIMENTI={
 window.REGOLE_SEMAFORO_ALIMENTI=REGOLE_SEMAFORO_ALIMENTI;
 window.ALIMENTI=ALIMENTI;
 
+// ══════════════════════════════════════════════════════════════════════════════
+// F9 (26 lug 2026) — UNA SOLA FONTE PER IL SEMAFORO AUTOMATICO.
+// Fino a oggi convivevano due sistemi: questo (15 condizioni validate, guidato
+// dalle checkbox p.checkSemaforo) e un REGOLE_SEMAFORO "deprecato" ma ancora
+// eseguibile dal pulsante 🔄 Ricalcola, guidato dal testo libero p.patologie e
+// con un vocabolario di colori tutto suo (grigio_scuro_1/2, celeste_1/2).
+// Il danno vero non era il pulsante: era che prompt AI, validatore del piano e
+// avvisi allergeni riconoscono SOLO 'grigioScuro'. Un alimento marcato dal
+// vecchio sistema si vedeva grigio a schermo ed era invisibile ai controlli —
+// né escluso dal generatore, né segnalato se allergene. Stessa famiglia di F4:
+// non un avviso sulla divergenza, ma l'eliminazione della seconda fonte.
+// Le 4 stringhe legacy restano SOLO qui e nella migrazione: nessun'altra parte
+// del codice le produce più.
+// ══════════════════════════════════════════════════════════════════════════════
+const _SEM_COLORI_LEGACY = ['grigio_scuro_1','grigio_scuro_2','celeste_1','celeste_2'];
+const _SEM_COLORI_AUTO   = ['grigioScuro','celeste'].concat(_SEM_COLORI_LEGACY);
+// Etichette delle 15 condizioni: fuori dalla funzione perché servono anche al
+// riquadro "Regole attive" della scheda paziente (prima le prendeva dal sistema
+// vecchio, ed era il motivo per cui quel riquadro parlava di regole inesistenti).
+const NOMI_CONDIZIONE_SEMAFORO={
+  'pat-diabete':'Diabete/IR/PCOS',
+  'pat-lipidi':'Profilo lipidico',
+  'pat-ipert':'Ipertensione',
+  'pat-ibs':'Intestino irritabile',
+  'pat-reflusso':'Reflusso',
+  'pat-irc':'Patologia renale',
+  'pat-uricemia':'Gotta/Iperuricemia',
+  'pat-ossalati':'Calcolosi ossalica',
+  'pat-tiroid':'Ipotiroidismo/Hashimoto',
+  'all-glutine':'Glutine',
+  'all-lattosio':'Lattosio',
+  'all-nichel':'Nichel',
+  'all-fodmap':'Low-FODMAP',
+  'csp-gravidanza':'Gravidanza',
+  'csp-allattamento':'Allattamento'
+};
+window._SEM_COLORI_LEGACY=_SEM_COLORI_LEGACY;
+window._SEM_COLORI_AUTO=_SEM_COLORI_AUTO;
+window.NOMI_CONDIZIONE_SEMAFORO=NOMI_CONDIZIONE_SEMAFORO;
+
+// Le condizioni spuntate oggi su questo paziente, con le loro etichette.
+function _semaforoCondizioniAttive(p){
+  const cs=(p&&p.checkSemaforo)||{};
+  return Object.keys(NOMI_CONDIZIONE_SEMAFORO).filter(function(id){ return !!cs[id]; })
+    .map(function(id){ return NOMI_CONDIZIONE_SEMAFORO[id]; });
+}
+
+// MIGRAZIONE idempotente (stesso schema di P120): toglie i colori del vecchio
+// vocabolario e, se il paziente ha delle condizioni spuntate, li rifà col
+// sistema valido. Gira in memoria a ogni caricamento — nessuna riscrittura di
+// massa sul server: il dato si allinea al primo salvataggio del paziente.
+// I colori MANUALI del medico (si/verde/arancione/rosso/no) non vengono toccati.
+function _semaforoMigraPaziente(p){
+  if(!p || !p.alimenti || typeof p.alimenti!=='object') return 0;
+  let tolti=0;
+  Object.keys(p.alimenti).forEach(function(k){
+    if(_SEM_COLORI_LEGACY.indexOf(p.alimenti[k])>=0){ delete p.alimenti[k]; tolti++; }
+  });
+  if(tolti && p.checkSemaforo) applicaRegoloSemaforo(p);
+  return tolti;
+}
+
+// Passata su tutti i pazienti in memoria. Restituisce il riepilogo, senza salvare.
+function _semaforoMigraTutti(pazienti){
+  let colori=0, quanti=0;
+  (pazienti||[]).forEach(function(p){
+    const n=_semaforoMigraPaziente(p);
+    if(n){ colori+=n; quanti++; }
+  });
+  if(colori && typeof console!=='undefined' && console.info)
+    console.info('[F9] semaforo: rimossi '+colori+' colori del vecchio sistema su '+quanti+' paziente/i, ricalcolati con le 15 condizioni validate');
+  return {colori:colori, pazienti:quanti};
+}
+
 function applicaRegoloSemaforo(p){
   if(!p||!p.checkSemaforo)return;
   const cs=p.checkSemaforo;
@@ -6092,29 +6174,16 @@ function applicaRegoloSemaforo(p){
   const REGOLE=window.REGOLE_SEMAFORO_ALIMENTI;
 
 
-  // Pulisce solo i colori automatici (grigioScuro e celeste) — non tocca quelli manuali
+  // Pulisce TUTTI i colori automatici, compresi i quattro del vecchio sistema
+  // (F9): prima ripuliva solo i suoi due, e i colori legacy restavano appiccicati
+  // per sempre sugli alimenti che nessuna regola nuova tocca — invisibili all'AI
+  // e ai controlli di sicurezza. I colori manuali non si toccano.
   Object.keys(al).forEach(k=>{
-    if(al[k]==='grigioScuro'||al[k]==='celeste') delete al[k];
+    if(_SEM_COLORI_AUTO.indexOf(al[k])>=0) delete al[k];
   });
 
   // Conta quante condizioni consigliano o sconsigliano ogni alimento
-  const NOMI_CONDIZIONE={
-    'pat-diabete':'Diabete/IR/PCOS',
-    'pat-lipidi':'Profilo lipidico',
-    'pat-ipert':'Ipertensione',
-    'pat-ibs':'Intestino irritabile',
-    'pat-reflusso':'Reflusso',
-    'pat-irc':'Patologia renale',
-    'pat-uricemia':'Gotta/Iperuricemia',
-    'pat-ossalati':'Calcolosi ossalica',
-    'pat-tiroid':'Ipotiroidismo/Hashimoto',
-    'all-glutine':'Glutine',
-    'all-lattosio':'Lattosio',
-    'all-nichel':'Nichel',
-    'all-fodmap':'Low-FODMAP',
-    'csp-gravidanza':'Gravidanza',
-    'csp-allattamento':'Allattamento'
-  };
+  const NOMI_CONDIZIONE=NOMI_CONDIZIONE_SEMAFORO;   // F9: una sola copia delle etichette
   // A7: etichette descrittive per badge grigio (sconsigliato) e celeste (consigliato)
   const LABEL_GRIGIO={
     'Diabete/IR/PCOS':'Alto IG \u2715','Profilo lipidico':'Grassi saturi \u2715','Ipertensione':'Alto sodio \u2715',
@@ -8249,569 +8318,36 @@ function deleteNota(nid){
 
 function saveNote(v){const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;p.note=v;save(p.id);}
 
-// ── MOTORE SEMAFORO AUTOMATICO — 20 REGOLE ────────────────────────────────
+// ── SEMAFORO AUTOMATICO — una sola fonte (F9, 26 lug 2026) ────────────────
+// Qui vivevano REGOLE_SEMAFORO (19 condizioni dedotte dal testo libero
+// p.patologie/p.farmaci) e _applicaRegoloSemaforoLEGACY, il secondo motore.
+// Eliminati su decisione di Fabrizio: le 15 condizioni di
+// REGOLE_SEMAFORO_ALIMENTI sono state riviste e validate una per una, quelle
+// erano una seconda opinione mai riconciliata (contraddiceva la nuova su riso
+// basmati, ceci/lenticchie, spirulina) e con 118 nomi che il DB alimenti non
+// contiene — comprese le voci decisive, come il Pompelmo delle statine.
+// Le 9 condizioni che esistevano SOLO li' (stitichezza, gonfiore, menopausa,
+// ciclo abbondante e le 5 interazioni con i farmaci) non sono state buttate:
+// vanno riscritte da zero, con nomi verificati contro il DB → P129 in roadmap.
+// Il campo p.regolaAttive resta sui dati ma non viene piu' scritto ne' letto:
+// il riquadro "Regole attive" ora elenca le condizioni spuntate davvero.
 
-const REGOLE_SEMAFORO = [
-
-  // ── INTESTINO E DIGESTIONE ─────────────────────────────────────────────
-  {
-    id: 'stitichezza',
-    label: 'Stitichezza',
-    check: function(p){ return p.alvo && p.alvo.toLowerCase().includes('stitic'); },
-    grigi: [
-      'Riso','Riso basmati','Pasta','Pane comune','Gallette di riso',
-      'Fiocchi di mais','Banana','Mela','Carote','Patate'
-    ],
-    celesti: [
-      'Pasta integrale','Pane integrale','Riso integrale','Farro','Orzo',
-      'Grano saraceno','Avena','Fiocchi avena','Semi di lino','Semi di chia',
-      'Kiwi','Prugne','Prugne secche','Susine','Spinaci','Broccoli',
-      'Cime di rapa','Cicoria','Bieta','Carciofi','Finocchio',
-      'Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
-      'Legumi'
-    ]
-  },
-
-  {
-    id: 'colon_irritabile',
-    label: 'Colon irritabile / IBS',
-    check: function(p){
-      return (p.patologie && (p.patologie.toLowerCase().includes('colon irritabile') || p.patologie.toLowerCase().includes('ibs')))
-          || (p.alvo && p.alvo.toLowerCase().includes('irregolare'));
-    },
-    grigi: [
-      'Ceci (secchi)','Ceci (barattolo)','Fagioli borlotti (barattolo)',
-      'Lenticchie (secche)','Lenticchie (barattolo)','Soia (barattolo)',
-      'Cavolo cappuccio','Verza','Broccoli','Cavolfiore','Cipolla',
-      'Aglio in polvere','Cipolla in polvere','Peperoni rossi','Peperoni verdi',
-      'Latte vaccino intero','Latte vaccino p.scremato',
-      'Mela','Pera','Anguria','Uva','Mango'
-    ],
-    celesti: [
-      'Riso','Riso basmati','Patate','Carote','Zucchine','Spinaci cotti',
-      'Pollo','Petto di pollo','Pesce','Merluzzo/nasello surgelato',
-      'Fiocchi avena','Banana','Mirtilli','Fragole',
-      'Olio EVO','Zenzero fresco','Curcuma'
-    ]
-  },
-
-  {
-    id: 'reflusso',
-    label: 'Reflusso gastroesofageo',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('reflusso') ||
-        p.patologie.toLowerCase().includes('gerd') ||
-        p.patologie.toLowerCase().includes('ernia iatale')
-      );
-    },
-    grigi: [
-      'Pomodori','Peperoni rossi','Peperoni verdi','Melanzane',
-      'Cioccolato fondente 85%','Cacao amaro','Menta',
-      'Peperoncino','Curry','Paprika','Pepe nero',
-      'Aceto di vino','Salsa di soia',
-      'Latte vaccino intero','Latte di cocco','Burrata',
-      'Mortadella','Salame','Nduja','Speck',
-      'Agrumi','Pompelmo','Limone','Lime'
-    ],
-    celesti: [
-      'Zucchine','Finocchio','Carote','Patate','Patate dolci',
-      'Petto di pollo','Petto di tacchino','Merluzzo/nasello surgelato',
-      'Yogurt greco 0-2%','Fiocchi di latte','Ricotta di vacca',
-      'Riso','Pane integrale','Camomilla','Zenzero fresco'
-    ]
-  },
-
-  {
-    id: 'gonfiore',
-    label: 'Gonfiore / Meteorismo',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('gonfiore') ||
-        p.patologie.toLowerCase().includes('meteorismo') ||
-        p.patologie.toLowerCase().includes('flatulenza')
-      );
-    },
-    grigi: [
-      'Ceci (secchi)','Ceci (barattolo)','Fagioli borlotti (secchi)',
-      'Fagioli borlotti (barattolo)','Lenticchie (secche)','Soia (barattolo)',
-      'Cavolo cappuccio','Verza','Broccoli','Cavolfiore','Cipolla',
-      'Cipolla in polvere','Aglio in polvere','Porro',
-      'Latte vaccino intero','Latte vaccino p.scremato',
-      'Mela','Pera','Uva','Anguria'
-    ],
-    celesti: [
-      'Riso','Riso basmati','Zucchine','Carote','Spinaci',
-      'Curcuma','Zenzero fresco','Finocchio','Aneto',
-      'Yogurt greco 0-2%','Kefir','Olio EVO'
-    ]
-  },
-
-  // ── METABOLISMO ────────────────────────────────────────────────────────
-  {
-    id: 'insulino_resistenza',
-    label: 'Insulino-resistenza / Diabete T2',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('insulino') ||
-        p.patologie.toLowerCase().includes('diabete') ||
-        p.patologie.toLowerCase().includes('glicemia') ||
-        p.patologie.toLowerCase().includes('hba1c') ||
-        p.patologie.toLowerCase().includes('homa')
-      );
-    },
-    grigi: [
-      'Riso','Riso basmati','Pane comune','Pasta','Patate',
-      'Gnocchi di patate','Gallette di riso','Fiocchi di mais',
-      'Popcorn','Miele','Marmellata rid. zucchero','Datteri',
-      'Banana','Uva','Fichi','Kaki','Ananas','Mango',
-      'Succhi di frutta','Latte vaccino intero',
-      'Mortadella','Salame','Nduja'
-    ],
-    celesti: [
-      'Riso integrale','Riso rosso','Riso nero','Pasta integrale',
-      'Pane integrale','Pane di segale','Farro','Orzo','Grano saraceno',
-      'Patate dolci','Avena','Fiocchi avena',
-      'Ceci (barattolo)','Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
-      'Mela','Pera','Frutti rossi misti','Mirtilli','Fragole',
-      'Spinaci','Broccoli','Cime di rapa','Cavolfiore',
-      'Aceto di vino','Cannella','Curcuma','Berberina',
-      'Olio EVO','Noci','Mandorle','Semi di chia','Semi di lino'
-    ]
-  },
-
-  {
-    id: 'colesterolo',
-    label: 'Colesterolo alto',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('colesterol') ||
-        p.patologie.toLowerCase().includes('dislipidemia') ||
-        p.patologie.toLowerCase().includes('ldl')
-      );
-    },
-    grigi: [
-      'Burrata','Parmigiano','Grana padano','Pecorino','Stracchino',
-      'Latte vaccino intero','Ricotta di pecora',
-      'Mortadella','Salame','Nduja','Speck','Hamburger di manzo',
-      'Macinato di manzo','Agnello','Maiale arista',
-      'Olio di cocco','Latte di cocco','Uovo intero','Tuorlo',
-      'Burro arachidi','Burro mandorle'
-    ],
-    celesti: [
-      'Salmone fresco','Salmone al naturale','Sgombro','Orata fresca',
-      'Tonno al naturale','Merluzzo/nasello surgelato',
-      'Noci','Mandorle','Semi di lino','Semi di chia','Semi di girasole',
-      'Olio EVO','Avocado','Pistacchi',
-      'Avena','Fiocchi avena','Orzo','Farro',
-      'Ceci (barattolo)','Lenticchie (barattolo)',
-      'Mela','Pera','Frutti rossi misti','Mirtilli',
-      'Spinaci','Broccoli','Carote','Aglio in polvere',
-      'Curcuma','Yogurt greco 0-2%'
-    ]
-  },
-
-  {
-    id: 'trigliceridi',
-    label: 'Trigliceridi alti',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('trigliceridi') ||
-        p.patologie.toLowerCase().includes('ipertrigliceridemia')
-      );
-    },
-    grigi: [
-      'Riso','Pane comune','Pasta','Gnocchi di patate',
-      'Gallette di riso','Fiocchi di mais','Popcorn',
-      'Miele','Marmellata rid. zucchero','Datteri',
-      'Banana','Uva','Fichi','Kaki','Ananas','Mango',
-      'Latte vaccino intero','Mortadella','Salame','Nduja'
-    ],
-    celesti: [
-      'Salmone fresco','Sgombro','Orata fresca','Tonno al naturale',
-      'Noci','Semi di lino','Semi di chia',
-      'Riso integrale','Pasta integrale','Farro','Orzo',
-      'Mela','Pera','Mirtilli','Fragole','Frutti rossi misti',
-      'Olio EVO','Avocado','Spinaci','Broccoli',
-      'Aceto di vino','Curcuma'
-    ]
-  },
-
-  {
-    id: 'iperuricemia',
-    label: 'Iperuricemia / Gotta',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('uric') ||
-        p.patologie.toLowerCase().includes('gotta') ||
-        p.patologie.toLowerCase().includes('iperuricemia')
-      );
-    },
-    grigi: [
-      'Fegato','Cuore','Acciughe','Sardine','Sgombro','Cozze','Vongole',
-      'Ceci (secchi)','Lenticchie (secche)','Fagioli borlotti (secchi)',
-      'Soia (barattolo)','Spinaci','Asparagi','Cavolfiore',
-      'Mortadella','Salame','Nduja','Hamburger di manzo','Macinato di manzo'
-    ],
-    celesti: [
-      'Petto di pollo','Petto di tacchino','Merluzzo/nasello surgelato',
-      'Uova di gallina intero','Fiocchi di latte','Yogurt greco 0-2%',
-      'Riso','Patate','Pane integrale',
-      'Carote','Zucchine','Pomodori','Cetriolo',
-      'Mela','Pera','Banana','Kiwi',
-      'Olio EVO','Aceto di vino','Limone'
-    ]
-  },
-
-  // ── ORMONI E FASI DELLA VITA ───────────────────────────────────────────
-  {
-    id: 'menopausa',
-    label: 'Menopausa / Perimenopausa',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('menopausa') ||
-        p.patologie.toLowerCase().includes('perimenopausa') ||
-        p.patologie.toLowerCase().includes('climaterio')
-      );
-    },
-    grigi: [
-      'Latte vaccino intero','Salame','Nduja','Mortadella',
-      'Peperoncino','Curry','Zenzero fresco'
-    ],
-    celesti: [
-      'Salmone fresco','Orata fresca','Sgombro','Tonno al naturale',
-      'Latte vaccino p.scremato','Yogurt greco 0-2%','Ricotta di vacca',
-      'Parmigiano','Grana padano','Fiocchi di latte',
-      'Latte di soia','Tofu','Soia (barattolo)','Edamame',
-      'Ceci (barattolo)','Lenticchie (barattolo)',
-      'Semi di lino','Semi di sesamo','Tahina',
-      'Broccoli','Spinaci','Cavolo nero','Cime di rapa','Bieta',
-      'Noci','Mandorle','Avocado','Olio EVO',
-      'Curcuma','Alga spirulina'
-    ]
-  },
-
-  {
-    id: 'ipotiroidismo',
-    label: 'Ipotiroidismo / Hashimoto',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('tiroide') ||
-        p.patologie.toLowerCase().includes('ipotiroidi') ||
-        p.patologie.toLowerCase().includes('hashimoto') ||
-        p.patologie.toLowerCase().includes('tiroidite')
-      );
-    },
-    grigi: [
-      'Cavolo cappuccio','Verza','Broccoli','Cavolfiore','Cime di rapa',
-      'Cavolo nero','Bieta','Spinaci',
-      'Latte di soia','Tofu','Soia (barattolo)','Soia surgelata (edamame)',
-      'Latte di noci','Miglio'
-    ],
-    celesti: [
-      'Salmone fresco','Tonno al naturale','Merluzzo/nasello surgelato',
-      'Orata fresca','Sgombro',
-      'Uova di gallina intero','Petto di pollo','Petto di tacchino',
-      'Noci','Semi di girasole','Semi di sesamo',
-      'Riso integrale','Quinoa','Farro','Orzo',
-      'Carote','Zucchine','Pomodori','Asparagi',
-      'Olio EVO','Curcuma','Zenzero fresco','Alga spirulina'
-    ]
-  },
-
-  {
-    id: 'pcos',
-    label: 'PCOS',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('pcos') ||
-        p.patologie.toLowerCase().includes('ovaio policistico') ||
-        p.patologie.toLowerCase().includes('sindrome dell\'ovaio')
-      );
-    },
-    grigi: [
-      'Riso','Pane comune','Pasta','Patate','Gnocchi di patate',
-      'Gallette di riso','Miele','Marmellata rid. zucchero','Datteri',
-      'Banana','Uva','Fichi','Mango','Ananas',
-      'Latte vaccino intero','Mortadella','Salame','Nduja'
-    ],
-    celesti: [
-      'Riso integrale','Pasta integrale','Pane integrale','Farro','Orzo',
-      'Quinoa','Patate dolci','Avena','Fiocchi avena',
-      'Ceci (barattolo)','Lenticchie (barattolo)','Soia (barattolo)',
-      'Petto di pollo','Merluzzo/nasello surgelato','Uova di gallina intero',
-      'Mirtilli','Fragole','Frutti rossi misti','Mela','Pera',
-      'Spinaci','Broccoli','Cavolfiore','Cavolo nero',
-      'Noci','Semi di lino','Semi di chia','Avocado','Olio EVO',
-      'Cannella','Curcuma','Berberina','Aceto di vino'
-    ]
-  },
-
-  // ── FARMACI ────────────────────────────────────────────────────────────
-  {
-    id: 'metformina',
-    label: 'Metformina',
-    check: function(p){
-      return p.farmaci && p.farmaci.toLowerCase().includes('metformin');
-    },
-    grigi: [
-      'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
-      'Yogurt','Yogurt parzialmente scremato','Kefir',
-      'Alcol','Birra'
-    ],
-    celesti: [
-      'Alga spirulina','Lievito di birra',
-      'Ceci (barattolo)','Lenticchie (barattolo)',
-      'Uova di gallina intero','Petto di pollo','Salmone fresco',
-      'Spinaci','Broccoli','Asparagi',
-      'Riso integrale','Pasta integrale','Farro'
-    ]
-  },
-
-  {
-    id: 'levotiroxina',
-    label: 'Levotiroxina / Eutirox',
-    check: function(p){
-      return p.farmaci && (
-        p.farmaci.toLowerCase().includes('levotiroxina') ||
-        p.farmaci.toLowerCase().includes('eutirox') ||
-        p.farmaci.toLowerCase().includes('tirosint')
-      );
-    },
-    grigi: [
-      'Latte vaccino intero','Latte vaccino p.scremato','Latte vaccino scremato',
-      'Yogurt','Yogurt greco 0-2%','Kefir','Ricotta di vacca',
-      'Parmigiano','Grana padano','Fiocchi di latte',
-      'Semi di lino','Semi di chia','Semi di sesamo',
-      'Cavolo cappuccio','Verza','Broccoli','Cavolfiore',
-      'Tofu','Soia (barattolo)','Latte di soia'
-    ],
-    celesti: [
-      'Petto di pollo','Petto di tacchino','Uova di gallina intero',
-      'Merluzzo/nasello surgelato','Orata fresca',
-      'Riso','Riso integrale','Patate',
-      'Carote','Zucchine','Pomodori',
-      'Mela','Pera','Banana','Olio EVO'
-    ]
-  },
-
-  {
-    id: 'statine',
-    label: 'Statine',
-    check: function(p){
-      return p.farmaci && (
-        p.farmaci.toLowerCase().includes('statin') ||
-        p.farmaci.toLowerCase().includes('rosuvastat') ||
-        p.farmaci.toLowerCase().includes('atorvastat') ||
-        p.farmaci.toLowerCase().includes('simvastat') ||
-        p.farmaci.toLowerCase().includes('pravastat')
-      );
-    },
-    grigi: [
-      'Pompelmo','Succhi di pompelmo'
-    ],
-    celesti: [
-      'Salmone fresco','Sgombro','Orata fresca','Tonno al naturale',
-      'Noci','Mandorle','Semi di lino',
-      'Avena','Fiocchi avena','Orzo',
-      'Olio EVO','Avocado','Curcuma',
-      'Ceci (barattolo)','Lenticchie (barattolo)',
-      'Mirtilli','Frutti rossi misti'
-    ]
-  },
-
-  {
-    id: 'anticoagulanti',
-    label: 'Anticoagulanti (warfarin/coumadin)',
-    check: function(p){
-      return p.farmaci && (
-        p.farmaci.toLowerCase().includes('warfarin') ||
-        p.farmaci.toLowerCase().includes('coumadin') ||
-        p.farmaci.toLowerCase().includes('sintrom') ||
-        p.farmaci.toLowerCase().includes('acenocumarolo')
-      );
-    },
-    grigi: [
-      'Spinaci','Cavolo nero','Cime di rapa','Bieta','Broccoli',
-      'Cavolfiore','Cavolo cappuccio','Verza','Cicoria','Rucola',
-      'Prezzemolo','Basilico','Rosmarino','Salvia',
-      'Avocado','Olio EVO','Noci'
-    ],
-    celesti: [
-      'Riso','Patate','Carote','Zucchine','Pomodori','Cetriolo',
-      'Petto di pollo','Petto di tacchino','Merluzzo/nasello surgelato',
-      'Uova di gallina intero','Mela','Pera','Banana','Arancia'
-    ]
-  },
-
-  {
-    id: 'cortisone',
-    label: 'Cortisone cronico',
-    check: function(p){
-      return p.farmaci && (
-        p.farmaci.toLowerCase().includes('cortisone') ||
-        p.farmaci.toLowerCase().includes('prednisone') ||
-        p.farmaci.toLowerCase().includes('betametasone') ||
-        p.farmaci.toLowerCase().includes('desametasone') ||
-        p.farmaci.toLowerCase().includes('corticosteroide')
-      );
-    },
-    grigi: [
-      'Riso','Pane comune','Pasta','Patate','Miele',
-      'Marmellata rid. zucchero','Datteri','Banana','Uva','Fichi',
-      'Sale','Salame','Mortadella','Nduja','Speck',
-      'Latte vaccino intero','Burrata','Parmigiano in eccesso'
-    ],
-    celesti: [
-      'Yogurt greco 0-2%','Ricotta di vacca','Fiocchi di latte',
-      'Parmigiano','Grana padano','Latte vaccino p.scremato',
-      'Salmone fresco','Merluzzo/nasello surgelato','Uova di gallina intero',
-      'Petto di pollo','Petto di tacchino',
-      'Broccoli','Spinaci','Cavolo nero','Cime di rapa',
-      'Riso integrale','Pasta integrale','Patate dolci',
-      'Noci','Mandorle','Semi di girasole','Olio EVO',
-      'Banana','Ceci (barattolo)','Lenticchie (barattolo)'
-    ]
-  },
-
-  // ── ALTRO ──────────────────────────────────────────────────────────────
-  {
-    id: 'ciclo_abbondante',
-    label: 'Ciclo abbondante (carenza ferro)',
-    check: function(p){
-      return p.flusso && (
-        p.flusso.toLowerCase().includes('abbondante') ||
-        p.flusso.toLowerCase().includes('menorragia')
-      );
-    },
-    grigi: [
-      'The nero','Caffè in eccesso'
-    ],
-    celesti: [
-      'Fegato','Cuore','Carne rossa magra','Vitellone tagli magri','Cavallo magro',
-      'Vongole','Cozze','Polpo',
-      'Lenticchie (barattolo)','Fagioli borlotti (barattolo)',
-      'Ceci (barattolo)','Soia (barattolo)',
-      'Spinaci','Cime di rapa','Bieta','Cicoria','Radicchio',
-      'Broccoli','Cavolo nero','Asparagi',
-      'Semi di zucca','Semi di girasole','Pistacchi',
-      'Quinoa','Farro','Avena','Fiocchi avena',
-      'Prezzemolo','Curcuma','Limone','Aceto di vino'
-    ]
-  },
-
-  {
-    id: 'ipertensione',
-    label: 'Ipertensione',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('ipertension') ||
-        p.patologie.toLowerCase().includes('pressione alta') ||
-        p.patologie.toLowerCase().includes('pressione arteriosa')
-      );
-    },
-    grigi: [
-      'Salame','Mortadella','Nduja','Speck','Prosciutto crudo magro',
-      'Feta','Parmigiano','Grana padano','Pecorino',
-      'Crackers','Grissini','Tarallini','Wasa (contiene glutine)',
-      'Salsa di soia','Senape','Dado da brodo',
-      'Tonno sottolio sgocciolato','Sgombro sottolio','Salmone affumicato'
-    ],
-    celesti: [
-      'Banana','Patate dolci','Pomodori','Spinaci','Avocado',
-      'Barbabietola','Melograno','Kiwi','Arancia',
-      'Salmone fresco','Orata fresca','Merluzzo/nasello surgelato',
-      'Noci','Mandorle','Semi di lino','Semi di chia',
-      'Riso integrale','Farro','Quinoa','Avena',
-      'Olio EVO','Aglio in polvere','Curcuma','Aceto di vino'
-    ]
-  },
-
-  {
-    id: 'patologia_renale',
-    label: 'Patologia renale cronica (IRC)',
-    check: function(p){
-      return p.patologie && (
-        p.patologie.toLowerCase().includes('renale') ||
-        p.patologie.toLowerCase().includes('rene') ||
-        p.patologie.toLowerCase().includes('nefropatia') ||
-        p.patologie.toLowerCase().includes('irc') ||
-        p.patologie.toLowerCase().includes('insufficienza renale')
-      );
-    },
-    grigi: [
-      'Parmigiano','Grana padano','Pecorino','Feta',
-      'Ceci (secchi)','Fagioli borlotti (secchi)','Lenticchie (secche)',
-      'Soia (barattolo)','Tofu','Seitan',
-      'Banana','Pomodori','Patate','Arancia','Kiwi','Avocado',
-      'Noci','Mandorle','Pistacchi','Anacardi',
-      'Salame','Mortadella','Nduja','Speck',
-      'Alga spirulina','Alghe marine'
-    ],
-    celesti: [
-      'Riso','Riso basmati','Pasta','Pane comune',
-      'Petto di pollo','Petto di tacchino',
-      'Uova di gallina intero','Albumi',
-      'Merluzzo/nasello surgelato','Orata fresca',
-      'Mela','Pera','Fragole','Mirtilli','Anguria','Uva',
-      'Carote','Zucchine','Cetriolo','Peperoni rossi',
-      'Olio EVO','Aceto di vino','Limone'
-    ]
-  }
-];
-
-// DEPRECATA — sostituita da applicaRegoloSemaforo nel blocco checkSemaforo
-// Mantenuta solo per compatibilità con REGOLE_SEMAFORO globali
-function _applicaRegoloSemaforoLEGACY(p){
-  if(!p.alimenti)p.alimenti={};
-
-  // Pulisce stati automatici (vecchio e nuovo sistema) — non tocca i colori manuali
-  const coloriManuali=['si','verde','arancione','rosso','no'];
-  const coloriAutoVecchi=['grigioScuro','celeste'];
-  const coloriAutoNuovi=['grigio_scuro_1','grigio_scuro_2','celeste_1','celeste_2'];
-  Object.keys(p.alimenti).forEach(function(k){
-    if(coloriAutoVecchi.includes(p.alimenti[k])||coloriAutoNuovi.includes(p.alimenti[k]))
-      delete p.alimenti[k];
-  });
-
-  // Per ogni regola attiva, applica grigi e celesti
-  REGOLE_SEMAFORO.forEach(function(regola){
-    const attiva=regola.check(p);
-    if(!attiva)return;
-
-    Object.entries(ALIMENTI).forEach(function(entry){
-      var cat=entry[0], data=entry[1];
-      (data.items||[]).forEach(function(item){
-        var key=cat+'__'+item.n;
-        var statoAttuale=p.alimenti[key]||'';
-
-        if(coloriManuali.includes(statoAttuale))return;
-
-        if(regola.grigi.includes(item.n)){
-          if(statoAttuale==='grigio_scuro_1')p.alimenti[key]='grigio_scuro_2';
-          else if(statoAttuale!=='grigio_scuro_2')p.alimenti[key]='grigio_scuro_1';
-        }
-        if(regola.celesti.includes(item.n)){
-          if(statoAttuale==='celeste_1')p.alimenti[key]='celeste_2';
-          else if(statoAttuale!=='celeste_2'&&!statoAttuale.includes('grigio'))p.alimenti[key]='celeste_1';
-        }
-      });
-    });
-  });
-
-  p.regolaAttive=(REGOLE_SEMAFORO.filter(function(r){return r.check(p);}).map(function(r){return r.label;}));
-}
-
-// Reset completo semaforo automatico (lascia intatti i colori manuali)
+// Ricalcolo del semaforo automatico su richiesta (pulsante 🔄 Ricalcola).
+// Toglie SOLO i colori automatici — le scelte manuali del medico restano — e
+// li rifa' col sistema valido. Prima chiamava il motore vecchio: un paziente
+// colorato dalle 15 condizioni, dopo un click, poteva restare senza colori.
 function resetSemaforoAuto(p){
-  if(!p.alimenti)return;
-  const coloriAuto=['grigioScuro','celeste','grigio_scuro_1','grigio_scuro_2','celeste_1','celeste_2'];
+  if(!p||!p.alimenti)return;
   Object.keys(p.alimenti).forEach(function(k){
-    if(coloriAuto.includes(p.alimenti[k]))delete p.alimenti[k];
+    if(_SEM_COLORI_AUTO.indexOf(p.alimenti[k])>=0) delete p.alimenti[k];
   });
-  _applicaRegoloSemaforoLEGACY(p);
+  applicaRegoloSemaforo(p);
   save(p.id);
-  notif('✓ Semaforo automatico ricalcolato!');
+  if(typeof renderPdAlimenti==='function') renderPdAlimenti(p);
+  const att=_semaforoCondizioniAttive(p);
+  notif(att.length
+    ? '✓ Semaforo ricalcolato su '+att.length+' condizione'+(att.length>1?'i':'')+': '+att.join(' · ')
+    : 'Nessuna condizione spuntata per questo paziente: i colori automatici sono stati tolti');
 }
 
 // ── RAGIONAMENTO CLINICO — 4 FLUSSI PARALLELI ─────────────────────────────
@@ -9706,15 +9242,19 @@ function renderPdAnamnesi(p){
 
 function renderPdAlimenti(p){
   const al=p.alimenti||{};
-  const regolaAttive=p.regolaAttive||[];
-
-  let headerHtml='';
-  if(regolaAttive.length){
-    headerHtml='<div style="margin-bottom:.8rem;padding:.6rem .85rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.75rem;color:var(--teal2)">'
-      +'<strong>⚡ Regole attive ('+regolaAttive.length+'):</strong> '+regolaAttive.join(' · ')
-      +'<button class="btn btn-g btn-sm" style="margin-left:.7rem;font-size:.68rem;padding:.15rem .5rem" onclick="resetSemaforoAuto(db.pazienti.find(x=>x.id===currentPazId))">🔄 Ricalcola</button>'
+  // F9 — le regole attive sono le condizioni SPUNTATE su questo paziente, non più
+  // quelle che il vecchio motore deduceva dal testo libero (p.regolaAttive, campo
+  // ormai morto). Il pulsante di ricalcolo c'è sempre: prima compariva solo se
+  // il sistema vecchio aveva lasciato una traccia, cioè quasi mai.
+  const attive=(typeof _semaforoCondizioniAttive==='function')?_semaforoCondizioniAttive(p):[];
+  const btnRicalcola='<button class="btn btn-g btn-sm" style="margin-left:.7rem;font-size:.68rem;padding:.15rem .5rem" onclick="resetSemaforoAuto(db.pazienti.find(x=>x.id===currentPazId))">🔄 Ricalcola</button>';
+  const headerHtml = attive.length
+    ? '<div style="margin-bottom:.8rem;padding:.6rem .85rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.75rem;color:var(--teal2)">'
+        +'<strong>⚡ Condizioni attive ('+attive.length+'):</strong> '+attive.join(' · ')+btnRicalcola
+      +'</div>'
+    : '<div style="margin-bottom:.8rem;padding:.6rem .85rem;background:var(--bg2);border:1px dashed var(--border);border-radius:8px;font-size:.73rem;color:var(--text3)">'
+        +'Nessuna condizione spuntata nella scheda del paziente: i colori qui sotto sono solo quelli scelti a mano.'+btnRicalcola
       +'</div>';
-  }
 
   let html='';
   Object.entries(ALIMENTI).forEach(function(entry){
@@ -25399,14 +24939,10 @@ function selCatAl(cat){
   });
   renderAlEditor();
 }
-function selTuttiAl(cat,btn){
-  const data=ALIMENTI[cat];if(!data)return;
-  const items=(data.items||[]);
-  const allSi=items.every(i=>window._alStato[cat+'__'+i.n]==='si');
-  items.forEach(i=>{const k=cat+'__'+i.n;if(allSi)delete window._alStato[k];else window._alStato[k]='si';});
-  btn.textContent=allSi?'Seleziona tutto':'Deseleziona tutto';
-  renderAlEditor();
-}
+// (F9, 26 lug 2026) Qui c'era selTuttiAl(cat,btn): scriveva sui colori del
+// paziente ma non era chiamata da nessuna parte — duplicato obsoleto di
+// selCatAl. Rimossa insieme al secondo motore del semaforo: codice che tocca
+// dati clinici e non è raggiungibile è solo un modo per sbagliare dopo.
 
 // ════════════════════════════════════════════════════════════════
 // CALENDARIO

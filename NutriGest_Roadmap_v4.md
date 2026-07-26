@@ -63,7 +63,8 @@
 | **P126** ✅ chiusa 26 lug 2026 — **da collaudare** (il contesto AI citava ore/tipo/intensità: i campi che il motore MET scarta — v. scheda) | Opus | High | ON | L'AI commentava un carico allenante diverso da quello su cui erano calcolati i macro |
 | **P127** ✅ chiusa 26 lug 2026 — **da collaudare** (la verifica al controllo: cos'è successo davvero e la strada da ritarare — v. scheda) | Opus | High | ON | Ritmo reale, soglie di leggibilità del dato e proposta di ritaratura: decisioni cliniche |
 | **P128** — colorazione automatica quando il DB alimenti diventerà grande (codice a barre): regole sui numeri d'etichetta invece che su liste di nomi + stato "non valutato" — v. scheda | Opus | High | ON | Soglie nutrizionali e significato del "bianco": sicurezza clinica |
-| **F9** ⚠️ **APERTA 26 lug 2026** — esistono DUE tabelle di regole colore attive e il pulsante "🔄 Ricalcola" applica quella vecchia, cancellando i colori del sistema nuovo — v. scheda | Opus | High | ON | Colori clinici sostituiti in silenzio con quelli di un sistema superato |
+| ~~**F9**~~ ✅ **CHIUSA 26 lug 2026** — tabella vecchia e secondo motore eliminati, un solo vocabolario di colori, migrazione idempotente sui dati esistenti — v. scheda | Opus | High | ON | Colori clinici invisibili ai controlli di sicurezza |
+| **P129** — riscrivere le 9 condizioni che vivevano solo nella tabella vecchia (stitichezza, gonfiore, menopausa, ciclo abbondante + 5 interazioni con i farmaci) — v. scheda | Opus | High | ON | Liste cliniche e interazioni farmacologiche: le decide Fabrizio |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
@@ -871,9 +872,31 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 **Perché NON basta cancellare la tabella vecchia:** contiene condizioni che il sistema nuovo non copre — stitichezza, gonfiore, menopausa, e soprattutto le **interazioni con i farmaci** (metformina, levotiroxina, statine, anticoagulanti, cortisone) più il ciclo abbondante. Quelle liste hanno valore clinico e vanno migrate, non buttate.
 
-**Rimedio proposto (da decidere con Fabrizio):** (1) subito, il pulsante chiama il sistema nuovo; (2) le condizioni presenti solo nella tabella vecchia si migrano nel nuovo come voci con la loro checkbox — lavoro clinico, nome per nome, con lo stesso test della Scoperta #5 a fare da rete; (3) a migrazione finita la tabella vecchia e `_applicaRegoloSemaforoLEGACY` si eliminano. **Nel frattempo: non premere "🔄 Ricalcola".**
+**✅ CHIUSA 26 lug 2026 (coda 9).** Decisione di Fabrizio: **cancellare**, non migrare — "erano 19, siamo arrivati a 15 ma fatte bene e validate". Eliminati `REGOLE_SEMAFORO` (565 righe), `_applicaRegoloSemaforoLEGACY` e `selTuttiAl` (codice morto che scriveva sui colori). Un solo vocabolario (`_SEM_COLORI_AUTO`), `applicaRegoloSemaforo` che ripulisce tutti e sei i colori, migrazione idempotente `_semaforoMigraPaziente`/`_semaforoMigraTutti` nei tre punti d'ingresso dei dati (cache locale, blob dal server, import di backup), pulsante 🔄 Ricalcola sul sistema valido e riquadro che elenca le condizioni davvero spuntate. `p.regolaAttive` resta sui dati ma non è più né scritto né letto. Test 382 → 394 (`s2-semaforo-fonte-unica.test.js`, 12 test: fra questi la prova che l'esclusione, prima invisibile a `_alimentiEsclusiPaziente`, dopo la migrazione esiste).
 
-**SCHEDA:** Stato: **Aperta — da fare**, trovata il 26 lug 2026 chiudendo la Scoperta #5 · Priorità: **Alta** (perdita silenziosa di colori clinici) · Categoria: Semaforo clinico · Dipendenze: nessuna per il passo 1; il passo 2 è lavoro clinico sulle liste farmaci · Autonomia: **L0** sulla migrazione delle liste (sono regole cliniche), L2 sul passo 1.
+**Il dettaglio che ha deciso la gravità:** le schermate riconoscevano entrambi i vocabolari, ma prompt AI, validatore del piano e avvisi allergeni **solo `grigioScuro`**. Un alimento marcato dal motore vecchio si vedeva grigio ed era invisibile ai controlli. Il pulsante era il sintomo, non la malattia.
+
+**Bonus della stessa famiglia, corretto qui:** `_pianoCacheKey` leggeva `p.alimentiVerdi`/`alimentiRossi`/`alimentiEsclusi`, tre campi mai scritti da nessuna riga → il semaforo non entrava nella chiave della cache e rigenerare un piano dopo aver cambiato i colori restituiva quello vecchio. Ora la chiave contiene l'impronta reale di `p.alimenti`.
+
+**SCHEDA:** Stato: **CHIUSA 26 lug 2026 — da collaudare** · Priorità: Alta · Categoria: Semaforo clinico · Dipendenze: nessuna · Autonomia: L2 (la decisione clinica — cancellare invece di migrare — l'ha presa Fabrizio). **Seguito: P129.**
+
+---
+
+### P129 — Le nove condizioni da riscrivere (aperta 26 lug 2026)
+
+**Origine:** la chiusura di F9 ha eliminato la tabella vecchia. Nove delle sue condizioni **non hanno equivalente** fra le 15 validate, e sono clinicamente utili: non sono state buttate, vanno riscritte da zero.
+
+**Le nove:** `stitichezza` · `gonfiore/meteorismo` · `menopausa/perimenopausa` · `ciclo abbondante (carenza di ferro)` · e le **cinque interazioni con i farmaci**: `metformina` (B12, latticini, alcol) · `levotiroxina` (calcio, soia, fibre a distanza dalla compressa) · `statine` (**pompelmo**) · `anticoagulanti warfarin/coumadin` (**vitamina K**: verdure a foglia) · `cortisone cronico` (sodio, zuccheri, potassio, calcio).
+
+**Perché non si copiano e basta:** le liste originali avevano 118 nomi che il DB alimenti non contiene, comprese le voci decisive — il `Pompelmo` delle statine **non esiste in tabella**, quindi quella regola era muta proprio dove serviva. Materiale di partenza recuperabile da git: `git show a1251c5:index.html` (blocco `REGOLE_SEMAFORO`, righe ~8254-8761).
+
+**Come farle, quando si farà:**
+1. Una condizione alla volta, liste riviste da Fabrizio con le fonti — il test `s2-regole-nomi-alimenti` fa da rete: un nome che il DB non contiene rende rossa la suite.
+2. Gli alimenti mancanti si aggiungono al DB (pompelmo, sale, acciughe, sardine, semi di sesamo/girasole, menta…), come già fatto nella coda 8.
+3. Nuove checkbox accanto alle 15 attuali. Per i farmaci, **proposta da valutare**: l'app legge `p.farmaci` e **propone** di accendere l'interazione ("ho letto 'Eutirox': accendo levotiroxina?") — propone, non applica, come traguardo e strade. Così non si torna a regole che si attivano da sole per una parola in un campo di testo.
+4. Attenzione alle sovrapposizioni: `gonfiore` aveva 16 grigi su 20 già dentro `all-fodmap` — forse non serve una condizione a sé.
+
+**SCHEDA:** Stato: **Da fare** · Priorità: Alta · Categoria: Semaforo clinico · Dipendenze: F9 (chiusa) · Autonomia: **L0** — liste cliniche e interazioni farmacologiche le decide Fabrizio.
 
 ---
 
