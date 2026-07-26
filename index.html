@@ -6539,6 +6539,171 @@ function percorsoMoveFase(pazId, i, dir){
   save(p.id); renderPdPercorso(p);
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🧭 MODELLI DI PERIODIZZAZIONE (P122 Tappa 3 — 26 lug 2026)
+// Dal traguardo (Tappa 1) alle fasi: l'app scrive da sola lo scheletro del
+// percorso invece di farlo comporre a mano riga per riga. I modelli codificano
+// il metodo clinico di Fabrizio: blocchi di deficit MAI oltre 12 settimane
+// (stress tiroide/adattamento metabolico), mantenimento di 4 settimane tra un
+// blocco e l'altro, stabilizzazione di 6 settimane prima della fase di massa.
+// Il ritmo di calo/crescita è quello reale delle fasi: TDEE × %fase ÷ 7700,
+// lo stesso conto della proiezione P115 — generatore e grafico non possono
+// contraddirsi. Le fasi generate sono NORMALI fasi di p.percorso: modificabili,
+// riordinabili, cancellabili una per una come quelle scritte a mano.
+// La generazione PROPONE e chiede conferma prima di sostituire fasi esistenti:
+// nessuna riscrittura silenziosa (regola permanente P122).
+// ══════════════════════════════════════════════════════════════════════════════
+const _PERCORSO_MODELLI = {
+  "ricomposizione": {label:"Ricomposizione", desc:"deficit a cicli fino al traguardo → stabilizzazione → massa (il tuo standard)"},
+  "dimagrimento":   {label:"Dimagrimento a cicli", desc:"deficit a cicli fino al traguardo, senza fase di massa finale"},
+  "massa":          {label:"Massa prima, definizione poi", desc:"surplus a cicli (fino al traguardo se impostato sopra il peso attuale)"},
+  "salute":         {label:"Mantenimento / salute", desc:"nessun target di peso: si lavora su esami e abitudini"}
+};
+const _PERCORSO_GEN = {
+  DEF_MAX: 12,   // settimane massime di un blocco di deficit
+  DEF_MIN: 3,    // sotto le 3 settimane un blocco non ha senso clinico
+  MANT_TRA: 4,   // mantenimento tra due blocchi (deficit o surplus)
+  MANT_FINALE: 6,// stabilizzazione prima della massa / a fine dimagrimento
+  SUR_MAX: 16,   // settimane massime di un blocco di surplus
+  SUR_MIN: 4,
+  MAX_CICLI: 8   // guardia: oltre, il traguardo va rivisto, non allungato il piano
+};
+
+// Motore PURO: dal modello alle fasi proposte. Non scrive nulla sul paziente.
+// Restituisce {ok, fasi:[{tipo,settimane,pct}], note:[], stima?} oppure {ok:false, motivo}.
+function _percorsoGeneraFasi(p, modello){
+  if(!_PERCORSO_MODELLI[modello]) return {ok:false, motivo:"modello sconosciuto"};
+  const ct=calcolaTDEE(p);
+  if(!ct || !ct.tdee) return {ok:false, motivo:"TDEE non calcolabile: serve almeno un InBody con metabolismo basale"};
+  const serie=_serieePesoOss(p);
+  const pesoAtt = serie.length ? +serie[serie.length-1].peso : (ct.peso?+ct.peso:null);
+  if(!pesoAtt) return {ok:false, motivo:"nessun peso registrato"};
+  const tdee=ct.tdee, note=[], fasi=[];
+  const pctDef=_PERCORSO_TIPI.deficit.pctDefault;         // -18
+  const pctSur=_PERCORSO_TIPI.surplus.pctDefault;         // +8
+  const rateDef=tdee*Math.abs(pctDef)/100*7/7700;         // kg/settimana in deficit
+  const rateSur=tdee*pctSur/100*7/7700;                   // kg/settimana in surplus
+  const target=(p.pesoTarget!=null && !isNaN(+p.pesoTarget))?+p.pesoTarget:null;
+  const G=_PERCORSO_GEN;
+
+  if(modello==="salute"){
+    fasi.push({tipo:"mantenimento", settimane:24, pct:0});
+    note.push("Nessun target di peso: 24 settimane di mantenimento. I traguardi di questo modello sono esami del sangue e abitudini, non chili.");
+    return {ok:true, modello:modello, fasi:fasi, note:note};
+  }
+
+  if(modello==="ricomposizione" || modello==="dimagrimento"){
+    if(target===null) return {ok:false, motivo:"manca il peso obiettivo: impostalo prima dal pannello 🎯 della scheda Macros (traguardo dalla composizione)"};
+    let daPerdere=pesoAtt-target;
+    if(daPerdere<=0.5){
+      if(modello==="dimagrimento") return {ok:false, motivo:"il traguardo ("+target+" kg) risulta già raggiunto: questo modello non ha niente da pianificare"};
+      fasi.push({tipo:"mantenimento", settimane:G.MANT_FINALE, pct:0});
+      fasi.push({tipo:"surplus", settimane:G.SUR_MAX, pct:pctSur});
+      note.push("Il traguardo di peso risulta già raggiunto: si parte direttamente dalla stabilizzazione e poi dalla fase di massa.");
+      return {ok:true, modello:modello, fasi:fasi, note:note};
+    }
+    if(rateDef>pesoAtt*0.01) note.push("Al "+pctDef+"% il ritmo previsto ("+rateDef.toFixed(2)+" kg/sett.) supera l'1% del peso a settimana: valuta una % meno aggressiva.");
+    let cicli=0;
+    while(daPerdere>0.25 && cicli<G.MAX_CICLI){
+      if(cicli>0) fasi.push({tipo:"mantenimento", settimane:G.MANT_TRA, pct:0});
+      const settNec=Math.ceil(daPerdere/rateDef);
+      const sett=Math.max(Math.min(settNec, G.DEF_MAX), G.DEF_MIN);
+      fasi.push({tipo:"deficit", settimane:sett, pct:pctDef});
+      daPerdere-=sett*rateDef;
+      cicli++;
+    }
+    if(daPerdere>0.25) note.push("Fermato a "+G.MAX_CICLI+" blocchi di deficit e il traguardo non è ancora coperto: un percorso così lungo va ridiscusso (traguardo intermedio?), non allungato.");
+    fasi.push({tipo:"mantenimento", settimane:G.MANT_FINALE, pct:0});
+    if(modello==="ricomposizione"){
+      fasi.push({tipo:"surplus", settimane:G.SUR_MAX, pct:pctSur});
+      note.push("La fase di massa parte solo dopo "+G.MANT_FINALE+" settimane di stabilizzazione: è lì che il nuovo peso diventa quello \"vero\".");
+    }
+    return {ok:true, modello:modello, fasi:fasi, note:note,
+            stima:{rateSett:+rateDef.toFixed(2), kgTotali:+(pesoAtt-target).toFixed(1), cicliDeficit:cicli}};
+  }
+
+  // modello === "massa"
+  if(target!==null && target>pesoAtt+0.5){
+    let daMettere=target-pesoAtt, cicli=0;
+    while(daMettere>0.15 && cicli<G.MAX_CICLI){
+      if(cicli>0) fasi.push({tipo:"mantenimento", settimane:G.MANT_TRA, pct:0});
+      const settNec=Math.ceil(daMettere/rateSur);
+      const sett=Math.max(Math.min(settNec, G.SUR_MAX), G.SUR_MIN);
+      fasi.push({tipo:"surplus", settimane:sett, pct:pctSur});
+      daMettere-=sett*rateSur;
+      cicli++;
+    }
+    if(daMettere>0.15) note.push("Fermato a "+G.MAX_CICLI+" blocchi di surplus: un aumento così grande va ridiscusso a traguardi intermedi.");
+    fasi.push({tipo:"mantenimento", settimane:G.MANT_TRA, pct:0});
+    note.push("In fase di massa il numero da guardare è la massa magra, non il peso: al paziente mostra quella (vista paziente, Tappa 5).");
+    return {ok:true, modello:modello, fasi:fasi, note:note,
+            stima:{rateSett:+rateSur.toFixed(2), kgTotali:+(target-pesoAtt).toFixed(1), cicliSurplus:cicli}};
+  }
+  fasi.push({tipo:"surplus", settimane:G.SUR_MAX, pct:pctSur});
+  fasi.push({tipo:"mantenimento", settimane:G.MANT_TRA, pct:0});
+  fasi.push({tipo:"surplus", settimane:12, pct:pctSur});
+  fasi.push({tipo:"mantenimento", settimane:G.MANT_TRA, pct:0});
+  note.push("Nessun traguardo di peso sopra l'attuale: due blocchi standard di surplus, da adattare a mano se serve.");
+  return {ok:true, modello:modello, fasi:fasi, note:note};
+}
+
+// Select dei modelli (usato sia a percorso vuoto sia nel footer dell'editor).
+function _percorsoModelloSelectHtml(){
+  return '<select id="percorso-modello" style="font-size:.76rem"><option value="">— modello —</option>'
+    +Object.keys(_PERCORSO_MODELLI).map(function(k){
+      return '<option value="'+k+'" title="'+_PERCORSO_MODELLI[k].desc+'">'+_PERCORSO_MODELLI[k].label+'</option>';
+    }).join("")+'</select>';
+}
+
+// Applica il modello scelto: PROPONE, e se esistono già fasi chiede conferma
+// esplicita prima di sostituirle (mai una riscrittura silenziosa).
+function percorsoGeneraDaModello(pazId){
+  const p=_percorsoPaz(pazId); if(!p) return;
+  const sel=document.getElementById("percorso-modello");
+  const modello=sel?sel.value:"";
+  if(!modello){ notif("⚠ Scegli prima un modello dal menu"); return; }
+  const g=_percorsoGeneraFasi(p, modello);
+  if(!g.ok){ notif("⚠ "+g.motivo, 5000); return; }
+  if(p.percorso && p.percorso.fasi && p.percorso.fasi.length){
+    if(!confirm("Esiste già un percorso con "+p.percorso.fasi.length+" fasi.\n\nLe sostituisco con le "+g.fasi.length+" fasi del modello \""+_PERCORSO_MODELLI[modello].label+"\"?\n(La data di inizio resta invariata. Le fasi attuali andranno perse.)")) return;
+  }
+  const inizio=(p.percorso && p.percorso.inizio) ? p.percorso.inizio : _percorsoIsoLocal(Date.now());
+  p.percorso={inizio:inizio, fasi:g.fasi};
+  window._percorsoGenNote={pazId:p.id, note:g.note, modello:_PERCORSO_MODELLI[modello].label, stima:g.stima||null};
+  save(p.id); renderPdPercorso(p);
+  notif("🧭 "+g.fasi.length+" fasi generate — modello "+_PERCORSO_MODELLI[modello].label);
+}
+
+// ── ⏩ RIALLINEA — il piano trasla, il paziente non viene "bocciato" ──────────
+// Il paziente sparisce sei settimane e torna: il piano non si rifà, si SPOSTA.
+// Ancora = l'ultimo dato di peso registrato (fin lì il percorso è stato vissuto);
+// il buco dopo l'ancora è tempo fermo, e il piano riprende oggi ESATTAMENTE dal
+// punto-fase in cui era rimasto all'ultima pesata (traslare l'inizio di N giorni
+// mantiene identico l'offset dentro le fasi: matematica, non stima).
+function _percorsoShiftGiorni(p){
+  const percorso=_percorsoGet(p);
+  if(!percorso) return null;
+  const serie=_serieePesoOss(p);
+  const oggi=_percorsoIsoLocal(Date.now());
+  let ancora=percorso.inizio;
+  if(serie.length && serie[serie.length-1].data>ancora) ancora=serie[serie.length-1].data;
+  if(ancora>=oggi) return 0;
+  return Math.round((new Date(oggi+"T00:00:00").getTime()-new Date(ancora+"T00:00:00").getTime())/864e5);
+}
+function percorsoRiallinea(pazId){
+  const p=_percorsoPaz(pazId); if(!p || !p.percorso) return;
+  const g=_percorsoShiftGiorni(p);
+  if(g===null) return;
+  if(g<7){ notif("✅ Il piano è già allineato: l'ultimo dato è di "+g+" giorn"+(g===1?"o":"i")+" fa"); return; }
+  const sett=Math.round(g/7*10)/10;
+  if(!confirm("Sposto tutto il piano avanti di "+g+" giorni (~"+sett+" settimane)?\n\nLe fasi restano identiche e riprendono da dove il percorso si era fermato (ultima pesata registrata). Nessun dato viene toccato.")) return;
+  const t=new Date(p.percorso.inizio+"T00:00:00").getTime()+g*864e5;
+  p.percorso.inizio=_percorsoIsoLocal(t);
+  save(p.id); renderPdPercorso(p);
+  notif("⏩ Piano riallineato: le fasi ora partono dal "+p.percorso.inizio);
+}
+
 // ── Grafico SVG: bande fasi + linea peso reale + linea "oggi" ─────────────────
 function _percorsoChartSvg(p){
   const percorso=_percorsoGet(p);
@@ -6737,7 +6902,13 @@ function renderPdPercorso(p){
   let html='<div class="card"><div class="card-hd"><h3>📈 Percorso — periodizzazione nel tempo</h3></div><div class="card-bd">';
   if(!percorso){
     html+='<div style="font-size:.8rem;color:var(--text2);margin-bottom:.7rem">Qui pianifichi le <strong>fasi</strong> del percorso (deficit → mantenimento → …) e vedi il peso reale muoversi dentro le fasi. Le fasi sono consecutive: decidi la data di inizio e la durata di ciascuna.</div>'
-      +'<button class="btn btn-p" onclick="percorsoInit(\''+p.id+'\')">➕ Crea il percorso</button>';
+      +'<button class="btn btn-p" onclick="percorsoInit(\''+p.id+'\')">➕ Crea il percorso a mano</button>'
+      +'<div style="margin-top:.8rem;padding-top:.7rem;border-top:1px dashed var(--border);font-size:.78rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">'
+        +'<span style="color:var(--text3)">…oppure lascia che le fasi le scriva l\'app dal traguardo:</span>'
+        +_percorsoModelloSelectHtml()
+        +'<button class="btn btn-p btn-sm" onclick="percorsoGeneraDaModello(\''+p.id+'\')">🧭 Genera le fasi</button>'
+      +'</div>'
+      +'<div style="font-size:.68rem;color:var(--text3);margin-top:.4rem">Regole dei modelli: blocchi di deficit mai oltre 12 settimane, 4 di mantenimento tra un blocco e l\'altro, 6 di stabilizzazione prima della massa. Le fasi generate restano modificabili una per una.</div>';
   } else {
     const fAtt=_percorsoFaseAt(percorso, oggi);
     const ints=_percorsoIntervalli(percorso);
@@ -6747,8 +6918,17 @@ function renderPdPercorso(p){
       +'<div><span style="color:var(--text3)">Inizio</span> <input type="date" value="'+percorso.inizio+'" onchange="percorsoSetInizio(\''+p.id+'\',this.value)" style="font-size:.78rem"></div>'
       +(fAtt
         ? '<div style="padding:.25rem .7rem;border-radius:20px;background:'+_PERCORSO_TIPI[fAtt.tipo].band+';color:'+_PERCORSO_TIPI[fAtt.tipo].txt+';font-weight:700">Oggi: '+_PERCORSO_TIPI[fAtt.tipo].label+' ('+(fAtt.pct===0?"mantieni":(fAtt.pct>0?"+":"")+fAtt.pct+"%")+') · fase '+(fAtt.indice+1)+' di '+ints.length+'</div>'
-        : '<div style="padding:.25rem .7rem;border-radius:20px;background:#fff7ed;color:#c2410c;font-weight:600">Oggi fuori dalle fasi pianificate'+(fine&&oggi>=fine?" (percorso terminato il "+fine+")":"")+'</div>')
+        : '<div style="padding:.25rem .7rem;border-radius:20px;background:#eef4fb;color:#185FA5;font-weight:600">⏸ Il piano è rimasto indietro'+(fine&&oggi>=fine?' (le fasi finivano il '+_percorsoDataBreve(fine)+')':'')+' — capita in tutti i percorsi veri</div>')
+      +'<button class="btn btn-g btn-sm" title="Il paziente è sparito per un po\'? Il piano trasla e riprende da dove si era fermato (ultima pesata): niente da rifare" onclick="percorsoRiallinea(\''+p.id+'\')">⏩ Riallinea a oggi</button>'
       +'</div>';
+    // P122 T3 — note del generatore: mostrate UNA volta subito dopo la generazione
+    if(window._percorsoGenNote && window._percorsoGenNote.pazId===p.id){
+      const _gn=window._percorsoGenNote; window._percorsoGenNote=null;
+      html+='<div style="font-size:.74rem;color:#185FA5;margin:-.2rem 0 .55rem;padding:.35rem .6rem;background:#eef4fb;border:1px solid #c9ddf2;border-radius:8px">🧭 <strong>Fasi generate — modello '+_gn.modello+'</strong>'
+        +(_gn.stima&&_gn.stima.rateSett?' · ritmo previsto ~'+_gn.stima.rateSett+' kg/sett. su '+_gn.stima.kgTotali+' kg':'')
+        +(_gn.note&&_gn.note.length?('<div style="margin-top:.2rem;color:var(--text2)">'+_gn.note.map(function(n){return '• '+n;}).join('<br>')+'</div>'):'')
+        +'</div>';
+    }
     // P115 Tappa 2 — riga proiezione + obiettivo (informativa)
     const _proj=_percorsoProiezione(p);
     if(_proj && _proj.ok){
@@ -6817,7 +6997,12 @@ function renderPdPercorso(p){
         +'</td></tr>';
     });
     html+='</tbody></table>'
-      +'<div style="margin-top:.6rem"><button class="btn btn-g" onclick="percorsoAddFase(\''+p.id+'\')">➕ Aggiungi fase</button></div>';
+      +'<div style="margin-top:.6rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">'
+        +'<button class="btn btn-g" onclick="percorsoAddFase(\''+p.id+'\')">➕ Aggiungi fase</button>'
+        +'<span style="margin-left:auto;font-size:.72rem;color:var(--text3)">🧭 Rigenera dal traguardo:</span>'
+        +_percorsoModelloSelectHtml()
+        +'<button class="btn btn-g btn-sm" onclick="percorsoGeneraDaModello(\''+p.id+'\')">Genera</button>'
+      +'</div>';
   }
   html+='</div></div>';
   box.innerHTML=html;

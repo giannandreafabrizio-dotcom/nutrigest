@@ -10,6 +10,63 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione) — P122 TAPPA 3: MODELLI DI PERIODIZZAZIONE + PULSANTE "RIALLINEA" — IL PERCORSO SMETTE DI ESSERE UN GRAFICO E DIVENTA UN PIANO.
+Baseline `bf3aa6d`. Test 225 → **237**, tutti verdi (`s2-percorso-generatore.test.js`).
+
+**Origine.** Terza tappa di `NutriGest_Obiettivo_Ragionamento.md`. Prima le fasi
+della scheda 📈 Percorso si scrivevano a mano una per una; ora l'app le genera
+dal traguardo (Tappa 1), e il piano regge anche il paziente che sparisce un mese.
+
+**Cosa è stato fatto.**
+1. **Motore puro `_percorsoGeneraFasi(p, modello)`** con 4 modelli:
+   - **Ricomposizione** (lo standard di Fabrizio): deficit a cicli fino al
+     traguardo → stabilizzazione → massa;
+   - **Dimagrimento a cicli**: come sopra, senza massa finale;
+   - **Massa prima, definizione poi**: surplus a cicli (fino al traguardo se è
+     sopra il peso attuale, altrimenti due blocchi standard);
+   - **Mantenimento/salute**: una fase sola, i traguardi sono esami e abitudini.
+   Regole cliniche codificate: **blocchi di deficit mai oltre 12 settimane**
+   (stress tiroideo/adattamento), **mantenimento di 4 settimane tra i blocchi**,
+   **6 settimane di stabilizzazione prima della massa**, guardia a **8 cicli**
+   (oltre, il traguardo va ridiscusso — la nota lo dice — non il piano allungato).
+   Il ritmo usato per dimensionare i blocchi è lo STESSO della proiezione P115
+   (TDEE × %fase ÷ 7700): generatore e grafico non possono contraddirsi.
+2. **Le fasi generate sono fasi normali** di `p.percorso`: nessuna struttura
+   nuova, tutto modificabile/riordinabile/cancellabile come prima. La
+   generazione PROPONE: se esistono già fasi chiede conferma esplicita prima di
+   sostituirle (mai una riscrittura silenziosa). Senza traguardo impostato, i
+   modelli a deficit si fermano e mandano al pannello 🎯 della Tappa 1.
+3. **⏩ Riallinea a oggi** (`percorsoRiallinea` + `_percorsoShiftGiorni` pura):
+   il paziente sparisce sei settimane e torna → un click e tutto il piano trasla
+   in avanti. L'**ancora è l'ultima pesata registrata** (fin lì il percorso è
+   stato vissuto; il buco dopo è tempo fermo), e la traslazione conserva
+   l'offset dentro le fasi: si riprende ESATTAMENTE dal giorno-fase in cui ci
+   si era fermati — matematica, non stima (fissato da test). Sotto i 7 giorni
+   di scarto il pulsante risponde "già allineato" e non tocca nulla.
+4. **Via la bocciatura**: "Oggi fuori dalle fasi pianificate" (arancione,
+   tono da esame fallito) è diventato "⏸ Il piano è rimasto indietro — capita
+   in tutti i percorsi veri" (azzurro), con il pulsante ⏩ accanto. Il pulsante
+   è sempre visibile nella testata della scheda, perché il caso tipico è il
+   paziente sparito A METÀ percorso, non a percorso finito.
+5. UI: a percorso vuoto, accanto a "➕ Crea il percorso a mano" c'è
+   "🧭 Genera le fasi" con il menu dei modelli (regole dichiarate sotto, in
+   piccolo); a percorso esistente, "Rigenera dal traguardo" nel footer
+   dell'editor. Dopo la generazione compare UNA volta il riquadro con modello,
+   ritmo previsto e note cliniche del generatore.
+
+**Da collaudare in produzione.** (1) Paziente con traguardo impostato (Tappa 1)
+→ scheda 📈 Percorso → modello "Ricomposizione" → 🧭 Genera: le fasi devono
+avere senso clinico ai tuoi occhi (blocchi ≤12 sett., mantenimenti giusti,
+massa in fondo); la proiezione deve toccare il traguardo dentro le fasi di
+deficit. (2) Paziente SENZA traguardo → il generatore deve rifiutarsi e
+mandarti al pannello 🎯. (3) Su un percorso con l'ultima pesata vecchia di
+settimane → ⏩ Riallinea: le date delle fasi traslano, il grafico segue.
+(4) Rigenera sopra fasi esistenti → deve chiedere conferma.
+
+**Resta da fare (P122 tappe 4-5):** traguardi multipli (composizione, esami,
+circonferenze, comportamento) + condizione di uscita dalle fasi; vista paziente
+del traguardo. Consiglio: prima un giro di collaudo sul campo delle tappe 1-3.
+
 25 LUGLIO 2026 (5ª sessione, seguito) — P122 TAPPA 2: LA DOMANDA IN VISITA, STRUTTURATA · F6: IL CAMPO OBIETTIVO ERA SPARITO DAL MODAL E OGNI SALVATAGGIO LO AZZERAVA.
 Baseline `b30fa38`. Test 212 → **225**, tutti verdi (`s2-obiettivo-paziente.test.js`).
 

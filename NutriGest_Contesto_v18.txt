@@ -1907,6 +1907,30 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     toolbar (acceso anche in vista paziente: è il momento educativo, il
     motivo per cui esiste). SOLO informativo: proiezione e TDEE ignorano il
     consuntivo (fissato da test di isolamento).
+  MODELLI DI PERIODIZZAZIONE + RIALLINEA (P122 Tappa 3, 26 lug 2026):
+    _percorsoGeneraFasi(p, modello) (PURA, non scrive): dal traguardo
+    (p.pesoTarget, lo specchio della Tappa 1) genera le fasi secondo 4 modelli
+    (_PERCORSO_MODELLI: ricomposizione / dimagrimento / massa / salute) e le
+    regole cliniche di _PERCORSO_GEN: deficit MAI oltre 12 settimane,
+    mantenimento 4 tra i blocchi, stabilizzazione 6 prima della massa, surplus
+    max 16, guardia a 8 cicli (oltre: nota "ridiscuti il traguardo"). Ritmo di
+    dimensionamento = TDEE x %fase / 7700, IDENTICO alla proiezione P115:
+    generatore e grafico non possono contraddirsi. Modelli a deficit senza
+    pesoTarget -> ok:false che manda al pannello 🎯; "salute" non lo richiede.
+    percorsoGeneraDaModello(pazId) legge il select #percorso-modello, chiede
+    conferma se esistono gia' fasi (mai sostituzione silenziosa), conserva
+    l'inizio esistente, e mostra UNA volta le note del generatore
+    (window._percorsoGenNote, consumata al primo render). Le fasi generate sono
+    fasi NORMALI di p.percorso: nessuna struttura dati nuova.
+    RIALLINEA: _percorsoShiftGiorni(p) (pura) = giorni tra l'ancora e oggi,
+    dove l'ancora e' l'ULTIMA PESATA registrata (o l'inizio se non ce ne sono);
+    percorsoRiallinea(pazId) trasla p.percorso.inizio di quei giorni previa
+    conferma — la traslazione conserva l'offset dentro le fasi, quindi si
+    riprende esattamente dal giorno-fase dell'interruzione. Sotto i 7 giorni:
+    "gia' allineato", nessuna modifica. Il badge fuori-fase e' ora
+    "⏸ Il piano e' rimasto indietro — capita in tutti i percorsi veri" con il
+    pulsante ⏩ sempre visibile in testata (il caso tipico e' il paziente
+    sparito a meta' percorso, non a percorso finito).
   P115 COMPLETO (Tappe 1-5, tutte 24 lug 2026). Il livello Piano vs Realtà
   si accenderà da solo quando P50 scriverà p.consuntivo — architettura
   pronta, nessuna modifica al grafico necessaria.
