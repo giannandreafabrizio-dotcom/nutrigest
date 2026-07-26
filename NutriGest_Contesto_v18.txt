@@ -712,9 +712,69 @@ p.refertiSangue[] = { id, data, dataStimata, lab, file, valori:{KEY_val}, range:
   // non viene salvato: guardare un referto vecchio non cambia i valori attuali.
   // updateAnalisi() scrive sul referto in vista e poi richiama _refertiApplica.
   // L'import (mostraDiffAnalisi) CREA un referto nuovo e pretende la data;
-  // il prompt di estrazione chiede anche "_data_referto" (accettata solo se
-  // AAAA-MM-GG) per precompilarla, e "_range" con gli intervalli STAMPATI dal
-  // laboratorio, salvati in rf.range solo per le voci effettivamente importate.
+  // gli intervalli STAMPATI dal laboratorio finiscono in rf.range solo per le
+  // voci effettivamente importate. Dettaglio del flusso di import → sezione
+  // IMPORT DEI REFERTI DEL SANGUE qui sotto.
+
+p._analisiMeta[KEY] = { fonte, data, file }
+  // Provenienza per singolo esame (P63, esteso in P124). `fonte` vale
+  // 'ai-import' oppure 'ai-import-corretto' quando Fabrizio ha modificato a
+  // mano il valore proposto dall'AI prima di confermarlo: serve a misurare nel
+  // tempo quanto e dove l'estrazione sbaglia.
+
+IMPORT DEI REFERTI DEL SANGUE — pipeline (P124 + P124b, 26 lug 2026)
+  loadAnalisiSanguePDF fa, in quest'ordine:
+   1. PAGINE DRITTE. Il PDF NON viene piu' mandato all'AI come documento: viene
+      reso qui con pdf.js (vendor/pdf.min.js + pdf.worker.min.js, 3.11.174) in
+      una immagine JPEG per pagina, lato lungo ~1600px. MOTIVO: i referti sono
+      spesso scansioni con le pagine ruotate, e una tabella fitta letta di
+      traverso fa scivolare l'AI di riga (26/7: Piastrine prendeva il valore
+      dell'Emoglobina, TSH quello di FT4).
+      La rotazione NON si legge dal PDF: il file del 26/7 dichiarava /Rotate 270
+      ma l'orientamento giusto era 180. Si RILEVA con _impRilevaRotazione, una
+      chiamata AI piccola su una miniatura della prima pagina, e si applica a
+      tutte (gradiExtra si somma a page.rotate). Risposta non valida → 0.
+      Vale anche per le foto storte (_impRuotaImmagine).
+   2. UNA PAGINA PER CHIAMATA (max 8). Una pagina illeggibile non fa fallire il
+      referto: si segnala e si prosegue.
+   3. IMPRONTA DELLA RIGA. Il prompt (_impPromptPagina) chiede per ogni esame
+      QUATTRO campi dalla STESSA riga: voce, valore, unita, rif. I tre dati si
+      controllano a vicenda in _impControllaValore:
+        · rif che non e' un intervallo ("pg", "migliaia/mmc") → riga disallineata
+        · unita di un'altra GRANDEZZA fisica → riga disallineata
+          (i soli prefissi diversi — nmol/umol/mmol — NON sono un errore:
+           _impStessaGrandezza; la scala sbagliata la prende _impFuoriScala)
+        · valore a forma di intervallo, o uguale al range del lab
+        · valore oltre il fattore 10 dal riferimento → proposta di correzione
+          della virgola SOLO se il risultato ricade DENTRO il riferimento
+      Le righe sospette arrivano DESELEZIONATE, mai scartate in silenzio.
+   4. FUSIONE FRA PAGINE. Stesso esame due volte: vince la riga la cui unita'
+      corrisponde a quella attesa (i leucociti compaiono in % e in valore
+      assoluto — ANALISI/RANGE_STD ragionano in assoluti). Conflitto segnalato
+      solo quando l'unita' non decide.
+   5. DATA. Accettata solo se AAAA-MM-GG, e RIFIUTATA se coincide con p.nascita
+      o e' nel futuro (il 26/7 era stata letta la data di nascita del paziente).
+   6. I numeri si convertono QUI, non nell'AI (_impNormalizzaNumero): al modello
+      si chiede di copiare cifra per cifra con la virgola italiana, perche'
+      chiedergli di convertire aveva prodotto TSH 1560 da "1,560".
+  La finestra di conferma (mostraDiffAnalisi) ha la colonna del valore
+  MODIFICABILE: correggendo una riga sospetta la spunta si rimette da sola.
+
+
+CALCOLI_CLINICI — agganci di un indice derivato (esteso in P125, 26 lug 2026)
+  Ogni voce dichiara: deps, formula, unit, soglie, cosa/range/alert (glossario).
+  Tre agganci OPZIONALI, generici e non legati a un indice specifico:
+   · valido(vals,p)  → stringa non vuota = calcolo INAPPLICABILE, si mostra il
+                       motivo al posto del numero. Nato per Friedewald sopra 400
+                       di trigliceridi: fuori dal campo di validita' un numero e'
+                       peggio di un numero mancante, perche' sembra un risultato.
+   · avviso(vals,p,v)→ nota contestuale sotto il valore (.calc-nota).
+   · dec             → decimali forzate (0 sull'LDL stimato: "91.80" comunica
+                       una precisione che una stima non ha).
+  ldl_fw (LDL stimato, Friedewald) NON scrive nella casella LDL: la stima vive
+  solo qui, la casella resta del laboratorio — evitare la doppia fonte e' la
+  lezione di F4/P118/P120. Nessun semaforo verde/rosso, coerente con RANGE_RIF
+  livello B: il target LDL dipende dal rischio cardiovascolare individuale.
 
 ANDAMENTO NEL TEMPO (P118 tappa 3, 24 lug 2026)
   _andSerie(p, nomeEsame) → [{data, v, rf}] dal piu' vecchio al piu' recente, SOLO
