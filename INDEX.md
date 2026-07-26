@@ -222,8 +222,9 @@ Righe 5172-7021
 - `5383` — editPaz
 - `5446` — applicaRegoloSemaforo
 - `5957` — trovaChiaveAlimento
-- `6116` — _pazPreservaCampi *(F5 — l'anagrafica non cancella i campi che il form non gestisce)*
-- `6122` — salvaPaz
+- `6130` — _pazNumOPrec *(F7 — campo assente = valore precedente, non azzeramento)*
+- `6142` — _pazPreservaCampi *(F5 — l'anagrafica non cancella i campi che il form non gestisce)*
+- `6148` — salvaPaz
 - `6024` — openPaz
 - `6708` — renderPdRoutine
 - `6723` — cardHTML

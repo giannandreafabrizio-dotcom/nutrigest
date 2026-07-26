@@ -55,6 +55,7 @@
 | ~~**P121**~~ ✅ chiusa 25 lug 2026, **da collaudare** (motore unico grammature alternative — v. scheda) | Opus | High | ON | Tocca le grammature del piano: regole cliniche decise da Fabrizio |
 | ~~**P122**~~ ✅ **CHIUSA 26 lug 2026** — tutte e 5 le tappe + 5 correzioni post-collaudo (v. scheda) · da collaudare in studio | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
 | ~~**F6**~~ ✅ chiusa 25 lug 2026 (campo obiettivo sparito dal modal: ogni salvataggio lo azzerava — v. scheda P122) | Fable | High | ON | Perdita silenziosa di un dato di anamnesi |
+| ~~**F7**~~ ✅ chiusa 26 lug 2026 (altezza, peso e «non rinuncia a» spariti dal modulo: azzerati a ogni salvataggio — audit su tutti i 56 campi) | Opus | High | ON | Perdita silenziosa di dati anagrafici |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |

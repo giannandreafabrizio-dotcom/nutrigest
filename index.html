@@ -1225,6 +1225,16 @@ main{flex:1;overflow-y:auto;}
     <div class="fr"><div class="fg"><label>Nome *</label><input id="p-nome"></div><div class="fg"><label>Cognome *</label><input id="p-cognome"></div></div>
     <div class="fr"><div class="fg"><label>Data di nascita</label><input type="date" id="p-nascita" onchange="aggiornaEta()"><span id="p-eta-calc" style="font-size:.72rem;color:var(--teal);margin-top:2px;display:block"></span></div><div class="fg"><label>Sesso</label><select id="p-sesso"><option value="">— Seleziona —</option><option value="M">Maschio</option><option value="F">Femmina</option></select></div></div>
     <div class="fr"><div class="fg"><label>Cellulare</label><input id="p-tel" placeholder="333 000 0000"></div></div>
+    <!-- F7 (26 lug 2026) — altezza e peso erano SPARITI dal modulo mentre salvaPaz
+         continuava a leggerli: campo assente → null → azzerati a ogni salvataggio.
+         L'altezza sembrava reggere solo perché salvaInbody la riscrive a ogni
+         referto importato. Servono qui per i pazienti senza bioimpedenziometria:
+         senza altezza non esistono BMI, riferimenti di peso e cross-check Mifflin. -->
+    <div class="fr">
+      <div class="fg"><label>Altezza (cm)</label><input type="number" id="p-altezza" step="0.5" min="80" max="250" placeholder="es. 178"></div>
+      <div class="fg"><label>Peso dichiarato (kg)</label><input type="number" id="p-peso" step="0.1" min="20" max="300" placeholder="es. 83"></div>
+    </div>
+    <div style="font-size:.68rem;color:var(--text3);margin:-.4rem 0 .7rem">Servono solo finché non c'è un referto InBody: da quel momento l'app usa i dati del referto e tiene aggiornata l'altezza da sola.</div>
     <div class="fg"><label>Contesto emotivo e motivazionale</label>
       <textarea id="p-contesto-emotivo" rows="3" placeholder="Es. storia di fallimenti precedenti, alta motivazione, paziente ansioso, poco tempo, vita caotica..."></textarea>
     </div>
@@ -1493,6 +1503,7 @@ main{flex:1;overflow-y:auto;}
     <div class="fr">
       <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
       <div class="fg"><label>Cibi preferiti</label><input id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></div>
+      <div class="fg"><label>Non rinuncia a</label><input id="p-no-rinuncia" placeholder="Il caffè la mattina, il vino la domenica..."></div>
     </div>
   </div>
 
@@ -6113,6 +6124,21 @@ function trovaChiaveAlimento(nome){
 // campo futuro è al sicuro da subito. I campi che il form gestisce restano
 // quelli del form, anche quando vengono svuotati di proposito.
 // ══════════════════════════════════════════════════════════════════════════════
+// F7 — legge un numero dal modulo; se il campo non c'è o è vuoto tiene il
+// valore che il paziente aveva già, invece di azzerarlo. Un campo assente è
+// "non lo so", non "cancella".
+function _pazNumOPrec(idCampo, campoPaz){
+  const el=document.getElementById(idCampo);
+  if(el && String(el.value).trim()!==""){
+    const n=parseFloat(el.value);
+    if(!isNaN(n)) return n;
+  }
+  if(el && String(el.value).trim()==="") return null;   // svuotato di proposito: si rispetta
+  const prec=(typeof editPazId!=="undefined" && editPazId)
+    ? (db.pazienti.find(function(x){return x.id===editPazId;})||{})[campoPaz] : null;
+  return (prec!=null && !isNaN(parseFloat(prec))) ? parseFloat(prec) : null;
+}
+
 function _pazPreservaCampi(pd, old){
   if(!pd||!old||typeof old!=="object") return pd;
   Object.keys(old).forEach(function(k){ if(!(k in pd)) pd[k]=old[k]; });
@@ -6128,7 +6154,12 @@ function salvaPaz(){
   const gn=(id)=>{const el=document.getElementById(id);return el&&el.value?parseFloat(el.value):null;};
   const ini=g('p-inizio');
   const pd={
-    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),sesso:gs('p-sesso'),peso:gn('p-peso'),altezza:gn('p-altezza'),pesoTarget:gn('p-peso-target'),
+    nome,cognome,tel:g('p-tel'),nascita:g('p-nascita'),sesso:gs('p-sesso'),
+    // F7 — un campo assente dal modulo non deve poter CANCELLARE un dato: prima
+    // gn() restituiva null e peso/altezza sparivano a ogni salvataggio. Stessa
+    // protezione già data a pesoTarget nella Tappa 1. Vale anche se un domani il
+    // campo venisse tolto di nuovo dal markup: il dato resta.
+    peso:_pazNumOPrec('p-peso','peso'),altezza:_pazNumOPrec('p-altezza','altezza'),pesoTarget:gn('p-peso-target'),
     obiettivo:g('p-obiettivo'),visitaData:g('p-visita'),inizioAlim:ini,
     contestoEmotivo: document.getElementById('p-contesto-emotivo')?.value.trim() || '',
     controlloData:g('p-controllo'),studio:g('p-studio'),fumo:g('p-fumo'),alcol:g('p-alcol'),caffe:g('p-caffe'),
@@ -6144,7 +6175,7 @@ function salvaPaz(){
     })(),
     colazione:gs('p-colazione'),spuntM:gs('p-spunt-m'),
     pranzo:gs('p-pranzo'),spuntP:gs('p-spunt-p'),cena:gs('p-cena'),
-    dove:g('p-dove'),risc:gs('p-risc'),veg:g('p-veg'),
+    dove:g('p-dove'),veg:g('p-veg'),   // F7 — 'p-risc' rimosso: campo inesistente nel modulo e p.risc non letto da nessuna parte
     giorni:gs('p-giorni'),cibiPref:g('p-cibi-pref'),noRinuncia:g('p-no-rinuncia'),
     dove:getDove(),flusso:gs('p-flusso'),
     // P122 — pesoTarget e' lo SPECCHIO del traguardo clinico: non deve poter
@@ -23202,7 +23233,17 @@ function salvaInbody(){
     magraSegm:{bracSx:gn('ib-ms-bracsx'),bracDx:gn('ib-ms-bracdx'),tronco:gn('ib-ms-tronco'),gambSx:gn('ib-ms-gambsx'),gambDx:gn('ib-ms-gambdx')},
     grassaSegm:{bracSx:gn('ib-gs-bracsx'),bracDx:gn('ib-gs-bracdx'),tronco:gn('ib-gs-tronco'),gambSx:gn('ib-gs-gambsx'),gambDx:gn('ib-gs-gambdx')},
     note:document.getElementById('ib-note').value.trim()};
-  if(ib.altezza){p.altezza=ib.altezza;}  // aggiorna sempre altezza paziente da InBody
+  // F7 (26 lug 2026) — il referto continua ad aggiornare l'altezza (è il dato
+  // più recente e misurato sul posto), ma uno scarto grosso viene DICHIARATO:
+  // può essere una lettura sbagliata del PDF o il referto di un'altra persona,
+  // come già successo in collaudo. Avvisa e aggiorna: non blocca.
+  if(ib.altezza){
+    const _hPrec=parseFloat(p.altezza);
+    if(!isNaN(_hPrec) && _hPrec>0 && Math.abs(_hPrec-parseFloat(ib.altezza))>2){
+      notif('⚠ Altezza diversa da quella in anagrafica: '+_hPrec+' → '+ib.altezza+' cm. Controlla che il referto sia di questo paziente.', 6500);
+    }
+    p.altezza=ib.altezza;
+  }
   // P-AUTOFILL-ANAGRAFICA: persiste data di nascita/sesso estratti dal referto, solo se mancanti sul paziente
   if(window._ibAutofill){
     if(window._ibAutofill.nascita && !p.nascita) p.nascita=window._ibAutofill.nascita;

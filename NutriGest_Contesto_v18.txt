@@ -2126,6 +2126,29 @@ LA DOMANDA IN VISITA, STRUTTURATA (P122 Tappa 2, 25 lug 2026):
   target clinico", scadenza, importanza/fiducia, traguardo clinico derivato e
   riga di divario oltre 1 kg); i pazienti senza Tappa 2 non producono il blocco.
 
+CAMPI DELL'ANAGRAFICA — UN CAMPO ASSENTE NON CANCELLA (F7, 26 lug 2026):
+  salvaPaz legge 56 campi dal modulo; sei di questi NON esistevano nel markup e
+  venivano azzerati a ogni salvataggio: p-altezza (p.altezza), p-peso (p.peso),
+  p-no-rinuncia (p.noRinuncia), p-risc (codice morto, p.risc non letto da
+  nessuna parte), p-peso-target (gia' protetto dalla Tappa 1 di P122) e p-dove
+  (innocuo: piu' avanti dove:getDove() riscrive la chiave).
+  L'altezza sembrava reggere perche' salvaInbody fa p.altezza=ib.altezza a ogni
+  referto importato: importi una BIA -> c'e', modifichi l'anagrafica -> sparisce,
+  importi la BIA dopo -> torna. Bug intermittente, quindi invisibile.
+  ORA: Altezza e Peso dichiarato sono nel tab Dati, "Non rinuncia a" nel tab
+  Preferenze cibi, p-risc non viene piu' letto. E _pazNumOPrec(idCampo,
+  campoPaz) legge il numero dal modulo ma, SE IL CAMPO NON C'E', tiene il valore
+  che il paziente aveva gia' — un campo assente e' "non lo so", non "cancella".
+  Svuotarlo a mano azzera davvero (cancellare deve poter cancellare).
+  ALTEZZA — chi vince: l'InBody continua ad aggiornarla (dato piu' recente e
+  misurato sul posto), ma uno scarto oltre i 2 cm produce un avviso esplicito
+  ("controlla che il referto sia di questo paziente"): avvisa e aggiorna, non
+  blocca. Nasce da un caso reale di referto appartenente a un altro paziente.
+  METODO: l'audit che ha trovato tutti e sei i casi e' dieci righe che estraggono
+  gli id letti nel corpo di salvaPaz e li incrociano con gli id="" del markup.
+  Da rifare ogni volta che si tocca un modulo: getElementById su un id
+  inesistente non da' errore, restituisce null, e null sembra un valore valido.
+
 SALVATAGGIO ANAGRAFICA — campi non gestiti dal form (F5, 25 lug 2026):
   salvaPaz, nel ramo di modifica, ricostruisce il paziente dal form; prima
   riportava dal vecchio oggetto solo una whitelist esplicita di campi, e quella

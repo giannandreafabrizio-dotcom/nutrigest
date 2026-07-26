@@ -10,6 +10,60 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, seguito) — F7: I CAMPI ALTEZZA E PESO ERANO SPARITI DAL MODULO E OGNI SALVATAGGIO DELL'ANAGRAFICA LI AZZERAVA. Terzo caso della famiglia.
+Baseline `be8c2fc`. Test 283 → **290**, tutti verdi (`s2-anagrafica-campi.test.js`).
+
+**Origine.** Durante il collaudo di P122 gli avevo chiesto di verificare che in
+anagrafica ci fossero sesso e altezza. Osservazione di Fabrizio: *"il sesso c'è
+ma l'altezza no, però ricordo che l'altezza la estrapolavi dal referto InBody.
+Indaga."*
+
+**Il bug.** Il campo `p-altezza` **non esiste nel markup** del modal, ma
+`salvaPaz` continua a leggerlo: `gn()` su elemento assente restituisce `null`,
+quindi **ogni salvataggio dell'anagrafica azzerava `p.altezza`**. Sembrava
+funzionare per un motivo preciso — `salvaInbody` fa `p.altezza = ib.altezza` a
+ogni referto importato: il ciclo era *importi una BIA → l'altezza c'è → modifichi
+l'anagrafica → sparisce → importi la BIA dopo → ricompare*. Intermittente, quindi
+invisibile. Identico a F6 (campo obiettivo) e cugino di F5.
+
+**Audit sistematico** su tutti e 56 i campi letti da `salvaPaz`: **sei** non
+esistono nel markup. `p-altezza` → azzerava `p.altezza`; `p-peso` → azzerava
+`p.peso` (il ripiego per chi non ha InBody); `p-no-rinuncia` → azzerava
+`p.noRinuncia`; `p-risc` → **codice morto** (`p.risc` non è letto da nessuna
+parte); `p-peso-target` → già protetto dalla Tappa 1; `p-dove` → innocuo, più
+avanti c'è `dove:getDove()` che riscrive la chiave.
+
+**Impatto reale dell'altezza mancante:** senza `p.altezza` e senza il ripiego
+sull'InBody saltano BMI, range di normopeso, Devine/Robinson, cross-check
+Mifflin (P114 passo 7), la riga del contesto AI e gli indici clinici derivati.
+Un paziente **senza bioimpedenziometria** non ha l'altezza da nessuna parte: è
+cieco su tutto quello che ci si appoggia.
+
+**Correzione.**
+1. **Altezza e Peso dichiarato tornano nel tab Dati** (accanto a sesso e data di
+   nascita), con la nota che servono finché non c'è un referto InBody;
+   **«Non rinuncia a»** torna nel tab Preferenze cibi. `p-risc` non viene più letto.
+2. `_pazNumOPrec(idCampo, campoPaz)`: legge il numero dal modulo, e **se il campo
+   non c'è tiene il valore che il paziente aveva già**. Un campo assente è "non lo
+   so", non "cancella". Svuotarlo a mano invece azzera davvero — cancellare deve
+   poter cancellare. Vale anche se un domani il campo sparisse di nuovo dal markup.
+3. **L'InBody continua ad aggiornare l'altezza** (è il dato più recente e misurato
+   sul posto), ma uno scarto oltre i **2 cm** viene dichiarato con un avviso:
+   *"Altezza diversa da quella in anagrafica: 178 → 186 cm. Controlla che il
+   referto sia di questo paziente."* Avvisa e aggiorna, non blocca — scelta di
+   Fabrizio. Nasce da un fatto reale: nel primo collaudo un referto risultava di
+   un'altra persona.
+
+**Lezione (terza della stessa famiglia).** F5 era una whitelist di campi da
+riportare che era invecchiata; F6 e F7 sono l'immagine speculare — **il codice
+legge un campo che non esiste più**, e nessuno se ne accorge perché
+`getElementById` su un id inesistente non dà errore: restituisce `null`, che
+sembra un valore legittimo. **Quando si toglie un pezzo di markup bisogna cercare
+chi lo legge.** E il presidio giusto non è ricordarsene: è che *un campo assente
+non possa mai distruggere un dato*. L'audit che ha trovato tutti e sei i casi è
+dieci righe di script sul corpo di `salvaPaz` incrociato con gli `id` del markup:
+vale la pena rifarlo ogni volta che si tocca un modulo.
+
 26 LUGLIO 2026 (6ª sessione, seguito) — P122 TAPPA 5: LA VISTA PAZIENTE — **P122 COMPLETA**.
 Baseline `955d395`. Test 270 → **283**, tutti verdi (`s2-vista-paziente.test.js`).
 
