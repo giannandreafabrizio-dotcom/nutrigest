@@ -6502,10 +6502,18 @@ function percorsoLayerToggle(pazId, layer){
   const p=_percorsoPaz(pazId); if(p) renderPdPercorso(p);
 }
 function percorsoVistaPreset(pazId, modo){
+  const p=_percorsoPaz(pazId);
+  // P122 Tappa 5 — la vista paziente non è più solo un set di strati: è una
+  // modalità che cambia anche COSA si racconta (vedi _vistaPazienteHtml).
+  _percorsoVistaPaz[pazId] = (modo==="paziente");
+  // In fase di massa la massa magra si ACCENDE: è l'unica linea che descrive il
+  // progresso mentre il peso sale, quindi spegnerla sarebbe il contrario di ciò
+  // che serve al paziente in quel momento.
+  const inMassa = p ? _percorsoNascondiPeso(p) : false;
   _percorsoLayersState[pazId] = modo==="paziente"
-    ? {massaMagra:false, proiezione:true, energia:false, dettagliFasi:false, consuntivo:true}
+    ? {massaMagra:inMassa, proiezione:true, energia:false, dettagliFasi:false, consuntivo:true}
     : Object.assign({}, _PERCORSO_LAYERS_DEFAULT);
-  const p=_percorsoPaz(pazId); if(p) renderPdPercorso(p);
+  if(p) renderPdPercorso(p);
 }
 
 // ── Mutatori (pattern: muta paziente → save → re-render) ──────────────────────
@@ -7020,6 +7028,219 @@ function _traguardiHtml(p){
   return h;
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🙂 VISTA PAZIENTE (P122 Tappa 5 — 26 lug 2026)
+// Il preset "vista paziente" esisteva già ma spegneva solo strati del grafico.
+// Qui diventa una modalità vera: cambia COSA si racconta, non solo cosa si
+// disegna. Tre principi, tutti dal ragionamento iniziale:
+//  1) si mostra il traguardo della FASE IN CORSO, non quello a otto mesi — un
+//     traguardo lontano demotiva, uno vicino motiva;
+//  2) in fase di massa il PESO NON SI MOSTRA: sale per costruzione, e vederlo
+//     salire spaventa il paziente proprio mentre il percorso sta funzionando.
+//     Al suo posto massa magra e massa grassa;
+//  3) le vittorie si contano dall'inizio del percorso e includono quelle che la
+//     bilancia non vede (grasso, muscolo, girovita) — con la frase che serve in
+//     ricomposizione: "il peso è lo stesso, ma...".
+// Tutto ciò che è clinico o tecnico (corridoio, storico revisioni, editor fasi,
+// generatore, condizioni di uscita, avvisi) sparisce: non è roba da paziente.
+// ══════════════════════════════════════════════════════════════════════════════
+let _percorsoVistaPaz = {};      // id paziente → true/false, SOLO di sessione
+function _percorsoVistaPazAttiva(pazId){ return !!_percorsoVistaPaz[pazId]; }
+
+// Vittorie dall'inizio del percorso: il confronto tra la prima misurazione utile
+// dopo l'inizio (ripiego sulla più vecchia disponibile) e quella corrente.
+// Restituisce anche `ricomposizione`: peso quasi fermo ma composizione migliorata
+// — il caso in cui la bilancia mente e il paziente ha bisogno di sentirselo dire.
+function _percorsoVittorie(p){
+  const arr=(p&&Array.isArray(p.inbody))?p.inbody.filter(function(ib){
+    return ib && ib.data && parseFloat(ib.peso)>0;
+  }):[];
+  if(arr.length<2) return null;
+  const percorso=_percorsoGet(p);
+  const inizio=percorso?percorso.inizio:null;
+  let base=null;
+  if(inizio){ base=arr.find(function(ib){ return ib.data>=inizio; }) || null; }
+  if(!base || base===arr[arr.length-1]) base=arr[0];
+  const fine=arr[arr.length-1];
+  if(base===fine) return null;
+  const comp=function(ib){
+    const peso=parseFloat(ib.peso);
+    let m=parseFloat(ib.m);
+    if(!m||isNaN(m)){ const g=parseFloat(ib.g); if(!isNaN(g)&&g>0) m=peso-g; }
+    if(!m||isNaN(m)){ const pg=parseFloat(ib.pg); if(!isNaN(pg)&&pg>0&&pg<70) m=peso*(1-pg/100); }
+    if(!m||isNaN(m)||m<=0||m>=peso) return {peso:peso, m:null, g:null, pg:null};
+    return {peso:peso, m:+m.toFixed(1), g:+(peso-m).toFixed(1), pg:+(((peso-m)/peso)*100).toFixed(1)};
+  };
+  const a=comp(base), b=comp(fine);
+  const gi=parseFloat(base.girovita), gf=parseFloat(fine.girovita);
+  const v={
+    dal:base.data, al:fine.data,
+    pesoDelta:+(b.peso-a.peso).toFixed(1),
+    grassoPerso:(a.g!=null&&b.g!=null)?+(a.g-b.g).toFixed(1):null,
+    magraGuadagnata:(a.m!=null&&b.m!=null)?+(b.m-a.m).toFixed(1):null,
+    pctDelta:(a.pg!=null&&b.pg!=null)?+(b.pg-a.pg).toFixed(1):null,
+    girovitaPerso:(!isNaN(gi)&&!isNaN(gf))?+(gi-gf).toFixed(1):null,
+    pesoOra:b.peso, magraOra:b.m, grassaOra:b.g, pctOra:b.pg
+  };
+  v.ricomposizione = Math.abs(v.pesoDelta)<1.5 &&
+    ((v.grassoPerso!=null&&v.grassoPerso>0.8) || (v.magraGuadagnata!=null&&v.magraGuadagnata>0.5));
+  return v;
+}
+
+// In fase di surplus il peso sale per costruzione: in vista paziente non si
+// mostra. Non è una bugia — è scegliere l'indicatore che descrive il progresso.
+function _percorsoNascondiPeso(p){
+  const percorso=_percorsoGet(p);
+  if(!percorso) return false;
+  const f=_percorsoFaseAt(percorso, _percorsoIsoLocal(Date.now()));
+  return !!(f && f.tipo==="surplus");
+}
+
+// Il traguardo della fase in corso: quanto manca alla fine, cosa si deve
+// ottenere (i traguardi della Tappa 4 agganciati a questa fase o al percorso
+// intero) e, solo se non è una fase di massa, il peso atteso a fine fase
+// preso dalla proiezione P115 — lo stesso numero del grafico.
+function _traguardoFaseCorrente(p){
+  const percorso=_percorsoGet(p);
+  if(!percorso||!percorso.fasi.length) return null;
+  const oggi=_percorsoIsoLocal(Date.now());
+  const f=_percorsoFaseAt(percorso, oggi);
+  if(!f) return {fuoriFase:true};
+  const ints=_percorsoIntervalli(percorso);
+  const iv=ints[f.indice];
+  const giorni=Math.round((new Date(iv.al+"T00:00:00").getTime()-new Date(oggi+"T00:00:00").getTime())/864e5);
+  const out={fuoriFase:false, indice:f.indice, tipo:f.tipo, pct:f.pct, dal:iv.dal, al:iv.al,
+             settimaneRestanti:Math.max(0, Math.round(giorni/7)), giorniRestanti:Math.max(0,giorni),
+             totFasi:ints.length, pesoAtteso:null, nascondiPeso:f.tipo==="surplus", traguardi:[]};
+  if(f.tipo!=="surplus"){
+    const pr=_percorsoProiezione(p);
+    if(pr && pr.ok && pr.punti.length){
+      let best=null;
+      pr.punti.forEach(function(q){ if(q.data<=iv.al) best=q; });
+      if(best) out.pesoAtteso=+best.kg.toFixed(1);
+    }
+  }
+  out.traguardi=_traguardiValuta(p).filter(function(t){
+    return t.stato!=="mancato" && (t.faseIdx===null || t.faseIdx===undefined || t.faseIdx===f.indice);
+  });
+  return out;
+}
+
+// Testo in linguaggio semplice, riusabile: vista paziente e messaggio WhatsApp.
+// Restituisce [] quando non c'è niente di sensato da dire.
+function _traguardoTestoPaziente(p){
+  const righe=[];
+  const v=_percorsoVittorie(p);
+  if(v){
+    if(v.ricomposizione){
+      const pezzi=[];
+      if(v.grassoPerso>0.1) pezzi.push("perso "+v.grassoPerso+" kg di grasso");
+      if(v.magraGuadagnata>0.1) pezzi.push("messo "+v.magraGuadagnata+" kg di muscolo");
+      if(pezzi.length) righe.push("Il peso è praticamente lo stesso, ma hai "+pezzi.join(" e ")+": è esattamente quello che vogliamo.");
+    } else {
+      const pezzi=[];
+      if(v.grassoPerso!=null && v.grassoPerso>0.3) pezzi.push("grasso −"+v.grassoPerso+" kg");
+      if(v.magraGuadagnata!=null && v.magraGuadagnata>0.3) pezzi.push("massa magra +"+v.magraGuadagnata+" kg");
+      if(v.girovitaPerso!=null && v.girovitaPerso>0.5) pezzi.push("girovita −"+v.girovitaPerso+" cm");
+      if(pezzi.length) righe.push("Da inizio percorso: "+pezzi.join(" · ")+".");
+    }
+    if(v.girovitaPerso!=null && v.girovitaPerso>0.5 && !righe.join(" ").includes("girovita"))
+      righe.push("Girovita −"+v.girovitaPerso+" cm: è la misura che si vede addosso prima che sulla bilancia.");
+  }
+  const fc=_traguardoFaseCorrente(p);
+  if(fc && !fc.fuoriFase){
+    const nome=_PERCORSO_TIPI[fc.tipo]?_PERCORSO_TIPI[fc.tipo].label:fc.tipo;
+    let r="Adesso siamo nella fase di "+nome.toLowerCase()+", restano "+fc.settimaneRestanti+" settiman"+(fc.settimaneRestanti===1?"a":"e")+".";
+    if(fc.nascondiPeso) r+=" In questa fase il peso sale ed è normale: quello che guardiamo è la massa muscolare.";
+    else if(fc.pesoAtteso) r+=" L'obiettivo entro fine fase è arrivare intorno ai "+fc.pesoAtteso+" kg.";
+    righe.push(r);
+    const aperti=fc.traguardi.filter(function(t){ return t.tipo==="comportamento" && t.stato==="aperto"; });
+    if(aperti.length) righe.push("Impegni di questo periodo: "+aperti.map(function(t){ return t.etichetta+(t.valore!=null?" ("+t.valore+" "+(t.unita||"")+")":""); }).join(" · ")+".");
+  }
+  return righe;
+}
+
+// ── Il blocco che il paziente guarda ────────────────────────────────────────
+function _vistaPazienteHtml(p){
+  const v=_percorsoVittorie(p);
+  const fc=_traguardoFaseCorrente(p);
+  const nascondiPeso=_percorsoNascondiPeso(p);
+  const card=function(tit, inner, col){
+    return '<div style="flex:1;min-width:210px;border:1.5px solid '+col+';border-radius:10px;padding:.55rem .75rem;background:#fff">'
+      +'<div style="font-size:.7rem;font-weight:700;color:'+col+';margin-bottom:.3rem">'+tit+'</div>'+inner+'</div>';
+  };
+  let h='<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.7rem">';
+
+  // ── dove sei adesso ────────────────────────────────────────────────────────
+  if(v){
+    let oggi='';
+    if(!nascondiPeso) oggi+='<div style="font-size:1.05rem;font-weight:700">'+v.pesoOra+' kg</div>';
+    const sotto=[];
+    if(v.magraOra!=null) sotto.push('muscolo <strong>'+v.magraOra+' kg</strong>');
+    if(v.grassaOra!=null) sotto.push('grasso <strong>'+v.grassaOra+' kg</strong>'+(v.pctOra!=null?' ('+v.pctOra+'%)':''));
+    if(nascondiPeso && sotto.length) oggi+='<div style="font-size:1.0rem;font-weight:700">'+v.magraOra+' kg di muscolo</div>';
+    oggi+='<div style="font-size:.72rem;color:var(--text2)">'+sotto.join(' · ')+'</div>';
+    h+=card("Dove sei adesso", oggi, "#185FA5");
+
+    // ── cosa hai già ottenuto ───────────────────────────────────────────────
+    let vinto='';
+    if(v.ricomposizione){
+      const pezzi=[];
+      if(v.grassoPerso>0.1) pezzi.push('<strong>−'+v.grassoPerso+' kg</strong> di grasso');
+      if(v.magraGuadagnata>0.1) pezzi.push('<strong>+'+v.magraGuadagnata+' kg</strong> di muscolo');
+      vinto+='<div style="font-size:.76rem;line-height:1.5">Il peso è praticamente lo stesso, ma hai '+pezzi.join(' e ')+'.<br><span style="color:#1D9E75;font-weight:600">È esattamente quello che vogliamo.</span></div>';
+    } else {
+      const righe=[];
+      if(v.grassoPerso!=null && Math.abs(v.grassoPerso)>0.1) righe.push('Grasso <strong style="color:'+(v.grassoPerso>0?'#1D9E75':'#c2410c')+'">'+(v.grassoPerso>0?'−':'+')+Math.abs(v.grassoPerso)+' kg</strong>');
+      if(v.magraGuadagnata!=null && Math.abs(v.magraGuadagnata)>0.1) righe.push('Muscolo <strong style="color:'+(v.magraGuadagnata>0?'#1D9E75':'#c2410c')+'">'+(v.magraGuadagnata>0?'+':'−')+Math.abs(v.magraGuadagnata)+' kg</strong>');
+      if(v.girovitaPerso!=null && Math.abs(v.girovitaPerso)>0.4) righe.push('Girovita <strong style="color:'+(v.girovitaPerso>0?'#1D9E75':'#c2410c')+'">'+(v.girovitaPerso>0?'−':'+')+Math.abs(v.girovitaPerso)+' cm</strong>');
+      if(!nascondiPeso && Math.abs(v.pesoDelta)>0.1) righe.push('Peso <strong>'+(v.pesoDelta>0?'+':'')+v.pesoDelta+' kg</strong>');
+      vinto+='<div style="font-size:.76rem;line-height:1.6">'+(righe.length?righe.join('<br>'):'Ancora presto per un confronto.')+'</div>';
+    }
+    vinto+='<div style="font-size:.64rem;color:var(--text3);margin-top:.25rem">da '+(typeof fData==="function"?fData(v.dal):v.dal)+'</div>';
+    h+=card("Cosa hai già ottenuto", vinto, "#1D9E75");
+  }
+
+  // ── la fase in corso ───────────────────────────────────────────────────────
+  if(fc && !fc.fuoriFase){
+    const nome=_PERCORSO_TIPI[fc.tipo]?_PERCORSO_TIPI[fc.tipo].label:fc.tipo;
+    let f='<div style="font-size:.88rem;font-weight:700">'+nome+'</div>'
+      +'<div style="font-size:.74rem;color:var(--text2)">Restano <strong>'+fc.settimaneRestanti+'</strong> settiman'+(fc.settimaneRestanti===1?'a':'e')+' <span style="color:var(--text3)">(fase '+(fc.indice+1)+' di '+fc.totFasi+')</span></div>';
+    if(fc.nascondiPeso) f+='<div style="font-size:.72rem;color:#b5641a;margin-top:.25rem">In questa fase il peso <strong>sale ed è giusto così</strong>: quello che guardiamo è il muscolo.</div>';
+    else if(fc.pesoAtteso) f+='<div style="font-size:.72rem;margin-top:.25rem">Obiettivo entro fine fase: <strong>~'+fc.pesoAtteso+' kg</strong></div>';
+    h+=card("Adesso", f, "#B8860B");
+  } else if(fc && fc.fuoriFase){
+    h+=card("Adesso", '<div style="font-size:.74rem;color:var(--text2)">Il piano è in pausa: lo riprendiamo insieme oggi.</div>', "#898781");
+  }
+  h+='</div>';
+
+  // ── i traguardi, in linguaggio semplice ───────────────────────────────────
+  const tg=(fc&&!fc.fuoriFase)?fc.traguardi:_traguardiValuta(p).filter(function(t){ return t.stato!=="mancato"; });
+  if(tg.length){
+    h+='<div style="border:1px solid var(--border);border-radius:10px;padding:.55rem .75rem;background:#fcfcfb;margin-bottom:.7rem">'
+      +'<div style="font-size:.72rem;font-weight:700;color:var(--text2);margin-bottom:.35rem">I tuoi traguardi</div>';
+    tg.forEach(function(t){
+      const meta=t.meta||{ico:"•", unita:""};
+      const ok=(t.stato==="raggiunto")||t.raggiunto===true;
+      // in fase di massa il traguardo di peso non si mostra: manderebbe il
+      // messaggio opposto a quello che serve
+      if(nascondiPeso && t.tipo==="peso") return;
+      h+='<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.76rem">'
+        +'<span>'+meta.ico+'</span>'
+        +'<span style="flex:1'+(ok?';color:#1D9E75;font-weight:600':'')+'">'+(t.etichetta||"")+(t.valore!=null?' <span style="color:var(--text3);font-weight:400">→ '+t.valore+' '+(t.unita||meta.unita||"")+'</span>':'')+'</span>';
+      if(t.progresso!=null){
+        h+='<span style="width:96px;height:7px;background:var(--bg2);border-radius:4px;overflow:hidden;display:inline-block">'
+          +'<span style="display:block;width:'+t.progresso+'%;height:100%;background:'+(ok?"#1D9E75":"#2a78d6")+'"></span></span>'
+          +'<span style="font-size:.68rem;color:var(--text3);width:34px;text-align:right">'+t.progresso+'%</span>';
+      } else h+='<span style="font-size:.68rem;color:var(--text3)">'+(ok?'':'in corso')+'</span>';
+      h+='<span style="width:16px">'+(ok?'<span style="color:#1D9E75;font-weight:700">✓</span>':'')+'</span></div>';
+    });
+    h+='</div>';
+  }
+  return h;
+}
+
 // ── Grafico SVG: bande fasi + linea peso reale + linea "oggi" ─────────────────
 function _percorsoChartSvg(p){
   const percorso=_percorsoGet(p);
@@ -7229,16 +7450,19 @@ function renderPdPercorso(p){
     const fAtt=_percorsoFaseAt(percorso, oggi);
     const ints=_percorsoIntervalli(percorso);
     const fine=ints.length?ints[ints.length-1].al:null;
-    // riepilogo fase attuale
+    const _vistaPaz=_percorsoVistaPazAttiva(p.id);   // P122 Tappa 5
+    // riepilogo fase attuale (in vista paziente niente data modificabile)
     html+='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:.6rem;font-size:.78rem">'
-      +'<div><span style="color:var(--text3)">Inizio</span> <input type="date" value="'+percorso.inizio+'" onchange="percorsoSetInizio(\''+p.id+'\',this.value)" style="font-size:.78rem"></div>'
+      +(_vistaPaz?'':'<div><span style="color:var(--text3)">Inizio</span> <input type="date" value="'+percorso.inizio+'" onchange="percorsoSetInizio(\''+p.id+'\',this.value)" style="font-size:.78rem"></div>')
       +(fAtt
         ? '<div style="padding:.25rem .7rem;border-radius:20px;background:'+_PERCORSO_TIPI[fAtt.tipo].band+';color:'+_PERCORSO_TIPI[fAtt.tipo].txt+';font-weight:700">Oggi: '+_PERCORSO_TIPI[fAtt.tipo].label+' ('+(fAtt.pct===0?"mantieni":(fAtt.pct>0?"+":"")+fAtt.pct+"%")+') · fase '+(fAtt.indice+1)+' di '+ints.length+'</div>'
         : '<div style="padding:.25rem .7rem;border-radius:20px;background:#eef4fb;color:#185FA5;font-weight:600">⏸ Il piano è rimasto indietro'+(fine&&oggi>=fine?' (le fasi finivano il '+_percorsoDataBreve(fine)+')':'')+' — capita in tutti i percorsi veri</div>')
-      +'<button class="btn btn-g btn-sm" title="Il paziente è sparito per un po\'? Il piano trasla e riprende da dove si era fermato (ultima pesata): niente da rifare" onclick="percorsoRiallinea(\''+p.id+'\')">⏩ Riallinea a oggi</button>'
+      +(_vistaPaz?'':'<button class="btn btn-g btn-sm" title="Il paziente è sparito per un po\'? Il piano trasla e riprende da dove si era fermato (ultima pesata): niente da rifare" onclick="percorsoRiallinea(\''+p.id+'\')">⏩ Riallinea a oggi</button>')
       +'</div>';
+    // P122 Tappa 5 — il blocco che il paziente guarda, al posto di tutto il resto
+    if(_vistaPaz) html+=_vistaPazienteHtml(p);
     // P122 T3 — note del generatore: mostrate UNA volta subito dopo la generazione
-    if(window._percorsoGenNote && window._percorsoGenNote.pazId===p.id){
+    if(!_vistaPaz && window._percorsoGenNote && window._percorsoGenNote.pazId===p.id){
       const _gn=window._percorsoGenNote; window._percorsoGenNote=null;
       html+='<div style="font-size:.74rem;color:#185FA5;margin:-.2rem 0 .55rem;padding:.35rem .6rem;background:#eef4fb;border:1px solid #c9ddf2;border-radius:8px">🧭 <strong>Fasi generate — modello '+_gn.modello+'</strong>'
         +(_gn.stima&&_gn.stima.rateSett?' · ritmo previsto ~'+_gn.stima.rateSett+' kg/sett. su '+_gn.stima.kgTotali+' kg':'')
@@ -7247,7 +7471,7 @@ function renderPdPercorso(p){
     }
     // P122 Tappa 4 — condizione di uscita raggiunta: SUGGERIMENTO, mai azione
     // automatica (scelta esplicita di Fabrizio, 26/7). Guarda solo la fase attiva.
-    if(fAtt && percorso.fasi[fAtt.indice]){
+    if(!_vistaPaz && fAtt && percorso.fasi[fAtt.indice]){
       const _cAtt=_percorsoCondizione(p, percorso.fasi[fAtt.indice]);
       if(_cAtt && _cAtt.scattata){
         const _ultima=(fAtt.indice===percorso.fasi.length-1);
@@ -7260,7 +7484,7 @@ function renderPdPercorso(p){
     }
     // P115 Tappa 2 — riga proiezione + obiettivo (informativa)
     const _proj=_percorsoProiezione(p);
-    if(_proj && _proj.ok){
+    if(!_vistaPaz && _proj && _proj.ok){
       const met = _proj.metodo==="calibrata"
         ? '<span style="color:#5B3E8C;font-weight:700">calibrata sul TDEE osservato ('+_proj.tdeeRef+' kcal)</span> <span style="color:var(--text3)">(assume che le kcal prescritte vengano seguite)</span>'
         : '<span style="color:#185FA5;font-weight:700">teorica</span> <span style="color:var(--text3)">(si calibrerà da sola con le prossime pesate)</span>';
@@ -7274,7 +7498,7 @@ function renderPdPercorso(p){
         obTxt=' · 🎯 obiettivo '+p.pesoTarget+' kg: oltre la fine del percorso pianificato — valuta di allungare o intensificare le fasi';
       }
       html+='<div style="font-size:.74rem;color:var(--text2);margin:-.2rem 0 .55rem;padding:.35rem .6rem;background:#f4f8fd;border:1px solid #d9e6f5;border-radius:8px">Proiezione: '+met+' · intervallo ±'+_proj.rangePct+'%'+obTxt+'</div>';
-    } else if(_proj && !_proj.ok && ints.length){
+    } else if(!_vistaPaz && _proj && !_proj.ok && ints.length){
       html+='<div style="font-size:.7rem;color:var(--text3);margin:-.2rem 0 .55rem">Proiezione non disponibile: '+_proj.motivo+'.</div>';
     }
     // P115 Tappa 5 — riga "Piano vs Realtà": compare solo quando l'app paziente (P50)
@@ -7289,12 +7513,12 @@ function renderPdPercorso(p){
       return '<label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;user-select:none"><input type="checkbox" '+(layers[key]?"checked":"")+' onchange="percorsoLayerToggle(\''+p.id+'\',\''+key+'\')" style="accent-color:'+accent+'"> '+lbl+'</label>';
     };
     html+='<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 .5rem;font-size:.74rem;color:var(--text2)">'
-      +'<span style="color:var(--text3);font-weight:600">Strati:</span>'
+      +(_vistaPaz?'':'<span style="color:var(--text3);font-weight:600">Strati:</span>'
       +_lyChk("massaMagra","massa magra","#e87ba4")
       +_lyChk("proiezione","cono proiezione","#2a78d6")
       +_lyChk("energia","corsia energia","#eb6834")
       +_lyChk("dettagliFasi","dettagli fasi (% · kcal)","#898781")
-      +(_cons.ok?_lyChk("consuntivo","aderenza (app paziente)","#008300"):"")
+      +(_cons.ok?_lyChk("consuntivo","aderenza (app paziente)","#008300"):""))
       +'<span style="margin-left:auto;display:flex;gap:6px">'
         +'<button class="btn btn-g btn-sm" title="Tutti gli strati, per il lavoro clinico" onclick="percorsoVistaPreset(\''+p.id+'\',\'tecnica\')">🔧 Vista tecnica</button>'
         +'<button class="btn btn-g btn-sm" title="Solo peso, target e proiezione — da mostrare al paziente" onclick="percorsoVistaPreset(\''+p.id+'\',\'paziente\')">🙂 Vista paziente</button>'
@@ -7304,8 +7528,10 @@ function renderPdPercorso(p){
     html+= svg
       ? '<div style="border:1px solid var(--border);border-radius:10px;padding:.5rem .4rem .2rem;background:#fcfcfb">'+svg+'</div>'
       : '<div style="font-size:.75rem;color:var(--text3);padding:.6rem 0">Aggiungi almeno una fase (o un paio di pesate) per vedere il grafico.</div>';
-    html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody (peso) · ○ pesata intermedia · ▪ massa magra (InBody, stesso asse kg: il divario col peso è la massa grassa — passa il mouse sui quadratini per il dettaglio % grassa) · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. '+(_cons.ok?'Striscia aderenza: un rettangolino per giorno dichiarato dal paziente (verde ok · giallo parziale · rosso sgarro), passa il mouse per il dettaglio. ':'Piano vs Realtà: predisposto — la striscia aderenza e il ritardo accumulato si accenderanno con l\'app paziente (P50). ')+'Tutto informativo: nessun calcolo viene toccato.</div>';
-    // editor fasi
+    html+=(_vistaPaz?'<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">Il pallino è ogni misurazione; la fascia azzurra è la strada prevista nelle prossime settimane. Le bande colorate sono i periodi del percorso.</div>':'')
+      +(_vistaPaz?'':'<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody (peso) · ○ pesata intermedia · ▪ massa magra (InBody, stesso asse kg: il divario col peso è la massa grassa — passa il mouse sui quadratini per il dettaglio % grassa) · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. '+(_cons.ok?'Striscia aderenza: un rettangolino per giorno dichiarato dal paziente (verde ok · giallo parziale · rosso sgarro), passa il mouse per il dettaglio. ':'Piano vs Realtà: predisposto — la striscia aderenza e il ritardo accumulato si accenderanno con l\'app paziente (P50). ')+'Tutto informativo: nessun calcolo viene toccato.</div>');
+    // editor fasi (tutta la parte clinica resta fuori dalla vista paziente)
+    if(!_vistaPaz){
     html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
       +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th title="La fase può finire quando un valore raggiunge una soglia, invece che a calendario: te lo segnalo soltanto, decidi tu.">…oppure finché</th><th></th></tr></thead><tbody>';
     ints.forEach(function(f,i){
@@ -7350,6 +7576,7 @@ function renderPdPercorso(p){
         +'<button class="btn btn-g btn-sm" onclick="percorsoGeneraDaModello(\''+p.id+'\')">Genera</button>'
       +'</div>';
     html+=_traguardiHtml(p);   // P122 Tappa 4
+    }
   }
   html+='</div></div>';
   box.innerHTML=html;
@@ -19575,6 +19802,23 @@ async function generaMessaggioAI() {
   if (deltaPeso && parseFloat(deltaPeso) > 0) datiClinici += `. Ha già perso ${deltaPeso}kg dall'inizio (peso iniziale ${pesoIniziale}kg, attuale ${pesoIntermedio}kg — rilevazione ${fontePeso||'disponibile'})`;
   else if (deltaPeso && parseFloat(deltaPeso) < 0) datiClinici += `. Ha avuto un aumento di ${Math.abs(deltaPeso)}kg dall'inizio (rilevazione ${fontePeso||'disponibile'})`;
   else if (!deltaPeso) datiClinici += `. Non ci sono misurazioni intermedie disponibili`;
+  // P122 Tappa 5 — le vittorie che la bilancia non vede entrano nel messaggio,
+  // e in fase di massa il peso NON deve essere citato: sale per costruzione e
+  // vederlo salire spaventa il paziente proprio mentre il percorso funziona.
+  let _istrPeso='';
+  try{
+    const _v=(typeof _percorsoVittorie==='function')?_percorsoVittorie(p):null;
+    if(_v){
+      if(_v.grassoPerso!=null && Math.abs(_v.grassoPerso)>0.3) datiClinici += `. Massa grassa ${_v.grassoPerso>0?'-':'+'}${Math.abs(_v.grassoPerso)}kg da inizio percorso`;
+      if(_v.magraGuadagnata!=null && Math.abs(_v.magraGuadagnata)>0.3) datiClinici += `, massa magra ${_v.magraGuadagnata>0?'+':'-'}${Math.abs(_v.magraGuadagnata)}kg`;
+      if(_v.girovitaPerso!=null && _v.girovitaPerso>0.5) datiClinici += `, girovita -${_v.girovitaPerso}cm`;
+      if(_v.ricomposizione) _istrPeso='\n- IMPORTANTE: il peso e\' praticamente fermo ma la COMPOSIZIONE e\' migliorata (grasso giu\', muscolo su). Costruisci il messaggio su questo, non sulla bilancia: e\' il risultato che conta.';
+    }
+    if(typeof _percorsoNascondiPeso==='function' && _percorsoNascondiPeso(p))
+      _istrPeso+='\n- IMPORTANTE: il paziente e\' in fase di AUMENTO (massa). NON citare il peso ne\' i chili presi: parla di massa muscolare, forza e recupero. Il peso che sale in questa fase e\' previsto e non va sottolineato.';
+    const _righe=(typeof _traguardoTestoPaziente==='function')?_traguardoTestoPaziente(p):[];
+    if(_righe.length) datiClinici += `. Da dire al paziente: ${_righe.join(' ')}`;
+  }catch(e){ /* il messaggio deve poter partire anche senza percorso */ }
   if (p.patologie) datiClinici += `. Patologie: ${p.patologie}`;
   if (p.integratori) datiClinici += `. Integratori: ${p.integratori}`;
   if (noteExtra) datiClinici += `. Note aggiuntive: ${noteExtra}`;
@@ -19591,7 +19835,7 @@ Istruzioni:
 - Usa il nome di battesimo del paziente (${p.nome})
 - NON usare eccessivi emoji (max 2-3 per messaggio)
 - NON menzionare esplicitamente "piano alimentare" o "dieta" — usa termini come "percorso", "alimentazione", "obiettivo"
-- Se ci sono dati sul peso perso, citali in modo incoraggiante e clinicamente rilevante
+- Se ci sono dati sul peso perso, citali in modo incoraggiante e clinicamente rilevante${_istrPeso}
 - Se non ci sono dati sul peso, motiva sul percorso e sulle abitudini
 - Il messaggio deve sembrare scritto da un vero professionista, non da un chatbot
 - Firma solo con "Dott. Fabrizio" alla fine

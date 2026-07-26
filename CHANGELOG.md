@@ -10,6 +10,67 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, seguito) — P122 TAPPA 5: LA VISTA PAZIENTE — **P122 COMPLETA**.
+Baseline `955d395`. Test 270 → **283**, tutti verdi (`s2-vista-paziente.test.js`).
+
+**Origine.** Ultima tappa di `NutriGest_Obiettivo_Ragionamento.md`. Il preset
+"🙂 Vista paziente" esisteva dalla P115 ma spegneva **solo strati del grafico**:
+il paziente vedeva comunque corridoio, storico delle revisioni, editor delle
+fasi e proiezione tecnica. Ora è una **modalità vera**, che cambia cosa si
+racconta e non solo cosa si disegna.
+
+**Cosa vede il paziente** (tre riquadri + i suoi traguardi):
+1. **Dove sei adesso** — peso, muscolo, grasso. **In fase di massa il peso non
+   compare**: al suo posto i chili di muscolo. Non è una bugia, è scegliere
+   l'indicatore che descrive il progresso — in surplus il peso sale per
+   costruzione e vederlo salire spaventa proprio mentre il percorso funziona.
+2. **Cosa hai già ottenuto** — le vittorie **dall'inizio del percorso** (non dal
+   referto più vecchio in archivio: la storia di tre anni fa non è questo
+   percorso): grasso, muscolo, girovita. E quando il peso è fermo ma la
+   composizione è migliorata scatta la frase che serve davvero in
+   ricomposizione: *"Il peso è praticamente lo stesso, ma hai perso 2.6 kg di
+   grasso e messo 3 kg di muscolo. È esattamente quello che vogliamo."*
+3. **Adesso** — la fase in corso, quante settimane restano, e il traguardo di
+   **questa fase** invece di quello a otto mesi (un traguardo lontano demotiva,
+   uno vicino motiva). In fase di massa niente peso atteso, ma la frase *"il peso
+   sale ed è giusto così: quello che guardiamo è il muscolo"*.
+4. **I tuoi traguardi** (Tappa 4) con le barre di progresso, filtrati sulla fase
+   in corso; quelli già mancati non si ripropongono, e in fase di massa il
+   traguardo di peso viene escluso — manderebbe il messaggio opposto.
+
+**Cosa sparisce in vista paziente:** editor delle fasi, generatore di modelli,
+riga di proiezione tecnica (metodo/±%), badge della condizione di uscita,
+pulsante Riallinea, data di inizio modificabile, interruttori degli strati,
+note del generatore, legenda tecnica (sostituita da una riga in italiano
+semplice). Restano i due pulsanti di preset per tornare alla vista tecnica.
+**In fase di massa la linea della massa magra si ACCENDE** nel grafico: è l'unica
+che descrive il progresso mentre il peso sale, quindi spegnerla — come faceva il
+vecchio preset — era il contrario di ciò che serve.
+*Nota dichiarata:* dentro il grafico l'etichetta del peso resta visibile (la
+linea del peso è la spina dorsale del disegno); è il **testo** a non citarlo mai
+in fase di massa. Nasconderlo anche nel grafico è una modifica di pochi minuti se
+al primo uso in studio dà fastidio.
+
+**Il messaggio WhatsApp eredita tutto** (`generaMessaggioAI`): nei dati clinici
+entrano le variazioni di massa grassa, massa magra e girovita, più le righe
+pronte di `_traguardoTestoPaziente`; e due istruzioni esplicite all'AI — se il
+peso è fermo ma la composizione è migliorata, **costruire il messaggio su quello
+e non sulla bilancia**; se il paziente è in fase di aumento, **non citare il peso
+né i chili presi**, ma massa muscolare, forza e recupero. Il tutto in un try/catch:
+il messaggio deve poter partire anche su un paziente senza percorso.
+
+**P122 COMPLETA** (5 tappe + 5 correzioni post-collaudo, 25-26 luglio 2026).
+Da un campo di testo libero e un numero digitato a mano a: traguardo derivato
+dalla composizione con soglie di sicurezza per sesso · la domanda in visita
+strutturata con l'aspettativa del paziente · le fasi generate dal traguardo con
+il riallineo · traguardi multipli e comportamentali con condizione di uscita ·
+la vista paziente. Test da 197 a **283**.
+
+**Da collaudare.** Su un paziente in fase di massa: scheda 📈 Percorso →
+🙂 Vista paziente. Deve sparire tutto ciò che è clinico, il peso non deve
+comparire nei testi, e la linea rosa della massa magra deve accendersi. Poi
+genera un messaggio WhatsApp e verifica che non parli di chili presi.
+
 26 LUGLIO 2026 (6ª sessione, seguito) — P122 TAPPA 4: TRAGUARDI MULTIPLI, CONDIZIONE DI USCITA DELLE FASI, CHIUSURA CON ESITO.
 Baseline `e25daaf`. Test 254 → **270**, tutti verdi (`s2-traguardi-multipli.test.js`).
 

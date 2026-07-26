@@ -1913,6 +1913,40 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     toolbar (acceso anche in vista paziente: è il momento educativo, il
     motivo per cui esiste). SOLO informativo: proiezione e TDEE ignorano il
     consuntivo (fissato da test di isolamento).
+  VISTA PAZIENTE (P122 Tappa 5, 26 lug 2026):
+    _percorsoVistaPaz[pazId] (stato di SESSIONE, come i layer: non tocca p, non
+    va su Supabase) dice se la scheda e' in modalita' paziente; lo imposta
+    percorsoVistaPreset. Non e' piu' solo un set di strati: renderPdPercorso
+    nasconde editor fasi, generatore modelli, riga di proiezione tecnica, badge
+    della condizione di uscita, pulsante Riallinea, data di inizio, interruttori
+    degli strati, note del generatore e legenda tecnica (sostituita da una riga
+    in italiano semplice). Restano i due pulsanti di preset.
+    _vistaPazienteHtml(p) produce tre riquadri: "Dove sei adesso" (peso, muscolo,
+    grasso — IN FASE DI MASSA IL PESO NON COMPARE), "Cosa hai gia' ottenuto"
+    (_percorsoVittorie) e "Adesso" (_traguardoFaseCorrente), piu' i traguardi
+    della Tappa 4 con le barre, filtrati sulla fase in corso e senza quelli
+    mancati; in fase di massa il traguardo di tipo "peso" viene escluso.
+    _percorsoVittorie(p) (pura): confronto tra la prima misurazione DALL'INIZIO
+    DEL PERCORSO (ripiego sulla piu' vecchia) e la corrente — grasso, magra,
+    girovita, peso — piu' il flag `ricomposizione` (peso fermo entro 1.5 kg ma
+    composizione migliorata), che accende la frase "il peso e' praticamente lo
+    stesso, ma...". Contare dal referto piu' vecchio in archivio sarebbe
+    sbagliato: la storia di tre anni fa non e' questo percorso.
+    _percorsoNascondiPeso(p): true quando la fase attiva e' surplus. In quel caso
+    percorsoVistaPreset ACCENDE la massa magra nel grafico (il vecchio preset la
+    spegneva: era il contrario di cio' che serve, e' l'unica linea che descrive
+    il progresso mentre il peso sale). NOTA: dentro l'SVG l'etichetta del peso
+    resta visibile (la linea del peso e' la spina dorsale del disegno); e' il
+    TESTO a non citarlo mai in fase di massa.
+    _traguardoFaseCorrente(p): fase attiva, settimane restanti, peso atteso a
+    fine fase preso dalla proiezione P115 (null in surplus) e traguardi
+    pertinenti. _traguardoTestoPaziente(p) produce righe in italiano semplice,
+    riusate dal messaggio WhatsApp: generaMessaggioAI aggiunge ai dati clinici le
+    variazioni di composizione e due istruzioni esplicite all'AI — costruire sul
+    risultato di composizione quando il peso e' fermo, e NON citare il peso ne' i
+    chili presi in fase di aumento. Tutto in try/catch: il messaggio deve poter
+    partire anche su un paziente senza percorso.
+
   TRAGUARDI MULTIPLI (P122 Tappa 4, 26 lug 2026):
     p.obiettivoPercorso.traguardi[] (opzionale, degrada a vuoto). Sette tipi in
     _TRG_TIPI: pctGrasso, massaGrassa, massaMagra, peso, girovita, esame,
