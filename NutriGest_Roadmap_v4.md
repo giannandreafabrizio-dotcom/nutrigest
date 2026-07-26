@@ -56,6 +56,7 @@
 | ~~**P122**~~ ✅ **CHIUSA E COLLAUDATA 26 lug 2026** — 5 tappe + 5 correzioni, provata in studio su paziente reale (v. scheda) | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
 | ~~**F6**~~ ✅ chiusa 25 lug 2026 (campo obiettivo sparito dal modal: ogni salvataggio lo azzerava — v. scheda P122) | Fable | High | ON | Perdita silenziosa di un dato di anamnesi |
 | ~~**F7**~~ ✅ chiusa 26 lug 2026 (altezza, peso e «non rinuncia a» spariti dal modulo: azzerati a ogni salvataggio — audit su tutti i 56 campi) | Opus | High | ON | Perdita silenziosa di dati anagrafici |
+| **F8 — nota TDEE**: il selettore LAF manuale non esiste più nel markup (`mac-laf`) — per il paziente senza alcun dato di attività il ripiego fissa 1.20 in silenzio e la UI dice "da selezione manuale". Da decidere: ricreare il selettore o cambiare il messaggio. Trovata dall'audit globale del 26/7; `testConn()`/`cfg-url` è codice morto da rimuovere con P49. | Sonnet | Low | OFF | Nessuna perdita dati: default prudente, ma il messaggio mente |
 | **P123** ✅ chiusa e **collaudata** 26 lug 2026 (le strade: dal traguardo alle calorie e alle settimane — v. scheda) · **resta la parte keto** | Opus/Fable | High | ON | Ritmi di dimagrimento e guardrail: decisioni cliniche |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |

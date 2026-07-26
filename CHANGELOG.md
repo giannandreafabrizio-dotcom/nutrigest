@@ -10,6 +10,54 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, coda) — LA DOCUMENTAZIONE SI DIFENDE DA SOLA: INDEX.md RIALLINEATO (719 VOCI SU 730 ERANO SBAGLIATE) + AUDIT GLOBALE DEGLI ID ORFANI + TEST PERMANENTE.
+Test 301 → **305**, tutti verdi (`s1-doc-allineata.test.js`). Codice dell'app NON toccato.
+
+**1. INDEX.md era rotto, e non da oggi.** Un controllo automatico (ogni voce
+dell'indice confrontata con la riga vera in `index.html`) ha trovato **719 numeri
+su 730 sbagliati** dopo la sessione — ma soprattutto **657 su 687 GIÀ sbagliati
+prima** (commit `924414b`), con scarto mediano +117 righe, **nonostante
+l'intestazione dichiarasse un riallineo completo il 25 luglio**. La dichiarazione
+non corrispondeva al file: lo stesso identico schema di F5/F6/F7 — qualcosa di
+scritto che nessuno verifica. Un indice sbagliato è peggio di nessun indice:
+manda le sessioni future a leggere il punto sbagliato del monolite.
+Riallineate tutte le 730 voci verificabili + i range "Righe A-B" di sezione;
+93 voci (funzioni annidate) restano non verificabili e sono dichiarate tali.
+
+**2. AUDIT GLOBALE DEGLI ID ORFANI** — l'estensione promessa dell'audit F7, su
+TUTTA l'app e su due canali: `getElementById` diretto (357 id distinti) e le
+letture via helper `g/gn/gs` dove vivevano F6 e F7 (106 id). Esito: **nessun
+nuovo bug della famiglia F6/F7**. 16 orfani trovati e classificati uno a uno:
+11 sono il pattern legittimo "rimuovi se esiste, poi crea" (popup dinamici);
+3 letture con guardia `if(el)` innocue; e **2 trovati veri ma non distruttivi**:
+- `cfg-url` → **`testConn()` è codice morto**: legge un campo che non esiste e
+  nessun bottone la chiama più. Se mai ricollegata, crasherebbe.
+- `mac-laf` → il **selettore LAF manuale non esiste più nel markup**: per il
+  paziente SENZA alcun dato di attività il ripiego fissa silenziosamente
+  LAF 1.20, e la UI dice "da selezione manuale" — una selezione impossibile.
+  Non è perdita di dati (1.20 è il default prudente) ma il messaggio mente:
+  segnato in roadmap come nota di P114/TDEE.
+
+**3. IL GUARDIANO PERMANENTE** (`s1-doc-allineata.test.js` + `rigenera-index.js`):
+- INDEX.md disallineato → **test rosso** con il rimedio scritto nel messaggio
+  (`cd test-suite && node rigenera-index.js`, 10 secondi, stampa quante voci
+  corregge). Provato rompendo l'indice apposta: rosso; script: verde.
+- **Nuovo id orfano** (campo tolto dal markup con la lettura rimasta nel codice)
+  → test rosso su entrambi i canali. È il vaccino della famiglia F6/F7: i 16
+  attuali sono in una lista `ORFANI_NOTI` ognuno col suo motivo, e aggiungerne
+  uno senza motivo è vietato dal commento stesso.
+- Strutture dati `p.*` principali non documentate nel Contesto → test rosso.
+Regola aggiornata in CLAUDE.md: INDEX si rigenera **a ogni sessione che tocca
+index.html** (la vecchia politica "solo dopo modifiche strutturali" è quella che
+ha prodotto la deriva), e la parte meccanica della checklist documentazione ora
+è imposta dalla suite invece che affidata alla memoria.
+
+**Lezione, la più generale della settimana.** F5, F6, F7 e l'INDEX alla deriva
+sono lo stesso bug in quattro vesti: **una dichiarazione che nessuno controlla**
+(una whitelist "completa", un campo "esistente", un riallineo "fatto"). La
+risposta giusta non è più disciplina — è trasformare la dichiarazione in un
+controllo che gira da solo. Da oggi la suite lo fa a ogni run.
+
 26 LUGLIO 2026 (6ª sessione, chiusura) — COLLAUDO SUL CAMPO: TUTTO VERDE.
 Nessuna modifica al codice: questa voce registra solo gli esiti, perché lo stato
 di una funzione lo decide l'uso in studio, non il fatto che i test passino.

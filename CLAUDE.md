@@ -46,9 +46,11 @@ Dopo ogni modifica, Claude passa in rassegna TUTTI questi file e aggiorna quelli
 2. **NutriGest_Roadmap_v4.md** — se la modifica chiude, avanza, blocca o riclassifica una voce: aggiornare la scheda (Stato + commit + data + nota di chiusura) SUBITO, non in un momento separato.
 3. **NutriGest_Contesto_v18.txt** — se cambia il funzionamento attuale del software: nuove funzioni riusabili, flussi, strutture dati, decisioni architetturali.
 4. **CLAUDE.md** (questo file) — solo se cambiano regole operative, di sviluppo o emergono lezioni permanenti da codificare.
-5. **INDEX.md** — solo dopo modifiche strutturali importanti a `index.html` (grosse sezioni nuove, blocchi di funzioni spostati), non dopo ogni piccolo commit.
+5. **INDEX.md** — **a OGNI sessione che tocca `index.html`**, con `cd test-suite && node rigenera-index.js` (10 secondi). Regola cambiata il 26 lug 2026: la vecchia politica "solo dopo modifiche strutturali" ha prodotto un indice con **719 numeri su 730 sbagliati** — e un'intestazione che dichiarava un riallineo mai avvenuto. Dal 26/7 il test `s1-doc-allineata` FALLISCE se l'indice è disallineato: non è più possibile dimenticarsene.
 
 Il blocco commit di consegna include il codice E i file documentali aggiornati, elencati esplicitamente. Una consegna senza CHANGELOG aggiornato è una consegna incompleta.
+
+**Dal 26 lug 2026 parte della checklist è AUTOMATICA** (`test-suite/test/s1-doc-allineata.test.js`, sempre nella suite): (a) INDEX.md allineato a index.html — rimedio: `node rigenera-index.js`; (b) nessun id letto dal codice che non esista più nel markup (la famiglia F6/F7: campo tolto, lettura rimasta, dato azzerato in silenzio a ogni salvataggio) — gli orfani noti sono classificati in `ORFANI_NOTI` col motivo, e aggiungerne uno senza motivo è vietato; (c) le strutture dati `p.*` principali documentate nel Contesto. La lezione dietro: **le dichiarazioni non si credono, si controllano** — l'intestazione di INDEX.md dichiarava un riallineo completo mentre 657 voci su 687 erano sbagliate, ed è lo stesso schema di F5/F6/F7. Ciò che il test non può controllare (la prosa di CHANGELOG/Contesto/Roadmap) resta responsabilità della checklist qui sopra, nello stesso giro di consegna.
 
 ## Checklist di chiusura/avanzamento voce (obbligatoria)
 Quando una voce di roadmap si chiude o avanza di fase, aggiornare NELL'ORDINE:
@@ -64,8 +66,8 @@ Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero pr
 - **`INDEX.md`** (nella cartella del progetto) mappa ~673 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
 - Prima di ogni modifica: apri `INDEX.md`, trova l'area/funzione pertinente, poi usa `view` con `view_range` mirato su `index.html` invece di leggere tutto il file.
 - Se il nome funzione non è chiaro o non è in tabella, fai prima `grep -n "nomeFunzione" index.html`.
-- Le righe in `INDEX.md` si spostano man mano che il file cresce/si modifica: sono indicative, non garantite. Se un `view_range` non corrisponde, fai grep di conferma prima di editare.
-- **Rigenera `INDEX.md`** dopo modifiche strutturali importanti (aggiunta di grosse sezioni, spostamento di blocchi di funzioni), non dopo ogni piccolo commit.
+- Dal 26 lug 2026 le righe di `INDEX.md` sono **garantite dal test** `s1-doc-allineata`: se la suite è verde, l'indice è esatto. Se un `view_range` non corrisponde, la suite non era stata fatta girare — `node rigenera-index.js` e riparti.
+- **Rigenera `INDEX.md` a ogni sessione che tocca `index.html`**: `cd test-suite && node rigenera-index.js`. Lo script stampa quante voci ha corretto — quel numero va guardato, non dato per buono.
 - Usa `str_replace` per le modifiche puntuali quando la stringa target è già nota e univoca, senza bisogno di rileggere l'intero file.
 
 ## Stile della documentazione — conciso ma completo

@@ -11,6 +11,18 @@ npm install
 npm test
 ```
 
+## Documentazione che si difende da sola (26 lug 2026)
+
+- `node rigenera-index.js` — riallinea tutti i numeri di riga di `INDEX.md`
+  (e i range di sezione) su `index.html`. Da lanciare a ogni sessione che tocca
+  il codice: stampa quante voci corregge.
+- `test/s1-doc-allineata.test.js` — FALLISCE se: INDEX.md è disallineato (il
+  messaggio d'errore contiene il rimedio), se il codice legge un id che non
+  esiste più nel markup (la famiglia di bug F6/F7: campo tolto, lettura rimasta,
+  dato azzerato in silenzio), o se una struttura dati `p.*` principale non è
+  documentata nel Contesto. Gli orfani noti sono classificati in `ORFANI_NOTI`
+  ciascuno col suo motivo.
+
 ## Cosa copre
 
 - **S1 — Smoke**: lo script estratto ha sintassi valida (`new Function`) e si
