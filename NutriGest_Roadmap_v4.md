@@ -56,6 +56,7 @@
 | ~~**P122**~~ ✅ **CHIUSA 26 lug 2026** — tutte e 5 le tappe + 5 correzioni post-collaudo (v. scheda) · da collaudare in studio | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
 | ~~**F6**~~ ✅ chiusa 25 lug 2026 (campo obiettivo sparito dal modal: ogni salvataggio lo azzerava — v. scheda P122) | Fable | High | ON | Perdita silenziosa di un dato di anamnesi |
 | ~~**F7**~~ ✅ chiusa 26 lug 2026 (altezza, peso e «non rinuncia a» spariti dal modulo: azzerati a ogni salvataggio — audit su tutti i 56 campi) | Opus | High | ON | Perdita silenziosa di dati anagrafici |
+| **P123** ✅ chiusa 26 lug 2026 (le strade: dal traguardo alle calorie e alle settimane — v. scheda) · **resta la parte keto** | Opus/Fable | High | ON | Ritmi di dimagrimento e guardrail: decisioni cliniche |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
 | P84–P89 (nuove funzioni prodotto) | Opus prima (decisione), Sonnet poi | High→Medium | ON→OFF | Prima il disegno, poi l'esecuzione |
@@ -770,6 +771,25 @@ Test 254 → **270** (`s2-traguardi-multipli.test.js`).
 **Regole permanenti di questa voce:** (a) il traguardo si ricalcola a ogni nuovo InBody ma l'app **propone, non riscrive** — nessun cambiamento silenzioso su un dato clinico; (b) le soglie di grasso restano sesso-dipendenti; (c) tutti i campi nuovi sono opzionali: un paziente senza traguardo funziona esattamente come prima.
 
 **SCHEDA:** Stato: **CHIUSA 26 lug 2026 — tutte e 5 le tappe + 5 correzioni post-collaudo. Da collaudare in studio su pazienti veri** · Priorità: Alta · Categoria: Percorso clinico / obiettivi · Dipendenze: P115 (timeline, per la tappa 3), P118 (referti datati, per i traguardi di laboratorio della tappa 4), P50 (app paziente, solo per l'aderenza) · Autonomia: **L0** sulle soglie di grasso essenziale (sicurezza clinica, le decide Fabrizio), L2 sul resto.
+
+---
+
+### P123 — Le strade per arrivare al traguardo (nata e chiusa 26 lug 2026, 6ª sessione)
+
+**Origine:** durante il collaudo di P122, davanti al pannello 🎯: *"senti io non riesco a capirlo"*. E la richiesta vera subito dopo: *"fare previsioni è difficile… la cosa utile è che, una volta scritta la percentuale a cui punta, mi dai un consiglio su quante calorie dovrebbe assumere, e magari più soluzioni, una più aggressiva e una più lenta… la parte che mi interessa di più è la programmazione nel lungo periodo."*
+
+**La scoperta che semplifica tutto:** i chili di **grasso** da togliere non dipendono quasi per niente dal muscolo che il paziente metterà. Su Mariano al 12%: muscolo fermo → −2.8 kg di grasso, +2 kg di muscolo → −2.6 kg. **Due etti**, contro 2.2 kg di differenza sul peso finale. La previsione sul muscolo, che Fabrizio non vuole fare, è quindi anche irrilevante per ciò che va programmato: quanto deficit e per quanto tempo. Il muscolo si **misura al controllo**.
+
+**✅ CHIUSA 26 lug 2026.**
+- Blocco **🛣 Come ci arrivi** sotto il pannello 🎯: `kg grasso/sett = deficit × 7 ÷ 7700`, `settimane = grasso ÷ ritmo`. Tre strade standard decise da Fabrizio (**−10 / −15 / −20%**) più campo libero. Per ognuna: calorie, deficit, ritmo, settimane, data di arrivo. Guardrail: 1% del peso a settimana, target sotto il metabolismo basale, oltre 12 settimane → "spezzare in cicli".
+- **«Usa»** imposta il regime energetico e propone di riscrivere le fasi su quel ritmo: `_percorsoGeneraFasi` accetta `{pctDeficit}`. Traguardo, calorie e programmazione diventano una cosa sola.
+- **La data che conta**: con la scadenza personale della Tappa 2, dice dove sarà a quella data ("nemmeno la strada più decisa ci arriva — sarà intorno al 12.5%").
+- **Pannello 🎯 reso leggibile**: via le etichette *ottimista/realistico* (in ricomposizione erano girate al contrario — "ottimista" era lo scenario senza muscolo), via la parola *Fascia*, avvisi in riquadro solo se richiedono una decisione.
+Test 290 → **301** (`s2-strade.test.js`).
+
+**Resta da fare — la parte chetogenica.** In keto i protocolli sono definiti in **kcal assolute** con bande proprie (PSMF 400-800, VLCKD 600-800, LCKD 800-1500; Mediterranea e WKD in %), e la domanda non è "quanto ci mette" ma **"quanto può durare"**. Servono: le durate massime per protocollo (nel codice ci sono già come testo di avviso: PSMF 2-4 settimane, sotto-basale 8-12), e la proposta di ciclo keto → uscita graduale (P47, già implementata) → mantenimento quando il tempo necessario supera la durata. Rinviata per scelta di Fabrizio. **Autonomia L0:** durate e limiti sono decisioni cliniche sue.
+
+**SCHEDA:** Stato: **CHIUSA 26 lug 2026 (parte bilanciata), da collaudare · parte keto aperta** · Priorità: Alta · Categoria: Percorso clinico / programmazione · Dipendenze: P122 (traguardo e scadenza personale), P115 (fasi) · Autonomia: L0 su ritmi e guardrail.
 
 ---
 

@@ -10,6 +10,78 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, seguito) — P123: LE STRADE PER ARRIVARE AL TRAGUARDO (+ pannello 🎯 reso leggibile).
+Baseline `cbf5aae`. Test 290 → **301**, tutti verdi (`s2-strade.test.js`).
+
+**Origine.** Fabrizio, in collaudo, davanti al pannello 🎯: *"senti io non riesco a
+capirlo"*. E subito dopo la richiesta vera: *"fare previsioni è difficile… più che
+deciderle prima è più interessante vedere i valori quando torna al controllo. La
+cosa utile è che, una volta scritta la percentuale a cui punta, mi dai un consiglio
+su quante calorie dovrebbe assumere, e magari più soluzioni, una più aggressiva e
+una più lenta… la parte che mi interessa di più è la programmazione nel lungo
+periodo."*
+
+**LA SCOPERTA CHE SEMPLIFICA TUTTO.** I chili di **grasso** da togliere non
+dipendono quasi per niente dal muscolo che il paziente metterà. Su Mariano (79.1
+kg, magra 67.1, grasso 12 kg) puntando al 12%: muscolo fermo → **−2.8 kg di
+grasso**; +2 kg di muscolo → **−2.6 kg**. **Due etti di differenza**, contro i
+**2.2 kg** di differenza sul PESO finale (76.3 vs 78.5).
+Quindi la previsione sul muscolo — che Fabrizio giustamente non vuole fare — non
+solo è difficile: è **irrilevante** per la cosa che si deve programmare davvero,
+cioè quanto deficit dare e per quanto tempo. Il muscolo si **misura al controllo**,
+non si indovina prima. Ragionare in grasso invece che in peso immunizza per di più
+dalla sovrastima delle prime settimane (acqua e glicogeno sono peso, non grasso).
+
+**IL BLOCCO «🛣 Come ci arrivi»**, sotto il pannello 🎯. Dal traguardo escono le
+strade, calcolate sul TDEE reale:
+`kg di grasso a settimana = deficit × 7 ÷ 7700` · `settimane = grasso ÷ ritmo`.
+Tre standard decise da Fabrizio — **−10% Soft, −15% Media, −20% Decisa** — più un
+campo libero per qualsiasi altra percentuale (−5, −25…). Per ognuna: calorie
+target, deficit, grasso perso a settimana, settimane e **data di arrivo**.
+Guardrail: ritmo oltre l'1% del peso a settimana, target sotto il metabolismo
+basale, oltre 12 settimane di deficit continuo ("va spezzato in cicli").
+**Il pulsante «Usa»** imposta il regime energetico su quel deficit e, se esiste un
+percorso, propone di **riscrivere le fasi su quel ritmo** — `_percorsoGeneraFasi`
+accetta ora `{pctDeficit}` invece del solo default −18%. È l'aggancio che mancava
+tra traguardo, calorie e programmazione lunga: prima erano tre cose separate.
+
+**LA DATA CHE CONTA.** Se il paziente ha una scadenza personale (Tappa 2), il
+blocco dice dove sarà a quella data con la strada più decisa. Su Mariano, che si
+sposa fra 4.7 settimane: *"nemmeno la strada più decisa ci arriva — a quella data
+sarà intorno al 12.5% di grasso"*. È la frase da dirgli in visita oggi, non a
+settembre — e chiude il cerchio con la domanda della Tappa 2.
+
+**PANNELLO 🎯 RESO LEGGIBILE** (stessa sessione, stesso motivo).
+- **Le etichette «ottimista» e «realistico» erano girate al contrario.** Venivano
+  dal dimagrimento, dove "conservi tutta la massa magra" è la buona notizia; in
+  ricomposizione lo scenario "ottimista" era quello in cui il paziente **non mette
+  un grammo di muscolo**, cioè il peggiore. Ora i due scenari dicono cosa succede
+  al muscolo: uno principale in grande, l'alternativa in piccolo.
+- **Via la parola «Fascia»**: non era un intervallo di incertezza ma due ipotesi
+  diverse, e i numeri sotto si riferivano solo a una delle due senza dirlo.
+- **Avvisi filtrati** (scelta di Fabrizio): riquadro solo per ciò che richiede una
+  decisione — soglie di sicurezza, referti incoerenti, conflitto con l'aspettativa
+  del paziente. Le note informative diventano una riga sola piccola.
+
+**In chetogenica il blocco non compare**: i protocolli keto sono definiti in kcal
+assolute con bande e durate massime proprie (PSMF 400-800, VLCKD 600-800, LCKD
+800-1500), non in % del TDEE — lì la domanda non è "quanto ci mette" ma "quanto
+può durare". Rinviato per scelta di Fabrizio; al suo posto una riga che lo spiega.
+
+**Lezione.** *"Non riesco a capirlo"* detto dal professionista che lo usa ogni
+giorno vale quanto un test rosso. Il pannello era corretto nei numeri e sbagliato
+nel racconto: due scenari affiancati con etichette prese in prestito da un altro
+contesto, una "fascia" che non era una fascia, e cinque riquadri di avvisi intorno
+al numero che conta. E la domanda giusta non era quella che il pannello faceva
+("quanto muscolo metterà?") ma quella che non faceva: **"quante calorie, e per
+quanto tempo?"**
+
+**Da collaudare.** Paziente con traguardo impostato → pannello 🎯 → il blocco
+🛣 in fondo: le tre strade devono avere numeri che ti convincono, e il pulsante
+«Usa» deve spostare lo slider del regime. Se il paziente ha una scadenza
+personale, controlla la riga con la data. In chetogenica deve comparire solo la
+riga di rinvio.
+
 26 LUGLIO 2026 (6ª sessione, seguito) — F7: I CAMPI ALTEZZA E PESO ERANO SPARITI DAL MODULO E OGNI SALVATAGGIO DELL'ANAGRAFICA LI AZZERAVA. Terzo caso della famiglia.
 Baseline `be8c2fc`. Test 283 → **290**, tutti verdi (`s2-anagrafica-campi.test.js`).
 

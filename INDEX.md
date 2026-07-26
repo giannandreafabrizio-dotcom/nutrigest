@@ -488,7 +488,14 @@ Righe 11637-13112
 - `12487` — _obiettivoPazienteDaForm *(P122 T2 — form → obiettivoPercorso.paziente, no-op senza markup)*
 - `12519` — _traguardoConfrontoAspettativa *(pura · dal 26/7 riconosce le direzioni opposte guardando il peso attuale)*
 - `12552` — _traguardoVocePazienteHtml *(riga "La voce del paziente" nel pannello 🎯)*
-- `12575` — _traguardoPanelHtml *(guscio statico: selettore modo + campo pertinente + avviso referto incoerente)*
+- `13202` — _STRADE_DEFAULT *(P123 — le tre velocità standard: −10/−15/−20%)*
+- `13210` — _traguardoGrassoDaTogliere *(pura: i kg di grasso, quasi indipendenti dal muscolo previsto)*
+- `13221` — _stradaCalcola *(kcal, ritmo sul grasso, settimane, data, guardrail)*
+- `13248` — _stradaAllaScadenza *(dove sarà alla data che conta per il paziente)*
+- `13263` — _stradeVerso *(le strade complete + percentuale libera)*
+- `13286` — _stradeHtml *(blocco 🛣, nascosto in chetogenica)* · `13350` _stradaPctExtra
+- `13354` — _stradaUsa *(imposta il regime e propone di riscrivere le fasi)*
+- `13376` — _traguardoPanelHtml *(guscio statico: selettore modo + campo pertinente + avviso referto incoerente)*
 - `12628` — _traguardoAnteprima *(ridisegna solo #trg-out: niente perdita di focus)*
 - `12719` — _traguardoAllineaManuale *(registra come revisione il traguardo scritto a mano)*
 - `12734` — _traguardoUsa *(applica lo scenario scelto, salva, ridisegna)*

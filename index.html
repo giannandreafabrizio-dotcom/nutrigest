@@ -6622,15 +6622,18 @@ const _PERCORSO_GEN = {
 
 // Motore PURO: dal modello alle fasi proposte. Non scrive nulla sul paziente.
 // Restituisce {ok, fasi:[{tipo,settimane,pct}], note:[], stima?} oppure {ok:false, motivo}.
-function _percorsoGeneraFasi(p, modello){
+function _percorsoGeneraFasi(p, modello, opts){
   if(!_PERCORSO_MODELLI[modello]) return {ok:false, motivo:"modello sconosciuto"};
+  // P123 — il deficit può arrivare dalla strada scelta nel pannello 🎯 invece
+  // che dal default: così traguardo, calorie e fasi raccontano lo stesso ritmo.
+  const _pctScelto=(opts&&opts.pctDeficit!=null&&!isNaN(+opts.pctDeficit))?-Math.abs(+opts.pctDeficit):null;
   const ct=calcolaTDEE(p);
   if(!ct || !ct.tdee) return {ok:false, motivo:"TDEE non calcolabile: serve almeno un InBody con metabolismo basale"};
   const serie=_serieePesoOss(p);
   const pesoAtt = serie.length ? +serie[serie.length-1].peso : (ct.peso?+ct.peso:null);
   if(!pesoAtt) return {ok:false, motivo:"nessun peso registrato"};
   const tdee=ct.tdee, note=[], fasi=[];
-  const pctDef=_PERCORSO_TIPI.deficit.pctDefault;         // -18
+  const pctDef=(_pctScelto!==null)?_pctScelto:_PERCORSO_TIPI.deficit.pctDefault;   // -18 di default, o la strada scelta
   const pctSur=_PERCORSO_TIPI.surplus.pctDefault;         // +8
   const rateDef=tdee*Math.abs(pctDef)/100*7/7700;         // kg/settimana in deficit
   const rateSur=tdee*pctSur/100*7/7700;                   // kg/settimana in surplus
@@ -13174,6 +13177,199 @@ function _traguardoVocePazienteHtml(p){
   return h;
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🛣 LE STRADE PER ARRIVARE AL TRAGUARDO (P123 — 26 lug 2026)
+// Nasce dal collaudo: "fare previsioni è difficile. Più che decidere prima quanto
+// muscolo metterà, mi serve sapere di quante calorie ha bisogno per arrivare a
+// quella percentuale, e magari più soluzioni: una aggressiva e una più lenta."
+//
+// LA SCOPERTA CHE RENDE TUTTO SEMPLICE: i chili di GRASSO da togliere non
+// dipendono quasi per niente dal muscolo che metterà. Su un paziente di 79.1 kg
+// con 67.1 di magra che punta al 12%: se il muscolo resta fermo servono −2.8 kg
+// di grasso, se ne mette 2 servono −2.6. Due etti di differenza, contro i 2.2 kg
+// di differenza sul PESO finale. Quindi la previsione sul muscolo — difficile e
+// arbitraria — è anche irrilevante per la cosa che si deve programmare davvero:
+// quanto deficit dare e per quanto tempo. Il muscolo si MISURA al controllo,
+// non si indovina prima.
+//
+// Il tempo si calcola sul grasso: kg grasso/settimana = deficit × 7 / 7700.
+// Ragionare in grasso invece che in peso immunizza anche dalla sovrastima delle
+// prime settimane (acqua e glicogeno sono peso, non grasso).
+// SOLO REGIME BILANCIATO: in chetogenica i protocolli sono definiti in kcal
+// assolute con bande proprie e limiti di durata — rinviato per scelta di Fabrizio.
+// ══════════════════════════════════════════════════════════════════════════════
+const _STRADE_DEFAULT = [
+  {pct:10, nome:"Soft"},
+  {pct:15, nome:"Media"},
+  {pct:20, nome:"Decisa"}
+];
+
+// Chili di grasso da togliere per arrivare alla % obiettivo, con il piccolo
+// intervallo dovuto ai due scenari di massa magra. È il numero che conta.
+function _traguardoGrassoDaTogliere(r){
+  if(!r||!r.ok) return null;
+  const daOtt = r.misura.g - r.ottimista.g;
+  const daReal = r.realeApplicabile ? (r.misura.g - r.realistico.g) : daOtt;
+  const lo=Math.min(daOtt,daReal), hi=Math.max(daOtt,daReal);
+  return {kg:+(((lo+hi)/2)).toFixed(1), min:+lo.toFixed(1), max:+hi.toFixed(1),
+          grassoOggi:r.misura.g, direzione: ((lo+hi)/2)>0 ? "togliere" : "mettere"};
+}
+
+// Una strada = una percentuale di deficit. Restituisce kcal, ritmo sul GRASSO,
+// settimane e data di arrivo, più i guardrail clinici.
+function _stradaCalcola(p, r, pct, tdee){
+  const g=_traguardoGrassoDaTogliere(r);
+  if(!g || !tdee || !(pct>0)) return null;
+  const deficitKcal=Math.round(tdee*pct/100);
+  const kcalTarget=Math.round(tdee-deficitKcal);
+  const kgSett=+(deficitKcal*7/7700).toFixed(3);
+  if(!(kgSett>0)) return null;
+  const settimane=+(Math.abs(g.kg)/kgSett).toFixed(1);
+  const giorni=Math.round(settimane*7);
+  const arrivo=_percorsoIsoLocal(Date.now()+giorni*864e5);
+  const avvisi=[];
+  // ritmo: l'1% del peso corporeo a settimana è il tetto abituale
+  const pesoAtt=r.misura.peso;
+  if(pesoAtt && kgSett > pesoAtt*0.01)
+    avvisi.push("ritmo oltre l'1% del peso a settimana");
+  // sotto il metabolismo basale non si scende
+  const mb=(p&&p.inbody&&p.inbody.length)?parseFloat(p.inbody[p.inbody.length-1].mb):null;
+  if(mb && kcalTarget < mb)
+    avvisi.push("target sotto il metabolismo basale ("+Math.round(mb)+" kcal)");
+  if(settimane>12)
+    avvisi.push("oltre 12 settimane di deficit continuo: va spezzato in cicli");
+  return {pct:pct, deficitKcal:deficitKcal, kcalTarget:kcalTarget, kgSett:kgSett,
+          settimane:settimane, arrivo:arrivo, avvisi:avvisi};
+}
+
+// Dove sarà alla data che conta per il paziente (la scadenza personale della
+// Tappa 2): la % di grasso raggiunta a quella data con quel ritmo.
+function _stradaAllaScadenza(r, strada, scadenzaISO){
+  if(!r||!r.ok||!strada||!scadenzaISO) return null;
+  const oggi=new Date(_percorsoIsoLocal(Date.now())+"T00:00:00").getTime();
+  const t=new Date(scadenzaISO+"T00:00:00").getTime();
+  if(isNaN(t)||t<=oggi) return null;
+  const sett=(t-oggi)/864e5/7;
+  const grassoPerso=Math.min(sett*strada.kgSett, r.misura.g*0.9);
+  const grassoFine=+(r.misura.g-grassoPerso).toFixed(1);
+  const pesoFine=+(r.misura.m+grassoFine).toFixed(1);   // magra costante: stima prudente
+  const pct=+((grassoFine/pesoFine)*100).toFixed(1);
+  return {settimane:+sett.toFixed(1), pctAllaData:pct, pesoAllaData:pesoFine,
+          grassoAllaData:grassoFine, arrivato: pct<=r.pctTarget+0.05};
+}
+
+// Tutte le strade per questo paziente. pctExtra = valore libero digitato.
+function _stradeVerso(p, r, pctExtra){
+  const ct=(typeof calcolaTDEE==="function")?calcolaTDEE(p):null;
+  const tdee=ct?ct.tdee:null;
+  if(!tdee) return {ok:false, motivo:"TDEE non calcolabile"};
+  const g=_traguardoGrassoDaTogliere(r);
+  if(!g) return {ok:false, motivo:"traguardo non calcolabile"};
+  if(g.kg<=0.05) return {ok:false, motivo:"nessun grasso da togliere con questo traguardo", grasso:g};
+  const lista=_STRADE_DEFAULT.map(function(s){
+    const c=_stradaCalcola(p,r,s.pct,tdee);
+    return c?Object.assign({nome:s.nome}, c):null;
+  }).filter(Boolean);
+  const px=parseFloat(pctExtra);
+  if(!isNaN(px) && px>0 && px<=40 && !lista.some(function(x){return x.pct===px;})){
+    const c=_stradaCalcola(p,r,px,tdee);
+    if(c) lista.push(Object.assign({nome:"Tua", extra:true}, c));
+  }
+  lista.sort(function(a,b){ return a.pct-b.pct; });
+  return {ok:true, tdee:tdee, grasso:g, strade:lista};
+}
+
+// ── UI: il blocco "Come ci arrivi", sotto il pannello 🎯 ────────────────────
+let _stradePctExtra = "";     // valore libero digitato, solo di sessione
+
+function _stradeHtml(p, r){
+  // In chetogenica i protocolli sono in kcal assolute con bande e durate proprie:
+  // rinviato per scelta di Fabrizio (26/7).
+  const strat=(document.getElementById('mac-strategia')||{}).value||'standard';
+  if(String(strat).indexOf('keto')===0){
+    return '<div style="margin-top:.5rem;padding:.4rem .6rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.7rem;color:var(--text2)">'
+      +'🥑 In chetogenica le strade funzionano diversamente: i protocolli sono definiti in <strong>calorie assolute</strong> con bande e durate massime proprie, non in % del TDEE. Arriveranno in un secondo momento.</div>';
+  }
+  const s=_stradeVerso(p, r, _stradePctExtra);
+  if(!s.ok){
+    if(s.grasso && s.grasso.kg<=0.05)
+      return '<div style="margin-top:.5rem;font-size:.7rem;color:var(--text3)">Con questo traguardo non c\'è grasso da togliere: le strade non servono.</div>';
+    return '';
+  }
+  const g=s.grasso;
+  const sc=(p&&p.obiettivoPercorso&&p.obiettivoPercorso.paziente)?p.obiettivoPercorso.paziente:null;
+  const scadenza=sc&&sc.scadenzaPersonale?sc.scadenzaPersonale:null;
+
+  let h='<div style="margin-top:.7rem;border-top:1px dashed #e0cfa0;padding-top:.6rem">'
+    +'<div style="font-size:.78rem;font-weight:700;color:#8a6508;margin-bottom:.15rem">🛣 Come ci arrivi</div>'
+    +'<div style="font-size:.72rem;color:var(--text2);margin-bottom:.45rem">Da togliere <strong style="font-size:.9rem">'+g.kg+' kg di grasso</strong> '
+    +'<span style="color:var(--text3)">(oggi ne ha '+g.grassoOggi+' kg'+(g.min!==g.max?' · tra '+g.min+' e '+g.max+' kg a seconda del muscolo che mette — due etti di differenza, per questo il tempo non dipende da quella previsione':'')+')</span></div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:.73rem">'
+    +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.2rem .35rem">Strada</th><th>Calorie</th><th>Grasso perso</th><th>Ci arriva in</th><th>Quando</th><th></th></tr></thead><tbody>';
+
+  s.strade.forEach(function(st){
+    const rosso=st.avvisi.length>0;
+    h+='<tr style="border-top:1px solid var(--border)">'
+      +'<td style="padding:.28rem .35rem;white-space:nowrap"><strong>'+st.nome+'</strong> <span style="color:var(--text3)">−'+st.pct+'%</span></td>'
+      +'<td style="white-space:nowrap"><strong>'+st.kcalTarget+'</strong> <span style="color:var(--text3);font-size:.65rem">(−'+st.deficitKcal+')</span></td>'
+      +'<td style="white-space:nowrap'+(rosso?';color:#c2410c':'')+'">'+st.kgSett.toFixed(2).replace('.',',')+' kg/sett.</td>'
+      +'<td style="white-space:nowrap">'+st.settimane.toString().replace('.',',')+' settimane</td>'
+      +'<td style="white-space:nowrap;color:var(--text3)">'+_percorsoDataBreve(st.arrivo)+'</td>'
+      +'<td style="text-align:right;white-space:nowrap"><button type="button" class="btn btn-g btn-sm" onclick="_stradaUsa('+st.pct+')">Usa</button></td>'
+      +'</tr>';
+    if(rosso){
+      h+='<tr><td></td><td colspan="5" style="padding:0 .35rem .25rem;font-size:.64rem;color:#c2410c">⚠️ '+st.avvisi.join(' · ')+'</td></tr>';
+    }
+  });
+  h+='</tbody></table>'
+    +'<div style="margin-top:.35rem;font-size:.68rem;color:var(--text3)">Altra percentuale: '
+      +'<input type="number" id="trg-pct-extra" min="1" max="40" step="1" value="'+(_stradePctExtra||"")+'" placeholder="es. 25" style="width:62px;font-size:.7rem" onchange="_stradaPctExtra(this.value)"> %'
+      +' — «Usa» imposta il regime energetico qui sotto; se c\'è un percorso, ti propone di riscrivere le fasi con quel deficit.</div>';
+
+  // la data che conta per il paziente
+  if(scadenza){
+    const migliore=s.strade[s.strade.length-1];
+    const alla=_stradaAllaScadenza(r, migliore, scadenza);
+    if(alla){
+      const ev=sc.eventoScadenza?sc.eventoScadenza:'la data che conta per lui';
+      const ok=alla.arrivato;
+      h+='<div style="margin-top:.4rem;padding:.35rem .55rem;border-radius:6px;font-size:.7rem;line-height:1.4;'
+        +(ok?'background:#f0fdf4;border:1px solid #86efac;color:#166534':'background:#fff7ed;border:1px solid #fdba74;color:#c2410c')+'">'
+        +'📅 <strong>'+ev.charAt(0).toUpperCase()+ev.slice(1)+'</strong> il '+_percorsoDataBreve(scadenza)+', fra '+alla.settimane.toString().replace('.',',')+' settimane: '
+        +(ok
+          ? 'ci arriva anche con la strada più decisa. Diglielo.'
+          : 'nemmeno la strada più decisa ci arriva — a quella data sarà intorno al <strong>'+String(alla.pctAllaData).replace('.',',')+'%</strong> di grasso ('+String(alla.pesoAllaData).replace('.',',')+' kg). È la frase da dirgli oggi, non a settembre.')
+        +'</div>';
+    }
+  }
+  h+='</div>';
+  return h;
+}
+
+function _stradaPctExtra(v){ _stradePctExtra=v; _traguardoAnteprima(); }
+
+// Applica una strada: imposta il regime energetico e, se esiste un percorso,
+// propone di riscrivere le fasi con quel deficit. Mai in automatico.
+function _stradaUsa(pct){
+  const p=_macrosPaziente;
+  if(!p){ notif("⚠ Nessun paziente aperto"); return; }
+  if(typeof _presetRegime==="function") _presetRegime(-Math.abs(pct));
+  notif("🛣 Regime impostato a −"+pct+"% del TDEE");
+  if(p.percorso && p.percorso.fasi && p.percorso.fasi.length){
+    if(confirm("Riscrivo anche le fasi del percorso con un deficit del "+pct+"%?\n\nLe fasi attuali verranno sostituite (durata e alternanza vengono ricalcolate su questo ritmo).")){
+      const g=_percorsoGeneraFasi(p, (p.obiettivoPercorso&&p.obiettivoPercorso.paziente&&p.obiettivoPercorso.paziente.categoria==="dimagrire")?"dimagrimento":"ricomposizione", {pctDeficit:-Math.abs(pct)});
+      if(g && g.ok){
+        p.percorso.fasi=g.fasi;
+        window._percorsoGenNote={pazId:p.id, note:g.note, modello:"strada −"+pct+"%", stima:g.stima||null};
+        save(p.id);
+        if(typeof renderPdPercorso==="function") renderPdPercorso(p);
+        notif("🧭 "+g.fasi.length+" fasi riscritte sul ritmo scelto");
+      } else notif("⚠ "+((g&&g.motivo)||"fasi non generabili"),4000);
+    }
+  }
+}
+
 // ── Pannello 🎯 nella scheda Macros (dentro #mac-peso-rif-box) ────────────────
 // Guscio statico: i due campi NON vengono ridisegnati mentre digiti (si
 // perderebbe il focus), si aggiorna solo #trg-out via _traguardoAnteprima.
@@ -13250,10 +13446,16 @@ function _traguardoAnteprima(){
     return;
   }
   const o=r.ottimista, re=r.realistico;
+  // P123 — le etichette "ottimista/realistico" venivano dal dimagrimento e in
+  // ricomposizione erano girate al contrario ("ottimista" era lo scenario in cui
+  // NON mette muscolo). Ora dicono semplicemente cosa succede al muscolo.
+  const _princ = r.realeApplicabile ? re : o;
+  const _alt   = r.realeApplicabile ? o : null;
+  const _lblPrinc = r.realeApplicabile ? r.etichettaScenario : "se il muscolo resta com'è";
   let h='<div style="font-size:.72rem;line-height:1.55">'
-    +'<div>▸ massa magra conservata → <strong style="font-size:.85rem">'+o.peso+' kg</strong> <span style="color:var(--text3)">(magra '+o.m+' · grassa '+o.g+' kg)</span></div>';
-  if(r.realeApplicabile){
-    h+='<div>▸ '+r.etichettaScenario+' → <strong style="font-size:.85rem">'+re.peso+' kg</strong> <span style="color:var(--text3)">(magra '+re.m+' · grassa '+re.g+' kg)</span></div>';
+    +'<div style="font-size:.8rem"><strong style="font-size:1rem">'+_princ.peso+' kg</strong> <span style="color:var(--text2)">'+_lblPrinc+'</span> <span style="color:var(--text3)">— muscolo '+_princ.m+' · grasso '+_princ.g+' kg</span></div>';
+  if(_alt){
+    h+='<div style="font-size:.68rem;color:var(--text3)">se invece il muscolo resta com\'è: '+_alt.peso+' kg (muscolo '+_alt.m+' · grasso '+_alt.g+' kg)</div>';
   }
   // I due numeri che contano davvero: grasso da togliere e magra da mettere.
   // Il peso è solo la loro somma — in ricomposizione può perfino non muoversi.
@@ -13262,27 +13464,33 @@ function _traguardoAnteprima(){
   if(Math.abs(r.magraDaMettere)>0.05) pezzi.push('massa magra <strong>'+(r.magraDaMettere>0?'+':'−')+Math.abs(r.magraDaMettere).toFixed(1)+' kg</strong>');
   const dPeso=(r.realeApplicabile?re.delta:o.delta);
   pezzi.push('peso <strong>'+(dPeso>0?'+':'')+dPeso.toFixed(1)+' kg</strong>'+(Math.abs(dPeso)<0.6?' (praticamente fermo)':''));
-  h+='<div style="margin-top:.25rem;padding:.3rem .5rem;background:#FFF3CD;border-radius:6px;color:#7a5b00"><strong>Fascia: '+r.fascia[0]+' – '+r.fascia[1]+' kg</strong>'
-    +'<div style="margin-top:.15rem">'+pezzi.join(' · ')+'</div></div></div>';
+  h+='<div style="margin-top:.25rem;padding:.3rem .5rem;background:#FFF3CD;border-radius:6px;color:#7a5b00">'+pezzi.join(' · ')+'</div></div>';
+  // P123 — riquadro solo per ciò che richiede una decisione (soglie di sicurezza,
+  // referti incoerenti); le note informative in una riga sola, piccola.
+  const _note=[];
   (r.avvisi||[]).forEach(function(a){
+    if(a.liv==="nota"){ _note.push(a.txt); return; }
     const st = a.liv==="blocco" ? "background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c"
-             : a.liv==="avviso" ? "background:#fff7ed;border:1px solid #fdba74;color:#c2410c"
-             : "background:var(--bg2);border:1px solid var(--border);color:var(--text2)";
-    const ic = a.liv==="blocco" ? "⛔" : (a.liv==="avviso" ? "⚠️" : "ℹ️");
-    h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+st+'">'+ic+' '+a.txt+'</div>';
+                                : "background:#fff7ed;border:1px solid #fdba74;color:#c2410c";
+    h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+st+'">'+(a.liv==="blocco"?"⛔":"⚠️")+' '+a.txt+'</div>';
   });
+  if(_note.length) h+='<div style="margin-top:.25rem;font-size:.63rem;color:var(--text3);line-height:1.35">'+_note.join(' · ')+'</div>';
   // P122 Tappa 2 — aspettativa del paziente contro il corridoio appena calcolato
   const _vp=_traguardoGet(p);
   const _cmp=(_vp&&_vp.paziente)?_traguardoConfrontoAspettativa(_vp.paziente.pesoAtteso,r):null;
   if(_cmp){
-    const _st=(_cmp.liv==='gap'||_cmp.liv==='opposto')?'background:#fff7ed;border:1px solid #fdba74;color:#c2410c':(_cmp.liv==='ok'?'background:#f0fdf4;border:1px solid #86efac;color:#166534':'background:var(--bg2);border:1px solid var(--border);color:var(--text2)');
-    h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+_st+'">🗣️ '+_cmp.txt+'</div>';
+    // riquadro solo quando c'è un conflitto da gestire; se siete allineati basta una riga
+    if(_cmp.liv==='gap'||_cmp.liv==='opposto'){
+      h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;background:#fff7ed;border:1px solid #fdba74;color:#c2410c">🗣️ '+_cmp.txt+'</div>';
+    } else {
+      h+='<div style="margin-top:.25rem;font-size:.63rem;color:'+(_cmp.liv==='ok'?'#166534':'var(--text3)')+'">🗣️ '+_cmp.txt+'</div>';
+    }
   }
   if(!r.bloccato){
     h+='<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem">';
     if(r.realeApplicabile){
-      h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'realistico\')">Usa '+re.peso+' kg (realistico)</button>';
-      h+='<button type="button" class="btn btn-g btn-sm" onclick="_traguardoUsa(\'ottimista\')">Usa '+o.peso+' kg (ottimista)</button>';
+      h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'realistico\')">Usa '+re.peso+' kg</button>';
+      h+='<button type="button" class="btn btn-g btn-sm" style="font-size:.66rem" onclick="_traguardoUsa(\'ottimista\')">oppure '+o.peso+' kg (muscolo fermo)</button>';
     } else {
       h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'ottimista\')">Usa '+o.peso+' kg</button>';
     }
@@ -13315,6 +13523,7 @@ function _traguardoAnteprima(){
         +(ult.decisoDa?' ('+ult.decisoDa+')':'')+'</div>';
     }
   }
+  if(!r.bloccato) h+=_stradeHtml(p, r);   // P123 — le strade per arrivarci
   out.innerHTML=h;
 }
 

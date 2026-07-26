@@ -2013,6 +2013,40 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
   si accenderà da solo quando P50 scriverà p.consuntivo — architettura
   pronta, nessuna modifica al grafico necessaria.
 
+LE STRADE PER ARRIVARE AL TRAGUARDO (P123, 26 lug 2026):
+  Blocco "🛣 Come ci arrivi" in fondo all'anteprima del pannello 🎯. Dal traguardo
+  di composizione escono 2-4 strade, ognuna una percentuale di deficit sul TDEE.
+  PRINCIPIO: si ragiona in kg di GRASSO, non di peso. _traguardoGrassoDaTogliere(r)
+  restituisce {kg, min, max}: i due scenari di massa magra danno risultati che
+  distano ~2 etti (contro i 2+ kg di differenza sul peso finale), quindi la
+  previsione sul muscolo — difficile e arbitraria — e' IRRILEVANTE per programmare
+  deficit e tempi. Ragionare in grasso immunizza anche dalla sovrastima delle
+  prime settimane (acqua e glicogeno sono peso, non grasso).
+  _stradaCalcola(p, r, pct, tdee): deficitKcal = tdee x pct/100 · kcalTarget =
+  tdee - deficit · kgSett = deficit x 7 / 7700 · settimane = grasso / kgSett ·
+  arrivo = oggi + settimane. Guardrail in `avvisi`: ritmo oltre l'1% del peso a
+  settimana, kcalTarget sotto il metabolismo basale InBody, oltre 12 settimane di
+  deficit continuo. _STRADE_DEFAULT = 10/15/20% (decise da Fabrizio); il campo
+  libero accetta 1-40% e non duplica i valori gia' presenti.
+  _stradaAllaScadenza(r, strada, scadenzaISO): dove sara' alla data che conta per
+  il paziente (obiettivoPercorso.paziente.scadenzaPersonale, Tappa 2) — % di
+  grasso e peso a quella data, con massa magra costante (stima prudente).
+  _stradaUsa(pct): imposta il regime energetico via _presetRegime e, se esiste un
+  percorso, PROPONE (confirm) di riscrivere le fasi su quel ritmo —
+  _percorsoGeneraFasi accetta ora un terzo parametro {pctDeficit} che sostituisce
+  il default -18%. E' l'aggancio tra traguardo, calorie e programmazione lunga.
+  CHETOGENICA: il blocco non compare, al suo posto una riga di rinvio. I
+  protocolli keto sono in kcal ASSOLUTE con bande proprie (PROTOCOLLI_KETO) e la
+  domanda li' non e' "quanto ci mette" ma "quanto puo' durare". Rinviato.
+  PANNELLO 🎯 — LEGGIBILITA' (stessa sessione): le etichette "ottimista/realistico"
+  sono state rimosse (venivano dal dimagrimento e in ricomposizione erano girate
+  al contrario: "ottimista" era lo scenario SENZA guadagno di muscolo, cioe' il
+  peggiore); ora c'e' uno scenario principale in grande e l'alternativa in
+  piccolo. Via la parola "Fascia" (non era un intervallo di incertezza ma due
+  ipotesi). Gli avvisi di livello "nota" non hanno piu' il riquadro: vanno in una
+  riga sola piccola. Riquadro solo per blocco/avviso e per il confronto con
+  l'aspettativa quando e' in conflitto.
+
 TRAGUARDO DALLA COMPOSIZIONE CORPOREA (P122 Tappa 1, 25 lug 2026):
   Il peso obiettivo smette di essere un numero digitato e diventa la conseguenza
   di una scelta clinica: la % di grasso a cui si punta.
