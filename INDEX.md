@@ -453,36 +453,38 @@ Righe 10582-10993
 ### COMPOSIZIONE CORPOREA — render scheda InBody paziente
 Righe 11265-11265
 
-- `11456` — renderPdMacros
+- `11641` — renderPdMacros
 
 ---
 
 ### MOTORE TDEE — render scheda macros, calcolo MET/NEAT/TEF, ciclizzazione, storico TDEE
 Righe 11637-13112
 
-- `11828` — aggiornaLabelMacros
-- `11846` — calcolaMacros
-- `11796` — applicaSchema
-- `12022` — _TRAGUARDO_SOGLIE *(P122 — soglie grasso essenziale per sesso)*
-- `12028` — _traguardoSoglie *(null se il sesso manca: nessun ripiego)*
-- `12037` — _traguardoMisura *(InBody piu' recente + ripieghi sulla massa magra)*
-- `12064` — calcolaTraguardoComposizione *(P122 Tappa 1 — due scenari, fascia, avvisi)*
-- `12137` — _traguardoGet *(normalizza p.obiettivoPercorso)*
-- `12151` — _traguardoScrivi *(UNICO punto di scrittura: clinico + storico + specchio pesoTarget)*
-- `12291` — _traguardoPanelHtml *(guscio statico del pannello 🎯)*
-- `12204` — _OB_CATEGORIE *(P122 T2 — categorie dell'obiettivo del paziente)*
-- `12218` — _obiettivoPazienteDaForm *(P122 T2 — form → obiettivoPercorso.paziente, no-op senza markup)*
-- `12250` — _traguardoConfrontoAspettativa *(pura: aspettativa vs corridoio, tolleranza 1 kg)*
-- `12268` — _traguardoVocePazienteHtml *(riga "La voce del paziente" nel pannello 🎯)*
-- `12325` — _traguardoAnteprima *(ridisegna solo #trg-out: niente perdita di focus)*
-- `12386` — _traguardoUsa *(applica lo scenario scelto, salva, ridisegna)*
-- `12409` — _renderRifPesoBox
-- `12460` — _usaRifPeso
-- `11856` — _aggiornaRifPesoTarget
-- `11859` — _aggiornaRegimeSlider
-- `12516` — _presetRegime
-- `12520` — _initRegimeSliderDaPaziente
-- `12538` — ricalcolaLAF
+- `12019` — aggiornaLabelMacros
+- `12037` — calcolaMacros
+- `12178` — applicaSchema
+- `12222` — _TRAGUARDO_SOGLIE *(P122 — soglie grasso essenziale per sesso)*
+- `12228` — _traguardoSoglie *(null se il sesso manca: nessun ripiego)*
+- `12236` — _traguardoMisura *(InBody piu' recente · %grasso SEMPRE derivata dalla magra · rileva referti incoerenti)*
+- `12272` — _traguardoModoDaCategoria *(dimagrimento vs ricomposizione, dalla categoria della Tappa 2)*
+- `12290` — calcolaTraguardoComposizione *(due scenari, fascia, avvisi · dal 26/7 modo dimagrimento|ricomposizione)*
+- `12403` — _traguardoGet *(normalizza p.obiettivoPercorso)*
+- `12417` — _traguardoScrivi *(UNICO punto di scrittura: clinico + storico + specchio pesoTarget)*
+- `12473` — _OB_CATEGORIE *(P122 T2 — categorie dell'obiettivo del paziente)*
+- `12487` — _obiettivoPazienteDaForm *(P122 T2 — form → obiettivoPercorso.paziente, no-op senza markup)*
+- `12519` — _traguardoConfrontoAspettativa *(pura · dal 26/7 riconosce le direzioni opposte guardando il peso attuale)*
+- `12552` — _traguardoVocePazienteHtml *(riga "La voce del paziente" nel pannello 🎯)*
+- `12575` — _traguardoPanelHtml *(guscio statico: selettore modo + campo pertinente + avviso referto incoerente)*
+- `12628` — _traguardoAnteprima *(ridisegna solo #trg-out: niente perdita di focus)*
+- `12719` — _traguardoAllineaManuale *(registra come revisione il traguardo scritto a mano)*
+- `12734` — _traguardoUsa *(applica lo scenario scelto, salva, ridisegna)*
+- `12759` — _renderRifPesoBox
+- `12810` — _usaRifPeso
+- `12814` — _aggiornaRifPesoTarget
+- `12817` — _aggiornaRegimeSlider
+- `13474` — _presetRegime
+- `13478` — _initRegimeSliderDaPaziente
+- `13496` — ricalcolaLAF
 - `12680` — renderStoricoTDEE
 - `12714` — attivaSlotTDEE
 - `12722` — eliminaSlotTDEE

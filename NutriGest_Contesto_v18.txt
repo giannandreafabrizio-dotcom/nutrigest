@@ -897,6 +897,9 @@ p.obiettivoPercorso = { clinico:{...}, paziente:{...}, storico:[], traguardi:[] 
   // un numero secco. TUTTO OPZIONALE: un paziente senza questo campo funziona
   // esattamente come prima (nessuna migrazione, nessun default scritto).
   // clinico = { metodo:"pctGrasso"|"peso"|"bmi"|"inbodyIdeale"|"manuale",
+  //   modo:"dimagrimento"|"ricomposizione" (dal 26 lug 2026),
+  //   guadagnoMagra (kg di massa magra attesi in ricomposizione),
+  //   massaMagraTargetKg,
   //   pctGrassoTarget, quotaMagraPersa (% del calo attribuita alla massa magra),
   //   pesoTarget, pesoOttimista, pesoRealistico, massaGrassaTargetKg,
   //   massaMagraRif (la magra su cui e' stato fatto il conto), scenario,
@@ -1977,6 +1980,50 @@ TRAGUARDO DALLA COMPOSIZIONE CORPOREA (P122 Tappa 1, 25 lug 2026):
     altezza e sesso.
   Tappe 2-5 (domanda in visita strutturata, modelli di periodizzazione,
   traguardi multipli e comportamentali, vista paziente) restano nella Roadmap.
+
+  MODI DI CALCOLO — DIMAGRIMENTO vs RICOMPOSIZIONE (correzione 26 lug 2026):
+    calcolaTraguardoComposizione(p, pctTarget, opzioni) — il terzo parametro
+    accetta un numero (legacy: quota del calo) o {modo, quotaMagraPersa,
+    guadagnoMagra}. Modo "dimagrimento": la massa magra resta o cala di una
+    quota del calo (default 20%). Modo "ricomposizione": la massa magra SALE di
+    guadagnoMagra kg (default 2) e peso = (magra + guadagno) / (1 - T/100).
+    PERCHE': puntare a una % di grasso piu' bassa NON significa dimagrire. Su
+    83 kg con 70 di magra, al 9%: magra ferma -> 76.9 kg, +2 -> 79.1, +4 ->
+    81.3, +6 -> 83.5 (peso invariato, obiettivo raggiunto). Il motore conosceva
+    solo il primo caso. Il modo si presceglie da _traguardoModoDaCategoria(p),
+    che legge obiettivoPercorso.paziente.categoria (Tappa 2): "ricomposizione"
+    o "massa" -> magra che sale. Nel pannello il campo non pertinente viene
+    NASCOSTO (display:none, mai re-render del guscio: si perderebbe il focus).
+    L'output aggiunge: modo, etichettaScenario, guadagnoMagra, grassoDaPerdere,
+    magraDaMettere, direzionePeso ("calo"/"aumento"/"stabile" sullo scenario in
+    uso). Il pannello mostra "grasso -5.9 kg · massa magra +2.0 kg · peso -3.9
+    kg" invece di "da perdere X kg": in ricomposizione il peso puo' non muoversi.
+  COERENZA DEI REFERTI (correzione 26 lug 2026):
+    _traguardoMisura restituisce la % di grasso SEMPRE derivata dalla massa
+    magra usata, mai copiata dal campo del referto — prima usciva "massa grassa
+    13 kg (10%)", una coppia che si contraddice. Se i campi del referto non
+    tornano fra loro (magra + grassa != peso oltre 0.6 kg, oppure % che dista
+    oltre 1 punto da quella derivata) l'oggetto porta `incoerenza` con i
+    problemi, la magra usata e la MAGRA ALTERNATIVA: sul referto del collaudo
+    (83 kg, m 70, pg 10) il traguardo al 9% vale 76.9 kg con m=70 e 82.1 con
+    m=74.7 — cinque chili. Scelta di Fabrizio: AVVISARE, non bloccare (un
+    referto puo' avere arrotondamenti legittimi). Il controllo scatta solo
+    quando la magra viene dal suo campo: se e' derivata, e' coerente per
+    costruzione. Nello stesso giro la riga della FFM in renderPdMacros e' stata
+    portata sul campo `m`: era l'unico punto dell'app che la ricavava dalla
+    percentuale (quarta occorrenza del pattern "due fonti", dopo P118/P120/P121).
+  CONFRONTO ASPETTATIVA — DIREZIONI OPPOSTE (correzione 26 lug 2026):
+    _traguardoConfrontoAspettativa guarda ora anche il PESO ATTUALE e usa la
+    direzione dello SCENARIO IN USO (res.realeApplicabile ? realistico :
+    ottimista), non il centro della fascia — in ricomposizione la fascia puo'
+    stare a cavallo del peso attuale. Nuovo livello "opposto": paziente a 83 kg
+    che ne vuole 86 con traguardo a 79 non e' "piu' prudente", sono direzioni
+    opposte. Prima usciva "c'e' margine per alzare l'asticella insieme".
+  TRAGUARDO MANUALE (correzione 26 lug 2026): scrivendo il numero a mano nel
+    campo mac-peso-target, p.pesoTarget cambia e obiettivoPercorso.clinico resta
+    indietro. Il pannello rileva lo scarto (>0.2 kg), lo dichiara e offre
+    _traguardoAllineaManuale(): scrive il valore come revisione con metodo
+    "manuale" e la sua riga di storico.
 
 LA DOMANDA IN VISITA, STRUTTURATA (P122 Tappa 2, 25 lug 2026):
   Sezione 🎯 nel tab Dati del modal anagrafica (dopo il contesto emotivo):

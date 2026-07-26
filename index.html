@@ -11643,7 +11643,13 @@ function renderPdMacros(p){
   const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const mb=lastIb?lastIb.mb:null;
   const peso=lastIb?lastIb.peso:(p.peso||null);
-  const ffm=lastIb&&lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null;
+  // CORREZIONE post-collaudo 26/7: questa riga era l'UNICO punto dell'app che
+  // ricavava la massa magra dalla percentuale (peso × (1−pg/100)), mentre motore
+  // macro, proteine g/kg, PDF e pannello 🎯 leggono tutti il campo `m`. Su un
+  // referto sporco la stessa schermata mostrava "FFM: 74.7 kg" in alto e
+  // "calcolato su FFM (70 kg)" in fondo. Fonte unica: il campo, col ripiego solo
+  // quando manca davvero (quarta occorrenza del pattern dopo P118/P120/P121).
+  const ffm=lastIb?(parseFloat(lastIb.m)|| (lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null)):null;
 
   let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3></div><div class="card-bd">
   <div class="sec-title">Attività Fisica</div>
@@ -12217,36 +12223,71 @@ function _traguardoSoglie(sesso){
 }
 
 // Misurazione di riferimento = la più recente utilizzabile (array ordinato per
-// data da P120, quindi si scorre dal fondo). Massa magra: campo "m", con
-// ripieghi espliciti su peso−grassa e su peso×(1−%grassa).
+// data da P120, quindi si scorre dal fondo). Massa magra: campo "m" — la stessa
+// fonte che usano motore macro, proteine g/kg e PDF — con ripieghi espliciti su
+// peso−grassa e su peso×(1−%grassa) quando "m" manca.
+// COERENZA (correzione post-collaudo 26/7): la % di grasso restituita è SEMPRE
+// derivata dalla massa magra usata, mai copiata dal campo del referto. Prima si
+// prendeva ib.pg e si calcolava la grassa da peso−m: su un referto sporco usciva
+// "massa grassa 13 kg (10%)", una frase che si contraddice da sola. Se i campi
+// del referto non tornano fra loro il dato NON viene aggiustato in silenzio:
+// esce in `incoerenza` e la scheda lo dichiara — perché il traguardo si calcola
+// sulla massa magra, e 70 kg invece di 74.7 spostano l'obiettivo di 5 kg.
 function _traguardoMisura(p){
   const arr=(p&&Array.isArray(p.inbody))?p.inbody:[];
   for(let i=arr.length-1;i>=0;i--){
     const ib=arr[i]; if(!ib) continue;
     const peso=parseFloat(ib.peso);
     if(!peso||isNaN(peso)||peso<=0) continue;
-    let m=parseFloat(ib.m);
-    if(!m||isNaN(m)){
-      const g=parseFloat(ib.g);
-      if(!isNaN(g)&&g>0) m=peso-g;
+    const mCampo=parseFloat(ib.m), gCampo=parseFloat(ib.g), pgCampo=parseFloat(ib.pg);
+    let m=(!isNaN(mCampo)&&mCampo>0)?mCampo:null, fonte="campo massa magra";
+    if(m===null && !isNaN(gCampo) && gCampo>0){ m=peso-gCampo; fonte="peso − massa grassa"; }
+    if(m===null && !isNaN(pgCampo) && pgCampo>0 && pgCampo<70){ m=peso*(1-pgCampo/100); fonte="peso × (1 − %grasso)"; }
+    if(m===null||isNaN(m)||m<=0||m>=peso) continue;
+    const g=peso-m, pgDer=(g/peso)*100;
+    // Il controllo vale solo quando la massa magra viene dal SUO campo: negli
+    // altri casi grassa e % sono per costruzione coerenti (le abbiamo derivate).
+    let incoerenza=null;
+    if(fonte==="campo massa magra"){
+      const problemi=[];
+      if(!isNaN(gCampo) && gCampo>0 && Math.abs(m+gCampo-peso)>0.6)
+        problemi.push({cosa:"magra + grassa ≠ peso", atteso:+(peso-m).toFixed(1), letto:+gCampo.toFixed(1), scarto:+Math.abs(m+gCampo-peso).toFixed(1), unita:"kg"});
+      if(!isNaN(pgCampo) && pgCampo>0 && Math.abs(pgCampo-pgDer)>1)
+        problemi.push({cosa:"% grasso non torna con la massa magra", atteso:+pgDer.toFixed(1), letto:+pgCampo.toFixed(1), scarto:+Math.abs(pgCampo-pgDer).toFixed(1), unita:"%"});
+      if(problemi.length){
+        const mAlt=(!isNaN(pgCampo)&&pgCampo>0&&pgCampo<70)?+(peso*(1-pgCampo/100)).toFixed(1)
+                 :((!isNaN(gCampo)&&gCampo>0)?+(peso-gCampo).toFixed(1):null);
+        incoerenza={problemi:problemi, magraUsata:+m.toFixed(1), magraAlternativa:mAlt};
+      }
     }
-    if(!m||isNaN(m)){
-      const pgv=parseFloat(ib.pg);
-      if(!isNaN(pgv)&&pgv>0&&pgv<70) m=peso*(1-pgv/100);
-    }
-    if(!m||isNaN(m)||m<=0||m>=peso) continue;
-    const g=peso-m;
-    const pgIb=parseFloat(ib.pg);
     return {data:ib.data||"", peso:+peso.toFixed(1), m:+m.toFixed(1), g:+g.toFixed(1),
-            pg:(!isNaN(pgIb)&&pgIb>0)?+pgIb:+((g/peso)*100).toFixed(1),
+            pg:+pgDer.toFixed(1), fonteMagra:fonte, incoerenza:incoerenza,
             altezza:parseFloat(ib.altezza)||parseFloat(p&&p.altezza)||null};
   }
   return null;
 }
 
+// Modo di calcolo suggerito dalla categoria dichiarata in visita (Tappa 2).
+// "ricomposizione"/"massa" → la massa magra SALE; tutto il resto → dimagrimento.
+function _traguardoModoDaCategoria(p){
+  const c=(p&&p.obiettivoPercorso&&p.obiettivoPercorso.paziente&&p.obiettivoPercorso.paziente.categoria)||"";
+  return (c==="ricomposizione"||c==="massa") ? "ricomposizione" : "dimagrimento";
+}
+
 // Motore puro: dalla % di grasso obiettivo alla fascia di peso, con avvisi.
 // Non scrive nulla sul paziente.
-function calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa){
+// TERZO PARAMETRO — accetta due forme:
+//   numero            → retrocompatibile: quota del calo da massa magra (dimagrimento)
+//   {modo, quotaMagraPersa, guadagnoMagra} → esplicito.
+// MODI (correzione post-collaudo 26/7, segnalazione di Fabrizio):
+//   "dimagrimento"   → la massa magra resta o CALA (quota del calo, default 20%);
+//   "ricomposizione" → la massa magra SALE di `guadagnoMagra` kg (default 2).
+// Perché serviva: puntare al 9% di grasso NON significa dimagrire. Su 83 kg con
+// 70 di magra, al 9%: magra ferma → 76.9 kg, +2 kg di magra → 79.1, +4 → 81.3,
+// +6 → 83.5 (peso invariato, obiettivo raggiunto). Stesso traguardo di
+// composizione, 6 kg di differenza sul peso finale. Il motore conosceva solo il
+// primo caso e scriveva "da perdere 6.1 kg" a un paziente in ricomposizione.
+function calcolaTraguardoComposizione(p, pctTarget, opzioni){
   const soglie=_traguardoSoglie(p&&p.sesso);
   if(!soglie) return {ok:false, motivo:"sesso non impostato",
     dettaglio:"Il grasso essenziale è diverso tra uomo e donna: senza il sesso in anagrafica il traguardo non è calcolabile."};
@@ -12256,19 +12297,34 @@ function calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa){
   const T=parseFloat(pctTarget);
   if(isNaN(T)||T<=0||T>=60) return {ok:false, motivo:"percentuale obiettivo non valida", misura:mis, soglie:soglie};
 
-  let q=(quotaMagraPersa===null||quotaMagraPersa===undefined||quotaMagraPersa==="")?20:parseFloat(quotaMagraPersa);
+  // Terzo parametro: numero (legacy) oppure oggetto esplicito.
+  const opz=(opzioni!==null && typeof opzioni==="object") ? opzioni : {quotaMagraPersa:opzioni};
+  const modo=(opz.modo==="ricomposizione")?"ricomposizione":"dimagrimento";
+  let q=(opz.quotaMagraPersa===null||opz.quotaMagraPersa===undefined||opz.quotaMagraPersa==="")?20:parseFloat(opz.quotaMagraPersa);
   if(isNaN(q)||q<0) q=0;
   if(q>50) q=50;
+  let gm=(opz.guadagnoMagra===null||opz.guadagnoMagra===undefined||opz.guadagnoMagra==="")?2:parseFloat(opz.guadagnoMagra);
+  if(isNaN(gm)||gm<0) gm=0;
+  if(gm>15) gm=15;
   const frac=T/100, qf=q/100;
   const direzione = T<mis.pg-0.05 ? "perdere" : (T>mis.pg+0.05 ? "aumentare" : "stabile");
 
-  // Scenario ottimista — massa magra intatta.
+  // Scenario A — massa magra intatta (sempre calcolabile).
   const pesoOtt=mis.m/(1-frac);
   const ott={peso:+pesoOtt.toFixed(1), m:+mis.m.toFixed(1), g:+(pesoOtt-mis.m).toFixed(1), delta:+(pesoOtt-mis.peso).toFixed(1)};
 
-  // Scenario realistico — una quota del calo è massa magra (solo in dimagrimento).
+  // Scenario B — dipende dal modo. Resta sulla chiave "realistico" per non
+  // rompere chi già la legge; `etichettaScenario` dice cosa rappresenta.
   let real=Object.assign({}, ott), realeApplicabile=false;
-  if(direzione==="perdere" && q>0){
+  let etichettaScenario="massa magra conservata";
+  if(modo==="ricomposizione"){
+    if(gm>0){
+      const mR=mis.m+gm, pesoR=mR/(1-frac);
+      real={peso:+pesoR.toFixed(1), m:+mR.toFixed(1), g:+(pesoR-mR).toFixed(1), delta:+(pesoR-mis.peso).toFixed(1)};
+      realeApplicabile=true;
+      etichettaScenario="con +"+gm+" kg di massa magra";
+    }
+  } else if(direzione==="perdere" && q>0){
     const den=qf-(1-frac);
     if(Math.abs(den)>1e-6){
       const X=(mis.m-(1-frac)*mis.peso)/den;
@@ -12277,10 +12333,16 @@ function calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa){
         if(mR>0 && pesoR>0){
           real={peso:+pesoR.toFixed(1), m:+mR.toFixed(1), g:+(pesoR-mR).toFixed(1), delta:+(-X).toFixed(1)};
           realeApplicabile=true;
+          etichettaScenario="con il "+q+"% del calo da massa magra";
         }
       }
     }
   }
+  // Grasso e magra in gioco: in ricomposizione sono i due numeri che contano,
+  // il peso è solo la loro somma.
+  const rif = realeApplicabile ? real : ott;
+  const grassoDaPerdere = +(mis.g-rif.g).toFixed(1);
+  const magraDaMettere  = +(rif.m-mis.m).toFixed(1);
 
   const lo=Math.min(ott.peso, real.peso), hi=Math.max(ott.peso, real.peso);
   const avvisi=[];
@@ -12299,7 +12361,21 @@ function calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa){
   } else if(direzione==="stabile"){
     avvisi.push({liv:"nota", txt:"Il traguardo coincide con la % di grasso attuale: nessuna variazione di composizione prevista."});
   } else if(!realeApplicabile){
-    avvisi.push({liv:"nota", txt:"Scenario realistico non calcolabile con questi valori: resta il solo scenario a massa magra conservata."});
+    // Correzione post-collaudo: con quota (o guadagno) a 0 il calcolo è validissimo,
+    // i due scenari semplicemente coincidono. Dirlo, invece di far pensare a un errore.
+    if(modo==="ricomposizione")
+      avvisi.push({liv:"nota", txt:"Guadagno di massa magra a 0: stai chiedendo il traguardo a muscolo invariato, quindi i due scenari coincidono."});
+    else if(q===0)
+      avvisi.push({liv:"nota", txt:"Quota a 0: stai assumendo che la massa magra si conservi tutta, quindi i due scenari coincidono."});
+    else
+      avvisi.push({liv:"nota", txt:"Con questi valori resta il solo scenario a massa magra conservata."});
+  }
+  if(modo==="ricomposizione" && realeApplicabile){
+    avvisi.push({liv:"nota", txt:"In ricomposizione il peso dice poco: il traguardo vero è la coppia grasso "+mis.g+" → "+rif.g+" kg e magra "+mis.m+" → "+rif.m+" kg. Al paziente mostra quelli, non la bilancia."});
+  }
+  if(mis.incoerenza){
+    const pb=mis.incoerenza.problemi.map(function(x){ return x.cosa+" (letto "+x.letto+x.unita+", coerente sarebbe "+x.atteso+x.unita+")"; }).join(" · ");
+    avvisi.push({liv:"avviso", txt:"I dati di questo referto non tornano fra loro: "+pb+". Il traguardo è calcolato sulla massa magra di "+mis.incoerenza.magraUsata+" kg"+(mis.incoerenza.magraAlternativa!=null?("; con l'altro dato sarebbe "+mis.incoerenza.magraAlternativa+" kg e il traguardo cambierebbe"):"")+". Controlla il referto prima di fissare l'obiettivo."});
   }
   if(mis.altezza){
     const hM=mis.altezza/100;
@@ -12312,8 +12388,13 @@ function calcolaTraguardoComposizione(p, pctTarget, quotaMagraPersa){
     avvisi.push({liv:"nota", txt:"Sono "+kgMax.toFixed(1)+" kg: un percorso di questa portata va spezzato in più cicli deficit → mantenimento."});
   }
 
+  const dPeso=rif.peso-mis.peso;
   return {ok:true, bloccato:bloccato, misura:mis, soglie:soglie, direzione:direzione,
-          pctTarget:+T, quotaMagraPersa:+q, realeApplicabile:realeApplicabile,
+          direzionePeso: dPeso<-0.5?"calo":(dPeso>0.5?"aumento":"stabile"),
+          modo:modo, etichettaScenario:etichettaScenario,
+          pctTarget:+T, quotaMagraPersa:+q, guadagnoMagra:+gm,
+          grassoDaPerdere:grassoDaPerdere, magraDaMettere:magraDaMettere,
+          realeApplicabile:realeApplicabile,
           ottimista:ott, realistico:real, fascia:[+lo.toFixed(1), +hi.toFixed(1)],
           avvisi:avvisi};
 }
@@ -12343,8 +12424,11 @@ function _traguardoScrivi(p, dati){
   const num=function(v){ const n=parseFloat(v); return isNaN(n)?null:n; };
   const nuovo={
     metodo: dati.metodo||"pctGrasso",
+    modo: dati.modo||(prec.modo||null),
     pctGrassoTarget: num(dati.pctGrassoTarget),
     quotaMagraPersa: num(dati.quotaMagraPersa),
+    guadagnoMagra: num(dati.guadagnoMagra),
+    massaMagraTargetKg: num(dati.massaMagraTargetKg),
     pesoTarget: num(dati.pesoTarget),
     pesoOttimista: num(dati.pesoOttimista),
     pesoRealistico: num(dati.pesoRealistico),
@@ -12436,9 +12520,24 @@ function _traguardoConfrontoAspettativa(pesoAtteso, res){
   const a=parseFloat(pesoAtteso);
   if(isNaN(a)||a<=0||!res||!res.ok) return null;
   const lo=res.fascia[0], hi=res.fascia[1], TOL=1;
+  // CORREZIONE post-collaudo 26/7: prima si guardava solo la fascia, mai il peso
+  // di partenza. Su un paziente da 83 kg che ne vuole 86 con un traguardo a 76.9
+  // usciva "9.1 kg più prudente del corridoio, c'è margine per alzare l'asticella":
+  // ma quello vuole CRESCERE mentre il traguardo lo fa CALARE. Non è prudenza,
+  // sono direzioni opposte — ed è la cosa più importante da dire in visita.
+  // La direzione del traguardo e' quella dello SCENARIO IN USO, non del centro
+  // della fascia: in ricomposizione la fascia puo' stare a cavallo del peso attuale.
+  const pesoAtt=(res.misura&&res.misura.peso)?+res.misura.peso:null;
+  const pesoRif=res.realeApplicabile?res.realistico.peso:res.ottimista.peso;
+  if(pesoAtt){
+    const vuoleSalire=a-pesoAtt, portaSu=pesoRif-pesoAtt;
+    if(Math.abs(vuoleSalire)>1 && Math.abs(portaSu)>1 && (vuoleSalire>0)!==(portaSu>0)){
+      return {liv:"opposto", txt:"Direzioni opposte: il paziente pesa "+pesoAtt+" kg e ne vuole "+a+" ("+(vuoleSalire>0?"vuole salire":"vuole scendere")+"), mentre questo traguardo lo porta a "+(portaSu>0?"salire":"scendere")+" verso "+pesoRif+" kg. Non è una questione di ambizione: o il traguardo di composizione va rivisto, o va spiegato che il peso non è l'indicatore — se è ricomposizione, imposta il modo giusto qui sopra."};
+    }
+  }
   if(a>=lo-TOL && a<=hi+TOL)
     return {liv:"ok", txt:"L'aspettativa del paziente ("+a+" kg) cade dentro il corridoio: siete allineati — diglielo, è raro."};
-  const perdere = res.direzione!=="aumentare";
+  const perdere = pesoAtt ? (pesoRif-pesoAtt)<0 : res.direzione!=="aumentare";
   const ambizioso = perdere ? a<lo-TOL : a>hi+TOL;
   if(ambizioso){
     const gap=+(perdere?(lo-a):(a-hi)).toFixed(1);
@@ -12488,20 +12587,39 @@ function _traguardoPanelHtml(p){
   if(!mis) return box('<div style="font-size:.7rem;color:#b45309">⚠️ Serve almeno una misurazione InBody con <strong>peso e massa magra</strong> per calcolare il traguardo dalla composizione.</div>');
   const pctIni = cl&&cl.pctGrassoTarget!=null ? cl.pctGrassoTarget : soglie.dflt;
   const quotaIni = cl&&cl.quotaMagraPersa!=null ? cl.quotaMagraPersa : 20;
+  const guadIni = cl&&cl.guadagnoMagra!=null ? cl.guadagnoMagra : 2;
+  // Il modo si presceglie dalla CATEGORIA dichiarata in visita (Tappa 2): se hai
+  // scritto "ricomposizione", l'app non ti chiede più quanta magra perde.
+  const modoIni = (cl&&cl.modo) ? cl.modo : _traguardoModoDaCategoria(p);
   const decisoIni = cl&&cl.decisoDa ? cl.decisoDa : "medico";
   const opt=function(v,l){ return '<option value="'+v+'"'+(decisoIni===v?' selected':'')+'>'+l+'</option>'; };
+  const optM=function(v,l){ return '<option value="'+v+'"'+(modoIni===v?' selected':'')+'>'+l+'</option>'; };
+  const incoerenzaHtml = mis.incoerenza
+    ? '<div style="font-size:.66rem;margin-bottom:.4rem;padding:.3rem .5rem;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;color:#c2410c">⚠️ <strong>I dati di questo referto non tornano fra loro.</strong> '
+      +mis.incoerenza.problemi.map(function(x){ return x.cosa+': letto <strong>'+x.letto+x.unita+'</strong>, coerente sarebbe <strong>'+x.atteso+x.unita+'</strong>'; }).join(' · ')
+      +'. Sto usando la massa magra di <strong>'+mis.incoerenza.magraUsata+' kg</strong> (la stessa che usano i macro)'
+      +(mis.incoerenza.magraAlternativa!=null?'; con l\'altro dato sarebbe '+mis.incoerenza.magraAlternativa+' kg e il traguardo cambierebbe':'')
+      +'. Controlla il referto.</div>'
+    : '';
   return box(
      '<div style="font-size:.66rem;color:var(--text3);margin-bottom:.4rem">Oggi: <strong>'+mis.peso+' kg</strong> · massa magra <strong>'+mis.m+' kg</strong> · massa grassa <strong>'+mis.g+' kg</strong> ('+mis.pg+'%)'+(mis.data?' — InBody del '+(typeof fData==="function"?fData(mis.data):mis.data):'')+'</div>'
+    +incoerenzaHtml
     +_traguardoVocePazienteHtml(p)
     +'<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.45rem">'
       +'<div><div style="font-size:.63rem;color:var(--text3)">% grasso obiettivo</div>'
         +'<input type="number" id="trg-pct" step="0.5" min="1" max="59" value="'+pctIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem;font-weight:700"></div>'
-      +'<div><div style="font-size:.63rem;color:var(--text3)">quota del calo da massa magra</div>'
+      +'<div><div style="font-size:.63rem;color:var(--text3)">il muscolo, nel percorso</div>'
+        +'<select id="trg-modo" onchange="_traguardoAnteprima()" style="font-size:.75rem">'
+          +optM("dimagrimento","cala un po\' (dimagrimento)")+optM("ricomposizione","sale (ricomposizione / massa)")
+        +'</select></div>'
+      +'<div id="trg-box-quota"><div style="font-size:.63rem;color:var(--text3)">quanto del calo è massa magra</div>'
         +'<input type="number" id="trg-quota" step="5" min="0" max="50" value="'+quotaIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">%</span></div>'
+      +'<div id="trg-box-guad"><div style="font-size:.63rem;color:var(--text3)">massa magra che guadagna</div>'
+        +'<input type="number" id="trg-guad" step="0.5" min="0" max="15" value="'+guadIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">kg</span></div>'
       +'<div><div style="font-size:.63rem;color:var(--text3)">deciso da</div>'
         +'<select id="trg-deciso" style="font-size:.75rem">'+opt("medico","io (medico)")+opt("condiviso","condiviso")+opt("paziente","il paziente")+'</select></div>'
     +'</div>'
-    +'<div style="font-size:.62rem;color:var(--text3);margin-bottom:.35rem">La quota di massa magra persa scende con proteine alte e allenamento coi pesi (10-15%), sale senza allenamento (25-30%).</div>'
+    +'<div id="trg-hint" style="font-size:.62rem;color:var(--text3);margin-bottom:.35rem"></div>'
     +'<div id="trg-out"></div>'
   );
 }
@@ -12512,21 +12630,35 @@ function _traguardoAnteprima(){
   if(!out) return;
   const p=_macrosPaziente;
   const gv=function(id){ const el=document.getElementById(id); return el?el.value:""; };
-  const r=calcolaTraguardoComposizione(p, gv("trg-pct"), gv("trg-quota"));
+  const modo=gv("trg-modo")==="ricomposizione"?"ricomposizione":"dimagrimento";
+  // il campo non pertinente sparisce (niente re-render del guscio: si perderebbe il focus)
+  const bq=document.getElementById("trg-box-quota"), bg=document.getElementById("trg-box-guad");
+  if(bq) bq.style.display = modo==="ricomposizione" ? "none" : "";
+  if(bg) bg.style.display = modo==="ricomposizione" ? "" : "none";
+  const hint=document.getElementById("trg-hint");
+  if(hint) hint.innerHTML = modo==="ricomposizione"
+    ? "Il grasso scende e il muscolo sale: il peso finale dipende da quanto muscolo mette. Indicativo: +2 kg in 4-6 mesi su chi è già allenato, di più su un principiante, meno su un avanzato."
+    : "Dimagrendo non se ne va solo grasso: una parte dei chili persi è muscolo e acqua. Scende al 10-15% con proteine alte e pesi, sale al 25-30% senza allenamento.";
+  const r=calcolaTraguardoComposizione(p, gv("trg-pct"), {modo:modo, quotaMagraPersa:gv("trg-quota"), guadagnoMagra:gv("trg-guad")});
   if(!r||!r.ok){
     out.innerHTML='<div style="font-size:.7rem;color:#b45309">'+((r&&r.dettaglio)||(r&&r.motivo)||"Traguardo non calcolabile")+'</div>';
     return;
   }
   const o=r.ottimista, re=r.realistico;
-  const kgOtt=Math.abs(o.delta), kgReal=Math.abs(re.delta);
-  const verbo=r.direzione==="aumentare"?"da mettere":"da perdere";
   let h='<div style="font-size:.72rem;line-height:1.55">'
     +'<div>▸ massa magra conservata → <strong style="font-size:.85rem">'+o.peso+' kg</strong> <span style="color:var(--text3)">(magra '+o.m+' · grassa '+o.g+' kg)</span></div>';
   if(r.realeApplicabile){
-    h+='<div>▸ scenario realistico ('+r.quotaMagraPersa+'% del calo da massa magra) → <strong style="font-size:.85rem">'+re.peso+' kg</strong> <span style="color:var(--text3)">(magra '+re.m+' · grassa '+re.g+' kg)</span></div>';
+    h+='<div>▸ '+r.etichettaScenario+' → <strong style="font-size:.85rem">'+re.peso+' kg</strong> <span style="color:var(--text3)">(magra '+re.m+' · grassa '+re.g+' kg)</span></div>';
   }
+  // I due numeri che contano davvero: grasso da togliere e magra da mettere.
+  // Il peso è solo la loro somma — in ricomposizione può perfino non muoversi.
+  const pezzi=[];
+  if(Math.abs(r.grassoDaPerdere)>0.05) pezzi.push('grasso <strong>'+(r.grassoDaPerdere>0?'−':'+')+Math.abs(r.grassoDaPerdere).toFixed(1)+' kg</strong>');
+  if(Math.abs(r.magraDaMettere)>0.05) pezzi.push('massa magra <strong>'+(r.magraDaMettere>0?'+':'−')+Math.abs(r.magraDaMettere).toFixed(1)+' kg</strong>');
+  const dPeso=(r.realeApplicabile?re.delta:o.delta);
+  pezzi.push('peso <strong>'+(dPeso>0?'+':'')+dPeso.toFixed(1)+' kg</strong>'+(Math.abs(dPeso)<0.6?' (praticamente fermo)':''));
   h+='<div style="margin-top:.25rem;padding:.3rem .5rem;background:#FFF3CD;border-radius:6px;color:#7a5b00"><strong>Fascia: '+r.fascia[0]+' – '+r.fascia[1]+' kg</strong>'
-    +(r.direzione!=="stabile"?' · '+verbo+' '+Math.min(kgOtt,kgReal).toFixed(1)+'–'+Math.max(kgOtt,kgReal).toFixed(1)+' kg':'')+'</div></div>';
+    +'<div style="margin-top:.15rem">'+pezzi.join(' · ')+'</div></div></div>';
   (r.avvisi||[]).forEach(function(a){
     const st = a.liv==="blocco" ? "background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c"
              : a.liv==="avviso" ? "background:#fff7ed;border:1px solid #fdba74;color:#c2410c"
@@ -12538,7 +12670,7 @@ function _traguardoAnteprima(){
   const _vp=_traguardoGet(p);
   const _cmp=(_vp&&_vp.paziente)?_traguardoConfrontoAspettativa(_vp.paziente.pesoAtteso,r):null;
   if(_cmp){
-    const _st=_cmp.liv==='gap'?'background:#fff7ed;border:1px solid #fdba74;color:#c2410c':(_cmp.liv==='ok'?'background:#f0fdf4;border:1px solid #86efac;color:#166534':'background:var(--bg2);border:1px solid var(--border);color:var(--text2)');
+    const _st=(_cmp.liv==='gap'||_cmp.liv==='opposto')?'background:#fff7ed;border:1px solid #fdba74;color:#c2410c':(_cmp.liv==='ok'?'background:#f0fdf4;border:1px solid #86efac;color:#166534':'background:var(--bg2);border:1px solid var(--border);color:var(--text2)');
     h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+_st+'">🗣️ '+_cmp.txt+'</div>';
   }
   if(!r.bloccato){
@@ -12551,6 +12683,21 @@ function _traguardoAnteprima(){
     }
     h+='</div>';
   }
+  // CORREZIONE post-collaudo 26/7 — il campo "Obiettivo peso" si può scrivere a
+  // mano: in quel caso p.pesoTarget cambia ma obiettivoPercorso.clinico resta
+  // indietro, e lo storico mostra un valore che non è più quello attivo (nel
+  // collaudo: campo 86 kg, storico "→ 75.2"). Il disallineamento va detto.
+  (function(){
+    const _s=_traguardoGet(p);
+    const _cl=_s&&_s.clinico;
+    const _campo=document.getElementById("mac-peso-target");
+    const _vCampo=_campo?parseFloat(_campo.value):(p&&p.pesoTarget!=null?+p.pesoTarget:NaN);
+    if(_cl && _cl.pesoTarget!=null && !isNaN(_vCampo) && Math.abs(_vCampo-_cl.pesoTarget)>0.2){
+      h+='<div style="margin-top:.35rem;padding:.3rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;background:#fff7ed;border:1px solid #fdba74;color:#c2410c">'
+        +'⚠️ Il campo <strong>Obiettivo peso</strong> dice <strong>'+_vCampo+' kg</strong>, ma l\'ultimo traguardo calcolato qui era <strong>'+_cl.pesoTarget+' kg</strong>: lo storico sotto si riferisce a quello vecchio. '
+        +'<button type="button" class="btn btn-g btn-sm" style="margin-left:.3rem" onclick="_traguardoAllineaManuale()">Registra '+_vCampo+' kg come scelta manuale</button></div>';
+    }
+  })();
   // storico delle revisioni: il traguardo non si sovrascrive mai in silenzio
   const sal=_traguardoGet(p);
   if(sal&&sal.storico.length){
@@ -12566,20 +12713,38 @@ function _traguardoAnteprima(){
   out.innerHTML=h;
 }
 
+// Registra come revisione il valore scritto a mano nel campo Obiettivo peso:
+// il traguardo clinico torna allineato e lo storico dice la verità (metodo
+// "manuale", così resta chiaro che non viene dalla composizione).
+function _traguardoAllineaManuale(){
+  const p=_macrosPaziente; if(!p) return;
+  const el=document.getElementById("mac-peso-target");
+  const v=el?parseFloat(el.value):NaN;
+  if(isNaN(v)||v<=0){ notif("⚠ Nel campo Obiettivo peso non c\'è un numero valido"); return; }
+  _traguardoScrivi(p, {metodo:"manuale", pesoTarget:v, motivo:"valore scritto a mano nel campo Obiettivo peso",
+                       decisoDa:(document.getElementById("trg-deciso")||{}).value||"medico"});
+  if(typeof save==="function") save(p.id);
+  notif("🎯 Traguardo allineato a "+v+" kg (scelta manuale)");
+  _renderRifPesoBox();
+  if(typeof renderPdPercorso==="function") renderPdPercorso(p);
+}
+
 // Applica il traguardo: unico punto che scrive (via _traguardoScrivi), allinea
 // il campo visibile, salva e ridisegna. Nessun ricalcolo automatico silenzioso.
 function _traguardoUsa(scenario){
   const p=_macrosPaziente;
   if(!p){ notif("⚠ Nessun paziente aperto"); return; }
   const gv=function(id){ const el=document.getElementById(id); return el?el.value:""; };
-  const r=calcolaTraguardoComposizione(p, gv("trg-pct"), gv("trg-quota"));
+  const modo=gv("trg-modo")==="ricomposizione"?"ricomposizione":"dimagrimento";
+  const r=calcolaTraguardoComposizione(p, gv("trg-pct"), {modo:modo, quotaMagraPersa:gv("trg-quota"), guadagnoMagra:gv("trg-guad")});
   if(!r||!r.ok){ notif("⚠ "+((r&&r.dettaglio)||(r&&r.motivo)||"traguardo non calcolabile"),4000); return; }
   if(r.bloccato){ notif("⛔ Sotto la soglia del grasso essenziale: traguardo non impostabile",4000); return; }
   const sc = scenario==="ottimista" ? r.ottimista : r.realistico;
   _traguardoScrivi(p, {
-    metodo:"pctGrasso", pctGrassoTarget:r.pctTarget, quotaMagraPersa:r.quotaMagraPersa,
+    metodo:"pctGrasso", modo:modo, pctGrassoTarget:r.pctTarget,
+    quotaMagraPersa:r.quotaMagraPersa, guadagnoMagra:r.guadagnoMagra,
     pesoTarget:sc.peso, pesoOttimista:r.ottimista.peso, pesoRealistico:r.realistico.peso,
-    massaGrassaTargetKg:sc.g, massaMagraRif:r.misura.m, scenario:scenario,
+    massaGrassaTargetKg:sc.g, massaMagraTargetKg:sc.m, massaMagraRif:r.misura.m, scenario:scenario,
     decisoDa:gv("trg-deciso")||"medico"
   });
   const el=document.getElementById("mac-peso-target");

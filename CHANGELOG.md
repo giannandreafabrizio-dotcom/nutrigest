@@ -10,6 +10,93 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, seguito) — P122 CORREZIONI POST-COLLAUDO: IL MOTORE IMPARA LA RICOMPOSIZIONE + COERENZA DEI REFERTI INBODY.
+Baseline `ef8c9b2`. Test 237 → **254**, tutti verdi (`s2-traguardo-correzioni.test.js`).
+
+**Origine.** Collaudo sul campo delle Tappe 1-3 fatto da Fabrizio (note complete
+nel doc di progetto `NutriGest_P122_Collaudo_e_Correzioni.md`). Cinque correzioni,
+tutte nate da cose viste con gli occhi su un paziente vero.
+
+**1. IL MOTORE NON SAPEVA COS'È LA RICOMPOSIZIONE** (la più grave).
+Segnalazione testuale di Fabrizio: *"il fatto che gli scrivo che deve arrivare al
+9% di grasso corporeo non implica che debba dimagrire, ma che debba perdere
+grasso e aumentare muscolo."* `calcolaTraguardoComposizione` conosceva solo massa
+magra **costante** o in **calo**: mancava il caso in cui SALE, che è il percorso
+standard di Fabrizio. Su un paziente in ricomposizione l'app scriveva "da perdere
+6.1 kg" con un obiettivo clinico che non era perdere 6 kg.
+Quanto pesa l'errore, su 83 kg con 70 di magra puntando al 9%:
+magra ferma → **76.9 kg** · +2 kg di magra → **79.1** · +4 → **81.3** ·
++6 → **83.5** (peso di partenza, obiettivo raggiunto). Stesso traguardo di
+composizione, **6.6 kg di differenza sul peso finale**.
+Ora il terzo parametro accetta `{modo, quotaMagraPersa, guadagnoMagra}` (numero
+semplice ancora accettato, retrocompatibile): modo `dimagrimento` = quota del
+calo da massa magra · modo `ricomposizione` = `peso = (magra + guadagno)/(1−T)`,
+default +2 kg deciso da Fabrizio. **Il modo si presceglie dalla categoria
+dichiarata in visita nella Tappa 2** (`ricomposizione`/`massa` → magra che sale):
+la Tappa 2 finalmente *informa* la Tappa 1, e il campo che non c'entra sparisce
+dalla schermata. Il pannello non dice più "da perdere X kg" ma i due numeri che
+contano davvero — **grasso −5.9 kg · massa magra +2.0 kg · peso −3.9 kg** — con
+la nota esplicita: in ricomposizione al paziente si mostra la coppia, non la
+bilancia. *(Corollario: le Tappe 4 e 5 — traguardi multipli e vista paziente
+senza peso — passano da opzionali a necessarie.)*
+
+**2. REFERTI INBODY INCOERENTI, e la QUARTA occorrenza del pattern "due fonti".**
+Il referto del collaudo aveva peso 83 kg, campo *massa magra* 70 kg e campo
+*% grasso* 10%: numeri che non possono coesistere (70 su 83 significa 13 kg di
+grasso, cioè **15.7%**). Il pannello scriveva serenamente «massa grassa 13 kg
+(10%)», una frase che si contraddice da sola, perché prendeva la grassa da
+`peso−m` e la percentuale dal campo del referto.
+Nella stessa schermata comparivano anche «FFM: 74.7 kg» in alto e «calcolato su
+FFM (70 kg)» in fondo: **una sola riga di tutta l'app** (in `renderPdMacros`)
+ricavava la massa magra dalla percentuale, mentre motore macro, proteine g/kg,
+PDF e pannello 🎯 leggono tutti il campo `m`. Quarta occorrenza del pattern già
+visto in P118, P120 e P121.
+Correzioni: **la % di grasso è ora SEMPRE derivata dalla massa magra usata**
+(i numeri a schermo tornano sempre fra loro); i referti che non tornano
+producono `mis.incoerenza` con lo scarto, il valore usato e **il valore
+alternativo con cui il traguardo cambierebbe** — mostrato in arancione nel
+pannello e come avviso nel motore (scelta di Fabrizio: avvisare, non bloccare,
+perché un referto può avere arrotondamenti legittimi); la riga della FFM usa il
+campo `m`, col ripiego solo quando manca davvero.
+**Perché non è cosmetico:** al 9%, con magra 70 il traguardo è 76.9 kg, con 74.7
+è 82.1. **Cinque chili, in silenzio.**
+
+**3. IL CONFRONTO CON L'ASPETTATIVA IGNORAVA IL PESO ATTUALE.**
+Su un paziente di 83 kg che ne vuole 86, con traguardo a 76.9, l'app scriveva:
+*"9.1 kg più prudente del corridoio: c'è margine per alzare l'asticella insieme"*.
+Ma quello vuole **crescere** mentre il traguardo lo fa **calare**: non è
+prudenza, sono direzioni opposte — ed è la cosa più importante da dire in visita.
+Aggiunto il livello `opposto`, e la direzione si legge dallo **scenario in uso**,
+non dal centro della fascia (in ricomposizione la fascia può stare a cavallo del
+peso attuale: fissato da test).
+
+**4. DUE ETICHETTE CHE NON SI CAPIVANO.** «quota del calo da massa magra» →
+«quanto del calo è massa magra», con la spiegazione sotto che cambia col modo
+(Fabrizio ha dovuto chiedere cosa significasse: se non è chiaro al professionista
+che la usa ogni giorno, è l'etichetta a essere sbagliata). E «Scenario realistico
+non calcolabile con questi valori», che compariva con la quota a **0** dove il
+calcolo è validissimo: ora dice che i due scenari semplicemente **coincidono**.
+
+**5. TRAGUARDO SCRITTO A MANO ≠ TRAGUARDO CLINICO.** Campo *Obiettivo peso* a 86
+kg e storico che diceva «→ 75.2 kg»: scrivendo il numero a mano `p.pesoTarget`
+cambia e `obiettivoPercorso.clinico` resta indietro, con lo storico che mostra un
+valore non più attivo. Ora il pannello se ne accorge, lo dichiara in arancione e
+offre «Registra 86 kg come scelta manuale» (`_traguardoAllineaManuale`, metodo
+`manuale`, con la sua riga di storico).
+
+**Lezione.** Il collaudo sul campo ha trovato in venti minuti due errori che
+nessun test avrebbe potuto trovare, perché **non erano errori di calcolo ma di
+modello**: il motore era coerente con sé stesso e sbagliato rispetto alla
+clinica. Un'ipotesi implicita mai scritta ("chi punta a una % di grasso più bassa
+vuole dimagrire") vale quanto un bug, e si vede solo mettendo il software davanti
+a chi fa il lavoro vero.
+
+**Da collaudare.** Paziente con categoria "ricomposizione" in anagrafica →
+pannello 🎯: il selettore «il muscolo, nel percorso» deve essere già su *sale*, e
+il campo deve chiedere i kg di massa magra, non la quota. Verifica i numeri della
+riga grasso/magra/peso. Su un referto con dati discordi deve comparire il riquadro
+arancione con entrambi i traguardi possibili.
+
 26 LUGLIO 2026 (6ª sessione) — P122 TAPPA 3: MODELLI DI PERIODIZZAZIONE + PULSANTE "RIALLINEA" — IL PERCORSO SMETTE DI ESSERE UN GRAFICO E DIVENTA UN PIANO.
 Baseline `bf3aa6d`. Test 225 → **237**, tutti verdi (`s2-percorso-generatore.test.js`).
 
