@@ -904,8 +904,14 @@ p.obiettivoPercorso = { clinico:{...}, paziente:{...}, storico:[], traguardi:[] 
   // storico[] = { data, campo, etichetta, da, a, motivo, decisoDa, metodo }
   //   append-only (max 60): il traguardo non si sovrascrive MAI in silenzio —
   //   stessa scelta di p.refertiSangue (P118) e dell'ordinamento InBody (P120).
-  // paziente{} e traguardi[] sono previsti dal design (tappe 2 e 4) e oggi non
-  //   vengono ancora scritti da nessuna parte: leggerli deve degradare a vuoto.
+  // paziente = { categoria (chiave di _OB_CATEGORIE), motivo, pesoAtteso
+  //   (aspettativa del paziente, registrata anche se irrealistica),
+  //   scadenzaPersonale, eventoScadenza, importanza 0-10, fiducia 0-10, data }
+  //   — P122 Tappa 2 (25 lug 2026), scritto da _obiettivoPazienteDaForm via
+  //   salvaPaz. Il testo libero resta in p.obiettivo (una casa sola per dato).
+  //   La data cambia solo quando cambia il contenuto.
+  // traguardi[] e' previsto dal design (tappa 4) e oggi non viene ancora
+  //   scritto da nessuna parte: leggerlo deve degradare a vuoto.
   // p.pesoTarget resta e diventa lo SPECCHIO DERIVATO di clinico.pesoTarget:
   //   e' il campo che leggono proiezione P115, calcolaMacros, PDF e contesto AI.
   //   Scritto SOLO da _traguardoScrivi (o a mano nel campo, metodo "manuale").
@@ -1947,6 +1953,32 @@ TRAGUARDO DALLA COMPOSIZIONE CORPOREA (P122 Tappa 1, 25 lug 2026):
     altezza e sesso.
   Tappe 2-5 (domanda in visita strutturata, modelli di periodizzazione,
   traguardi multipli e comportamentali, vista paziente) restano nella Roadmap.
+
+LA DOMANDA IN VISITA, STRUTTURATA (P122 Tappa 2, 25 lug 2026):
+  Sezione 🎯 nel tab Dati del modal anagrafica (dopo il contesto emotivo):
+  obiettivo dichiarato (input p-obiettivo, torna in p.obiettivo — il campo era
+  SPARITO dal markup e salvaPaz lo azzerava a ogni salvataggio, bug F6),
+  categoria (p-ob-categoria, valori di _OB_CATEGORIE), motivo ("cosa
+  cambierebbe nella tua vita", p-ob-motivo), peso atteso DAL PAZIENTE
+  (p-ob-peso-atteso, registrato anche se irrealistico), scadenza personale
+  (p-ob-scadenza + p-ob-evento), importanza e fiducia 0-10 (select).
+  SCRITTURA: _obiettivoPazienteDaForm(pd), chiamata da salvaPaz dopo
+  _pazPreservaCampi — scrive SOLO obiettivoPercorso.paziente (clinico/storico
+  intatti), niente strutture vuote se i campi sono tutti vuoti, no-op se il
+  markup non c'e' (test/legacy). La data del blocco resta quella della prima
+  dichiarazione finche' il contenuto non cambia: racconta QUANDO il paziente
+  l'ha detto, non quando si e' salvato per ultimo.
+  CONFRONTO ASPETTATIVA-CORRIDOIO: _traguardoConfrontoAspettativa(pesoAtteso,
+  res) (pura, tolleranza 1 kg) — dentro il corridoio / oltre il bordo prudente
+  (divario quantificato) / piu' prudente del corridoio; il lato "ambizioso"
+  dipende dalla direzione (in massa si ribalta). Mostrato in _traguardoAnteprima
+  sotto la fascia. _traguardoVocePazienteHtml(p) aggiunge nel pannello 🎯 la
+  riga "La voce del paziente" con l'avviso operativo quando importanza>=7 e
+  fiducia<=4 (sa cosa vuole ma non crede di farcela -> traguardi comportamentali
+  piccoli). CONTESTO AI: costruisciContestoPaziente produce il blocco
+  "OBIETTIVO DEL PAZIENTE" (categoria, motivo, aspettativa marcata "NON e' il
+  target clinico", scadenza, importanza/fiducia, traguardo clinico derivato e
+  riga di divario oltre 1 kg); i pazienti senza Tappa 2 non producono il blocco.
 
 SALVATAGGIO ANAGRAFICA — campi non gestiti dal form (F5, 25 lug 2026):
   salvaPaz, nel ramo di modifica, ricostruisce il paziente dal form; prima

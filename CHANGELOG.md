@@ -10,6 +10,67 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+25 LUGLIO 2026 (5ª sessione, seguito) — P122 TAPPA 2: LA DOMANDA IN VISITA, STRUTTURATA · F6: IL CAMPO OBIETTIVO ERA SPARITO DAL MODAL E OGNI SALVATAGGIO LO AZZERAVA.
+Baseline `b30fa38`. Test 212 → **225**, tutti verdi (`s2-obiettivo-paziente.test.js`).
+
+**Origine.** Seconda tappa del piano di `NutriGest_Obiettivo_Ragionamento.md`:
+la domanda che Fabrizio fa a ogni prima visita — *"qual è il tuo obiettivo?"* —
+diventa un dato strutturato invece di una risposta che si perde.
+
+**F6 — bug trovato subito, stessa famiglia di F5.** Il campo `p-obiettivo` era
+**sparito dal markup** del modal anagrafica in qualche revisione passata, ma
+`salvaPaz` continuava a leggerlo: elemento assente → stringa vuota → **ogni
+salvataggio dell'anagrafica azzerava `p.obiettivo` in silenzio**. È il motivo
+per cui la domanda in visita non aveva più una casella da nessuna parte.
+La Tappa 2 ricrea il campo (e ci costruisce intorno la sezione nuova), chiudendo
+anche questo buco. Lezione: quando si rimuove un pezzo di markup, cercare chi lo
+legge — un `getElementById` orfano non dà errori, produce dati vuoti.
+
+**Cosa è stato fatto (Tappa 2).**
+1. **Sezione 🎯 nel tab Dati** del modal anagrafica, subito dopo il contesto
+   emotivo: obiettivo dichiarato (parole del paziente, torna in `p.obiettivo`),
+   categoria (dimagrire / ricomposizione / massa / salute / performance /
+   mantenimento), **"cosa cambierebbe nella tua vita quando ci arrivi?"** (la
+   motivazione vera, da rileggergli al terzo mese), **peso che si aspetta
+   LUI/LEI** — registrato apposta anche se irrealistico: Foster 1997, il "peso
+   dei sogni" sta a ~−30% e il divario non affrontato è la prima causa di
+   abbandono al 4°-6° mese —, **"c'è una data che conta per te?"** (evento +
+   data: matrimonio, estate, gara), e i due numeri che valgono più di mezz'ora
+   di anamnesi: **importanza 0-10 e fiducia 0-10**.
+2. **Scrittura**: `_obiettivoPazienteDaForm(pd)` scrive SOLO
+   `obiettivoPercorso.paziente` (clinico e storico restano intatti, già protetti
+   da `_pazPreservaCampi`), non crea strutture vuote se non c'è niente da dire,
+   e la **data racconta quando il paziente l'ha detto**: resta quella della
+   prima dichiarazione finché il contenuto non cambia. Senza markup è un no-op
+   assoluto (test e contesti legacy).
+3. **Confronto aspettativa ↔ corridoio** (`_traguardoConfrontoAspettativa`,
+   pura): nel pannello 🎯 della scheda Macros, sotto la fascia calcolata, appare
+   il confronto con il peso atteso dal paziente — dentro il corridoio ("siete
+   allineati — diglielo, è raro"), oltre il bordo prudente (divario
+   quantificato: "7.9 kg OLTRE… è la conversazione della prima visita"), o più
+   prudente del corridoio ("margine per alzare l'asticella insieme"). Il lato
+   "ambizioso" si ribalta correttamente nei percorsi di massa.
+4. **La voce del paziente nel pannello** (`_traguardoVocePazienteHtml`):
+   categoria, parole sue, aspettativa, scadenza personale, importanza/fiducia —
+   e quando importanza ≥7 con fiducia ≤4, l'avviso operativo: *"sa cosa vuole ma
+   non crede di farcela: parti da traguardi comportamentali piccoli e vincibili"*.
+5. **Contesto AI** (`costruisciContestoPaziente`): blocco "OBIETTIVO DEL
+   PAZIENTE" con categoria, motivo, aspettativa (marcata "NON è il target
+   clinico"), scadenza personale, importanza/fiducia con la stessa regola
+   operativa, il traguardo clinico derivato (% grasso → fascia, chi ha deciso)
+   e la riga "⚠ Divario aspettativa-traguardo" quando supera 1 kg. I pazienti
+   senza Tappa 2 non producono il blocco: retrocompatibilità fissata da test.
+
+**Da collaudare in produzione.** (1) Apri l'anagrafica di un paziente: nel tab
+Dati c'è la sezione 🎯; compila, salva, riapri: i valori tornano. (2) Con
+un'aspettativa compilata, scheda Macros → pannello 🎯: compare "La voce del
+paziente" e, sotto la fascia, il confronto. (3) Avvia il ragionamento AI e
+verifica che il blocco OBIETTIVO DEL PAZIENTE arrivi nel contesto. (4) Verifica
+F6: scrivi un obiettivo, salva, riapri — prima di oggi si azzerava.
+
+**Resta da fare (P122 tappe 3-5):** modelli di periodizzazione + "riallinea";
+traguardi multipli e fasi con condizione di uscita; vista paziente del traguardo.
+
 25 LUGLIO 2026 (5ª sessione) — P122 TAPPA 1: IL TRAGUARDO SI DERIVA DALLA COMPOSIZIONE CORPOREA · F5: LA MODIFICA DELL'ANAGRAFICA CANCELLAVA IN SILENZIO PERCORSO, REFERTI DEL SANGUE E RICHIESTE ESAMI.
 Baseline `924414b`. Test 197 → **212**, tutti verdi (`s2-traguardo-composizione.test.js`).
 

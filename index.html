@@ -1228,6 +1228,23 @@ main{flex:1;overflow-y:auto;}
     <div class="fg"><label>Contesto emotivo e motivazionale</label>
       <textarea id="p-contesto-emotivo" rows="3" placeholder="Es. storia di fallimenti precedenti, alta motivazione, paziente ansioso, poco tempo, vita caotica..."></textarea>
     </div>
+    <div class="sec-title" style="margin-top:.9rem">🎯 La domanda in visita: «Qual è il tuo obiettivo?»</div>
+    <div class="fg"><label>Obiettivo dichiarato (parole del paziente)</label><input id="p-obiettivo" placeholder="es. rientrare nei vestiti, non essere sempre stanco"></div>
+    <div class="fr">
+      <div class="fg"><label>Categoria</label>
+        <select id="p-ob-categoria"><option value="">— Seleziona —</option><option value="dimagrire">Dimagrire</option><option value="ricomposizione">Ricomposizione (giù il grasso, su il muscolo)</option><option value="massa">Massa muscolare</option><option value="salute">Salute / valori del sangue</option><option value="performance">Performance sportiva</option><option value="mantenimento">Mantenimento</option></select>
+      </div>
+      <div class="fg"><label>Peso che si aspetta LUI/LEI (kg)</label><input type="number" id="p-ob-peso-atteso" step="0.5" min="20" placeholder="anche se irrealistico: va registrato"></div>
+    </div>
+    <div class="fg"><label>«Cosa cambierebbe nella tua vita quando ci arrivi?»</label><input id="p-ob-motivo" placeholder="la motivazione vera — da rileggergli al terzo mese"></div>
+    <div class="fr">
+      <div class="fg"><label>«C'è una data che conta per te?»</label><input type="date" id="p-ob-scadenza"></div>
+      <div class="fg"><label>Evento</label><input id="p-ob-evento" placeholder="matrimonio, estate, gara, visita medica…"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>«Da 0 a 10, quanto è importante per te?»</label><select id="p-ob-importanza"><option value="">—</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+      <div class="fg"><label>«Da 0 a 10, quanto ti senti in grado di farcela?»</label><select id="p-ob-fiducia"><option value="">—</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+    </div>
     <div class="fr">
       <div class="fg"><label>Studio</label>
   <select id="p-studio">
@@ -5482,7 +5499,7 @@ function openNuovoPaz(){
 
   // Campi FUORI dal modal (sezione "Calcola Macronutrienti" della scheda paziente,
   // visibili sotto al modal): vanno azzerati esplicitamente, il selector sopra non li tocca.
-  ['p-obiettivo','p-integratori','p-int-vuole','p-dove','p-no-rinuncia','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-cheto-note','p-passi','p-ore-all','p-sedute','p-minuti-seduta','p-attivita-spec','p-orario-all-note','p-tipo-all','p-intens-all','p-orario-all','p-fonte-passi','p-lavoro','p-cronotipo','p-orario-pasto','p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['p-obiettivo','p-ob-categoria','p-ob-motivo','p-ob-peso-atteso','p-ob-scadenza','p-ob-evento','p-ob-importanza','p-ob-fiducia','p-integratori','p-int-vuole','p-dove','p-no-rinuncia','p-sport','p-sport-t','p-sport-ore','p-attrezzi','p-cheto-note','p-passi','p-ore-all','p-sedute','p-minuti-seduta','p-attivita-spec','p-orario-all-note','p-tipo-all','p-intens-all','p-orario-all','p-fonte-passi','p-lavoro','p-cronotipo','p-orario-pasto','p-peso','p-altezza','p-peso-target'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['lun','mar','mer','gio','ven','sab','dom'].forEach(d=>{const el=document.getElementById('gall-'+d);if(el)el.checked=false;});
   toggleOrarioNote();
 
@@ -5501,6 +5518,13 @@ function editPaz(){
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
   s('p-nome',p.nome);s('p-cognome',p.cognome);s('p-tel',p.tel);s('p-nascita',p.nascita);s('p-sesso',p.sesso);
   s('p-peso',p.peso);s('p-altezza',p.altezza);s('p-obiettivo',p.obiettivo);
+  // P122 Tappa 2 — la domanda in visita strutturata
+  (function(){ const v=(p.obiettivoPercorso&&p.obiettivoPercorso.paziente)||{};
+    const sv=function(id,val){ const el=document.getElementById(id); if(el) el.value=(val==null?'':val); };
+    sv('p-ob-categoria',v.categoria); sv('p-ob-motivo',v.motivo); sv('p-ob-peso-atteso',v.pesoAtteso);
+    sv('p-ob-scadenza',v.scadenzaPersonale); sv('p-ob-evento',v.eventoScadenza);
+    sv('p-ob-importanza',v.importanza); sv('p-ob-fiducia',v.fiducia);
+  })();
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
   s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
@@ -6158,6 +6182,7 @@ function salvaPaz(){
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.refertiSangue=[];pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
+  _obiettivoPazienteDaForm(pd);   // P122 Tappa 2 — scrive SOLO obiettivoPercorso.paziente (clinico/storico già preservati)
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
   window._alMotivazioni=pd.motivazioniSemaforo||{};window._alStato=pd.alimenti||{};
@@ -8009,6 +8034,28 @@ function costruisciContestoPaziente(p){
     +'\nLAF: '+(laf||'—')+' · MB InBody: '+(mb||'—')+' kcal · TDEE: '+(tdee||'—')+' kcal'
     +'\n'+_macrosLabel
     +avvisoInbody;
+  // P122 Tappa 2 — la voce del paziente e il traguardo derivato entrano nel contesto AI
+  (function(){
+    const _obx=p.obiettivoPercorso||{}; const v=_obx.paziente, c=_obx.clinico;
+    if(!v && !(c&&c.pctGrassoTarget!=null)) return;
+    ctx+='\n\nOBIETTIVO DEL PAZIENTE (dichiarato in visita):';
+    if(v){
+      if(v.categoria) ctx+='\nCategoria: '+((typeof _OB_CATEGORIE!=='undefined'&&_OB_CATEGORIE[v.categoria])||v.categoria);
+      if(v.motivo) ctx+='\nCosa cambierebbe nella sua vita: '+v.motivo;
+      if(v.pesoAtteso!=null) ctx+='\nPeso che SI ASPETTA il paziente: '+v.pesoAtteso+' kg (aspettativa registrata anche se irrealistica: NON è il target clinico)';
+      if(v.scadenzaPersonale) ctx+='\nScadenza personale che conta per lui/lei: '+(v.eventoScadenza?v.eventoScadenza+' — ':'')+v.scadenzaPersonale;
+      if(v.importanza!=null||v.fiducia!=null) ctx+='\nImportanza dichiarata: '+(v.importanza!=null?v.importanza+'/10':'—')+' · Fiducia di farcela: '+(v.fiducia!=null?v.fiducia+'/10':'—')+((v.importanza>=7&&v.fiducia<=4)?' → importanza alta ma fiducia bassa: proponi primi passi comportamentali piccoli e vincibili':'');
+    }
+    if(c&&c.pctGrassoTarget!=null){
+      const _fLo=(c.pesoRealistico!=null&&c.pesoOttimista!=null)?Math.min(c.pesoRealistico,c.pesoOttimista):null;
+      const _fHi=(_fLo!=null)?Math.max(c.pesoRealistico,c.pesoOttimista):null;
+      ctx+='\nTraguardo clinico derivato dalla composizione: '+c.pctGrassoTarget+'% di grasso → '+(_fLo!=null?('fascia '+_fLo+'–'+_fHi+' kg'):((c.pesoTarget||'—')+' kg'))+(c.decisoDa?' · deciso da: '+c.decisoDa:'');
+      if(v&&v.pesoAtteso!=null&&c.pesoTarget!=null){
+        const _d=+(v.pesoAtteso-c.pesoTarget).toFixed(1);
+        if(Math.abs(_d)>1) ctx+='\n⚠ Divario aspettativa-traguardo: il paziente si aspetta '+Math.abs(_d)+' kg '+(_d<0?'IN MENO':'in più')+' rispetto al traguardo clinico — tienine conto nel tono e nella progressione proposta.';
+      }
+    }
+  })();
 
   if(lastIb){
     let _ibCtx = '\n\nInBody ('+lastIb.data+'): Peso '+(lastIb.peso||'—')+'kg · %Grassa '+(lastIb.pg||'—')+'% · Massa magra '+(lastIb.m||'—')+'kg · Muscolare '+(lastIb.musc||'—')+'kg · Acqua tot. '+(lastIb.acqua||'—')+'L'+(lastIb.acqua&&lastIb.acqua<30?' ⚠️ bassa':lastIb.acqua&&lastIb.acqua>=35?' ✅':'')+' · MB '+(lastIb.mb||'—')+'kcal · BMI '+(lastIb.bmi||'—')+' · Viscerale livello '+(lastIb.visc||'—');
@@ -12137,6 +12184,107 @@ function _traguardoScrivi(p, dati){
   return nuovo;
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🎯 LA DOMANDA IN VISITA, STRUTTURATA (P122 Tappa 2 — 25 lug 2026)
+// "Qual è il tuo obiettivo?" smette di essere una risposta che si perde: diventa
+// p.obiettivoPercorso.paziente — categoria, motivo ("cosa cambierebbe nella tua
+// vita"), ASPETTATIVA DI PESO REGISTRATA ANCHE SE IRREALISTICA (Foster 1997: il
+// "peso dei sogni" sta a ~-30% e il divario col corridoio realistico è la
+// conversazione più importante della prima visita — e la prima causa di
+// abbandono al 4°-6° mese se non viene affrontata), scadenza personale
+// (matrimonio, estate: il vincolo più forte del percorso) e i due numeri che
+// valgono più di mezz'ora di anamnesi: importanza 0-10 e fiducia 0-10.
+// Il testo libero resta in p.obiettivo (una casa sola per dato, nessuna copia).
+// NOTA STORICA: il campo p-obiettivo era SPARITO dal markup in una revisione
+// passata del modal, ma salvaPaz continuava a leggerlo → OGNI salvataggio
+// dell'anagrafica azzerava p.obiettivo in silenzio (stessa famiglia di F5).
+// La Tappa 2 ricrea il campo nel tab Dati e chiude anche quel buco.
+// ══════════════════════════════════════════════════════════════════════════════
+const _OB_CATEGORIE = {
+  dimagrire:     "Dimagrire",
+  ricomposizione:"Ricomposizione (giù il grasso, su il muscolo)",
+  massa:         "Massa muscolare",
+  salute:        "Salute / valori del sangue",
+  performance:   "Performance sportiva",
+  mantenimento:  "Mantenimento"
+};
+
+// Legge i campi della sezione 🎯 del modal anagrafica e li fonde in
+// pd.obiettivoPercorso.paziente. Chiamata da salvaPaz DOPO _pazPreservaCampi:
+// clinico/storico/traguardi restano intatti, qui si scrive SOLO paziente.
+// Se il markup non c'è (test, contesti legacy) non tocca nulla; se i campi sono
+// tutti vuoti e non esisteva niente, non crea strutture vuote.
+function _obiettivoPazienteDaForm(pd){
+  if(!pd || !document.getElementById("p-ob-categoria")) return;
+  const gv=function(id){ const el=document.getElementById(id); return el?String(el.value).trim():""; };
+  const num=function(id){ const v=gv(id); if(v==="") return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+  const nuovo={
+    categoria: _OB_CATEGORIE[gv("p-ob-categoria")]!==undefined?gv("p-ob-categoria"):"",
+    motivo: gv("p-ob-motivo"),
+    pesoAtteso: num("p-ob-peso-atteso"),
+    scadenzaPersonale: gv("p-ob-scadenza"),
+    eventoScadenza: gv("p-ob-evento"),
+    importanza: num("p-ob-importanza"),
+    fiducia: num("p-ob-fiducia")
+  };
+  const vuoto = !nuovo.categoria && !nuovo.motivo && nuovo.pesoAtteso===null
+    && !nuovo.scadenzaPersonale && !nuovo.eventoScadenza
+    && nuovo.importanza===null && nuovo.fiducia===null;
+  const prec = pd.obiettivoPercorso && pd.obiettivoPercorso.paziente;
+  if(vuoto && !prec) return;                       // niente da dire: niente strutture vuote
+  if(!pd.obiettivoPercorso || typeof pd.obiettivoPercorso!=="object") pd.obiettivoPercorso={};
+  // la data racconta QUANDO il paziente l'ha detto: resta quella vecchia se
+  // il contenuto non è cambiato, si aggiorna solo a contenuto nuovo.
+  const stessa = !!prec && ["categoria","motivo","pesoAtteso","scadenzaPersonale","eventoScadenza","importanza","fiducia"]
+    .every(function(k){ return String(prec[k]==null?"":prec[k])===String(nuovo[k]==null?"":nuovo[k]); });
+  nuovo.data = (stessa && prec.data) ? prec.data
+    : ((typeof _percorsoIsoLocal==="function")?_percorsoIsoLocal(Date.now()):new Date().toISOString().slice(0,10));
+  pd.obiettivoPercorso.paziente = nuovo;
+}
+
+// Pura: confronta l'aspettativa dichiarata dal paziente con il corridoio
+// calcolato (risultato di calcolaTraguardoComposizione). Tolleranza 1 kg.
+// Il lato "ambizioso" dipende dalla direzione: in dimagrimento è sotto il
+// bordo prudente, in aumento è sopra quello ottimista.
+function _traguardoConfrontoAspettativa(pesoAtteso, res){
+  const a=parseFloat(pesoAtteso);
+  if(isNaN(a)||a<=0||!res||!res.ok) return null;
+  const lo=res.fascia[0], hi=res.fascia[1], TOL=1;
+  if(a>=lo-TOL && a<=hi+TOL)
+    return {liv:"ok", txt:"L'aspettativa del paziente ("+a+" kg) cade dentro il corridoio: siete allineati — diglielo, è raro."};
+  const perdere = res.direzione!=="aumentare";
+  const ambizioso = perdere ? a<lo-TOL : a>hi+TOL;
+  if(ambizioso){
+    const gap=+(perdere?(lo-a):(a-hi)).toFixed(1);
+    return {liv:"gap", txt:"Il paziente si aspetta "+a+" kg: "+gap+" kg OLTRE il bordo prudente del corridoio ("+(perdere?lo:hi)+" kg). Il divario è la conversazione della prima visita: un'aspettativa irrealistica non corretta è la prima causa di abbandono al 4°-6° mese."};
+  }
+  const gap2=+(perdere?(a-hi):(lo-a)).toFixed(1);
+  return {liv:"nota", txt:"Il paziente si aspetta "+a+" kg, "+gap2+" kg più prudente del corridoio ("+(perdere?hi:lo)+" kg): c'è margine per alzare l'asticella insieme."};
+}
+
+// Riga compatta "la voce del paziente" per il pannello 🎯 della scheda Macros.
+// Restituisce "" se la Tappa 2 non è mai stata compilata per questo paziente.
+function _traguardoVocePazienteHtml(p){
+  const sal=_traguardoGet(p);
+  const v=sal&&sal.paziente;
+  if(!v) return "";
+  const pezzi=[];
+  if(v.categoria&&_OB_CATEGORIE[v.categoria]) pezzi.push(_OB_CATEGORIE[v.categoria]);
+  if(p.obiettivo) pezzi.push("“"+p.obiettivo+"”");
+  if(v.pesoAtteso!=null) pezzi.push("si aspetta <strong>"+v.pesoAtteso+" kg</strong>");
+  if(v.scadenzaPersonale) pezzi.push("scadenza sua: "+(v.eventoScadenza?v.eventoScadenza+" · ":"")+(typeof fData==="function"?fData(v.scadenzaPersonale):v.scadenzaPersonale));
+  if(v.importanza!=null||v.fiducia!=null) pezzi.push("importanza "+(v.importanza!=null?v.importanza:"—")+"/10 · fiducia "+(v.fiducia!=null?v.fiducia:"—")+"/10");
+  if(!pezzi.length) return "";
+  let h='<div style="font-size:.66rem;color:var(--text2);margin-bottom:.4rem;padding:.3rem .5rem;background:#f4f8fd;border:1px solid #d9e6f5;border-radius:6px">🗣️ <strong>La voce del paziente:</strong> '+pezzi.join(" · ");
+  if(v.importanza!=null && v.fiducia!=null && v.importanza>=7 && v.fiducia<=4){
+    h+='<div style="margin-top:.2rem;color:#b45309">⚠️ Importanza alta, fiducia bassa: sa cosa vuole ma non crede di farcela — parti da traguardi comportamentali piccoli e vincibili.</div>';
+  }
+  if(v.motivo) h+='<div style="margin-top:.2rem;color:var(--text3)">Perché: '+v.motivo+' <span style="opacity:.7">(da rileggergli al terzo mese)</span></div>';
+  h+='</div>';
+  return h;
+}
+
 // ── Pannello 🎯 nella scheda Macros (dentro #mac-peso-rif-box) ────────────────
 // Guscio statico: i due campi NON vengono ridisegnati mentre digiti (si
 // perderebbe il focus), si aggiorna solo #trg-out via _traguardoAnteprima.
@@ -12159,6 +12307,7 @@ function _traguardoPanelHtml(p){
   const opt=function(v,l){ return '<option value="'+v+'"'+(decisoIni===v?' selected':'')+'>'+l+'</option>'; };
   return box(
      '<div style="font-size:.66rem;color:var(--text3);margin-bottom:.4rem">Oggi: <strong>'+mis.peso+' kg</strong> · massa magra <strong>'+mis.m+' kg</strong> · massa grassa <strong>'+mis.g+' kg</strong> ('+mis.pg+'%)'+(mis.data?' — InBody del '+(typeof fData==="function"?fData(mis.data):mis.data):'')+'</div>'
+    +_traguardoVocePazienteHtml(p)
     +'<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.45rem">'
       +'<div><div style="font-size:.63rem;color:var(--text3)">% grasso obiettivo</div>'
         +'<input type="number" id="trg-pct" step="0.5" min="1" max="59" value="'+pctIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem;font-weight:700"></div>'
@@ -12200,6 +12349,13 @@ function _traguardoAnteprima(){
     const ic = a.liv==="blocco" ? "⛔" : (a.liv==="avviso" ? "⚠️" : "ℹ️");
     h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+st+'">'+ic+' '+a.txt+'</div>';
   });
+  // P122 Tappa 2 — aspettativa del paziente contro il corridoio appena calcolato
+  const _vp=_traguardoGet(p);
+  const _cmp=(_vp&&_vp.paziente)?_traguardoConfrontoAspettativa(_vp.paziente.pesoAtteso,r):null;
+  if(_cmp){
+    const _st=_cmp.liv==='gap'?'background:#fff7ed;border:1px solid #fdba74;color:#c2410c':(_cmp.liv==='ok'?'background:#f0fdf4;border:1px solid #86efac;color:#166534':'background:var(--bg2);border:1px solid var(--border);color:var(--text2)');
+    h+='<div style="margin-top:.3rem;padding:.28rem .5rem;border-radius:6px;font-size:.67rem;line-height:1.35;'+_st+'">🗣️ '+_cmp.txt+'</div>';
+  }
   if(!r.bloccato){
     h+='<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem">';
     if(r.realeApplicabile){
