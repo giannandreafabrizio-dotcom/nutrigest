@@ -6246,7 +6246,18 @@ function _percorsoGet(p){
   if(!pc || !pc.inizio || isNaN(new Date(pc.inizio).getTime())) return null;
   const fasi = (pc.fasi||[]).filter(function(f){
     return f && _PERCORSO_TIPI[f.tipo] && +f.settimane>0 && !isNaN(+f.pct);
-  }).map(function(f){ return {tipo:f.tipo, settimane:+f.settimane, pct:+f.pct}; });
+  }).map(function(f){
+    // P122 Tappa 4 — la normalizzazione deve CONSERVARE i campi opzionali: prima
+    // ricostruiva l'oggetto con i soli tre campi originari, quindi condizione di
+    // uscita, stato ed esito sparivano per chi leggeva da qui (la scheda li
+    // mostrava vuoti pur essendo salvati su p.percorso). Stesso pattern di F5:
+    // un elenco esplicito di campi da riportare è un elenco che invecchia.
+    const out={tipo:f.tipo, settimane:+f.settimane, pct:+f.pct};
+    if(f.condizioneUscita && typeof f.condizioneUscita==="object") out.condizioneUscita=f.condizioneUscita;
+    if(f.stato) out.stato=f.stato;
+    if(f.esito && typeof f.esito==="object") out.esito=f.esito;
+    return out;
+  });
   return {inizio: pc.inizio, fasi: fasi};
 }
 
@@ -6704,6 +6715,311 @@ function percorsoRiallinea(pazId){
   notif("⏩ Piano riallineato: le fasi ora partono dal "+p.percorso.inizio);
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🏁 TRAGUARDI MULTIPLI (P122 Tappa 4 — 26 lug 2026)
+// Un solo traguardo di peso ha un difetto fatale: quando il peso non scende, il
+// paziente non ha nessuna vittoria disponibile — e chi non ha vittorie molla.
+// Dopo le correzioni post-collaudo il punto è ancora più forte: in ricomposizione
+// il peso può non muoversi affatto mentre il percorso funziona benissimo.
+// Qui il traguardo diventa una LISTA di obiettivi di tipo diverso, ognuno con il
+// suo valore attuale letto dai dati che l'app già ha (InBody, referti del sangue,
+// pesate) e il suo progresso. I traguardi di COMPORTAMENTO sono l'unico tipo che
+// dipende al 100% dal paziente: si possono vincere anche in un mese storto, ed è
+// lì che si sposta la stella polare quando il paziente non si impegna.
+// Modello: p.obiettivoPercorso.traguardi[] — opzionale, degrada a vuoto.
+// ══════════════════════════════════════════════════════════════════════════════
+const _TRG_TIPI = {
+  pctGrasso:     {label:"% di grasso",   unita:"%",  verso:"giu", fonte:"inbody",  ico:"📉"},
+  massaGrassa:   {label:"Massa grassa",  unita:"kg", verso:"giu", fonte:"inbody",  ico:"📉"},
+  massaMagra:    {label:"Massa magra",   unita:"kg", verso:"su",  fonte:"inbody",  ico:"💪"},
+  peso:          {label:"Peso",          unita:"kg", verso:"auto",fonte:"peso",    ico:"⚖️"},
+  girovita:      {label:"Girovita",      unita:"cm", verso:"giu", fonte:"inbody",  ico:"📏"},
+  esame:         {label:"Esame del sangue",unita:"", verso:"auto",fonte:"sangue",  ico:"🩸"},
+  comportamento: {label:"Comportamento", unita:"",   verso:"su",  fonte:"manuale", ico:"✅"}
+};
+
+// Libreria dei traguardi comportamentali — scelta clinica di Fabrizio (26/7).
+// Sono quelli che il paziente può vincere anche quando la bilancia è ferma.
+const _TRG_COMPORTAMENTI = [
+  {etichetta:"Passi al giorno",              valore:9000, unita:"passi/die"},
+  {etichetta:"Allenamenti a settimana",      valore:3,    unita:"a sett."},
+  {etichetta:"Ore di sonno",                 valore:7,    unita:"ore/notte"},
+  {etichetta:"Alcol massimo a settimana",    valore:2,    unita:"bicchieri/sett."},
+  {etichetta:"Verdura a pranzo e cena",      valore:2,    unita:"porzioni/die"},
+  {etichetta:"Sgarri massimi a settimana",   valore:2,    unita:"a sett."},
+  {etichetta:"Acqua al giorno",              valore:2,    unita:"litri/die"}
+];
+
+function _traguardiGet(p){
+  const o=p&&p.obiettivoPercorso;
+  return (o&&Array.isArray(o.traguardi))?o.traguardi:[];
+}
+
+// Valore corrente di un traguardo, letto dai dati che l'app ha già.
+// null quando non c'è il dato (mai un numero inventato).
+function _traguardoValoreAttuale(p, t){
+  if(!t||!_TRG_TIPI[t.tipo]) return null;
+  const f=_TRG_TIPI[t.tipo].fonte;
+  if(f==="manuale") return null;
+  if(f==="peso"){
+    const s=_serieePesoOss(p);              // include le pesate intermedie
+    return s.length?{valore:+s[s.length-1].peso, data:s[s.length-1].data}:null;
+  }
+  if(f==="inbody"){
+    if(t.tipo==="girovita"){
+      const arr=(p&&Array.isArray(p.inbody))?p.inbody:[];
+      for(let i=arr.length-1;i>=0;i--){
+        const v=parseFloat(arr[i]&&arr[i].girovita);
+        if(!isNaN(v)&&v>0) return {valore:v, data:arr[i].data||""};
+      }
+      return null;
+    }
+    const mis=_traguardoMisura(p);
+    if(!mis) return null;
+    const v = t.tipo==="pctGrasso"?mis.pg : (t.tipo==="massaGrassa"?mis.g : mis.m);
+    return {valore:v, data:mis.data};
+  }
+  if(f==="sangue"){
+    if(!t.esame || typeof _andSerie!=="function") return null;
+    const s=_andSerie(p, t.esame);
+    return s.length?{valore:s[s.length-1].v, data:s[s.length-1].data}:null;
+  }
+  return null;
+}
+
+// Verso effettivo: "auto" si decide dal punto di partenza (peso ed esami possono
+// dover salire o scendere a seconda del paziente).
+function _traguardoVerso(t){
+  const base=_TRG_TIPI[t.tipo]?_TRG_TIPI[t.tipo].verso:"giu";
+  if(base!=="auto") return base;
+  const p0=parseFloat(t.partenza), v=parseFloat(t.valore);
+  if(isNaN(p0)||isNaN(v)) return "giu";
+  return v<p0 ? "giu" : "su";
+}
+
+// Arricchisce un traguardo con valore attuale, progresso 0-100 e raggiunto.
+// I comportamentali non hanno misura automatica: contano solo stato e nota.
+function _traguardoValuta(p, t){
+  const meta=_TRG_TIPI[t.tipo]||null;
+  const out=Object.assign({}, t, {meta:meta, attuale:null, dataAttuale:null,
+                                  progresso:null, raggiunto:null, verso:_traguardoVerso(t)});
+  if(!meta) return out;
+  if(t.stato==="raggiunto"||t.stato==="mancato"){ out.raggiunto=(t.stato==="raggiunto"); }
+  if(meta.fonte==="manuale") return out;
+  const a=_traguardoValoreAttuale(p, t);
+  if(!a) return out;
+  out.attuale=a.valore; out.dataAttuale=a.data;
+  const target=parseFloat(t.valore);
+  if(isNaN(target)) return out;
+  out.raggiunto = out.verso==="giu" ? (a.valore<=target) : (a.valore>=target);
+  const part=parseFloat(t.partenza);
+  if(!isNaN(part) && Math.abs(target-part)>1e-6){
+    let pr=(part-a.valore)/(part-target)*100;
+    if(isNaN(pr)) pr=null; else pr=Math.max(0, Math.min(100, pr));
+    out.progresso = pr===null?null:Math.round(pr);
+  } else if(out.raggiunto) out.progresso=100;
+  return out;
+}
+function _traguardiValuta(p){
+  return _traguardiGet(p).map(function(t){ return _traguardoValuta(p, t); });
+}
+
+// ── Mutatori (pattern: muta → save → re-render) ──────────────────────────────
+function _traguardiContenitore(p){
+  if(!p.obiettivoPercorso||typeof p.obiettivoPercorso!=="object") p.obiettivoPercorso={};
+  if(!Array.isArray(p.obiettivoPercorso.traguardi)) p.obiettivoPercorso.traguardi=[];
+  return p.obiettivoPercorso.traguardi;
+}
+function traguardoAdd(pazId, tipo, preset){
+  const p=_percorsoPaz(pazId); if(!p||!_TRG_TIPI[tipo]) return;
+  const lista=_traguardiContenitore(p);
+  const meta=_TRG_TIPI[tipo];
+  const t={id:(typeof uid==="function"?uid():"t"+lista.length+"_"+tipo),
+           tipo:tipo, etichetta:meta.label, valore:null, unita:meta.unita,
+           entro:"", faseIdx:null, esame:"", partenza:null,
+           stato:"aperto", nota:"", creato:_percorsoIsoLocal(Date.now())};
+  if(tipo==="comportamento" && preset){
+    t.etichetta=preset.etichetta; t.valore=preset.valore; t.unita=preset.unita;
+  }
+  // la partenza è il valore di oggi: serve a misurare il progresso, e va
+  // fotografata alla creazione (dopo non sarebbe più recuperabile)
+  const a=_traguardoValoreAttuale(p, t);
+  if(a){ t.partenza=a.valore; if(t.valore===null) t.valore=a.valore; }
+  lista.push(t);
+  save(p.id); renderPdPercorso(p);
+}
+function traguardoUpd(pazId, id, campo, val){
+  const p=_percorsoPaz(pazId); if(!p) return;
+  const t=_traguardiGet(p).find(function(x){ return x.id===id; });
+  if(!t) return;
+  if(campo==="valore"||campo==="partenza"){ const n=parseFloat(val); t[campo]=isNaN(n)?null:n; }
+  else if(campo==="faseIdx"){ const n=parseInt(val,10); t.faseIdx=isNaN(n)?null:n; }
+  else if(campo==="esame"){
+    t.esame=String(val||"");
+    if(t.etichetta===_TRG_TIPI.esame.label || !t.etichetta) t.etichetta=t.esame||_TRG_TIPI.esame.label;
+    const a=_traguardoValoreAttuale(p,t);
+    if(a && t.partenza===null){ t.partenza=a.valore; if(t.valore===null) t.valore=a.valore; }
+  }
+  else t[campo]=String(val==null?"":val);
+  save(p.id); renderPdPercorso(p);
+}
+function traguardoDel(pazId, id){
+  const p=_percorsoPaz(pazId); if(!p) return;
+  const lista=_traguardiGet(p);
+  const i=lista.findIndex(function(x){ return x.id===id; });
+  if(i>=0){ lista.splice(i,1); save(p.id); renderPdPercorso(p); }
+}
+function traguardoSegna(pazId, id, stato){
+  const p=_percorsoPaz(pazId); if(!p) return;
+  const t=_traguardiGet(p).find(function(x){ return x.id===id; });
+  if(!t) return;
+  t.stato = (t.stato===stato) ? "aperto" : stato;   // ri-cliccare annulla
+  if(t.stato!=="aperto"){
+    const a=_traguardoValoreAttuale(p,t);
+    t.esito={data:_percorsoIsoLocal(Date.now()), valore:a?a.valore:null};
+  } else t.esito=null;
+  save(p.id); renderPdPercorso(p);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ⏱ CONDIZIONE DI USCITA DELLA FASE (P122 Tappa 4)
+// Una fase può finire "quando il grasso scende sotto il 12%" invece che a una
+// data: è come lavora Fabrizio davvero — si passa alla massa quando il paziente
+// è pronto, non quando lo dice il calendario. L'app SUGGERISCE soltanto (scelta
+// esplicita di Fabrizio, 26/7): niente si muove finché non decide lui.
+// ══════════════════════════════════════════════════════════════════════════════
+const _COND_TIPI = {
+  pctGrasso:  {label:"% di grasso", unita:"%",  verso:"giu"},
+  peso:       {label:"peso",        unita:"kg", verso:"giu"},
+  massaMagra: {label:"massa magra", unita:"kg", verso:"su"}
+};
+function _percorsoCondizione(p, fase){
+  const c=fase&&fase.condizioneUscita;
+  if(!c||!_COND_TIPI[c.tipo]||isNaN(parseFloat(c.valore))) return null;
+  const finto={tipo:c.tipo==="peso"?"peso":(c.tipo==="massaMagra"?"massaMagra":"pctGrasso")};
+  const a=_traguardoValoreAttuale(p, finto);
+  const op=(c.op==="<="||c.op===">=")?c.op:_COND_TIPI[c.tipo].verso==="giu"?"<=":">=";
+  const val=parseFloat(c.valore);
+  const scattata = a ? (op==="<=" ? a.valore<=val : a.valore>=val) : false;
+  return {tipo:c.tipo, op:op, valore:val, attuale:a?a.valore:null, dataAttuale:a?a.data:null,
+          scattata:scattata, label:_COND_TIPI[c.tipo].label, unita:_COND_TIPI[c.tipo].unita};
+}
+function percorsoSetCondizione(pazId, i, campo, val){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso||!p.percorso.fasi||!p.percorso.fasi[i]) return;
+  const f=p.percorso.fasi[i];
+  if(campo==="tipo"){
+    if(!val){ f.condizioneUscita=null; }
+    else if(_COND_TIPI[val]){
+      const prec=f.condizioneUscita||{};
+      f.condizioneUscita={tipo:val, op:_COND_TIPI[val].verso==="giu"?"<=":">=", valore:prec.valore!=null?prec.valore:null};
+    }
+  } else if(campo==="valore" && f.condizioneUscita){
+    const n=parseFloat(val); f.condizioneUscita.valore=isNaN(n)?null:n;
+  }
+  save(p.id); renderPdPercorso(p);
+}
+
+// ── Chiusura di una fase con esito: la storia vera del percorso ──────────────
+// Serve a Fabrizio per imparare dai suoi stessi percorsi, e al paziente per
+// vedere che i due mesi buoni sono contati eccome anche se poi ne sono seguiti
+// due storti. Ri-cliccare riapre la fase (nessuna azione irreversibile).
+function percorsoChiudiFase(pazId, i){
+  const p=_percorsoPaz(pazId); if(!p||!p.percorso||!p.percorso.fasi||!p.percorso.fasi[i]) return;
+  const f=p.percorso.fasi[i];
+  if(f.stato==="chiusa"){ f.stato=null; f.esito=null; save(p.id); renderPdPercorso(p); return; }
+  const mis=_traguardoMisura(p);
+  const serie=_serieePesoOss(p);
+  f.stato="chiusa";
+  f.esito={data:_percorsoIsoLocal(Date.now()),
+           peso: serie.length?+serie[serie.length-1].peso:(mis?mis.peso:null),
+           pctGrasso: mis?mis.pg:null,
+           massaMagra: mis?mis.m:null};
+  save(p.id); renderPdPercorso(p);
+}
+
+// ── UI dei traguardi: blocco dentro la scheda 📈 Percorso ────────────────────
+function _traguardiHtml(p){
+  const lista=_traguardiValuta(p);
+  const percorso=_percorsoGet(p);
+  const nFasi=percorso?percorso.fasi.length:0;
+  // esami disponibili: solo quelli che questo paziente ha davvero nei referti
+  const esamiDisp=(function(){
+    if(typeof RANGE_STD!=="object" || typeof _andSerie!=="function") return [];
+    return Object.keys(RANGE_STD).filter(function(n){ return _andSerie(p,n).length>0; });
+  })();
+  let h='<div style="margin-top:1rem;padding-top:.8rem;border-top:1px dashed var(--border)">'
+    +'<div style="display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">'
+      +'<strong style="font-size:.85rem">🏁 Traguardi</strong>'
+      +'<span style="font-size:.68rem;color:var(--text3)">il peso è solo uno dei numeri — in ricomposizione è quello che si muove meno</span>'
+    +'</div>';
+
+  if(!lista.length){
+    h+='<div style="font-size:.72rem;color:var(--text3);margin-bottom:.5rem">Nessun traguardo impostato. Quelli di <strong>comportamento</strong> sono gli unici che il paziente può vincere anche in un mese storto: quando la bilancia è ferma, la stella polare si sposta lì.</div>';
+  } else {
+    h+='<table style="width:100%;border-collapse:collapse;font-size:.75rem"><tbody>';
+    lista.forEach(function(t){
+      const meta=t.meta||{label:t.tipo, unita:"", ico:"•"};
+      const chiuso=(t.stato==="raggiunto"||t.stato==="mancato");
+      const colore=t.stato==="raggiunto"?"#1D9E75":(t.stato==="mancato"?"#b91c1c":(t.raggiunto?"#1D9E75":"var(--text2)"));
+      h+='<tr style="border-top:1px solid var(--border)'+(chiuso?';opacity:.75':'')+'">'
+        +'<td style="padding:.35rem .4rem;width:1%;white-space:nowrap;font-size:.9rem">'+meta.ico+'</td>'
+        +'<td style="padding:.35rem .4rem">'
+          +'<input value="'+String(t.etichetta||"").replace(/"/g,"&quot;")+'" onchange="traguardoUpd(\''+p.id+'\',\''+t.id+'\',\'etichetta\',this.value)" style="width:100%;max-width:230px;font-size:.75rem;border:none;background:transparent;font-weight:600;color:'+colore+'">';
+      if(t.tipo==="esame"){
+        h+='<div><select onchange="traguardoUpd(\''+p.id+'\',\''+t.id+'\',\'esame\',this.value)" style="font-size:.68rem;margin-top:2px">'
+          +'<option value="">— quale esame —</option>'
+          +esamiDisp.map(function(n){ return '<option value="'+n+'"'+(t.esame===n?' selected':'')+'>'+n+'</option>'; }).join("")
+          +'</select>'+(esamiDisp.length?'':' <span style="font-size:.62rem;color:#b45309">nessun referto con valori: caricane uno</span>')+'</div>';
+      }
+      h+='</td>'
+        +'<td style="padding:.35rem .4rem;white-space:nowrap">'
+          +'<input type="number" step="0.1" value="'+(t.valore!=null?t.valore:"")+'" onchange="traguardoUpd(\''+p.id+'\',\''+t.id+'\',\'valore\',this.value)" style="width:70px;font-size:.75rem"> '
+          +'<span style="font-size:.65rem;color:var(--text3)">'+(t.unita||meta.unita||"")+'</span></td>'
+        +'<td style="padding:.35rem .4rem;white-space:nowrap;color:var(--text3)">';
+      if(t.attuale!=null){
+        h+='oggi <strong style="color:'+colore+'">'+t.attuale+'</strong>';
+        if(t.progresso!=null){
+          h+='<div style="width:88px;height:5px;background:var(--bg2);border-radius:3px;margin-top:3px;overflow:hidden">'
+            +'<div style="width:'+t.progresso+'%;height:100%;background:'+(t.raggiunto?"#1D9E75":"#2a78d6")+'"></div></div>'
+            +'<span style="font-size:.62rem">'+t.progresso+'%</span>';
+        }
+        if(t.raggiunto) h+=' <span style="color:#1D9E75;font-weight:700">✓</span>';
+      } else if((t.meta||{}).fonte==="manuale"){
+        h+='<span style="font-size:.65rem">lo confermi tu</span>';
+      } else h+='<span style="font-size:.65rem">dato non disponibile</span>';
+      h+='</td>'
+        +'<td style="padding:.35rem .4rem;white-space:nowrap">'
+          +'<input type="date" value="'+(t.entro||"")+'" title="entro quando" onchange="traguardoUpd(\''+p.id+'\',\''+t.id+'\',\'entro\',this.value)" style="font-size:.68rem">'
+          +(nFasi?'<select title="fase di riferimento" onchange="traguardoUpd(\''+p.id+'\',\''+t.id+'\',\'faseIdx\',this.value)" style="font-size:.66rem;margin-left:3px"><option value="">tutto il percorso</option>'
+              +Array.from({length:nFasi},function(_,k){ return '<option value="'+k+'"'+(t.faseIdx===k?' selected':'')+'>fase '+(k+1)+'</option>'; }).join("")+'</select>':'')
+        +'</td>'
+        +'<td style="padding:.35rem .4rem;white-space:nowrap;text-align:right">'
+          +'<button class="btn btn-g btn-sm" title="Segna come raggiunto" style="'+(t.stato==="raggiunto"?"background:#1D9E75;color:#fff":"")+'" onclick="traguardoSegna(\''+p.id+'\',\''+t.id+'\',\'raggiunto\')">✓</button> '
+          +'<button class="btn btn-g btn-sm" title="Segna come mancato" style="'+(t.stato==="mancato"?"background:#b91c1c;color:#fff":"")+'" onclick="traguardoSegna(\''+p.id+'\',\''+t.id+'\',\'mancato\')">✕</button> '
+          +'<button class="btn btn-g btn-sm" title="Elimina" onclick="traguardoDel(\''+p.id+'\',\''+t.id+'\')">🗑</button>'
+        +'</td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+
+  // aggiunta: tipi misurabili + libreria comportamenti
+  h+='<div style="margin-top:.55rem;display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">'
+    +'<span style="font-size:.68rem;color:var(--text3)">Aggiungi:</span>'
+    +Object.keys(_TRG_TIPI).filter(function(k){ return k!=="comportamento"; }).map(function(k){
+      return '<button class="btn btn-g btn-sm" onclick="traguardoAdd(\''+p.id+'\',\''+k+'\')">'+_TRG_TIPI[k].ico+' '+_TRG_TIPI[k].label+'</button>';
+    }).join("")
+  +'</div>'
+  +'<div style="margin-top:.4rem;display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">'
+    +'<span style="font-size:.68rem;color:var(--text3)">✅ Comportamento:</span>'
+    +_TRG_COMPORTAMENTI.map(function(c,i){
+      return '<button class="btn btn-g btn-sm" title="'+c.valore+' '+c.unita+'" onclick="traguardoAdd(\''+p.id+'\',\'comportamento\','+JSON.stringify(c).replace(/"/g,"&quot;")+')">'+c.etichetta+'</button>';
+    }).join("")
+  +'</div>'
+  +'</div>';
+  return h;
+}
+
 // ── Grafico SVG: bande fasi + linea peso reale + linea "oggi" ─────────────────
 function _percorsoChartSvg(p){
   const percorso=_percorsoGet(p);
@@ -6929,6 +7245,19 @@ function renderPdPercorso(p){
         +(_gn.note&&_gn.note.length?('<div style="margin-top:.2rem;color:var(--text2)">'+_gn.note.map(function(n){return '• '+n;}).join('<br>')+'</div>'):'')
         +'</div>';
     }
+    // P122 Tappa 4 — condizione di uscita raggiunta: SUGGERIMENTO, mai azione
+    // automatica (scelta esplicita di Fabrizio, 26/7). Guarda solo la fase attiva.
+    if(fAtt && percorso.fasi[fAtt.indice]){
+      const _cAtt=_percorsoCondizione(p, percorso.fasi[fAtt.indice]);
+      if(_cAtt && _cAtt.scattata){
+        const _ultima=(fAtt.indice===percorso.fasi.length-1);
+        html+='<div style="font-size:.76rem;color:#166534;margin:-.2rem 0 .55rem;padding:.4rem .6rem;background:#f0fdf4;border:1px solid #86efac;border-radius:8px">'
+          +'🏁 <strong>Condizione raggiunta</strong>: '+_cAtt.label+' a <strong>'+_cAtt.attuale+_cAtt.unita+'</strong> ('+_cAtt.op+' '+_cAtt.valore+_cAtt.unita+')'
+          +(_cAtt.dataAttuale?' · dato del '+(typeof fData==="function"?fData(_cAtt.dataAttuale):_cAtt.dataAttuale):'')
+          +'. '+(_ultima?'È l\'ultima fase pianificata: valuta come proseguire.':'Passi alla fase successiva? Accorcia questa fase o chiudila con 🔒 — decidi tu, l\'app non tocca niente.')
+          +'</div>';
+      }
+    }
     // P115 Tappa 2 — riga proiezione + obiettivo (informativa)
     const _proj=_percorsoProiezione(p);
     if(_proj && _proj.ok){
@@ -6978,11 +7307,14 @@ function renderPdPercorso(p){
     html+='<div style="font-size:.68rem;color:var(--text3);margin:.35rem 2px .9rem">● InBody (peso) · ○ pesata intermedia · ▪ massa magra (InBody, stesso asse kg: il divario col peso è la massa grassa — passa il mouse sui quadratini per il dettaglio % grassa) · fasi future tratteggiate · il cono azzurro è la proiezione del peso lungo le fasi (si restringe man mano che registri pesate). Corsia Energia: la distanza tra introito prescritto (arancio) e fabbisogno (verde stimato / viola osservato) È il deficit o surplus reale nel tempo. '+(_cons.ok?'Striscia aderenza: un rettangolino per giorno dichiarato dal paziente (verde ok · giallo parziale · rosso sgarro), passa il mouse per il dettaglio. ':'Piano vs Realtà: predisposto — la striscia aderenza e il ritardo accumulato si accenderanno con l\'app paziente (P50). ')+'Tutto informativo: nessun calcolo viene toccato.</div>';
     // editor fasi
     html+='<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
-      +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th></th></tr></thead><tbody>';
+      +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.25rem .4rem">#</th><th>Tipo</th><th>Durata (sett.)</th><th>% TDEE</th><th>Periodo</th><th>~kcal</th><th title="La fase può finire quando un valore raggiunge una soglia, invece che a calendario: te lo segnalo soltanto, decidi tu.">…oppure finché</th><th></th></tr></thead><tbody>';
     ints.forEach(function(f,i){
       const kcal=_percorsoKcalFase(p,f.pct);
-      html+='<tr style="border-top:1px solid var(--border)">'
-        +'<td style="padding:.3rem .4rem;color:var(--text3)">'+(i+1)+'</td>'
+      const _fRaw=(percorso.fasi&&percorso.fasi[i])?percorso.fasi[i]:{};
+      const _cond=_percorsoCondizione(p,_fRaw);
+      const _chiusa=_fRaw.stato==="chiusa";
+      html+='<tr style="border-top:1px solid var(--border)'+(_chiusa?';opacity:.65;background:var(--bg2)':'')+'">'
+        +'<td style="padding:.3rem .4rem;color:var(--text3)">'+(i+1)+(_chiusa?' <span title="fase chiusa">🔒</span>':'')+'</td>'
         +'<td><select onchange="percorsoUpdFase(\''+p.id+'\','+i+',\'tipo\',this.value)" style="font-size:.78rem">'
           +Object.keys(_PERCORSO_TIPI).map(function(t){return '<option value="'+t+'"'+(t===f.tipo?" selected":"")+'>'+_PERCORSO_TIPI[t].label+'</option>';}).join("")
         +'</select></td>'
@@ -6990,11 +7322,25 @@ function renderPdPercorso(p){
         +'<td><input type="number" min="-40" max="25" step="1" value="'+f.pct+'" onchange="percorsoUpdFase(\''+p.id+'\','+i+',\'pct\',this.value)" style="width:64px;font-size:.78rem"></td>'
         +'<td style="color:var(--text3);white-space:nowrap">'+f.dal+' → '+f.al+'</td>'
         +'<td style="color:var(--text3)">'+(kcal?kcal:"—")+'</td>'
+        +'<td style="white-space:nowrap">'
+          +'<select onchange="percorsoSetCondizione(\''+p.id+'\','+i+',\'tipo\',this.value)" style="font-size:.7rem">'
+            +'<option value="">—</option>'
+            +Object.keys(_COND_TIPI).map(function(k){ return '<option value="'+k+'"'+((_fRaw.condizioneUscita&&_fRaw.condizioneUscita.tipo===k)?" selected":"")+'>'+_COND_TIPI[k].label+'</option>'; }).join("")
+          +'</select>'
+          +(_fRaw.condizioneUscita?(' <span style="font-size:.7rem;color:var(--text3)">'+((_cond&&_cond.op)||"≤")+'</span> <input type="number" step="0.1" value="'+((_fRaw.condizioneUscita.valore!=null)?_fRaw.condizioneUscita.valore:"")+'" onchange="percorsoSetCondizione(\''+p.id+'\','+i+',\'valore\',this.value)" style="width:58px;font-size:.7rem">'):'')
+          +((_cond&&_cond.scattata)?'<div style="font-size:.64rem;color:#1D9E75;font-weight:700">✓ raggiunta (oggi '+_cond.attuale+_cond.unita+')</div>':((_cond&&_cond.attuale!=null)?'<div style="font-size:.62rem;color:var(--text3)">oggi '+_cond.attuale+_cond.unita+'</div>':''))
+        +'</td>'
         +'<td style="white-space:nowrap;text-align:right">'
+          +'<button class="btn btn-g btn-sm" title="'+(_chiusa?'Riapri la fase':'Chiudi la fase registrando peso e composizione di oggi')+'" style="'+(_chiusa?'background:#6b6a66;color:#fff':'')+'" onclick="percorsoChiudiFase(\''+p.id+'\','+i+')">'+(_chiusa?'🔓':'🔒')+'</button> '
           +'<button class="btn btn-g btn-sm" title="Sposta su" '+(i===0?"disabled":"")+' onclick="percorsoMoveFase(\''+p.id+'\','+i+',-1)">↑</button> '
           +'<button class="btn btn-g btn-sm" title="Sposta giù" '+(i===ints.length-1?"disabled":"")+' onclick="percorsoMoveFase(\''+p.id+'\','+i+',1)">↓</button> '
           +'<button class="btn btn-g btn-sm" title="Elimina fase" onclick="percorsoDelFase(\''+p.id+'\','+i+')">✕</button>'
         +'</td></tr>';
+      if(_chiusa && _fRaw.esito){
+        const _e=_fRaw.esito;
+        html+='<tr style="background:var(--bg2)"><td></td><td colspan="7" style="padding:.15rem .4rem;font-size:.68rem;color:var(--text3)">Chiusa il '+(typeof fData==="function"?fData(_e.data):_e.data)+' — '
+          +(_e.peso!=null?'peso '+_e.peso+' kg':'')+(_e.pctGrasso!=null?' · grasso '+_e.pctGrasso+'%':'')+(_e.massaMagra!=null?' · magra '+_e.massaMagra+' kg':'')+'</td></tr>';
+      }
     });
     html+='</tbody></table>'
       +'<div style="margin-top:.6rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">'
@@ -7003,6 +7349,7 @@ function renderPdPercorso(p){
         +_percorsoModelloSelectHtml()
         +'<button class="btn btn-g btn-sm" onclick="percorsoGeneraDaModello(\''+p.id+'\')">Genera</button>'
       +'</div>';
+    html+=_traguardiHtml(p);   // P122 Tappa 4
   }
   html+='</div></div>';
   box.innerHTML=html;

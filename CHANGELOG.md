@@ -10,6 +10,71 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+26 LUGLIO 2026 (6ª sessione, seguito) — P122 TAPPA 4: TRAGUARDI MULTIPLI, CONDIZIONE DI USCITA DELLE FASI, CHIUSURA CON ESITO.
+Baseline `e25daaf`. Test 254 → **270**, tutti verdi (`s2-traguardi-multipli.test.js`).
+
+**Origine.** Quarta tappa di `NutriGest_Obiettivo_Ragionamento.md`, promossa da
+"bella da avere" a necessaria dal collaudo: dopo la correzione sulla
+ricomposizione è chiaro che **in un percorso ben riuscito il peso può non
+muoversi affatto**. Un solo traguardo di peso ha un difetto fatale — quando la
+bilancia è ferma il paziente non ha nessuna vittoria disponibile, e chi non ha
+vittorie molla.
+
+**1. TRAGUARDI MULTIPLI** (`p.obiettivoPercorso.traguardi[]`, opzionale).
+Sette tipi, ognuno con il **valore attuale letto dai dati che l'app ha già**:
+% di grasso, massa grassa, massa magra, peso, girovita (dall'InBody e dalle
+pesate intermedie), esame del sangue (dal referto datato più recente, riusa
+`_andSerie` di P118), e **comportamento**.
+- La **partenza** viene fotografata alla creazione — dopo non sarebbe più
+  recuperabile — e da lì esce il progresso 0-100% con la barra.
+- Il **verso** è fisso dove ha senso (la massa magra si raggiunge sempre
+  salendo, il grasso scendendo) e dedotto dalla partenza per peso ed esami, dove
+  dipende dal paziente: un sottopeso deve salire.
+- Dato mancante → `null` e "dato non disponibile": **mai un numero inventato**.
+- I **comportamentali** sono l'unico tipo senza misura automatica: si segnano a
+  mano ✓ o ✕ (ri-cliccando si annulla) e restano `null` finché non decidi. Sono
+  l'unica vittoria disponibile in un mese storto, ed è lì che si sposta la
+  stella polare quando il paziente non si impegna.
+- Libreria comportamenti **scelta da Fabrizio** (26/7): passi al giorno ·
+  allenamenti a settimana · ore di sonno · alcol massimo a settimana · verdura a
+  pranzo e cena · sgarri massimi a settimana · acqua al giorno. Un click e il
+  traguardo è assegnato col suo valore di partenza.
+- Ogni traguardo può avere una **scadenza** e agganciarsi a una **fase**.
+- Il select degli esami mostra **solo quelli che quel paziente ha davvero** nei
+  referti: niente liste da 119 voci da scorrere.
+
+**2. CONDIZIONE DI USCITA DELLA FASE.** Una fase può finire *"quando il grasso
+scende sotto il 12%"* invece che a calendario — è come lavora Fabrizio davvero:
+si passa alla massa quando il paziente è pronto, non quando lo dice la data.
+Tre tipi (% grasso, peso, massa magra), con l'operatore dedotto dal verso.
+Quando scatta compare un **suggerimento verde** in testata: *"Condizione
+raggiunta: passi alla fase successiva?"* — e **nient'altro succede**. Scelta
+esplicita di Fabrizio contro l'alternativa "accorcia la fase da sola": l'app
+propone e non tocca il piano (fissato da un test che confronta il JSON del
+percorso prima e dopo la valutazione).
+
+**3. CHIUSURA DELLA FASE CON ESITO.** Il lucchetto 🔒 chiude una fase
+fotografando peso, % di grasso e massa magra del giorno; la riga diventa grigia
+e sotto compare *"Chiusa il … — peso 84 kg · grasso 18% · magra 66 kg"*.
+Serve a Fabrizio per imparare dai suoi stessi percorsi, e al paziente per vedere
+che i due mesi buoni sono contati eccome anche se poi ne sono seguiti due
+storti. Ri-cliccando si riapre: nessuna azione irreversibile.
+
+**Bug trovato dal render smoke (stessa famiglia di F5).** `_percorsoGet`
+normalizzava ogni fase **ricostruendo l'oggetto con i soli tre campi originari**
+(`tipo`, `settimane`, `pct`): condizione di uscita, stato ed esito venivano
+salvati correttamente su `p.percorso` ma **sparivano per chi leggeva dalla
+normalizzazione** — cioè la scheda, che li mostrava vuoti. Corretto conservando
+i campi opzionali quando ci sono. È la stessa lezione di F5 (whitelist di campi
+che invecchia), stavolta trovata in dieci minuti perché il render smoke controlla
+quello che l'utente vede davvero, non solo quello che le funzioni restituiscono.
+
+**Da collaudare.** Scheda 📈 Percorso, in fondo: aggiungi un traguardo di massa
+magra e uno comportamentale, controlla che il valore di oggi e la barra di
+progresso siano giusti. Nell'editor delle fasi, colonna *"…oppure finché"*:
+imposta *% di grasso ≤* un valore già raggiunto e verifica che compaia il badge
+verde in testata **senza che il piano cambi**. Prova 🔒 su una fase e riaprila.
+
 26 LUGLIO 2026 (6ª sessione, seguito) — P122 CORREZIONI POST-COLLAUDO: IL MOTORE IMPARA LA RICOMPOSIZIONE + COERENZA DEI REFERTI INBODY.
 Baseline `ef8c9b2`. Test 237 → **254**, tutti verdi (`s2-traguardo-correzioni.test.js`).
 

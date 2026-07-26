@@ -53,7 +53,7 @@
 | ~~**P119**~~ ✅ chiusa e collaudata 25 lug 2026 (pescata bilanciata ispirazione, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Selezione dell'ispirazione, non regola clinica |
 | ~~**P120**~~ ✅ chiusa e collaudata 25 lug 2026 (storico InBody ordinato + data del test, fase 2 da fare — v. scheda) | Sonnet | Medium | OFF | Ordine e data del dato, nessuna soglia clinica |
 | ~~**P121**~~ ✅ chiusa 25 lug 2026, **da collaudare** (motore unico grammature alternative — v. scheda) | Opus | High | ON | Tocca le grammature del piano: regole cliniche decise da Fabrizio |
-| **P122** Tappe 1-3 ✅ chiuse 25-26 lug 2026 + **5 correzioni post-collaudo** ✅ 26 lug (ricomposizione nel motore, coerenza referti — v. scheda) · tappe 4-5 da fare | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
+| **P122** Tappe 1-4 ✅ chiuse 25-26 lug 2026 + 5 correzioni post-collaudo (ricomposizione, coerenza referti, traguardi multipli — v. scheda) · **resta la tappa 5** | Opus/Fable | High | ON | Le soglie di grasso essenziale e le regole dei cicli sono sicurezza clinica, non parametri |
 | ~~**F6**~~ ✅ chiusa 25 lug 2026 (campo obiettivo sparito dal modal: ogni salvataggio lo azzerava — v. scheda P122) | Fable | High | ON | Perdita silenziosa di un dato di anamnesi |
 | ~~**F5**~~ ✅ chiusa 25 lug 2026 (l'anagrafica cancellava percorso/referti/richieste — v. scheda P122) | Opus | High | ON | Perdita silenziosa di dati clinici |
 | P19, P25, P4, P3 (prodotto) | Opus | High | ON | Sono decisioni, non esecuzione |
@@ -752,13 +752,20 @@ Test 197 → **212** (`s2-traguardo-composizione.test.js`).
 5. Traguardo scritto a mano nel campo: il disallineamento con quello clinico viene dichiarato, con il pulsante per registrarlo come scelta manuale.
 Test 237 → **254** (`s2-traguardo-correzioni.test.js`).
 
-**Resta da fare — tappe 4-5** (consiglio: prima un giro di collaudo sul campo delle tappe 1-3 su 3-4 pazienti):
-- **Tappa 4 — traguardi multipli e fasi non rigide** (~3-4 h): `traguardi[]` per composizione, peso, massa magra, esami del sangue (aggancio a P118), circonferenze e **comportamento** ("3 allenamenti a settimana") — l'unico tipo che si può vincere anche in un mese storto; condizione di uscita dalla fase ("finché %grasso ≤ 12 **oppure** 12 settimane, quello che arriva prima", con suggerimento e mai azione automatica); stato ed esito della fase chiusa.
+**✅ TAPPA 4 CHIUSA 26 lug 2026 — traguardi multipli, condizione di uscita, chiusura con esito.** Promossa a necessaria dal collaudo: in ricomposizione il peso può non muoversi affatto mentre il percorso funziona.
+- `p.obiettivoPercorso.traguardi[]`: sette tipi (% grasso, massa grassa, massa magra, peso, girovita, esame del sangue, **comportamento**), ognuno col valore attuale letto dai dati esistenti, partenza fotografata alla creazione, progresso 0-100% e verso dedotto dove serve. Dato mancante → "non disponibile", mai un numero inventato.
+- **Comportamentali**: unico tipo senza misura automatica, si segnano ✓/✕ a mano. Libreria scelta da Fabrizio: passi · allenamenti · sonno · alcol · verdura · sgarri · acqua. Sono l'unica vittoria disponibile in un mese storto.
+- **Condizione di uscita** della fase (% grasso / peso / massa magra): quando scatta l'app **suggerisce e basta** — scelta esplicita contro l'accorciamento automatico, fissata da un test che verifica che il piano non cambi di una virgola.
+- **Chiusura fase con esito** 🔒: fotografa peso, % grasso e massa magra del giorno; riapribile.
+- Bug corretto nello stesso giro: `_percorsoGet` ricostruiva la fase con i soli tre campi originari, quindi condizione/stato/esito sparivano per chi leggeva dalla normalizzazione (stessa famiglia di F5).
+Test 254 → **270** (`s2-traguardi-multipli.test.js`).
+
+**Resta da fare — tappa 5** (consiglio: prima un giro di collaudo sul campo delle tappe 1-3 su 3-4 pazienti):
 - **Tappa 5 — vista paziente del traguardo** (~2 h): solo il traguardo della fase in corso (vicino e vincibile), non-scale victories, e in fase di massa si mostra massa magra/grassa e **mai il peso**, che altrimenti spaventa.
 
 **Regole permanenti di questa voce:** (a) il traguardo si ricalcola a ogni nuovo InBody ma l'app **propone, non riscrive** — nessun cambiamento silenzioso su un dato clinico; (b) le soglie di grasso restano sesso-dipendenti; (c) tutti i campi nuovi sono opzionali: un paziente senza traguardo funziona esattamente come prima.
 
-**SCHEDA:** Stato: **Tappe 1-3 CHIUSE + 5 correzioni post-collaudo (26 lug 2026), da ricollaudare · tappe 4-5 aperte** · Priorità: Alta · Categoria: Percorso clinico / obiettivi · Dipendenze: P115 (timeline, per la tappa 3), P118 (referti datati, per i traguardi di laboratorio della tappa 4), P50 (app paziente, solo per l'aderenza) · Autonomia: **L0** sulle soglie di grasso essenziale (sicurezza clinica, le decide Fabrizio), L2 sul resto.
+**SCHEDA:** Stato: **Tappe 1-4 CHIUSE + 5 correzioni post-collaudo (25-26 lug 2026), da ricollaudare · resta la tappa 5** · Priorità: Alta · Categoria: Percorso clinico / obiettivi · Dipendenze: P115 (timeline, per la tappa 3), P118 (referti datati, per i traguardi di laboratorio della tappa 4), P50 (app paziente, solo per l'aderenza) · Autonomia: **L0** sulle soglie di grasso essenziale (sicurezza clinica, le decide Fabrizio), L2 sul resto.
 
 ---
 

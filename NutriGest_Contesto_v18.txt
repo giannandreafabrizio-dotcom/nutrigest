@@ -885,7 +885,8 @@ p.pesiIntermedi[] = { data, peso }
   // il campo resta in struttura per non rompere migrazione, ma nessuna UI attiva (da rimuovere)
   // NB: dal 19 lug (P114 passo 4) e dal 24 lug (P115) la serie peso li LEGGE se presenti (_serieePesoOss)
 
-p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surplus", settimane, pct }] }
+p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surplus", settimane, pct,
+    opz. condizioneUscita:{tipo,op,valore}, stato:"chiusa", esito:{data,peso,pctGrasso,massaMagra} }] }
   // P115 Tappa 1, 24 lug 2026 — periodizzazione della scheda "📈 Percorso".
   // Fasi CONSECUTIVE per costruzione: le date si derivano da inizio + somma durate
   // (_percorsoIntervalli), mai memorizzate per fase → niente buchi/sovrapposizioni.
@@ -913,8 +914,10 @@ p.obiettivoPercorso = { clinico:{...}, paziente:{...}, storico:[], traguardi:[] 
   //   — P122 Tappa 2 (25 lug 2026), scritto da _obiettivoPazienteDaForm via
   //   salvaPaz. Il testo libero resta in p.obiettivo (una casa sola per dato).
   //   La data cambia solo quando cambia il contenuto.
-  // traguardi[] e' previsto dal design (tappa 4) e oggi non viene ancora
-  //   scritto da nessuna parte: leggerlo deve degradare a vuoto.
+  // traguardi[] = [{ id, tipo (chiave di _TRG_TIPI), etichetta, valore, unita,
+  //   esame (solo tipo "esame"), partenza (fotografata alla creazione),
+  //   entro, faseIdx, stato:"aperto"|"raggiunto"|"mancato", esito:{data,valore},
+  //   nota, creato }] — P122 Tappa 4 (26 lug 2026). Opzionale: degrada a vuoto.
   // p.pesoTarget resta e diventa lo SPECCHIO DERIVATO di clinico.pesoTarget:
   //   e' il campo che leggono proiezione P115, calcolaMacros, PDF e contesto AI.
   //   Scritto SOLO da _traguardoScrivi (o a mano nel campo, metodo "manuale").
@@ -1910,6 +1913,44 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     toolbar (acceso anche in vista paziente: è il momento educativo, il
     motivo per cui esiste). SOLO informativo: proiezione e TDEE ignorano il
     consuntivo (fissato da test di isolamento).
+  TRAGUARDI MULTIPLI (P122 Tappa 4, 26 lug 2026):
+    p.obiettivoPercorso.traguardi[] (opzionale, degrada a vuoto). Sette tipi in
+    _TRG_TIPI: pctGrasso, massaGrassa, massaMagra, peso, girovita, esame,
+    comportamento — ognuno dichiara unita', verso ("giu"/"su"/"auto") e fonte
+    ("inbody"/"peso"/"sangue"/"manuale"). _traguardoValoreAttuale(p,t) legge il
+    valore corrente dai dati che l'app HA GIA': composizione da _traguardoMisura
+    (quindi con la %grasso derivata e il controllo di coerenza), peso da
+    _serieePesoOss (include le pesate intermedie), girovita dall'InBody piu'
+    recente che ce l'ha, esame da _andSerie (P118). Dato assente -> null, mai un
+    numero finto. _traguardoVerso: "auto" (peso, esami) si decide dalla partenza
+    — un sottopeso deve salire. _traguardoValuta aggiunge attuale, progresso
+    0-100 (dalla PARTENZA fotografata alla creazione: dopo non sarebbe piu'
+    recuperabile) e raggiunto secondo il verso. I COMPORTAMENTALI non hanno
+    misura automatica: raggiunto resta null finche' non li segni a mano con
+    traguardoSegna (ri-cliccare annulla). Libreria _TRG_COMPORTAMENTI decisa da
+    Fabrizio: passi, allenamenti, sonno, alcol, verdura, sgarri, acqua. Il select
+    degli esami mostra solo quelli presenti nei referti di QUEL paziente.
+    Mutatori: traguardoAdd/Upd/Del/Segna (muta -> save -> re-render). UI:
+    _traguardiHtml, blocco in fondo alla scheda 📈 Percorso.
+  CONDIZIONE DI USCITA DELLA FASE (P122 Tappa 4, 26 lug 2026):
+    f.condizioneUscita = {tipo:"pctGrasso"|"peso"|"massaMagra", op, valore}.
+    _percorsoCondizione(p, fase) (pura) restituisce attuale/scattata/op —
+    l'operatore si deduce dal verso del tipo. Quando scatta, renderPdPercorso
+    mostra un SUGGERIMENTO verde in testata e NIENTE altro: l'app non accorcia
+    la fase ne' fa partire la successiva (scelta esplicita di Fabrizio, 26/7,
+    contro l'alternativa automatica; fissato da un test che confronta il JSON
+    del percorso prima e dopo la valutazione). percorsoSetCondizione(pazId, i,
+    campo, val) imposta tipo/valore; tipo vuoto la rimuove.
+    CHIUSURA CON ESITO: percorsoChiudiFase(pazId,i) scrive f.stato="chiusa" e
+    f.esito={data, peso, pctGrasso, massaMagra} fotografando il giorno; la riga
+    diventa grigia col lucchetto e mostra l'esito sotto. Ri-chiamarla RIAPRE la
+    fase: nessuna azione irreversibile.
+    ATTENZIONE (bug corretto il 26/7): _percorsoGet normalizza le fasi e prima
+    ricostruiva l'oggetto con i soli tre campi originari — condizioneUscita,
+    stato ed esito sparivano per chi leggeva da li' (cioe' la scheda). Ora i
+    campi opzionali vengono conservati. Stessa famiglia di F5: un elenco
+    esplicito di campi da riportare e' un elenco che invecchia.
+
   MODELLI DI PERIODIZZAZIONE + RIALLINEA (P122 Tappa 3, 26 lug 2026):
     _percorsoGeneraFasi(p, modello) (PURA, non scrive): dal traguardo
     (p.pesoTarget, lo specchio della Tappa 1) genera le fasi secondo 4 modelli
