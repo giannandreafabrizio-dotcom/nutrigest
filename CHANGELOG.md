@@ -10,6 +10,20 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (e) — CLAUDE.md: REGOLA 14 SULLE FONTI DEI DATI CLINICI.
+Solo documentazione, nessun codice toccato. Test invariati (410/410).
+
+Codificata come regola permanente la lezione della verifica FODMAP del 28/7
+(doc `NutriGest_FODMAP_Verifica_Perplexity.md`): su un dato clinico di
+laboratorio né la memoria di un'AI né un motore di ricerca AI sono una fonte —
+il controllo incrociato ha mostrato errori da entrambe le parti, e Perplexity
+citava Alibaba/Scribd dichiarando Monash. Serviva in CLAUDE.md perché è
+esattamente il tipo di errore che una sessione futura rifarebbe in buona fede,
+riempiendo con sicurezza le porzioni mancanti di `FODMAP_PORZIONI`. La regola
+fissa tre punti: fonte primaria per ciò che si consegna al paziente, fonte+data
+accanto a ogni valore, e voce di roadmap dedicata per i dati non verificati
+(→ P130) invece di lasciarli passare come "i migliori che abbiamo".
+
 28 LUGLIO 2026 (d) — P87 TAPPA 3: TAB "COMUNICAZIONE" — P87 CHIUSA.
 Test 403 → **410** (nuovo `s2-comunicazione.test.js`, 7 test). Baseline `9e9f422`.
 
