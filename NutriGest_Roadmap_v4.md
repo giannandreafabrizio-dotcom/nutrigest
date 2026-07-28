@@ -859,18 +859,20 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 ---
 
-### F9 — Due tabelle di regole colore attive insieme, e il pulsante "🔄 Ricalcola" applica quella sbagliata (aperta 26 lug 2026)
+### F9 — Due tabelle di regole colore attive insieme, e il pulsante "🔄 Ricalcola" applicava quella sbagliata (aperta e chiusa il 26 lug 2026)
 
 **Come è saltata fuori:** chiudendo la Scoperta #5 il controllo finale ha trovato due nomi corretti (`Maiale arista`, `Vitellone tagli magri`) ancora presenti nel file, ma **fuori** dal blocco appena sistemato. Erano in una seconda tabella.
 
-**I fatti:**
-- `REGOLE_SEMAFORO_ALIMENTI` (15 condizioni, guidata dalle **checkbox** `p.checkSemaforo`) è il sistema vivo, quello validato clinicamente e ora coperto dai test: 0 nomi orfani.
-- `REGOLE_SEMAFORO` (18 condizioni, marcata DEPRECATA, guidata dal **testo libero** `p.patologie`) è ancora attiva: **114 nomi orfani** su una tabella mai ripulita, e usa una scala di colori diversa (`grigio_scuro_1/2`, `celeste_1/2` invece di `grigioScuro`/`celeste`).
-- `resetSemaforoAuto` — il pulsante **"🔄 Ricalcola"** nella scheda del paziente — cancella TUTTI i colori automatici (compresi quelli del sistema nuovo) e poi chiama solo `_applicaRegoloSemaforoLEGACY`. **Non chiama mai `applicaRegoloSemaforo`.**
+**I fatti (com'erano prima della chiusura):**
+- `REGOLE_SEMAFORO_ALIMENTI` (15 condizioni, guidata dalle **checkbox** `p.checkSemaforo`) era il sistema vivo, validato clinicamente e coperto dai test: 0 nomi orfani.
+- `REGOLE_SEMAFORO` (19 condizioni, marcata DEPRECATA, guidata dal **testo libero** `p.patologie`) era **ancora eseguibile**: 118 occorrenze su 42 nomi che il DB non contiene, e una scala di colori tutta sua (`grigio_scuro_1/2`, `celeste_1/2`).
+- `resetSemaforoAuto` — il pulsante **"🔄 Ricalcola"** — cancellava TUTTI i colori automatici (compresi quelli del sistema nuovo) e chiamava solo `_applicaRegoloSemaforoLEGACY`, mai `applicaRegoloSemaforo`.
 
-**Cosa succede in pratica:** un paziente colorato dalle 15 condizioni validate, se si preme "🔄 Ricalcola", perde quei colori e riceve quelli dedotti dal campo testuale `p.patologie` — che nel flusso attuale è spesso vuoto, quindi il risultato può essere **nessun colore**, senza un avviso. Stessa famiglia di F4/F5: una seconda fonte che sopravvive e vince in silenzio.
+**Cosa succedeva in pratica:** un paziente colorato dalle 15 condizioni validate, premendo "🔄 Ricalcola", perdeva quei colori e riceveva quelli dedotti dal campo testuale `p.patologie` — che nel flusso attuale è spesso vuoto, quindi il risultato può essere **nessun colore**, senza un avviso. Stessa famiglia di F4/F5: una seconda fonte che sopravvive e vince in silenzio.
 
-**Perché NON basta cancellare la tabella vecchia:** contiene condizioni che il sistema nuovo non copre — stitichezza, gonfiore, menopausa, e soprattutto le **interazioni con i farmaci** (metformina, levotiroxina, statine, anticoagulanti, cortisone) più il ciclo abbondante. Quelle liste hanno valore clinico e vanno migrate, non buttate.
+**Il danno peggiore, scoperto analizzando i consumatori:** le schermate riconoscevano entrambi i vocabolari di colore, ma prompt AI, validatore del piano e avvisi allergeni **solo `grigioScuro`**. Un alimento marcato dal motore vecchio si vedeva grigio a schermo ed era invisibile ai controlli — e restava lì, perché `applicaRegoloSemaforo` ripuliva solo i suoi due colori. Il pulsante era il sintomo; questa era la malattia.
+
+**Le 9 condizioni esclusive** (stitichezza, gonfiore, menopausa, ciclo abbondante + 5 interazioni con i farmaci) non sono state buttate: **P129** le riscrive da zero.
 
 **✅ CHIUSA 26 lug 2026 (coda 9).** Decisione di Fabrizio: **cancellare**, non migrare — "erano 19, siamo arrivati a 15 ma fatte bene e validate". Eliminati `REGOLE_SEMAFORO` (565 righe), `_applicaRegoloSemaforoLEGACY` e `selTuttiAl` (codice morto che scriveva sui colori). Un solo vocabolario (`_SEM_COLORI_AUTO`), `applicaRegoloSemaforo` che ripulisce tutti e sei i colori, migrazione idempotente `_semaforoMigraPaziente`/`_semaforoMigraTutti` nei tre punti d'ingresso dei dati (cache locale, blob dal server, import di backup), pulsante 🔄 Ricalcola sul sistema valido e riquadro che elenca le condizioni davvero spuntate. `p.regolaAttive` resta sui dati ma non è più né scritto né letto. Test 382 → 394 (`s2-semaforo-fonte-unica.test.js`, 12 test: fra questi la prova che l'esclusione, prima invisibile a `_alimentiEsclusiPaziente`, dopo la migrazione esiste).
 

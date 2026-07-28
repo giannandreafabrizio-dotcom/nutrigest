@@ -148,7 +148,8 @@ questa consegna perché la tabella vecchia contiene condizioni che il sistema
 nuovo non ha (stitichezza, gonfiore, menopausa, e le interazioni coi farmaci:
 metformina, levotiroxina, statine, anticoagulanti, cortisone): vanno migrate, non
 buttate — ed è lavoro clinico. Scheda F9 in roadmap. **Nel frattempo il pulsante
-"🔄 Ricalcola" non va premuto.**
+"🔄 Ricalcola" non va premuto.** *(Aggiornamento: F9 è stata chiusa poche ore
+dopo, nella coda 9 qui sopra — il pulsante ora è sicuro.)*
 
 **QUELLO CHE RESTA APERTO (detto qui perché è il vero seguito).** Le liste di
 nomi non scalano al DB da codice a barre: con migliaia di prodotti industriali
