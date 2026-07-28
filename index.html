@@ -1521,8 +1521,18 @@ main{flex:1;overflow-y:auto;}
         </select>
       </div>
     </div>
+    <div class="fg">
+      <label>Crisi di fame — quando arrivano</label>
+      <div class="chip-group" id="crisi-fasce-group">
+        <label class="chip-pill"><input type="checkbox" id="crf-mattina"> Mattina</label>
+        <label class="chip-pill"><input type="checkbox" id="crf-pomeriggio"> Pomeriggio</label>
+        <label class="chip-pill"><input type="checkbox" id="crf-sera"> Sera (prima di cena)</label>
+        <label class="chip-pill"><input type="checkbox" id="crf-dopocena"> Dopo cena</label>
+        <label class="chip-pill"><input type="checkbox" id="crf-notte"> Notte</label>
+      </div>
+      <input id="p-crisi" style="margin-top:.5rem" placeholder="Note: cosa cerca, in quali situazioni, quanto spesso...">
+    </div>
     <div class="fr">
-      <div class="fg"><label>Crisi di fame</label><input id="p-crisi" placeholder="Sì/No — quando..."></div>
       <div class="fg"><label>Cibi preferiti</label><input id="p-cibi-pref" placeholder="Pizza, pasta, carne alla griglia..."></div>
       <div class="fg"><label>Non rinuncia a</label><input id="p-no-rinuncia" placeholder="Il caffè la mattina, il vino la domenica..."></div>
     </div>
@@ -5635,7 +5645,7 @@ function editPaz(){
   document.querySelectorAll('#p-weekend-altre .p-we-alt').forEach(function(cb){ cb.checked = (p.weekendAltre||[]).indexOf(cb.getAttribute('data-opt'))>=0; });
   s('p-weekend-alcol', p.weekendAlcol);
   s('p-sport',p.sport);s('p-sport-t',p.sportT);s('p-sport-ore',p.sportOre);s('p-attrezzi',p.attrezzi);
-  s('p-crisi',p.crisi);
+  s('p-crisi',p.crisi);setCrisiFasce(p.crisiFasce||[]);
   s('p-cheto-note',p.chetoNote);
   s('p-passi',p.passiGiornalieri);s('p-ore-all',p.oreAllenamento);
   s('p-sedute',p.seduteSettimana);s('p-minuti-seduta',p.minutiSeduta);
@@ -6371,7 +6381,7 @@ function salvaPaz(){
     weekend:gs('p-weekend'),
     weekendAltre:(()=>{ return Array.prototype.slice.call(document.querySelectorAll('#p-weekend-altre .p-we-alt:checked')).map(function(cb){return cb.getAttribute('data-opt');}); })(),
     weekendAlcol:gs('p-weekend-alcol'),
-    crisi:g('p-crisi'),
+    crisi:g('p-crisi'),crisiFasce:getCrisiFasce(),
     passiGiornalieri:gn('p-passi'),oreAllenamento:gn('p-ore-all'),
     seduteSettimana:gn('p-sedute'),minutiSeduta:gn('p-minuti-seduta'),attivitaSpecifica:gs('p-attivita-spec'),
     fontePassi:gs('p-fonte-passi'),tipoLavoro:gs('p-lavoro'),
@@ -8587,6 +8597,14 @@ function costruisciContestoPaziente(p){
 
   if(p.allergie)ctx+='\nAllergie/intolleranze: '+p.allergie;
   if(p.contestoEmotivo)ctx+='\nContesto emotivo e motivazionale: '+p.contestoEmotivo;
+  // Comportamento alimentare: dati raccolti in visita che non sono clinici ma
+  // decidono l'aderenza. Prima erano scritti e mai riletti da nessuno.
+  {
+    const _crisi=(typeof crisiFameTesto==='function')?crisiFameTesto(p):(p.crisi||'');
+    if(_crisi)ctx+='\nCrisi di fame: '+_crisi+' → e il dato che dice DOVE collocare la quota calorica nella giornata, non solo quanta darne.';
+    if(p.cibiPref)ctx+='\nCibi preferiti: '+p.cibiPref+' (gusto dichiarato dal paziente, non un permesso clinico: cio che e ammesso lo decide il semaforo alimentare)';
+    if(p.noRinuncia)ctx+='\nNon rinuncia a: '+p.noRinuncia+' → togliere questo e la via piu rapida all abbandono: negozia, non vietare.';
+  }
   if(p.sostenibilita)ctx+='\nSostenibilita alimentare: priorita per questo paziente';
   if(p.alvo)ctx+='\nAlvo: '+p.alvo;
   if(p.flusso&&p.flusso!=='')ctx+='\nFlusso mestruale: '+p.flusso;
@@ -9261,6 +9279,7 @@ function renderPdAnamnesi(p){
     </div></div>
     <div class="card"><div class="card-hd"><h3>Alimentazione & sport</h3></div><div class="card-bd">
       ${r('Sport',p.sport)}${r('Ore/sett.',p.sportOre)}${r('Cibi preferiti',p.cibiPref)}
+      ${r('Crisi di fame',(typeof crisiFameTesto==='function')?crisiFameTesto(p):(p.crisi||''))}
       ${r('Non rinuncia a',p.noRinuncia)}${r('Chetogenica',p.cheto==='si'?'Sì — '+p.chetoNote:p.cheto==='valutare'?'Da valutare':'')}
     </div></div>
     <div class="card"><div class="card-hd"><h3>Attività Fisica</h3></div><div class="card-bd">
@@ -17915,6 +17934,34 @@ function costruisciPrompt(pazienteId) {
     return '\n\nVINCOLI CLINICI — rispetta nella SCELTA degli alimenti. Sono vincoli operativi: applicali e basta, NON commentarli e NON aggiungere testo descrittivo al piano.\n'+righe.join('\n');
   })();
 
+  // ── Comportamento alimentare e preferenze ──────────────────────────────────
+  // Blocco SEPARATO dai vincoli clinici di proposito: qui non si decide cosa e'
+  // permesso (lo decide il semaforo), si decide DOVE mettere le calorie e QUALI
+  // alimenti preferire tra quelli gia' autorizzati. Il contesto emotivo resta
+  // ESCLUSO: il piano lo legge il paziente, e ci arriva gia' filtrato dal
+  // riassunto del ragionamento clinico (blocco DECISIONI CLINICHE DEL MEDICO).
+  var preferenzeBlock = (function(){
+    var righe = [];
+    var _fasce = Array.isArray(p.crisiFasce) ? p.crisiFasce.filter(Boolean) : [];
+    if(_fasce.length){
+      var _az = _fasce.map(function(f){
+        var a = (typeof CRISI_AZIONI!=='undefined' && CRISI_AZIONI[f]) ? CRISI_AZIONI[f] : '';
+        return a ? (f.toLowerCase()+' → '+a) : f.toLowerCase();
+      });
+      righe.push('• Crisi di fame in queste fasce: '+_az.join(' ; ')+'.');
+      righe.push('  Il totale giornaliero e i macro NON cambiano: cambia solo COME li distribuisci tra i pasti. Usa esclusivamente i pasti attivi per questo paziente — se il pre-nanna non e attivo, sposta quella quota sulla cena.');
+    }
+    if(p.cibiPref){
+      righe.push('• Cibi preferiti dal paziente: '+p.cibiPref+'.');
+      righe.push('  A parita di correttezza nutrizionale scegli PIU SPESSO questi alimenti, ma SOLO se compaiono tra gli ALIMENTI AUTORIZZATI qui sotto. Se un preferito non e in quella lista, o e tra gli esclusi, IGNORALO in silenzio e non nominarlo. Questo campo e una preferenza di gusto, MAI un permesso: non deroga al semaforo, alle allergie, ai vincoli clinici ne al budget dei carboidrati.');
+    }
+    if(p.noRinuncia){
+      righe.push('• Non rinuncia a: '+p.noRinuncia+'. Stessa regola dei preferiti: se e compatibile con gli alimenti autorizzati trovagli spazio, altrimenti ignoralo senza commentare.');
+    }
+    if(!righe.length) return '';
+    return '\n\nCOMPORTAMENTO ALIMENTARE E PREFERENZE — regole di COMPOSIZIONE, subordinate ai vincoli clinici e agli alimenti autorizzati. Applicale in silenzio: nessun commento, nessuna nota descrittiva nel piano.\n'+righe.join('\n');
+  })();
+
   // ── P-KETO: blocco PROTOCOLLO CHETOGENICO per il prompt (tetto carbo dal
   // target salvato dal medico; regole da position paper ADI 2014 + AME) ──
   var _pkPrompt=(typeof PROTOCOLLI_KETO!=='undefined'&&p.strategia&&PROTOCOLLI_KETO[p.strategia])?PROTOCOLLI_KETO[p.strategia]:null;
@@ -17956,7 +18003,7 @@ Allergie: ${p.allergie||'nessuna'}
 ${(function(){var nc=p.noteClinica&&p.noteClinica.length?p.noteClinica.slice(-4):[];return nc.length?'Note cliniche (ultime '+nc.length+'): '+nc.map(function(n){return '['+n.data+'] '+n.testo;}).join(' | '):'';})()}
 ${lastIb?`INBODY (${lastIb.data||'N/D'}): Peso ${lastIb.peso||'—'}kg · FFM ${lastIb.m||'—'}kg · %Grassa ${lastIb.pg||'—'}% · MB ${lastIb.mb||'—'} kcal · BMI ${lastIb.bmi||'—'} · Viscerale ${lastIb.visc||'—'}`:'INBODY: dati non disponibili'}
 ${_ciclizzato ? `Giorni di carico (ON): ${(p.giorniAllenamento||[]).join(', ')||'nessuno'}` : ((p.giorniAllenamento||[]).length?`Giorni allenamento: ${p.giorniAllenamento.join(', ')}`:'')}
-${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}${blocoCiclizzazione}
+${p.oreAllenamento?`Allenamento: ${p.tipoAllenamento||'—'} · ${p.oreAllenamento||'—'} ore/sett.`:''}${vincoliClinici}${preferenzeBlock}${blocoCiclizzazione}
 
 GRAMMATURE FISSE
 ${isCeto ? `Olio EVO: ${olioG}g/pasto (aumentabile: in keto i grassi chiudono le kcal) | Verdura: 200g (gruppo libero anche di più) | Frutta secca: 20g | Cereali/legumi/frutta: NIENTE grammatura fissa — ammessi solo entro il budget carboidrati, vedi PROTOCOLLO CHETOGENICO` : `Olio EVO: ${olioG}g/pasto | Carbo (pasta/riso/farro): ${_ciclizzato ? `giorni ON ${carbGrON}g · giorni OFF ${carbGrOFF}g` : `${carbGr}g`} | Legumi barattolo: 120g | Verdura: 200g | Frutta: 150g | Frutta secca: 20g`}${ketoBlock}
@@ -26285,6 +26332,33 @@ function setIntegraWant(lista) {
     if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
   });
 }
+// ── Crisi di fame — fasce orarie (semi-strutturato) ─────────────────────────
+// Le fasce sono caselle e non testo libero perche' questo dato deve diventare un
+// VINCOLO OPERATIVO nel generatore di piani (dove collocare la quota calorica):
+// una regola meccanica non puo' dipendere da come e' scritta la frase in visita.
+// La nota (p.crisi) resta libera e serve al ragionamento clinico, non al piano.
+const CRISI_KEYS=['mattina','pomeriggio','sera','dopocena','notte'];
+const CRISI_LABELS={'mattina':'Mattina','pomeriggio':'Pomeriggio','sera':'Sera (prima di cena)','dopocena':'Dopo cena','notte':'Notte'};
+function getCrisiFasce(){return CRISI_KEYS.filter(k=>document.getElementById('crf-'+k)?.checked).map(k=>CRISI_LABELS[k]);}
+function setCrisiFasce(lista){CRISI_KEYS.forEach(k=>{const el=document.getElementById('crf-'+k);if(el)el.checked=lista?.includes(CRISI_LABELS[k])||false;});}
+// Sorgente unica del testo "crisi di fame" per AI, riepiloghi e scheda: fasce +
+// nota. Un solo punto da cambiare se domani il formato cambia.
+function crisiFameTesto(p){
+  if(!p) return '';
+  const f=Array.isArray(p.crisiFasce)?p.crisiFasce.filter(Boolean):[];
+  const n=(p.crisi||'').trim();
+  if(!f.length) return n;
+  return f.join(', ')+(n?' — '+n:'');
+}
+// Traduzione della fascia in istruzione di distribuzione per il generatore.
+const CRISI_AZIONI={
+  'Mattina':'rinforza la colazione (quota proteica piu alta) e prevedi uno spuntino di meta mattina vero, non simbolico',
+  'Pomeriggio':'rendi la merenda del pomeriggio saziante e sufficiente (proteine + fibra), non un frutto da solo',
+  'Sera (prima di cena)':'anticipa parte della quota del pomeriggio e rendi la cena piu sostanziosa in volume (verdura abbondante + proteine)',
+  'Dopo cena':'prevedi un pre-nanna proteico e sposta a cena una quota maggiore di carboidrati, per non lasciare la serata scoperta',
+  'Notte':'aumenta la quota serale e prevedi un pre-nanna a lento rilascio (proteine + grassi buoni)'
+};
+
 const PAT_KEYS=['diabete','ir','ipert','colest','trig','tiroid','hashim','pcos','ibs','reflusso','gotta','irc','meno','steat'];
 const PAT_LABELS={'diabete':'Diabete T2','ir':'Insulino-resistenza','ipert':'Ipertensione','colest':'Colesterolo alto','trig':'Trigliceridi alti','tiroid':'Ipotiroidismo','hashim':'Hashimoto','pcos':'PCOS','ibs':'IBS / Colon irritabile','reflusso':'Reflusso','gotta':'Gotta / Iperuricemia','irc':'IRC / Patologia renale','meno':'Menopausa','steat':'Steatosi epatica'};
 const ALL_KEYS=['glutine','lattosio','latte','uova','pesce','crost','soia','fruttasec','arachidi','nichel','istamina','fruttosio'];

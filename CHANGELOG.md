@@ -10,6 +10,62 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (g) — COMPORTAMENTO ALIMENTARE: CRISI DI FAME E CIBI PREFERITI ENTRANO NELLE AI.
+Test **410/410**. Baseline `b45920b`. Include la rigenerazione di INDEX.md (vedi in fondo).
+
+**IL PROBLEMA, TROVATO PARTENDO DA UNA DOMANDA DI FABRIZIO.** "Quali testi che
+inserisco entrano nella valutazione AI, e con che gerarchia?" L'audit ha trovato
+tre campi raccolti in visita e mai riletti: **Crisi di fame** era completamente
+morto (nessuna AI, e nemmeno visibile nella scheda anamnesi: lo scrivevi e non lo
+rivedeva nessuno, neanche tu); **Cibi preferiti** e **Non rinuncia a** si
+vedevano solo nella scheda. In particolare il generatore di piani conosceva i
+gusti del paziente SOLO dal semaforo alimentare — che dice cosa e' *permesso*,
+non cosa il paziente *ama*: due cose diverse, e la seconda regge l'aderenza.
+
+**COSA E' STATO FATTO.**
+1. **Crisi di fame semi-strutturata** — caselle di fascia (mattina, pomeriggio,
+   sera, dopo cena, notte) -> `p.crisiFasce[]`, piu' la nota libera che resta in
+   `p.crisi`. `crisiFameTesto(p)` e' la sorgente unica del testo combinato.
+   *Perche' caselle e non testo libero:* la fascia deve diventare un vincolo
+   operativo nel generatore, e una regola meccanica non puo' dipendere da come e'
+   scritta la frase in visita. `CRISI_AZIONI` traduce fascia -> istruzione di
+   distribuzione.
+2. **Ragionamento clinico** — crisi, preferiti e non-rinuncia entrano in
+   `costruisciContestoPaziente`, ciascuno con la sua chiave di lettura.
+3. **Generatore di piani** — blocco nuovo "COMPORTAMENTO ALIMENTARE E
+   PREFERENZE", tenuto SEPARATO da VINCOLI CLINICI e dichiarato subordinato ad
+   esso. Le crisi spostano solo la DISTRIBUZIONE (totale e macro invariati, e
+   solo sui pasti attivi: se il pre-nanna non e' attivo la quota va sulla cena).
+   I preferiti sono preferenza DENTRO gli alimenti autorizzati: se un preferito
+   non e' in lista va ignorato in silenzio. Ereditato in automatico dal prompt
+   delta e dal giorno speciale, che riusano `costruisciPrompt`.
+4. **Scheda anamnesi** — "Crisi di fame" ora e' visibile accanto ai preferiti.
+
+**LA DECISIONE PIU' IMPORTANTE E' STATA UN NO: il contesto emotivo NON entra nel
+generatore.** Tre motivi, in ordine di peso: (a) il piano lo legge il PAZIENTE —
+"storia di fallimenti precedenti" che filtra nel testo generato e' un danno
+serio, e i modelli editorializzano quando ricevono contesto emotivo; (b) diluisce
+i vincoli duri in un prompt gia' lunghissimo, e il punto dove il generatore gia'
+fatica e' il budget carboidrati keto; (c) **ci arriva gia', per la strada
+giusta** — contesto emotivo -> AI di ragionamento -> giudizio del medico ->
+riassunto -> blocco "DECISIONI CLINICHE DEL MEDICO" con priorita' assoluta nel
+prompt del piano.
+
+**CRITERIO GENERALE DA RIUSARE.** Al generatore vanno in corsia diretta solo i
+dati che sono gia' **istruzioni meccaniche** (una fascia oraria e' una regola di
+distribuzione). I dati che richiedono **interpretazione** passano dal ragionamento
+clinico e dal filtro del medico. La domanda giusta prima di aggiungere qualcosa
+al prompt del piano non e' "e' un dato utile?" ma "e' gia' un'istruzione?".
+
+**LEZIONE DI PROCESSO — INDEX.md e i test sulle modifiche "banali".** Il commit
+precedente (`b45920b`, tre caselle integratori) aveva spostato ~13 righe e
+disallineato INDEX.md: il test `s1-doc-allineata` era gia' rosso su main prima di
+questa sessione, e non era stato visto perche' la modifica sembrava troppo
+piccola per meritare la suite. **Non esiste una modifica troppo piccola per far
+girare i test:** basta inserire righe per rompere un file di documentazione che
+un'altra sessione usera' per navigare il codice. INDEX.md rigenerato qui
+(`node rigenera-index.js`, 767 voci) e incluso nel commit.
+
 28 LUGLIO 2026 (f) — INTEGRATORI: 3 NUOVE CASELLE (LEUCINA, PAPPA REALE, BETA-ALANINA).
 Baseline `55e3b8a`. Modifica minima, nessun test toccato.
 

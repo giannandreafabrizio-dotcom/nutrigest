@@ -2329,6 +2329,41 @@ LA DOMANDA IN VISITA, STRUTTURATA (P122 Tappa 2, 25 lug 2026):
   target clinico", scadenza, importanza/fiducia, traguardo clinico derivato e
   riga di divario oltre 1 kg); i pazienti senza Tappa 2 non producono il blocco.
 
+COMPORTAMENTO ALIMENTARE — CRISI DI FAME, CIBI PREFERITI (28 lug 2026):
+  Tre campi raccolti in visita erano scritti e mai riletti: "Crisi di fame"
+  (p.crisi) non arrivava a NESSUNA AI e non compariva neanche nella scheda
+  anamnesi (campo morto a tutti gli effetti); "Cibi preferiti" (p.cibiPref) e
+  "Non rinuncia a" (p.noRinuncia) si vedevano solo nella scheda.
+  CRISI DI FAME ORA SEMI-STRUTTURATA: caselle di fascia oraria (crf-mattina,
+  crf-pomeriggio, crf-sera, crf-dopocena, crf-notte) -> p.crisiFasce[] (array di
+  etichette, stesso schema di INTEGR_KEYS/LABELS: CRISI_KEYS + CRISI_LABELS +
+  getCrisiFasce/setCrisiFasce). p.crisi resta la NOTA libera. crisiFameTesto(p)
+  e' la sorgente unica del testo combinato (fasce + nota) per AI, scheda e
+  riepiloghi. Perche' caselle e non solo testo: la fascia deve diventare un
+  vincolo operativo nel generatore, e una regola meccanica non puo' dipendere da
+  come e' scritta la frase in visita. CRISI_AZIONI mappa fascia -> istruzione di
+  distribuzione (dove spostare la quota calorica).
+  DOVE ENTRANO — due AI, due ruoli diversi:
+  1) costruisciContestoPaziente (ragionamento clinico): crisi (fasce+nota), cibi
+     preferiti e non-rinuncia entrano come dati di comportamento, ciascuno con
+     la sua chiave di lettura clinica.
+  2) costruisciPrompt (generatore piani): blocco NUOVO "COMPORTAMENTO ALIMENTARE
+     E PREFERENZE", SEPARATO da VINCOLI CLINICI e subordinato ad esso. Le crisi
+     spostano la DISTRIBUZIONE (totale giornaliero e macro invariati, e solo sui
+     pasti attivi: se prenanna!=='si' la quota va sulla cena). I preferiti sono
+     una PREFERENZA DENTRO gli alimenti autorizzati, mai un permesso: se un
+     preferito non e' nella lista autorizzata va ignorato in silenzio. Il blocco
+     e' ereditato in automatico da _costruisciPromptDelta e dal giorno speciale,
+     che riusano costruisciPrompt.
+  IL CONTESTO EMOTIVO RESTA ESCLUSO dal generatore, per tre motivi che valgono
+  come regola: il piano lo legge il PAZIENTE (contesto emotivo nel prompt ->
+  rischio che finisca nel testo generato); diluisce i vincoli duri in un prompt
+  gia' lungo (budget carboidrati keto in primis); e ci arriva gia' filtrato dal
+  medico via riassunto del ragionamento (blocco DECISIONI CLINICHE DEL MEDICO,
+  priorita' assoluta). CRITERIO GENERALE: al generatore vanno in corsia diretta
+  solo i dati che sono gia' ISTRUZIONI MECCANICHE; quelli che richiedono
+  INTERPRETAZIONE passano dal ragionamento clinico e dal giudizio del medico.
+
 CAMPI DELL'ANAGRAFICA — UN CAMPO ASSENTE NON CANCELLA (F7, 26 lug 2026):
   salvaPaz legge 56 campi dal modulo; sei di questi NON esistevano nel markup e
   venivano azzerati a ogni salvataggio: p-altezza (p.altezza), p-peso (p.peso),
