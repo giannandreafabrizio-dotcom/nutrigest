@@ -814,26 +814,30 @@ RANGE DI RIFERIMENTO (P118 tappa 2, 24 lug 2026)
   quindi il suo peso clinico e' marginale. Resta comunque la fonte usata per il
   giudizio colore dell'andamento (P118 tappa 3) quando il referto non porta range.
 
-p.richiesteAnalisi[] = { data, motivo, voci:[...], n, url }  // P116, 24 lug 2026
-  // Storico delle richieste di esami consegnate al paziente per il medico di base.
-  // `voci` contiene chiavi 'sezione.idVoce' del catalogo RICH_CATALOGO (non i nomi
-  // stampati: le etichette possono cambiare, gli id no). `url` = link pubblico del PDF
-  // su Supabase Storage se l'invio è avvenuto col link, stringa vuota se il PDF è stato
-  // solo scaricato/condiviso. Ultime 5 mostrate da _richStoricoHtml(p) in testa alla
-  // card Analisi del sangue; l'array è potato alle ultime 30 voci.
+p.richiesteAnalisi[] — DISMESSO (P87 Tappa 2, 28 lug 2026)
+  // Era lo storico richieste esami di P116. MIGRATO in p.invii[] come tipo 'analisi'
+  // (voci[] e n conservati per il futuro confronto "richiesto vs ricevuto").
+  // Migrazione idempotente per firma (_inviiMigraPaziente/_inviiMigraTutti), agganciata
+  // a TUTTI i punti d'ingresso dati come F9 (regola 12): load iniziale, blob dal
+  // server (_pazAssicuraBlob), import backup. Dopo la migrazione il campo viene
+  // eliminato (F4). Nessun codice lo scrive né lo legge più.
 
-p.invii[] = { data, tipo, titolo, url, esito }  // P87 Tappa 1, 28 lug 2026
-  // DIARIO UNIFICATO di ciò che è stato mandato al paziente. Registro nuovo, base
-  // della futura sezione Comunicazione (P87 Tappa 3). `tipo`: 'fodmap' oggi; Tappa 2
-  // aggiungerà 'piano', 'ai', e migrerà qui 'analisi' (oggi in p.richiesteAnalisi).
+p.invii[] = { data, tipo, titolo, url, esito, voci?, n? }  // P87 Tappe 1-2, 28 lug 2026
+  // DIARIO UNIFICATO di ciò che è stato mandato al paziente. Base della futura
+  // sezione Comunicazione (P87 Tappa 3). `tipo` oggi in uso:
+  //   'fodmap'  — elenco FODMAP (bottone in intestazione scheda, pd-fodmap-box)
+  //   'analisi' — richiesta esami (P116; porta anche voci[] e n)
+  //   'piano'   — piano alimentare inviato da apriWhatsApp (PDF scaricato + wa.me)
+  //   'ai'      — messaggio WhatsApp AI (click su "Apri in WhatsApp", _aiWaRegistraClick)
   // `esito`: 'condiviso' | 'link' | 'pdf-scaricato'. `url`: link pubblico se caricato.
-  // INVARIANTE (regola 10): scritto SOLO da _inviiRegistra, che ordina per data e
-  // pota a 50. Il colore/etichetta del bottone FODMAP si CALCOLA da qui via
+  // INVARIANTE (regola 10): scritto SOLO da _inviiRegistra → _inviiOrdina (ordina per
+  // data, pota a 50). Il colore/etichetta del bottone FODMAP si CALCOLA da qui via
   // _inviiUltimo(p,'fodmap') — nessun flag separato (no doppia fonte di verità).
+  // Lo storico esami nella card Analisi (_richStoricoHtml) legge da qui, tipo 'analisi'.
   // Motore di invio riusabile: inviaMateriale(opt) [3 livelli: share → link → download],
   // upload generico _materialeUpload(doc,p,bucket). PDF FODMAP generato dalle liste
   // del semaforo da _fodmapCostruisciPDF, tetti porzione in FODMAP_PORZIONI (dati
-  // orientativi, verifica totale = P130). Bottone in intestazione scheda (pd-fodmap-box).
+  // orientativi, verifica totale = P130).
 
 RICHIESTA ANALISI PER IL MEDICO CURANTE (P116, 24 lug 2026)
   Bottone 🩸 "Richiesta esami" nella card Analisi del sangue → apriRichiestaAnalisi().

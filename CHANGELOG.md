@@ -10,6 +10,44 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (c) — P87 TAPPA 2: TUTTI GLI INVII NEL REGISTRO UNICO, RICHIESTE ESAMI MIGRATE.
+Test 394 → **403** (nuovo `s2-invii-registro.test.js`, 9 test). Baseline `db54f72`.
+Verifica sul campo della Tappa 1 fatta da Fabrizio in Chrome: bottone ok, PDF ok.
+
+**COSA È STATO FATTO.** Chiusa la promessa della Tappa 2: ogni cosa che parte
+verso il paziente lascia traccia in `p.invii[]`.
+1. **Piano alimentare** — `apriWhatsApp()` ora registra `tipo:'piano'` dopo
+   l'apertura di wa.me (il PDF è scaricato da generaPDF un attimo prima). Copre
+   tutti e 3 i bottoni WhatsApp del piano.
+2. **Messaggi AI** — il link "📲 Apri in WhatsApp" del modal AI registra
+   `tipo:'ai'` al click (`_aiWaRegistraClick`, legge il paziente da `_aiWaCtx`;
+   try/catch: se qualcosa va storto il link si apre comunque).
+3. **Richieste esami MIGRATE** — `p.richiesteAnalisi[]` (P116) confluisce in
+   `p.invii[]` come `tipo:'analisi'`, conservando `voci[]` e `n` per il futuro
+   confronto richiesto-vs-ricevuto. `_richRegistra` scrive nel registro unico;
+   `_richStoricoHtml` legge da lì (stesso aspetto). Il campo vecchio viene
+   ELIMINATO dopo il travaso (F4: la doppia fonte si elimina, non si affianca).
+4. **Migrazione idempotente ovunque entrano dati** (regola 12, stesso schema di
+   F9): `_inviiMigraPaziente/_inviiMigraTutti` agganciate a load iniziale, blob
+   dal server (`_pazAssicuraBlob`) e import backup. Idempotenza per FIRMA
+   (tipo|data|titolo|n|url): il blob di un dispositivo non aggiornato che
+   rimette in circolo `p.richiesteAnalisi` non duplica nulla — necessaria
+   perché la migrazione gira senza salvare, quindi può rieseguirsi più volte.
+5. `_inviiOrdina` estratta: ordinamento+potatura del registro vivono in una
+   funzione sola, usata da registrazione e migrazione (regola 10).
+
+**PERCHÉ LA MIGRAZIONE ORA E NON IN TAPPA 3:** la vista Comunicazione dovrà
+leggere UN registro, non federarne due; e ogni giorno passato con due registri
+è un giorno in cui un invio può finire nel posto sbagliato. I lettori erano
+solo 2 (`_richRegistra`, `_richStoricoHtml`) — inventario fatto prima di
+stimare il rischio, come da regola 12.
+
+**RESTA PER LA TAPPA 3:** la tab "Comunicazione" (vista completa su `p.invii[]`
++ template variabilizzati + wa.me/mailto). Nota onesta: l'invio del PIANO resta
+sul canale vecchio (PDF scaricato + testo wa.me, allegato a mano) — portarlo
+sul motore a 3 livelli richiede che `generaPDF` restituisca il doc invece di
+salvarlo subito: da valutare in Tappa 3, non era nello scope del tracciamento.
+
 28 LUGLIO 2026 (b) — P87 TAPPA 1: REGISTRO INVII + MOTORE DI INVIO + BOTTONE "ELENCO FODMAP".
 Test 394/394. Baseline `7c22bb2`. INDEX rigenerato (27.459 → 27.704 righe).
 

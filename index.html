@@ -1708,7 +1708,7 @@ main{flex:1;overflow-y:auto;}
         <button onclick="generaMessaggioAI()" class="btn btn-g btn-sm">🔄 Rigenera</button>
         <button onclick="salvaVarianteAI()" class="btn btn-g btn-sm">💾 Salva variante</button>
         <button onclick="copiaMessaggioAI()" class="btn btn-p btn-sm">📋 Copia</button>
-        <a id="ai-wa-link" href="#" target="_blank" class="btn btn-wa btn-sm">📲 Apri in WhatsApp</a>
+        <a id="ai-wa-link" href="#" target="_blank" class="btn btn-wa btn-sm" onclick="_aiWaRegistraClick()">📲 Apri in WhatsApp</a>
       </div>
     </div>
     <!-- Varianti salvate -->
@@ -3926,6 +3926,7 @@ function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.pars
   // F9 — migrazione idempotente: via i colori del vecchio sistema semaforo, che
   // a schermo si vedevano ma erano invisibili al generatore e ai controlli.
   if(typeof _semaforoMigraTutti==='function') _semaforoMigraTutti(db.pazienti);
+  if(typeof _inviiMigraTutti==='function') _inviiMigraTutti(db.pazienti); // P87 T2 — richiesteAnalisi confluisce nel registro unico
   caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -4074,6 +4075,7 @@ async function _pazFetchBlob(id){
     if(!row || !row.data || !row.data.id || !row.data.nome) return null;
     if(typeof _ibOrdinaPerData==='function') _ibOrdinaPerData(row.data); // P120 — migrazione: storico InBody ordinato per data appena il blob entra in memoria
     if(typeof _semaforoMigraPaziente==='function') _semaforoMigraPaziente(row.data); // F9 — stesso punto, stesso motivo: si migra appena il dato entra
+    if(typeof _inviiMigraPaziente==='function') _inviiMigraPaziente(row.data); // P87 T2 — idem
     const i = db.pazienti.findIndex(x=>x&&x.id===id);
     if(i>=0) db.pazienti[i]=row.data; else db.pazienti.push(row.data);
     _p69SetBaseline(id, row.updated_at); // versione server ora vista da questo dispositivo
@@ -5294,7 +5296,7 @@ function initAntCard(){
   try{ localStorage.removeItem('anthropicApiKey'); localStorage.removeItem('anthropic_api_key'); }catch(e){}
 }
 function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
-function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(typeof _semaforoMigraTutti==='function')_semaforoMigraTutti(db.pazienti);/* F9 — un backup vecchio è l'altra porta d'ingresso dei colori legacy */save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
+function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(typeof _semaforoMigraTutti==='function')_semaforoMigraTutti(db.pazienti);/* F9 — un backup vecchio è l'altra porta d'ingresso dei colori legacy */if(typeof _inviiMigraTutti==='function')_inviiMigraTutti(db.pazienti);/* P87 T2 — e delle richiesteAnalisi pre-migrazione */save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
 
 // ════════════════════════════════════════════════════════════════
 // NAV
@@ -9738,19 +9740,13 @@ function _richPrepara(){
   if(!doc){ notif('⚠ PDF non disponibile'); return null; }
   return {p:p, doc:doc, sezioni:sezioni, motivo:motivo};
 }
+// P87 Tappa 2 — scrive nel registro unico p.invii come tipo 'analisi'
+// (prima scriveva in p.richiesteAnalisi, ora migrato e dismesso). Il salvataggio
+// lo fa _inviiRegistra.
 function _richRegistra(p, sezioni, motivo, url){
-  if(!Array.isArray(p.richiesteAnalisi)) p.richiesteAnalisi=[];
   const voci=[];
   sezioni.forEach(function(s){ s.voci.forEach(function(v){ voci.push(s.id+'.'+v.id); }); });
-  p.richiesteAnalisi.push({
-    data:new Date().toISOString().slice(0,10),
-    motivo:motivo,
-    voci:voci,
-    n:voci.length,
-    url:url||''
-  });
-  if(p.richiesteAnalisi.length>30) p.richiesteAnalisi=p.richiesteAnalisi.slice(-30);
-  save(p.id);
+  _inviiRegistra(p, {tipo:'analisi', titolo:motivo, url:url||'', esito:url?'link':'pdf-scaricato', voci:voci, n:voci.length});
 }
 function _richStato(msg){ const el=document.getElementById('rich-stato'); if(el) el.innerHTML=msg; }
 
@@ -9888,7 +9884,9 @@ async function richCopiaLink(){
 
 // Storico delle richieste, mostrato nella scheda Analisi del sangue.
 function _richStoricoHtml(p){
-  const st=(p&&Array.isArray(p.richiesteAnalisi))?p.richiesteAnalisi:[];
+  // P87 Tappa 2: legge dal registro unico p.invii (tipo 'analisi'), non piu'
+  // da p.richiesteAnalisi (migrato e dismesso). Stesso aspetto di prima.
+  const st=(p&&Array.isArray(p.invii))?p.invii.filter(function(v){ return v.tipo==='analisi'; }):[];
   if(!st.length) return '';
   let h='<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.6rem .85rem;margin-bottom:.7rem">'
     +'<div style="font-weight:600;font-size:.82rem;margin-bottom:.35rem">📋 Richieste gia\u0027 inviate</div>';
@@ -9896,7 +9894,7 @@ function _richStoricoHtml(p){
     const d=r.data?r.data.split('-').reverse().join('/'):'';
     h+='<div style="display:flex;gap:.5rem;align-items:center;font-size:.77rem;color:var(--text2);padding:.18rem 0">'
       +'<span style="font-weight:600;color:var(--text)">'+_richEsc(d)+'</span>'
-      +'<span style="flex:1">'+_richEsc(r.motivo||'')+' — '+(r.n||0)+' voci</span>'
+      +'<span style="flex:1">'+_richEsc(r.titolo||'')+' — '+(r.n||0)+' voci</span>'
       +(r.url?'<a href="'+_richEsc(r.url)+'" target="_blank" style="color:var(--teal);font-size:.74rem">apri PDF</a>':'')
       +'</div>';
   });
@@ -9920,7 +9918,15 @@ function _richStoricoHtml(p){
 // P120): si CALCOLA da p.invii[] con _inviiUltimo(p,'fodmap').
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Ordina per data e pota a 50 — l'invariante cronologica vive QUI (regola 10).
+function _inviiOrdina(p){
+  if(!p||!Array.isArray(p.invii)) return;
+  p.invii.sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); });
+  if(p.invii.length>50) p.invii=p.invii.slice(-50);
+}
 // Registra un invio nel diario unico del paziente e SALVA. Ritorna la voce.
+// Campi extra opzionali: voci[] e n (usati dal tipo 'analisi' per il futuro
+// confronto "richiesto vs ricevuto" del design P116).
 function _inviiRegistra(p, voce){
   if(!p) return null;
   if(!Array.isArray(p.invii)) p.invii=[];
@@ -9931,10 +9937,10 @@ function _inviiRegistra(p, voce){
     url:voce.url||'',
     esito:voce.esito||''
   };
+  if(Array.isArray(voce.voci)) v.voci=voce.voci;
+  if(voce.n!=null) v.n=voce.n;
   p.invii.push(v);
-  // Invariante di ordinamento garantita alla scrittura, non sperata (regola 10).
-  p.invii.sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); });
-  if(p.invii.length>50) p.invii=p.invii.slice(-50);
+  _inviiOrdina(p);
   save(p.id);
   return v;
 }
@@ -9944,6 +9950,43 @@ function _inviiUltimo(p, tipo){
   let ultimo=null;
   p.invii.forEach(function(v){ if(v.tipo===tipo && (!ultimo||v.data>=ultimo.data)) ultimo=v; });
   return ultimo;
+}
+
+// ── P87 TAPPA 2 — MIGRAZIONE p.richiesteAnalisi → p.invii ───────────────────
+// Il registro storico delle richieste esami (P116) confluisce nel diario unico
+// come tipo 'analisi', conservando voci[] e n per il futuro confronto
+// "richiesto vs ricevuto". Come da F4: la vecchia fonte si ELIMINA, non si
+// affianca. Idempotente per firma (tipo|data|titolo|n|url): rieseguirla non
+// duplica — necessario perche' gira senza salvare e in TUTTI i punti da cui i
+// dati rientrano (load iniziale, blob dal server, import backup — regola 12).
+function _inviiFirma(v){ return [v.tipo,v.data,v.titolo||'',v.n||0,v.url||''].join('|'); }
+function _inviiMigraPaziente(p){
+  if(!p || !Array.isArray(p.richiesteAnalisi)) return 0;
+  if(!p.richiesteAnalisi.length){ delete p.richiesteAnalisi; return 0; }
+  if(!Array.isArray(p.invii)) p.invii=[];
+  const firme={};
+  p.invii.forEach(function(v){ firme[_inviiFirma(v)]=1; });
+  let n=0;
+  p.richiesteAnalisi.forEach(function(r){
+    const v={ data:r.data||'', tipo:'analisi', titolo:r.motivo||'', url:r.url||'', esito:r.url?'link':'pdf-scaricato' };
+    if(Array.isArray(r.voci)) v.voci=r.voci;
+    if(r.n!=null) v.n=r.n;
+    const f=_inviiFirma(v);
+    if(firme[f]) return;
+    firme[f]=1;
+    p.invii.push(v); n++;
+  });
+  _inviiOrdina(p);
+  delete p.richiesteAnalisi;
+  return n;
+}
+// Passata su tutti i pazienti in memoria. Riepilogo senza salvare (come F9).
+function _inviiMigraTutti(pazienti){
+  let voci=0, quanti=0;
+  (pazienti||[]).forEach(function(p){ const n=_inviiMigraPaziente(p); if(n){ voci+=n; quanti++; } });
+  if(voci && typeof console!=='undefined' && console.info)
+    console.info('[P87] invii: migrate '+voci+' richieste analisi su '+quanti+' paziente/i nel registro unico p.invii');
+  return {voci:voci, pazienti:quanti};
 }
 
 // MOTORE DI INVIO GENERICO — estratto da richInviaWhatsApp, invariato nella
@@ -20765,6 +20808,17 @@ function mostraLoadingSteps(loadEl){
 
 let _aiWaCtx = {}; // contesto corrente del modal
 
+// P87 T2 — il click su "Apri in WhatsApp" lascia traccia nel registro unico.
+// Non blocca mai la navigazione: se qualcosa va storto, il link si apre comunque.
+function _aiWaRegistraClick(){
+  try{
+    const ctx=_aiWaCtx||{};
+    const p=db.pazienti.find(function(x){ return x.id===ctx.pazId; });
+    if(p && typeof _inviiRegistra==='function')
+      _inviiRegistra(p, {tipo:'ai', titolo:'Messaggio WhatsApp AI'+(ctx.tipoFase?' — '+ctx.tipoFase:''), url:'', esito:'link'});
+  }catch(e){}
+}
+
 function apriAIWhatsApp(pazId, tipoFase) {
   const p = db.pazienti.find(x => x.id === pazId);
   if (!p) { notif('⚠ Paziente non trovato'); return; }
@@ -21048,6 +21102,9 @@ function apriWhatsApp(){
   const tel=p.tel.replace(/\D/g,'');
   const prefix=tel.startsWith('39')?'':tel.startsWith('+')?'':'+39';
   window.open('https://wa.me/'+prefix+tel+'?text='+msg,'_blank');
+  // P87 T2 — il piano inviato lascia traccia nel registro unico (il PDF e' stato
+  // scaricato da generaPDF un attimo prima: il paziente lo riceve come allegato manuale)
+  if(typeof _inviiRegistra==='function') _inviiRegistra(p, {tipo:'piano', titolo:'Piano alimentare (PDF)', url:'', esito:'pdf-scaricato'});
 }
 
 // ═══════════════ P84 — LISTA DELLA SPESA AUTOMATICA ═══════════════
