@@ -10,6 +10,55 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 — REVISIONE CLINICA LISTE FODMAP (semaforo `all-fodmap` + 2 concetti educativi).
+Test 394/394. Baseline `0d673d2`. Nessuna funzione toccata: solo dati
+(REGOLE_SEMAFORO_ALIMENTI) e testi (concetti `fodmap-teorico` e `fodmap-lista`).
+INDEX.md rigenerato (righe spostate, 27.444 → 27.459).
+
+**PERCHÉ.** Fabrizio ha portato due fonti nuove: l'articolo Vincenzi-Paolini
+(ADI 2014;6:44-47, con sue evidenziazioni) e il PDF a 9 categorie che manda oggi
+ai pazienti gonfi. Dal confronto con NutriGest (doc di progetto
+`NutriGest_FODMAP_Confronto_Fonti.md`) sono emersi: 1 divergenza clinica vera,
+~15 alimenti presenti in ALIMENTI ma "bianchi" per la spunta Low-FODMAP, e
+5 messaggi clinici assenti dai concetti. NB: il PDF sorgente ha 9 alimenti in
+doppia colonna e zero porzioni — NON è stato recepito alla lettera; dove le
+fonti litigano si è seguita Monash (2023-26).
+
+**DECISIONI CLINICHE (di Fabrizio, 28/7):**
+1. **Legumi in scatola sciacquati** (ceci, lenticchie, borlotti) → da grigi a
+   CELESTI, porzione ~40 g sgocciolati. Monash: gli oligosaccaridi migrano nel
+   liquido di governo. I secchi restano grigi. Corretta anche la riga del
+   concetto lista che diceva "tutti, secchi o in barattolo".
+2. **Finocchio** → da grigio a CELESTE, max ~75 g crudo (dose-dipendente:
+   moderato a ~145 g, alto a ~195 g). Risolta anche la contraddizione col
+   concetto keto che lo consiglia come spuntino libero.
+3. **Avocado** → GRIGIO con soglie esplicite nel concetto: low fino a 60 g,
+   moderato 60-80, alto oltre 80 (porzione default in ALIMENTI = 75 g).
+
+**BUCHI COLMATI nel semaforo** (alimenti già in ALIMENTI ma senza avviso):
+grigi += Pistacchi, Anacardi (oligosaccaridi, ADI 2014), Avocado, Birra,
+Cous cous, Pane di segale, Fiocchi di farro, Datteri, Miele crudo, Salame,
+Mortadella, 'Nduja (aglio/cipolla in polvere negli impasti);
+celesti += Finocchio, Fagiolini, Ceci/Borlotti/Lenticchie (barattolo),
+Mirtilli, Melograno, Papaya, Grano saraceno, Nocciole, Semi di
+zucca/lino/chia. Bilancio: grigi 46→54, celesti 54→67.
+
+**CONCETTI EDUCATIVI.** `fodmap-lista`: corretta la frase pericolosa "PROTEINE:
+... senza restrizioni" (insaccati con aglio/cipolla in polvere esclusi), aggiunte
+porzioni e distinzioni (banana per maturazione, avocado a soglie, chewing-gum
+"senza zucchero" tra i polioli, regola d'oro sulla quantità). `fodmap-teorico`:
+aggiunti i messaggi dell'articolo ADI — perché la fase 1 non va prolungata
+(microbiota), "spesso non è il glutine ma i fruttani" (Biesiekierski 2013,
+doppio cieco), niente biomarker predittivi, la low-FODMAP non è l'unico
+strumento.
+
+**LEZIONE.** Il materiale che si manda al paziente (il PDF del 2025) era
+disallineato sia dalle evidenze sia dall'app, con errori interni (9 voci in
+doppia colonna). Quando arriverà il bottone "Invia elenco FODMAP" (tappa 1 del
+percorso deciso il 28/7: motore invio riusabile + registro `p.invii[]`), il PDF
+andrà GENERATO dalle liste del semaforo, mai allegato come file statico: una
+fonte sola, sempre allineata.
+
 26 LUGLIO 2026 (6ª sessione, coda 9) — F9 CHIUSA: IL SEMAFORO ALIMENTI HA UNA SOLA FONTE.
 Test 382 → **394**. `index.html` da 27.908 a **27.444 righe** (−464). Commit
 precedente `a1251c5`. Decisione di Fabrizio: **cancellare** la tabella vecchia,
