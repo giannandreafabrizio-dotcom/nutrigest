@@ -1409,6 +1409,18 @@ main{flex:1;overflow-y:auto;}
           <span style="display:flex;gap:3px"><input type="checkbox" id="int-eaa" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-eaa" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
           EAA (essenziali)
         </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-leuc" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-leuc" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Leucina
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-pappar" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-pappar" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Pappa reale
+        </div>
+        <div class="chip-pill" style="gap:6px;cursor:default">
+          <span style="display:flex;gap:3px"><input type="checkbox" id="int-betaala" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-betaala" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
+          Beta-alanina
+        </div>
       </div>
     </div>
     <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
@@ -26228,12 +26240,13 @@ async function loadInbodyPDF(e) {
 // ═══════════════════════════════════════
 // INTEGRATORI — save/load
 // ═══════════════════════════════════════
-const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd','k2','prot','bcaa','eaa','acfol','blumet','fosfco','lecsoia'];
+const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd','k2','prot','bcaa','eaa','leuc','pappar','betaala','acfol','blumet','fosfco','lecsoia'];
 const INTEGR_LABELS = {
   'omega3':'Omega-3','magpot':'Magnesio + Potassio','mag':'Solo Magnesio',
   'multi':'Multivitaminico','prob':'Probiotici','creat':'Creatina',
   'ferro':'Ferro','vitd':'Vitamina D','k2':'Vitamina K2','prot':'Proteine in polvere',
   'bcaa':'BCAA (ramificati)','eaa':'EAA (essenziali)',
+  'leuc':'Leucina','pappar':'Pappa reale','betaala':'Beta-alanina',
   'acfol':'Acido folico','blumet':'Blu di metilene','fosfco':'Fosfatidilcolina','lecsoia':'Lecitina di soia'
 };
 // Etichetta Vitamina D con dosaggio incluso, se selezionato (es. "Vitamina D (2000 UI)")

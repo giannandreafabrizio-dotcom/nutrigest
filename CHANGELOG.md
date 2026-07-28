@@ -10,6 +10,30 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (f) — INTEGRATORI: 3 NUOVE CASELLE (LEUCINA, PAPPA REALE, BETA-ALANINA).
+Baseline `55e3b8a`. Modifica minima, nessun test toccato.
+
+**COSA.** Aggiunte tre voci al gruppo chip "Integratori" della scheda paziente,
+in coda alle voci sportive (dopo EAA): Leucina (`leuc`), Pappa reale (`pappar`),
+Beta-alanina (`betaala`). Come tutte le altre hanno la doppia casella
+"Prende già" (teal) / "Vorrebbe prendere" (arancio).
+
+**COME.** Due soli punti toccati, perché l'architettura del blocco integratori è
+già data-driven: `INTEGR_KEYS` + `INTEGR_LABELS` guidano get/set e tutti i
+consumatori a valle (contesto AI, riepilogo, PDF, prompt) leggono da lì. Quindi
+è bastato: (1) i tre `<div class="chip-pill">` nell'HTML con gli id
+`int-<key>`/`inw-<key>`; (2) le tre chiavi in `INTEGR_KEYS` e le tre etichette in
+`INTEGR_LABELS`. Nessuna migrazione dati necessaria: i pazienti esistenti hanno
+semplicemente le nuove caselle spente (`setIntegratori` fa `includes` su una
+lista che non contiene le nuove etichette → `false`).
+
+**LEZIONE (conferma, non nuova).** Il costo di questa aggiunta è stato basso
+perché le etichette vivono in UN posto solo. Ogni volta che si è tentati di
+scrivere a mano "EAA (essenziali)" in un punto a valle (PDF, prompt AI), si sta
+creando la doppia fonte che rende cara l'aggiunta successiva: verificato con
+grep che i label degli integratori compaiono solo nell'HTML dei chip e in
+`INTEGR_LABELS`.
+
 28 LUGLIO 2026 (e) — CLAUDE.md: REGOLA 14 SULLE FONTI DEI DATI CLINICI.
 Solo documentazione, nessun codice toccato. Test invariati (410/410).
 
