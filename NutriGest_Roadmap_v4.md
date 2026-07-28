@@ -588,8 +588,20 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 ### P99 — Grafici InBody (dimensioni/uniformità)
 **L'APPROCCIO ORIGINARIO:** grafici più compatti su desktop, uniformi su mobile; servono screenshot.
 **LA CRITICA DEL CTO:** senza gli screenshot è un desiderio, non un task. E "uniformare" spesso significa solo: stesse opzioni Chart.js condivise invece di 4 config copiate.
-**LA SOLUZIONE OTTIMIZZATA:** con gli screenshot: definire UNA config base (`CHART_BASE`) + override minimi per G1-G4; container con aspect-ratio responsive. Mezza sessione.
-**SCHEDA:** Stato: **Da verificare** (materiale) · Priorità: Bassa · C: 2 | I: 2 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
+**COM'È ANDATA DAVVERO:** arrivati gli screenshot, il problema non era il layout. Due dei tre grafici erano **sbagliati nel merito**: l'asse del tempo posizionava le misurazioni per indice invece che per data (80 giorni e 1 giorno larghi uguale), e la composizione a barre impilava grasso + muscolo + acqua contando l'acqua due volte (barre da ~100 kg per un paziente di 79). In più «Ultimo: −4,9 kg/sett» era un artefatto dell'ultimo periodo di 1 giorno, visibile al paziente. Non era una mezza sessione di CSS.
+**COSA È STATO FATTO (28 lug 2026):** motore SVG proprio per G1/G3a/G3b/G4 (asse del tempo reale, barre larghe quanto la durata del periodo, nastri, mappa a quadranti — forme fuori portata di Chart.js); Chart.js resta solo per l'adiposità centrale. Soglia di 21 giorni sotto la quale il ritmo settimanale non si calcola. Composizione a barre che somma esattamente al peso, con l'idratazione come striscia a parte. Layout `.ib-g2col`: 6 riquadri su 2 colonne da PC, 1 colonna su telefono (vista iPhone invariata nella struttura). Massa grassa spostata su terracotta `#DD5A33` per superare la soglia di distinguibilità nel daltonismo rosso-verde. Racconto completo e lezioni nel CHANGELOG (28 lug 2026 h).
+**SCHEDA:** Stato: **CHIUSA** ✅ 28 lug 2026 · Test 410/410 · Priorità: — · Modello: Fable (Alto) · Autonomia: L1.
+**STRASCICHI APERTI:** (a) «Adiposità centrale» ha ancora **due assi verticali** (0,85–0,93 a sinistra, lv.3–lv.5 a destra): due scale sullo stesso disegno fanno sembrare correlate due curve che non lo sono → nuova voce **P131**; (b) la fascia di ritmo consigliato (`_IB_RITMO_OK`) è fissa e andrebbe calcolata sul paziente → **P132**.
+
+### P131 — Adiposità centrale: togliere il doppio asse
+**IL PROBLEMA:** il grafico sovrappone rapporto cintura/fianchi (asse sinistro 0,85–0,93) e grasso viscerale (asse destro lv.3–lv.5). L'allineamento tra due scale diverse è arbitrario: il grafico suggerisce una correlazione che non è nei dati. È l'errore più comune nella visualizzazione dati, e qui è su un dato clinico.
+**LA SOLUZIONE:** due mini-pannelli sovrapposti, ognuno con la propria scala e la propria soglia (0,90 M / 0,85 F per il rapporto; le fasce <10 / 10–14 / ≥15 per il viscerale), oppure entrambe le serie indicizzate al basale su un asse solo. Il primo è più leggibile in visita. Stesso motore SVG di P99, quindi lavoro breve.
+**SCHEDA:** Stato: Da fare · Priorità: Media · C: 2 | I: 2 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
+
+### P132 — Ritmo: fascia consigliata calcolata sul paziente
+**IL PROBLEMA:** `_IB_RITMO_OK` è fissa a −0,10 / −0,35 kg/sett di massa grassa per chiunque. Su un paziente normopeso in ricomposizione e su uno con obesità la stessa fascia dice cose diverse — e nel primo caso segnala "troppo lento" un ritmo che va benissimo.
+**LA SOLUZIONE:** derivarla da peso e adiposità (es. 0,25–0,7% del peso a settimana, con tetto più basso quando la % di grasso è già bassa). Serve la regola che Fabrizio usa in visita: da chiedere prima di implementare, non da inventare.
+**SCHEDA:** Stato: Da fare (serve la regola clinica) · Priorità: Bassa · C: 1 | I: 2 | R: 2 (un riferimento sbagliato orienta male la visita) · Modello: Sonnet (Media) · Autonomia: L0.
 
 ### P100 — Grasso viscerale: parser
 **L'APPROCCIO ORIGINARIO:** rivedere l'estrazione nei casi in cui fallisce o è ambigua (livello vs area).

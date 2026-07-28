@@ -10,6 +10,82 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (h) — GRAFICI INBODY RIFATTI (P99): ASSE DEL TEMPO VERO, NIENTE PIÙ DOPPIO CONTEGGIO DELL'ACQUA, SCHEDA A 2 COLONNE.
+Test **410/410**. Baseline `f54cfb0`. Include la rigenerazione di INDEX.md.
+
+**COME È NATA.** Fabrizio ha chiesto di alzare la qualità dei singoli grafici
+InBody prima del restyling generale. Il caso di prova è stato un paziente con
+7 misurazioni: guardando i grafici con quei dati sono venuti fuori tre difetti,
+di cui due NON estetici.
+
+**I TRE DIFETTI.**
+1. **L'asse del tempo non era il tempo.** Le misurazioni erano posizionate per
+   indice dell'array, non per data. Tra 24 nov e 12 feb passano 80 giorni, tra
+   24 giu e 25 giu ne passa 1: il grafico li disegnava larghi uguale. Chi guarda
+   legge una storia che nei dati non c'è.
+2. **Doppio conteggio dell'acqua — difetto di sostanza.** Il grafico a barre
+   impilava `grasso + muscolo + acqua`, ma l'acqua corporea totale sta DENTRO la
+   massa magra. Risultato: barre da ~100 kg per un paziente di 79. Il totale
+   mostrato non era il peso di nessuno.
+3. **«Ultimo: −4,9 kg/sett» era un numero falso.** Lo produceva l'ultimo periodo
+   di 1 giorno: 0,7 kg diviso 1/7 di settimana. Un numero drammatico, sbagliato,
+   e visibile al paziente. Stessa famiglia dei bug P118/P120: un calcolo corretto
+   su un intervallo che non regge il calcolo.
+
+**COSA È STATO FATTO.**
+- **Motore SVG proprio** (`_ibGrTempo`, `_ibGrRitmo`, `_ibGrQualita`, `_ibGrBarre`,
+  dispatcher `_ibDisegnaSvg`). *Perché non Chart.js:* servivano asse del tempo
+  reale, barre larghe quanto la durata del periodo, nastri di collegamento tra
+  barre e una mappa a quadranti — forme che Chart.js non fa senza plugin.
+  **L'adiposità centrale (ib-c2) resta su Chart.js**, invariata: lì non serviva.
+- **G1 · Variazione dal punto di partenza.** Prima: tre linee (80 / 38 / 12 kg)
+  su un asse 0–90, dove 3 kg di variazione erano alti pochi pixel e il grafico
+  diceva "fermo" mentre il paziente faceva ricomposizione. Ora le curve partono
+  tutte da zero e l'asse mostra i kg CAMBIATI: la forbice grasso↓ / muscolo↑ è
+  il grafico da girare verso il paziente che dice «ma la bilancia non scende».
+  Tolta la "traiettoria ideale" (era quasi sovrapposta al peso, si perdeva);
+  l'informazione sull'obiettivo resta nella card Ritmo.
+- **G3a · Ritmo a barre a specchio.** Zero al centro (muscolo sopra, grasso
+  sotto), valori in kg/settimana, **larghezza della barra = durata del periodo**,
+  fascia verde del ritmo consigliato. **Soglia `_IB_MIN_GG` = 21 giorni:** sotto
+  quella durata il ritmo settimanale non si mostra, non entra nella media e la
+  barra è tratteggiata. La media in testata ora è onesta (somma delle variazioni
+  dei periodi attendibili / somma delle loro settimane), non la media delle medie.
+- **G3b · Mappa della qualità.** Quadranti Δgrasso × Δmuscolo, un punto per
+  periodo grande quanto la sua durata: risponde a «questo periodo è stato di
+  qualità?», domanda che due barre affiancate non facevano leggere a colpo d'occhio.
+- **G4 · Composizione = peso, pezzo per pezzo.** Stack `resto della magra +
+  muscolo + grasso`, che somma **esattamente al peso**. L'acqua esce dalla pila e
+  diventa una striscia separata in % della massa magra (atteso 72–74%): così un
+  calo di acqua non viene più scambiato per un calo di muscolo. Nastri di
+  collegamento tra barre consecutive per far vedere il movimento.
+- **Layout `.ib-g2col`:** 6 riquadri su 2 colonne da PC (≥900px), 1 sola colonna
+  su telefono — la vista iPhone resta identica a prima nella struttura, com'era
+  richiesto. La scheda si accorcia di circa metà pagina.
+- **Colori:** massa grassa passa da `#E24B4A` a **terracotta `#DD5A33`**. La coppia
+  rosso/verde precedente era sotto la soglia di separazione per il daltonismo
+  rosso-verde (ΔE deutan 7,2 contro 8 richiesto); il terracotta passa tutti i
+  controlli mantenendo il significato "caldo = grasso".
+
+**DUE COSE IMPARATE, DA NON RIFARE.**
+- **Le linee morbide vanno bloccate dentro il segmento.** `_ibCurva` è una
+  Catmull-Rom con i punti di controllo limitati (`_ibClamp`) al segmento tra i due
+  dati. Senza il blocco, con l'asse del tempo REALE due misurazioni a un giorno di
+  distanza fanno scavalcare la curva sopra il valore vero: il grafico disegna un
+  massimo che non esiste. La `tension:.35` di Chart.js aveva lo stesso rischio ma
+  non si vedeva perché i punti erano equidistanti — **è l'asse del tempo corretto
+  ad aver reso visibile il problema, non ad averlo creato.**
+- **Il segno si decide sul valore già arrotondato.** `_ibSg` arrotonda PRIMA di
+  scegliere `+`/`−`: i cicli che generano le tacche degli assi accumulano errore
+  in virgola mobile e producevano etichette come «−0,00».
+
+**RESTA APERTO (non toccato, segnalato a Fabrizio).**
+- **«Adiposità centrale» ha due assi verticali** (0,85–0,93 a sinistra, lv.3–lv.5
+  a destra). Due scale sullo stesso disegno fanno sembrare correlate due curve che
+  non lo sono: è l'errore più comune nei grafici. Da rifare con lo stesso metodo.
+- La **fascia di ritmo consigliato** (`_IB_RITMO_OK`, −0,10 / −0,35 kg/sett) è
+  fissa: andrebbe calcolata sul peso e sull'adiposità del paziente.
+
 28 LUGLIO 2026 (g) — COMPORTAMENTO ALIMENTARE: CRISI DI FAME E CIBI PREFERITI ENTRANO NELLE AI.
 Test **410/410**. Baseline `b45920b`. Include la rigenerazione di INDEX.md (vedi in fondo).
 

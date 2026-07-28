@@ -1781,6 +1781,40 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
     ("Peso ideale" o "Peso target" dal referto) → popola ib-peso-ideale → alimenta
     il riferimento g/Peso Ideale nel calcolo macro TDEE (prima il campo restava vuoto:
     il prompt non lo chiedeva e il parser leggeva ib.pesoIdeale invece di ib.peso_ideale).
+  GRAFICI DELLA SCHEDA InBody (v4, P99 — 28 lug 2026): quattro grafici su SVG
+    disegnato in casa, uno su Chart.js. Il motore vive appena sopra renderPdInbody:
+      _ibSerie(sorted)   -> serie normalizzata per referto:
+                            {t, data, peso, g, musc, acqua, magra, resto, idr}
+                            magra = peso - grasso (MAI dalla percentuale);
+                            resto = magra - muscolo (e' cio' che rende la somma
+                            delle fette uguale al peso); idr = acqua/magra x100.
+      _ibPeriodi(S)      -> un oggetto per intervallo fra due referti:
+                            {gg, sett, dg, dm, dp, rg, rm, breve}
+                            breve = gg < _IB_MIN_GG (21 giorni).
+      _ibMedia(P,campo)  -> media ONESTA: somma delle variazioni dei periodi NON
+                            brevi diviso la somma delle loro settimane.
+      _ibGrTempo / _ibGrRitmo / _ibGrQualita / _ibGrBarre -> stringa SVG.
+      _ibDisegnaSvg()    -> disegna tutti i <div data-ib="..."> dentro #pd-inbody
+                            leggendo clientWidth; registra una volta sola il
+                            listener di resize (ridisegno con debounce 140ms) e
+                            il tooltip condiviso #ib-tip (attributo data-ibtip).
+    Serie e periodi stanno in _ibVista e sono calcolati UNA volta: i numeri in
+    testata e i grafici leggono la stessa fonte, quindi non possono divergere.
+    _IB_MIN_GG = 21 giorni: sotto questa durata il ritmo settimanale non si
+    mostra, non entra nella media e la barra e' tratteggiata (due referti a un
+    giorno di distanza producevano "-4,9 kg/sett").
+    _ibCurva: Catmull-Rom con i punti di controllo BLOCCATI dentro il segmento
+    (_ibClamp). Senza il blocco, con l'asse del tempo reale due misurazioni
+    ravvicinate fanno scavalcare la curva sopra il dato vero.
+    _ibSg arrotonda PRIMA di scegliere il segno (altrimenti gli assi producono
+    etichette "-0,00" per accumulo in virgola mobile).
+    Palette: grasso #DD5A33 (terracotta, sostituisce #E24B4A per superare la
+    soglia di distinguibilita' nel daltonismo rosso-verde), muscolo #1D9E75,
+    acqua #2A78D6, resto della magra #9A978C, peso #6E6B63.
+    Layout .ib-g2col: 2 colonne da >=900px, 1 colonna sotto (iPhone invariato).
+    L'ADIPOSITA' CENTRALE (canvas ib-c2) e' l'unico grafico rimasto su Chart.js
+    ed e' invariata: ha ancora due assi verticali -> voce P131.
+
   Silhouette segmentale "Variante F" (_ibSilhouetteSegmentale, iniettata in renderPdInbody
     prima delle card singole, sull'ultima misurazione con dati segmentali):
     due sagome SVG morbide affiancate (Massa Magra teal / Massa Grassa arancio-rosso),
