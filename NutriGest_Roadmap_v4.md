@@ -878,6 +878,8 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 **Il dettaglio che ha deciso la gravità:** le schermate riconoscevano entrambi i vocabolari, ma prompt AI, validatore del piano e avvisi allergeni **solo `grigioScuro`**. Un alimento marcato dal motore vecchio si vedeva grigio ed era invisibile ai controlli. Il pulsante era il sintomo, non la malattia.
 
+**Verificato sul campo dopo il deploy:** sui 38 pazienti reali `p.regolaAttive` è vuoto ovunque — quel campo lo scriveva solo il motore vecchio, quindi non era **mai girato** su questi dati: rischio armato e mai scattato, nessun piano da rigenerare per F9. (Il difetto che invece riguardava tutti è quello della cache, qui sotto.)
+
 **Bonus della stessa famiglia, corretto qui:** `_pianoCacheKey` leggeva `p.alimentiVerdi`/`alimentiRossi`/`alimentiEsclusi`, tre campi mai scritti da nessuna riga → il semaforo non entrava nella chiave della cache e rigenerare un piano dopo aver cambiato i colori restituiva quello vecchio. Ora la chiave contiene l'impronta reale di `p.alimenti`.
 
 **SCHEDA:** Stato: **CHIUSA 26 lug 2026 — da collaudare** · Priorità: Alta · Categoria: Semaforo clinico · Dipendenze: nessuna · Autonomia: L2 (la decisione clinica — cancellare invece di migrare — l'ha presa Fabrizio). **Seguito: P129.**

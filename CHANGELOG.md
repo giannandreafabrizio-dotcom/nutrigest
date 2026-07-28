@@ -64,6 +64,16 @@ armato su dati storici e su qualunque backup importato.
    contiene l'impronta reale di `p.alimenti`. *Effetto collaterale voluto: le
    cache piano esistenti sono invalidate una volta sola.*
 
+**VERIFICA SUL CAMPO (26/7, subito dopo il deploy).** Console sui 38 pazienti
+reali: `typeof _semaforoMigraTutti` → `function` (versione nuova attiva) ·
+nessun colore legacy in memoria né in localStorage · e soprattutto
+`db.pazienti.filter(p=>(p.regolaAttive||[]).length).length` → **0**. Quel campo
+lo scriveva SOLO il motore vecchio e la migrazione non lo tocca: è la prova che
+`_applicaRegoloSemaforoLEGACY` **non è mai girato** su questi dati. Il rischio
+era armato ma non è mai scattato — **nessun piano generato finora è da
+rifare per questo motivo**. La correzione che invece ha toccato tutti è quella
+della cache (punto 5).
+
 **PERCHÉ CANCELLARE E NON MIGRARE.** La tabella vecchia non era una copia
 sbiadita: era una **seconda opinione clinica mai riconciliata**. Riso basmati
 sconsigliato lì e consigliato qui; ceci e lenticchie in scatola sconsigliati per
