@@ -6398,7 +6398,8 @@ async function openPaz(id){
       ${p.allergie?`<span class="tag tag-red">⚠ ${p.allergie.substring(0,25)}</span>`:''}
       ${p.inizioAlim?`<span class="tag tag-teal">Inizio: ${fData(p.inizioAlim)}</span>`:'<span class="tag tag-orange">Nessun piano</span>'}
       ${p.cheto==='si'?'<span class="tag tag-purple">🥑 Chetogenica</span>':''}
-    </div>`;
+    </div></div>
+    <div id="pd-fodmap-box" style="display:flex;align-items:center;flex-wrap:wrap;gap:.25rem">${_fodmapBottoneHtml(p)}`;
   const lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   document.getElementById('pd-stats').innerHTML=`
     <div class="pd-stat"><div class="pd-stat-lbl">Peso</div><div class="pd-stat-val">${lastIb?lastIb.peso+'kg':p.peso?p.peso+'kg':'—'}</div></div>
@@ -9768,7 +9769,13 @@ function richScaricaPDF(){
 // cosi' la policy dello Storage resta ristretta al ruolo `authenticated`.
 // Il nome file contiene una parte casuale: l'indirizzo non e' indovinabile.
 const RICH_BUCKET='richieste';
-async function _richUpload(doc, p){
+// P87 Tappa 1 — motore di upload GENERICO, estratto da _richUpload perche' ora
+// lo usano due funzionalita' (richiesta esami + elenco FODMAP) e domani tutte
+// quelle che consegnano un PDF al paziente. Stessa identita', stessi messaggi
+// di errore parlanti di prima. `bucket` di default = 'richieste' (gia' esistente
+// e collaudato): la Tappa 2 potra' introdurre un bucket dedicato ai materiali.
+async function _materialeUpload(doc, p, bucket){
+  bucket = bucket || RICH_BUCKET;
   let blob;
   try{ blob=doc.output('blob'); }catch(e){ return {err:'PDF non generato'}; }
   const rnd=(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).slice(0,18);
@@ -9783,18 +9790,20 @@ async function _richUpload(doc, p){
   h['x-upsert']='true';
   let r;
   try{
-    r=await fetch(SUPA_URL+'/storage/v1/object/'+RICH_BUCKET+'/'+path,{method:'POST', headers:h, body:blob});
+    r=await fetch(SUPA_URL+'/storage/v1/object/'+bucket+'/'+path,{method:'POST', headers:h, body:blob});
   }catch(e){ return {err:'rete non raggiungibile ('+(e&&e.message?e.message:'errore')+')'}; }
-  if(r.ok) return {url:SUPA_URL+'/storage/v1/object/public/'+RICH_BUCKET+'/'+path};
+  if(r.ok) return {url:SUPA_URL+'/storage/v1/object/public/'+bucket+'/'+path};
   let testo='';
   try{ testo=(await r.text()||'').slice(0,220); }catch(e){}
   let spiega='';
-  if(r.status===400 && /bucket/i.test(testo)) spiega=' — sembra che il bucket "'+RICH_BUCKET+'" non esista';
+  if(r.status===400 && /bucket/i.test(testo)) spiega=' — sembra che il bucket "'+bucket+'" non esista';
   else if(r.status===403 || r.status===401) spiega = autenticato
-      ? ' — manca il permesso di scrittura (policy INSERT per il ruolo authenticated sul bucket "'+RICH_BUCKET+'")'
+      ? ' — manca il permesso di scrittura (policy INSERT per il ruolo authenticated sul bucket "'+bucket+'")'
       : " — non risulti collegato all'app: rifai l'accesso e riprova";
   return {err:'errore '+r.status+spiega, dettaglio:testo};
 }
+// Wrapper storico: la richiesta esami continua a chiamare _richUpload invariato.
+async function _richUpload(doc, p){ return _materialeUpload(doc, p, RICH_BUCKET); }
 
 function _richWaUrl(p, testo){
   const msg=encodeURIComponent(testo);
@@ -9894,6 +9903,242 @@ function _richStoricoHtml(p){
   h+='</div>';
   return h;
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P87 TAPPA 1 — REGISTRO INVII + MOTORE DI INVIO GENERICO + ELENCO FODMAP
+// ---------------------------------------------------------------------------
+// Deciso il 28 lug 2026 (doc NutriGest_P87_Comunicazione_Analisi.md). La sezione
+// "Comunicazione" completa e' la Tappa 3: qui si costruisce la BASE che la regge,
+// cioe' il registro unico p.invii[] e il motore di invio riusabile, e come primo
+// cliente il bottone "Elenco FODMAP" per i pazienti che chiamano gonfi.
+//
+// REGOLA 10 (CLAUDE.md): p.invii[] e' un array cronologico. L'invariante
+// "ultimo = piu' recente" si garantisce nel punto di SCRITTURA con _inviiRegistra,
+// che ordina per data prima di salvare e taglia a 50 voci. Il verde del bottone
+// NON e' un flag separato (sarebbe doppia fonte di verita', vietata da F4/P118/
+// P120): si CALCOLA da p.invii[] con _inviiUltimo(p,'fodmap').
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Registra un invio nel diario unico del paziente e SALVA. Ritorna la voce.
+function _inviiRegistra(p, voce){
+  if(!p) return null;
+  if(!Array.isArray(p.invii)) p.invii=[];
+  const v={
+    data:new Date().toISOString().slice(0,10),
+    tipo:voce.tipo||'generico',
+    titolo:voce.titolo||'',
+    url:voce.url||'',
+    esito:voce.esito||''
+  };
+  p.invii.push(v);
+  // Invariante di ordinamento garantita alla scrittura, non sperata (regola 10).
+  p.invii.sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); });
+  if(p.invii.length>50) p.invii=p.invii.slice(-50);
+  save(p.id);
+  return v;
+}
+// L'ultimo invio di un certo tipo, o null. Fonte unica del colore del bottone.
+function _inviiUltimo(p, tipo){
+  if(!p||!Array.isArray(p.invii)) return null;
+  let ultimo=null;
+  p.invii.forEach(function(v){ if(v.tipo===tipo && (!ultimo||v.data>=ultimo.data)) ultimo=v; });
+  return ultimo;
+}
+
+// MOTORE DI INVIO GENERICO — estratto da richInviaWhatsApp, invariato nella
+// logica a tre livelli (allegato vero -> link caricato -> PDF scaricato + testo).
+// Registra SEMPRE l'esito nel diario. statoCb(msg) mostra lo stato dove serve.
+async function inviaMateriale(opt){
+  const p=opt.p, doc=opt.doc, nomeFile=opt.nomeFile||'documento.pdf';
+  const titolo=opt.titolo||'Documento', tipo=opt.tipo||'generico';
+  const testoBase=opt.testo||titolo;
+  const stato=(typeof opt.statoCb==='function')?opt.statoCb:function(){};
+
+  // Livello 1 - allegato vero col menu di condivisione (iPhone, Chrome+WhatsApp)
+  let file=null;
+  try{ file=new File([doc.output('blob')], nomeFile, {type:'application/pdf'}); }catch(e){ file=null; }
+  if(file && navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+    try{
+      await navigator.share({files:[file], title:titolo, text:testoBase});
+      _inviiRegistra(p, {tipo:tipo, titolo:titolo, url:'', esito:'condiviso'});
+      stato('📲 Condivisione aperta — scegli WhatsApp e il contatto.');
+      return {ok:true, via:'share'};
+    }catch(e){
+      if(e && e.name==='AbortError'){ stato('Invio annullato.'); return {ok:false, via:'abort'}; }
+    }
+  }
+
+  // Livello 2 - carica il PDF e apre WhatsApp col link. Finestra aperta DENTRO
+  // il click (dal chiamante) e riempita dopo, altrimenti popup-block.
+  const win=opt.win || window.open('', '_blank');
+  stato('⏳ Preparazione del link in corso…');
+  const up=await _materialeUpload(doc, p);
+  if(up.url){
+    const wa=_richWaUrl(p, testoBase+(p&&p.tel?'. Puoi aprirlo da qui: '+up.url:' — apri il file: '+up.url));
+    if(win && !win.closed){ win.location.href=wa; } else { window.open(wa,'_blank'); }
+    _inviiRegistra(p, {tipo:tipo, titolo:titolo, url:up.url, esito:'link'});
+    stato("✅ WhatsApp aperto col link gia' pronto."+(p&&p.tel?"":" <em>(nessun numero in scheda: scegli tu il contatto)</em>"));
+    return {ok:true, via:'link', url:up.url};
+  }
+
+  // Livello 3 - PDF scaricato + WhatsApp col testo, allegato a mano
+  if(win && !win.closed) win.close();
+  try{ doc.save(nomeFile); }catch(e){}
+  window.open(_richWaUrl(p, testoBase), '_blank');
+  _inviiRegistra(p, {tipo:tipo, titolo:titolo, url:'', esito:'pdf-scaricato'});
+  stato("📄 PDF scaricato e WhatsApp aperto: allega il file alla chat.<br><span style=\"color:#b45309\">Il link non e' partito — "+_richEsc(up.err||'motivo sconosciuto')+"</span>");
+  return {ok:true, via:'download', err:up.err};
+}
+
+// -- ELENCO FODMAP - primo cliente del motore --------------------------------
+// Il PDF si GENERA dalle liste del semaforo (REGOLE_SEMAFORO_ALIMENTI['all-fodmap']),
+// non e' un file statico: quando le liste si correggono, cambia anche cio' che
+// parte al paziente (lezione del 28 lug: il vecchio PDF del 2025 era disallineato).
+// Porzioni: "i migliori dati che abbiamo oggi" (verifica totale rimandata a P130).
+// Ogni valore porta la sua fonte: quando la fonte cambia, si vede quale e' vecchio.
+const FODMAP_PORZIONI={
+  'Ceci (barattolo)':{max:42,fonte:'Monash'},
+  'Fagioli borlotti (barattolo)':{max:40,fonte:'Monash'},
+  'Lenticchie (barattolo)':{max:46,fonte:'Monash'},
+  'Finocchio':{max:75,fonte:'Monash'},
+  'Fagiolini':{max:75,fonte:'Monash'},
+  'Fragole':{max:65,fonte:'Monash 2022'},
+  'Patate dolci':{max:75,fonte:'Monash'},
+  'Zucca':{max:75,nota:'butternut',fonte:'Monash'},
+  'Mais dolce in scatola':{max:75,fonte:'Monash'},
+  'Banana':{max:100,nota:'poco matura',fonte:'Monash'},
+  'Melone':{max:120,nota:'cantalupo',fonte:'Monash'},
+  'Mandorle':{max:20,nota:'~15 pezzi',fonte:'Monash'},
+  'Nocciole':{max:15,fonte:'Monash'},
+  'Feta':{max:40,fonte:'Monash'},
+  'Yogurt greco 2%':{max:100,fonte:'Monash'},
+  'Latte di soia':{max:'—',nota:'solo da proteine isolate',fonte:'Monash'}
+};
+function _fodmapPerCategoria(nomi){
+  const out={};
+  nomi.forEach(function(nome){
+    const key=trovaChiaveAlimento(nome);
+    const cat=key?key.split('__')[0]:'Altro';
+    if(!out[cat]) out[cat]=[];
+    out[cat].push(nome);
+  });
+  return out;
+}
+function _fodmapNomeFile(p){
+  const nome=((p&&p.nome||'')+' '+(p&&p.cognome||'')).trim().replace(/[^\w\s-]/g,'').replace(/\s+/g,'_')||'paziente';
+  return 'Elenco_FODMAP_'+nome+'.pdf';
+}
+function _fodmapCostruisciPDF(p){
+  const jsPDF=(window.jspdf&&window.jspdf.jsPDF)?window.jspdf.jsPDF:null;
+  const reg=(window.REGOLE_SEMAFORO_ALIMENTI||{})['all-fodmap'];
+  if(!jsPDF||!reg) return null;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210, PH=297, M=15, W=PW-2*M;
+  const TEAL=[21,94,109], GREEN=[22,120,70], RED=[176,58,46], TXT=[45,55,72], GREY=[110,122,138], LIGHT=[223,240,243];
+  let y=M;
+  function nuova(){ doc.addPage(); y=M; }
+  function spazio(h){ if(y+h > PH-M-10) nuova(); }
+  function T(s){ return (typeof _richTxt==='function')?_richTxt(s):String(s==null?'':s); }
+
+  doc.setFillColor(LIGHT[0],LIGHT[1],LIGHT[2]); doc.rect(M,y,W,17,'F');
+  doc.setDrawColor(TEAL[0],TEAL[1],TEAL[2]); doc.setLineWidth(0.8); doc.line(M,y+17,PW-M,y+17);
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(TEAL[0],TEAL[1],TEAL[2]);
+  doc.text('Alimenti FODMAP — fase di eliminazione', PW/2, y+7.4, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.6); doc.setTextColor(GREY[0],GREY[1],GREY[2]);
+  doc.text(T("Sindrome dell'intestino irritabile · durata indicativa 6-8 settimane"), PW/2, y+13, {align:'center'});
+  y+=22;
+
+  const nome=((p.nome||'')+' '+(p.cognome||'')).trim();
+  if(nome){ doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(TXT[0],TXT[1],TXT[2]); doc.text(T('Per: '+nome), M, y); y+=6; }
+
+  doc.setFont('helvetica','italic'); doc.setFontSize(8.8); doc.setTextColor(GREY[0],GREY[1],GREY[2]);
+  const introL=doc.splitTextToSize(T("La quantita' conta quanto l'alimento: dove trovi un limite in grammi, e' la porzione oltre la quale anche un cibo consigliato puo' dare sintomi. Rispetta le grammature del tuo piano."), W);
+  doc.text(introL, M, y); y+=introL.length*4+3;
+
+  function sezione(titolo, colore, nomi, conPorzioni){
+    spazio(14);
+    doc.setFillColor(colore[0],colore[1],colore[2]); doc.rect(M,y,W,7.5,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(255,255,255);
+    doc.text(T(titolo), M+2.5, y+5.2); y+=10;
+    const perCat=_fodmapPerCategoria(nomi);
+    Object.keys(perCat).sort().forEach(function(cat){
+      spazio(8);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.6); doc.setTextColor(TXT[0],TXT[1],TXT[2]);
+      doc.text(T(cat.toUpperCase()), M, y); y+=4.4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(60,70,85);
+      perCat[cat].forEach(function(nome){
+        spazio(5.5);
+        let riga='• '+nome;
+        if(conPorzioni && FODMAP_PORZIONI[nome]){
+          const q=FODMAP_PORZIONI[nome];
+          const lim=(q.max==='—')?"attenzione alla quantita'":('max '+q.max+' g');
+          riga+='  ['+lim+(q.nota?', '+q.nota:'')+']';
+        }
+        const L=doc.splitTextToSize(T(riga), W-4);
+        doc.text(L, M+1, y); y+=L.length*4.2;
+      });
+      y+=1.5;
+    });
+    y+=2;
+  }
+
+  sezione('CONSIGLIATI (basso contenuto di FODMAP)', GREEN, reg.celesti, true);
+  sezione('DA EVITARE (alto contenuto di FODMAP)', RED, reg.grigi, false);
+
+  spazio(16);
+  doc.setDrawColor(226,232,240); doc.setLineWidth(0.3); doc.line(M,y,PW-M,y); y+=4;
+  doc.setFont('helvetica','italic'); doc.setFontSize(7.4); doc.setTextColor(GREY[0],GREY[1],GREY[2]);
+  const foot=doc.splitTextToSize(T('Le porzioni indicate sono un orientamento (fonte principale: Monash University). Questo elenco riguarda la fase di eliminazione: la reintroduzione va concordata con il nutrizionista. In caso di dubbio, chiedi.'), W);
+  doc.text(foot, M, y);
+  return doc;
+}
+function _fodmapTestoWa(p){
+  const nomePaz=(p&&p.nome||'').trim();
+  return 'Ciao'+(nomePaz?' '+nomePaz:'')+", ecco l'elenco degli alimenti da preferire e da limitare per ridurre il gonfiore";
+}
+async function inviaElencoFodmap(pazId){
+  const p=db.pazienti.find(function(x){ return x.id===(pazId||currentPazId); });
+  if(!p){ notif('⚠ Nessun paziente selezionato'); return; }
+  const doc=_fodmapCostruisciPDF(p);
+  if(!doc){ notif('⚠ PDF non disponibile'); return; }
+  const win=window.open('', '_blank');
+  await inviaMateriale({
+    p:p, doc:doc, win:win,
+    nomeFile:_fodmapNomeFile(p),
+    titolo:'Elenco alimenti FODMAP',
+    tipo:'fodmap',
+    testo:_fodmapTestoWa(p),
+    statoCb:function(msg){ notif(msg.replace(/<[^>]+>/g,''), 3500); }
+  });
+  if(typeof _fodmapAggiornaBottone==='function') _fodmapAggiornaBottone(p);
+}
+function scaricaElencoFodmap(pazId){
+  const p=db.pazienti.find(function(x){ return x.id===(pazId||currentPazId); });
+  if(!p){ notif('⚠ Nessun paziente selezionato'); return; }
+  const doc=_fodmapCostruisciPDF(p);
+  if(!doc){ notif('⚠ PDF non disponibile'); return; }
+  doc.save(_fodmapNomeFile(p));
+  _inviiRegistra(p, {tipo:'fodmap', titolo:'Elenco alimenti FODMAP', url:'', esito:'pdf-scaricato'});
+  notif('📄 Elenco FODMAP scaricato e registrato.', 3000);
+  if(typeof _fodmapAggiornaBottone==='function') _fodmapAggiornaBottone(p);
+}
+function _fodmapBottoneHtml(p){
+  const ultimo=_inviiUltimo(p,'fodmap');
+  const inviato=!!ultimo;
+  const bg=inviato?'#16a34a':'#6b7280';
+  const data=inviato?(' · '+String(ultimo.data).split('-').reverse().join('/')):'';
+  const titolo=inviato?("Gia' inviato"+data+" — puoi rimandarlo"):"Manda al paziente l'elenco basso/alto FODMAP";
+  return '<button id="btn-fodmap-invia" class="btn btn-sm" title="'+_richEsc(titolo)+'" '
+    +'style="background:'+bg+';color:#fff" onclick="inviaElencoFodmap()">'
+    +(inviato?'✓ FODMAP inviato'+data:'📋 Invia elenco FODMAP')+'</button>'
+    +'<button class="btn btn-sm" title="Scarica il PDF senza inviarlo" style="background:transparent;border:1px solid var(--border);color:var(--text2);margin-left:.25rem" onclick="scaricaElencoFodmap()">📄</button>';
+}
+function _fodmapAggiornaBottone(p){
+  const box=document.getElementById('pd-fodmap-box');
+  if(box) box.innerHTML=_fodmapBottoneHtml(p);
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P118 TAPPA 2 — RANGE DI RIFERIMENTO SOTTO OGNI VALORE

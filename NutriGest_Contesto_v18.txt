@@ -822,6 +822,19 @@ p.richiesteAnalisi[] = { data, motivo, voci:[...], n, url }  // P116, 24 lug 202
   // solo scaricato/condiviso. Ultime 5 mostrate da _richStoricoHtml(p) in testa alla
   // card Analisi del sangue; l'array è potato alle ultime 30 voci.
 
+p.invii[] = { data, tipo, titolo, url, esito }  // P87 Tappa 1, 28 lug 2026
+  // DIARIO UNIFICATO di ciò che è stato mandato al paziente. Registro nuovo, base
+  // della futura sezione Comunicazione (P87 Tappa 3). `tipo`: 'fodmap' oggi; Tappa 2
+  // aggiungerà 'piano', 'ai', e migrerà qui 'analisi' (oggi in p.richiesteAnalisi).
+  // `esito`: 'condiviso' | 'link' | 'pdf-scaricato'. `url`: link pubblico se caricato.
+  // INVARIANTE (regola 10): scritto SOLO da _inviiRegistra, che ordina per data e
+  // pota a 50. Il colore/etichetta del bottone FODMAP si CALCOLA da qui via
+  // _inviiUltimo(p,'fodmap') — nessun flag separato (no doppia fonte di verità).
+  // Motore di invio riusabile: inviaMateriale(opt) [3 livelli: share → link → download],
+  // upload generico _materialeUpload(doc,p,bucket). PDF FODMAP generato dalle liste
+  // del semaforo da _fodmapCostruisciPDF, tetti porzione in FODMAP_PORZIONI (dati
+  // orientativi, verifica totale = P130). Bottone in intestazione scheda (pd-fodmap-box).
+
 RICHIESTA ANALISI PER IL MEDICO CURANTE (P116, 24 lug 2026)
   Bottone 🩸 "Richiesta esami" nella card Analisi del sangue → apriRichiestaAnalisi().
   Non stampa un catalogo fisso: genera una richiesta PERSONALE, corta e motivata, che

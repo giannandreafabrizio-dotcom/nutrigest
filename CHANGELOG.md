@@ -10,6 +10,54 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (b) — P87 TAPPA 1: REGISTRO INVII + MOTORE DI INVIO + BOTTONE "ELENCO FODMAP".
+Test 394/394. Baseline `7c22bb2`. INDEX rigenerato (27.459 → 27.704 righe).
+
+**PERCHÉ E DECISIONE.** Fabrizio manda a mano, ai pazienti che chiamano gonfi, un
+PDF con gli alimenti basso/alto FODMAP. Voleva un bottone che lo invii in
+automatico e resti verde una volta inviato. Analizzata l'alternativa "sezione
+Comunicazione" (doc `NutriGest_P87_Comunicazione_Analisi.md`): la sezione è la
+Tappa 3, ma il valore vero è il REGISTRO unificato degli invii, costruibile
+subito. Deciso percorso a 3 tappe; qui la Tappa 1.
+
+**COSA È STATO FATTO.**
+1. **Registro unico `p.invii[]`** — voci `{data,tipo,titolo,url,esito}`. Scrittura
+   via `_inviiRegistra` che ORDINA per data prima del save e taglia a 50 (regola
+   10: invariante cronologica garantita alla scrittura). `_inviiUltimo(p,tipo)`
+   legge l'ultimo di un tipo.
+2. **Motore di invio generico `inviaMateriale(opt)`** — estratto dalla logica a 3
+   livelli di `richInviaWhatsApp` (allegato vero via navigator.share → PDF
+   caricato + link wa.me → PDF scaricato + testo), invariata e ora riusabile.
+   Registra sempre l'esito. Upload generalizzato: `_richUpload` è ora un wrapper
+   di `_materialeUpload(doc,p,bucket)` (bucket default 'richieste', già esistente).
+3. **Bottone "📋 Invia elenco FODMAP"** nell'intestazione della scheda paziente
+   (`pd-fodmap-box`), sempre visibile da ogni tab — pensato per "paziente al
+   telefono". Grigio se mai inviato, **verde con data** dopo l'invio. Il colore si
+   CALCOLA da `p.invii[]` (`_fodmapBottoneHtml`), NON da un flag: niente doppia
+   fonte di verità (F4/P118/P120). Accanto, bottone 📄 per solo scaricare.
+4. **PDF generato dalle liste** `REGOLE_SEMAFORO_ALIMENTI['all-fodmap']`
+   (`_fodmapCostruisciPDF`): consigliati vs da evitare, raggruppati per categoria
+   ALIMENTI, con i tetti di porzione sui dose-dipendenti (`FODMAP_PORZIONI`).
+   Non è più un file statico: correggendo il semaforo cambia anche ciò che parte
+   al paziente — chiude il disallineamento del vecchio PDF del 2025.
+
+**PORZIONI: I MIGLIORI DATI CHE ABBIAMO OGGI, NON QUELLI DEFINITIVI.** `FODMAP_PORZIONI`
+usa valori orientativi (fonte principale Monash) verificati in parte contro fonti
+primarie il 28/7 (doc `NutriGest_FODMAP_Verifica_Perplexity.md`). Quella verifica
+ha mostrato che sia le stime a memoria sia le risposte di un'AI di ricerca
+contengono errori: la fonte unica affidabile è l'app Monash (a pagamento). Ogni
+porzione porta la sua `fonte`. **Verifica totale rimandata a P130.**
+
+**NOTA COSMETICA (non un bug):** nel PDF "Cous cous" compare sotto "Cereali senza
+glutine" perché è così categorizzato nel DB ALIMENTI (campo `gl:false`), benché
+sia frumento. È nella lista GIUSTA (da evitare); la categoria-etichetta è un
+residuo del DB, non della feature. Sistemabile a parte.
+
+**TAPPA 2 (futura):** portare sullo stesso motore/registro anche gli invii che
+oggi non lasciano traccia (PDF piano `apriWhatsApp`, messaggi AI, e migrare
+`p.richiesteAnalisi[]` in `p.invii[]`). **TAPPA 3:** la sezione "Comunicazione"
+come vista su `p.invii[]` + template variabilizzati.
+
 28 LUGLIO 2026 — REVISIONE CLINICA LISTE FODMAP (semaforo `all-fodmap` + 2 concetti educativi).
 Test 394/394. Baseline `0d673d2`. Nessuna funzione toccata: solo dati
 (REGOLE_SEMAFORO_ALIMENTI) e testi (concetti `fodmap-teorico` e `fodmap-lista`).
