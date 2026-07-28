@@ -12806,6 +12806,8 @@ const _IBC={grasso:'#DD5A33',muscolo:'#1D9E75',acqua:'#2A78D6',resto:'#9A978C',
 // giorno di distanza producevano "−4,9 kg/sett" (0,7 kg diviso 1/7 di settimana).
 const _IB_MIN_GG=21;
 const _IB_RITMO_OK=[-0.10,-0.35];   // fascia di perdita grasso consigliata, kg/sett
+// oltre questo orizzonte la proiezione all'obiettivo non si mostra come numero
+const _IB_MAX_SETT=52;
 let _ibVista=null,_ibResizeOn=false,_ibResizeT=null;
 
 function _ibDt(d){return new Date(String(d).length===10?d+'T00:00:00':d);}
@@ -12954,8 +12956,11 @@ function _ibGrTempo(S,w){
 function _ibGrRitmo(P,w){
   const U=P.filter(function(p){return p.rg!=null||p.rm!=null;});
   if(!U.length)return '';
-  const stretto=w<440,Lm=stretto?40:50,Rm=14,Tm=34,Bm=stretto?70:78;
-  const h=stretto?276:306,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+  // A colonna stretta la fascia sotto il grafico deve ospitare 4 righe (durata,
+  // data di fine, media su due righe) più la nota sul tratteggio: senza spazio
+  // dedicato si sovrappongono tra loro.
+  const stretto=w<440,Lm=stretto?40:50,Rm=14,Tm=34,Bm=stretto?96:78;
+  const h=stretto?300:306,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
   let mx=0.16;
   U.forEach(function(p){if(p.rg!=null&&Math.abs(p.rg)>mx&&!p.breve)mx=Math.abs(p.rg);
                         if(p.rm!=null&&Math.abs(p.rm)>mx&&!p.breve)mx=Math.abs(p.rm);});
@@ -12995,20 +13000,28 @@ function _ibGrRitmo(P,w){
     if(p.rm!=null)barre+=_ibEl('path',{d:bar(x+mez+3,mez,p.rm),fill:p.breve?'url(#ibHatch)':_IBC.muscolo,'data-ibtip':tip});
     assi+=_ibEl('line',{x1:x,y1:Tm+ph+20,x2:x+bw,y2:Tm+ph+20,stroke:p.breve?_IBC.grasso:_IBC.axis,'stroke-width':1.4});
     assi+=_ibTx(x+bw/2,Tm+ph+15,p.gg+' gg',{fs:10,fill:p.breve?_IBC.grasso:_IBC.muted,fw:p.breve?700:400});
-    if(!stretto&&bw>92)assi+=_ibTx(x+bw/2,Tm+ph+34,_ibFmtBreve(p.a.data)+' → '+_ibFmtBreve(p.b.data),{fs:10.5});
-    else if(!stretto&&bw>40)assi+=_ibTx(x+bw/2,Tm+ph+34,_ibFmtBreve(p.b.data),{fs:10.5});
+    // sempre e solo la data di FINE del periodo: mescolare "6 ott → 24 nov" sulle
+    // barre larghe e "7 mag" su quelle strette faceva sembrare un errore quello
+    // che era soltanto mancanza di spazio. La data di partenza sta nella
+    // didascalia sotto il grafico, dove non può collidere con niente.
+    if(bw>(stretto?44:38))assi+=_ibTx(x+bw/2,Tm+ph+34,_ibFmtBreve(p.b.data),{fs:stretto?9.5:10.5});
     x+=bw+GAP;
   });
   s+=_ibEl('g',{'clip-path':'url(#ibClip)'},barre)+assi;
   const mg=_ibMedia(U,'dg'),mm=_ibMedia(U,'dm');
+  const yMed1=h-(stretto?40:22), yMed2=h-(stretto?25:7);
   if(mg!=null||mm!=null){
-    s+=_ibTx(2,h-22,'Media reale (senza i periodi sotto le 3 settimane):',{ta:'start',fs:10.5,fill:_IBC.muted,fw:600});
-    s+=_ibTx(2,h-7,(mg!=null?'grasso '+_ibSg(mg,2)+' kg/sett':'')+
+    s+=_ibTx(2,yMed1,'Media reale (senza i periodi sotto le 3 settimane):',{ta:'start',fs:10.5,fill:_IBC.muted,fw:600});
+    s+=_ibTx(2,yMed2,(mg!=null?'grasso '+_ibSg(mg,2)+' kg/sett':'')+
       (mg!=null&&mm!=null?' · ':'')+(mm!=null?'muscolo '+_ibSg(mm,2)+' kg/sett':''),
       {ta:'start',fs:stretto?10.5:12,fw:700,fill:_IBC.ink2});
   }
+  // su PC la nota sta a destra della media (c'è larghezza); a colonna stretta
+  // prende una riga tutta sua in fondo, altrimenti ci finisce sopra
   if(U.some(function(p){return p.breve;}))
-    s+=_ibTx(Lm+pw,Tm+ph+58,'tratteggio = periodo troppo breve, fuori dalla media',{ta:'end',fs:9.5,fill:_IBC.grasso});
+    s+=stretto
+      ? _ibTx(2,h-6,'tratteggio = periodo troppo breve, fuori dalla media',{ta:'start',fs:9.5,fill:_IBC.grasso})
+      : _ibTx(Lm+pw,yMed1,'tratteggio = periodo troppo breve, fuori dalla media',{ta:'end',fs:9.5,fill:_IBC.grasso});
   return _ibSvg(w,h,s);
 }
 
@@ -13179,7 +13192,10 @@ function renderPdInbody(p){
   // sia dai numeri in testata sia dai grafici: così non possono divergere.
   const S_=_ibSerie(sorted), P_=_ibPeriodi(S_);
   _ibVista={S:S_,P:P_};
-  html+='<div class="ib-g2col">';
+  // I riquadri si costruiscono in variabili separate e si assemblano in fondo:
+  // l'ORDINE a video sta scritto in un punto solo (_cOrdine), non nell'ordine
+  // in cui il codice capita di generarli.
+  let _cTempo='',_cAdip='',_cRitmo='',_cQual='',_cBarre='';
   if(hasMulti){
     const pesoTarget=p.pesoTarget||null;
     const baseS=S_[0], ultS=S_[S_.length-1];
@@ -13192,13 +13208,15 @@ function renderPdInbody(p){
     const _kpi=function(lab,val,dlt,buonoGiu){
       if(val==null)return '';
       const col=dlt==null?'var(--text3)':((buonoGiu?dlt<=0:dlt>=0)?'#0F6E56':'#A32D2D');
-      return '<div style="background:var(--bg);border-radius:8px;padding:.55rem .75rem">'
-        +'<div style="font-size:.7rem;color:var(--text3);margin-bottom:1px">'+lab+'</div>'
-        +'<div style="font-size:1.5rem;font-weight:600;letter-spacing:-.02em;line-height:1.15">'+_ibN(val)+' kg</div>'
-        +(dlt!=null?'<div style="font-size:.84rem;font-weight:650;color:'+col+'">'+_ibSg(dlt)+' kg</div>':'')
+      // stessa taglia delle altre tessere della scheda: ingrandirle le staccava
+      // dal resto della pagina invece di dare risalto
+      return '<div style="background:var(--bg);border-radius:7px;padding:.5rem .7rem">'
+        +'<div style="font-size:.68rem;color:var(--text3);margin-bottom:2px">'+lab+'</div>'
+        +'<div style="font-size:1.1rem;font-weight:500">'+_ibN(val)+' kg</div>'
+        +(dlt!=null?'<div style="font-size:.7rem;color:'+col+'">'+_ibSg(dlt)+' kg</div>':'')
         +'</div>';
     };
-    html+=`<div class="card">
+    _cTempo=`<div class="card">
       <div class="card-hd"><h3>📈 Composizione corporea nel tempo</h3></div>
       <div class="card-bd">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:.75rem">
@@ -13223,7 +13241,7 @@ function renderPdInbody(p){
       const viscColor=lastVisc===null?'#6b7280':lastVisc<10?'#0F6E56':lastVisc<15?'#BA7517':'#A32D2D';
       const viscLabel=lastVisc===null?'—':lastVisc<10?'zona sicura':lastVisc<15?'attenzione':'rischio elevato';
       const sogliaCF=p.sesso==='M'?0.90:0.85;
-      html+=`<div class="card" style="margin-bottom:.75rem">
+      _cAdip=`<div class="card">
         <div class="card-hd"><h3>🫀 Adiposità centrale</h3></div>
         <div class="card-bd">
           ${lastVisc!==null?`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:.6rem;flex-wrap:wrap">
@@ -13254,11 +13272,26 @@ function renderPdInbody(p){
     if(_ritmoOk){
       const _mediaG=_ibMedia(P_,'dg'), _mediaP=_ibMedia(P_,'dp'), _ult=P_[P_.length-1];
       let obiStr3='';
-      if(pesoTarget&&_mediaP!=null&&_mediaP<0&&last.peso){
+      // Proiezione all'obiettivo. Oltre l'anno il numero di settimane NON è
+      // un'informazione: è preciso all'apparenza e inutile nella sostanza
+      // (stessa famiglia del "−4,9 kg/sett"). Con un peso quasi fermo usciva
+      // "circa 150 settimane", cioè tre anni, su una scheda che il paziente vede.
+      // Sopra _IB_MAX_SETT si smette di dare un numero e si dice la cosa utile:
+      // che è il ritmo a dover cambiare.
+      if(pesoTarget&&last.peso){
         const mancano=Math.round((last.peso-pesoTarget)*10)/10;
-        if(mancano>0){const sett=Math.ceil(mancano/(-_mediaP));obiStr3=`<div style="margin-top:.5rem;font-size:.77rem;color:#185FA5;padding:.4rem .6rem;background:#E6F1FB;border-radius:6px">🎯 Mancano <strong>${mancano} kg</strong> all'obiettivo · circa <strong>${sett} settimane</strong> al ritmo reale</div>`;}
+        if(mancano>0){
+          const sett=(_mediaP!=null&&_mediaP<0)?Math.ceil(mancano/(-_mediaP)):null;
+          const box=function(col,bg,txt){return `<div style="margin-top:.5rem;font-size:.77rem;color:${col};padding:.4rem .6rem;background:${bg};border-radius:6px">🎯 ${txt}</div>`;};
+          if(sett!==null&&sett<=_IB_MAX_SETT)
+            obiStr3=box('#185FA5','#E6F1FB',`Mancano <strong>${_ibN(mancano)} kg</strong> all'obiettivo · circa <strong>${sett} settimane</strong> al ritmo reale`);
+          else if(sett===null)
+            obiStr3=box('#8A6420','#FBF7EE',`Mancano <strong>${_ibN(mancano)} kg</strong> all'obiettivo, ma al ritmo attuale <strong>il peso non si sta avvicinando</strong>: da rivedere in visita.`);
+          else
+            obiStr3=box('#8A6420','#FBF7EE',`Mancano <strong>${_ibN(mancano)} kg</strong> all'obiettivo: al ritmo attuale servirebbe <strong>più di un anno</strong>. È il ritmo da rivedere, non il tempo da aspettare.`);
+        }
       }
-      html+=`<div class="card">
+      _cRitmo=`<div class="card">
         <div class="card-hd"><h3>⚡ Ritmo — quanto e come, periodo per periodo</h3></div>
         <div class="card-bd">
           <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.77rem;margin-bottom:.5rem">
@@ -13271,7 +13304,7 @@ function renderPdInbody(p){
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#CFE7DC;border-radius:2px;display:inline-block"></span>Ritmo consigliato</span>
           </div>
           <div data-ib="ritmo"></div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Larghezza della barra = durata del periodo. Sopra lo zero il muscolo che sale, sotto il grasso che scende.</div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Si parte dal ${fData(P_[0].a.data)}; sotto ogni barra c'è la data in cui quel periodo si chiude. Larghezza della barra = durata del periodo. Sopra lo zero il muscolo che sale, sotto il grasso che scende.</div>
           ${obiStr3}
         </div>
       </div>`;
@@ -13279,7 +13312,7 @@ function renderPdInbody(p){
       // G3b — Mappa della qualità: risponde a "questo periodo è stato di qualità?",
       // domanda che le barre affiancate non riuscivano a far leggere a colpo d'occhio.
       if(P_.some(function(x){return x.dg!=null&&x.dm!=null;})){
-        html+=`<div class="card">
+        _cQual=`<div class="card">
           <div class="card-hd"><h3>🎯 Ritmo — la qualità di ogni periodo</h3></div>
           <div class="card-bd">
             <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
@@ -13300,7 +13333,7 @@ function renderPdInbody(p){
     // ~100 kg per un paziente di 79. Ora l'acqua esce dalla pila e diventa una
     // striscia a parte, come percentuale della magra (indicatore di idratazione).
     if(S_.filter(function(x){return x.g!=null&&x.magra!=null;}).length>=2){
-      html+=`<div class="card">
+      _cBarre=`<div class="card">
         <div class="card-hd"><h3>🧱 Composizione — peso, pezzo per pezzo</h3></div>
         <div class="card-bd">
           <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.6rem;font-size:.73rem;color:var(--text2)">
@@ -13316,9 +13349,12 @@ function renderPdInbody(p){
     }
   }
 
-  // ── Silhouette segmentale (ultima misurazione) ───────────────────────────
-  html+=_ibSilhouetteSegmentale(last);
-  html+='</div>';   // chiude .ib-g2col (griglia 2 colonne su PC, 1 su telefono)
+  // ── Ordine dei riquadri nella scheda (2 colonne su PC, 1 su telefono) ────
+  // riga 1: andamento nel tempo | composizione del peso
+  // riga 2: ritmo               | qualità del ritmo
+  // riga 3: adiposità centrale  | analisi segmentale
+  const _cOrdine=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_ibSilhouetteSegmentale(last)];
+  html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
 
   // ── Cards singole misurazioni ─────────────────────────────────────────────
   html+=sortedDesc.map((ib,i)=>`

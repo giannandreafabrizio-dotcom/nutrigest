@@ -10,6 +10,46 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (i) — GRAFICI INBODY: RIFINITURE DOPO IL COLLAUDO DI FABRIZIO SUI DATI VERI.
+Test **410/410**. Baseline `359db86`. Include la rigenerazione di INDEX.md.
+
+Quattro correzioni nate dal guardare la scheda con un paziente reale, non con i
+dati di prova. Nessuna era prevedibile a tavolino.
+
+1. **Ordine dei riquadri** — "Composizione — peso, pezzo per pezzo" e "Adiposità
+   centrale" si scambiano di posto (scelta di Fabrizio: la composizione sta meglio
+   accanto all'andamento nel tempo). Colta l'occasione per rendere l'ordine
+   **dichiarato in un punto solo**: i riquadri si costruiscono in variabili
+   (`_cTempo`, `_cBarre`, `_cRitmo`, `_cQual`, `_cAdip`) e si assemblano in
+   `_cOrdine`. Spostare una card ora è riordinare una lista, non muovere blocchi
+   di template dentro `renderPdInbody`.
+
+2. **Numeri della card "Composizione corporea nel tempo" riportati alla taglia
+   delle altre tessere** (1.1rem, come "Memoria paziente"). Erano stati ingranditi
+   su richiesta di Fabrizio nel giro precedente; visti in pagina si staccavano dal
+   resto invece di dare risalto. *La lezione è sul metodo, non sul CSS:* una
+   richiesta di dimensione va vista renderizzata nel contesto vero prima di darla
+   per buona — un'anteprima costa pochi minuti e ha evitato un secondo commit.
+
+3. **Proiezione all'obiettivo con un tetto (`_IB_MAX_SETT` = 52).** Con questo
+   paziente usciva «Mancano 2,8 kg · circa 150 settimane al ritmo reale»: quasi tre
+   anni. Il numero era corretto (media peso quasi zero) ma è **la stessa famiglia
+   del «−4,9 kg/sett»**: preciso all'apparenza e inutile nella sostanza, su una
+   scheda che il paziente può vedere. Oltre l'anno non si dà più un numero e si
+   dice la cosa utile — che è il ritmo a dover cambiare. Terzo caso, dopo la soglia
+   dei 21 giorni: **un calcolo giusto su un input che non regge il calcolo produce
+   un numero che mente lo stesso.**
+
+4. **Etichette delle date sotto le barre del Ritmo, uniformate alla sola data di
+   fine.** Prima la larghezza della barra decideva il formato: «6 ott → 24 nov» sui
+   periodi larghi, «7 mag» su quelli stretti. Due formati sulla stessa riga fanno
+   sembrare un errore quello che era solo mancanza di spazio. La data di partenza è
+   passata nella didascalia sotto il grafico, dove non collide con niente.
+   Conseguenza da non dimenticare: con le date attive anche a colonna stretta, la
+   fascia sotto il grafico ospita 4 righe più la nota sul tratteggio — `Bm` a 96px
+   sul mobile e la nota su riga propria, altrimenti si sovrappongono (visto e
+   corretto nell'anteprima iPhone prima di consegnare).
+
 28 LUGLIO 2026 (h) — GRAFICI INBODY RIFATTI (P99): ASSE DEL TEMPO VERO, NIENTE PIÙ DOPPIO CONTEGGIO DELL'ACQUA, SCHEDA A 2 COLONNE.
 Test **410/410**. Baseline `f54cfb0`. Include la rigenerazione di INDEX.md.
 
