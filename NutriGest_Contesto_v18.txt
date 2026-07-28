@@ -822,14 +822,20 @@ p.richiesteAnalisi[] — DISMESSO (P87 Tappa 2, 28 lug 2026)
   // server (_pazAssicuraBlob), import backup. Dopo la migrazione il campo viene
   // eliminato (F4). Nessun codice lo scrive né lo legge più.
 
-p.invii[] = { data, tipo, titolo, url, esito, voci?, n? }  // P87 Tappe 1-2, 28 lug 2026
-  // DIARIO UNIFICATO di ciò che è stato mandato al paziente. Base della futura
-  // sezione Comunicazione (P87 Tappa 3). `tipo` oggi in uso:
-  //   'fodmap'  — elenco FODMAP (bottone in intestazione scheda, pd-fodmap-box)
-  //   'analisi' — richiesta esami (P116; porta anche voci[] e n)
-  //   'piano'   — piano alimentare inviato da apriWhatsApp (PDF scaricato + wa.me)
-  //   'ai'      — messaggio WhatsApp AI (click su "Apri in WhatsApp", _aiWaRegistraClick)
-  // `esito`: 'condiviso' | 'link' | 'pdf-scaricato'. `url`: link pubblico se caricato.
+p.invii[] = { data, tipo, titolo, url, esito, voci?, n? }  // P87 Tappe 1-2-3, 28 lug 2026
+  // DIARIO UNIFICATO di ciò che è stato mandato al paziente. La tab
+  // "📨 Comunicazione" della scheda paziente (renderPdComunicazione) è la vista
+  // completa: storico con filtri per tipo + template variabilizzati
+  // ({nome},{cognome},{appuntamento} dal calendario via _comProssimoApp/getEventi;
+  // 5 di serie in COM_TEMPLATES + personali in localStorage 'ng_com_templates')
+  // + bottoni wa.me/mailto/copia. `tipo` in uso:
+  //   'fodmap'    — elenco FODMAP (bottone in intestazione scheda, pd-fodmap-box)
+  //   'analisi'   — richiesta esami (P116; porta anche voci[] e n)
+  //   'piano'     — piano alimentare inviato da apriWhatsApp (PDF scaricato + wa.me)
+  //   'ai'        — messaggio WhatsApp AI (click su "Apri in WhatsApp", _aiWaRegistraClick)
+  //   'messaggio' — messaggi della tab Comunicazione (template o testo libero)
+  // `esito`: 'condiviso' | 'link' | 'pdf-scaricato' | 'email' | 'copiato'.
+  // `url`: link pubblico se caricato su Storage.
   // INVARIANTE (regola 10): scritto SOLO da _inviiRegistra → _inviiOrdina (ordina per
   // data, pota a 50). Il colore/etichetta del bottone FODMAP si CALCOLA da qui via
   // _inviiUltimo(p,'fodmap') — nessun flag separato (no doppia fonte di verità).

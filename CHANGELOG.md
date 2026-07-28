@@ -10,6 +10,44 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (d) — P87 TAPPA 3: TAB "COMUNICAZIONE" — P87 CHIUSA.
+Test 403 → **410** (nuovo `s2-comunicazione.test.js`, 7 test). Baseline `9e9f422`.
+
+**COSA È STATO FATTO.** La 12ª tab della scheda paziente, "📨 Comunicazione",
+nello scope onesto v1 della roadmap — resa possibile a basso costo dalle Tappe
+1-2: è una VISTA su `p.invii[]`, non un motore nuovo.
+1. **Template variabilizzati** — 5 di serie (promemoria appuntamento,
+   pre-controllo con digiuno, richiesta peso, sollecito referto,
+   incoraggiamento) + template personali salvabili ("💾 Salva come template",
+   localStorage per-dispositivo come le varianti WA-AI: non sono dati clinici).
+   Variabili: `{nome}` `{cognome}` `{appuntamento}` — quest'ultima compilata dal
+   CALENDARIO REALE via `getEventi()` (visita, tappe dateCalendario, eventi
+   manuali): primo appuntamento futuro del paziente, con ora se presente. Senza
+   appuntamenti il segnaposto diventa un testo VISIBILE nel riquadro di
+   anteprima ("(nessun appuntamento in calendario)"), mai un buco muto.
+2. **Anteprima modificabile** — il testo compilato finisce in una textarea che
+   Fabrizio può correggere prima dell'invio. Tre azioni: 💬 WhatsApp (wa.me col
+   testo pronto), ✉️ Email (bozza mailto: i pazienti non hanno un campo email in
+   scheda, il destinatario si sceglie nel programma di posta), 📄 Copia testo.
+   Ogni azione registra `tipo:'messaggio'` nel diario (esiti nuovi: 'email',
+   'copiato').
+3. **Storico invii completo** — tutte le voci di `p.invii` in ordine inverso,
+   con filtri a chip per tipo (📋 FODMAP · 🩸 esami · 🍽️ piano · ✨ AI ·
+   💬 messaggi), esito e link "apri" dove c'è l'URL. È la prima volta che la
+   domanda "cosa ho mandato a questo paziente?" ha una risposta completa a video.
+
+**NON FATTO (deciso):** il passaggio dell'invio PIANO al motore a 3 livelli
+resta fuori — richiede che `generaPDF` restituisca il doc invece di salvarlo
+subito, ed è il cuore dell'app: voce separata, non un effetto collaterale di
+questa tab. Business API: si rivaluta con P50, come da scheda.
+
+**LEZIONE DI TEST (piccola ma da ricordare):** nello storico le etichette dei
+tipi compaiono SEMPRE nei chip del filtro — un'asserzione "la stringa X non
+c'è più dopo il filtro" deve usare stringhe che esistono solo nelle RIGHE
+(url, conteggi), non le etichette. E un test che modifica stato condiviso
+(`_comFiltro`) lo ripristina anche nel percorso di errore, o il test dopo
+eredita il filtro sbagliato.
+
 28 LUGLIO 2026 (c) — P87 TAPPA 2: TUTTI GLI INVII NEL REGISTRO UNICO, RICHIESTE ESAMI MIGRATE.
 Test 394 → **403** (nuovo `s2-invii-registro.test.js`, 9 test). Baseline `db54f72`.
 Verifica sul campo della Tappa 1 fatta da Fabrizio in Chrome: bottone ok, PDF ok.

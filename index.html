@@ -814,6 +814,7 @@ main{flex:1;overflow-y:auto;}
     <button class="pd-tab" onclick="pdTab('cibo',this)">🍽️ Cibo</button>
     <button class="pd-tab" onclick="pdTab('ragionamento',this)">💭 Ragionamento</button>
     <button class="pd-tab" onclick="pdTab('riepilogo',this)">📞 Riepilogo chiamata</button>
+    <button class="pd-tab" onclick="pdTab('comunicazione',this)">📨 Comunicazione</button>
   </div>
   <div class="pd-panel active" id="pd-anamnesi"></div>
   <div class="pd-panel" id="pd-alimenti"></div>
@@ -824,6 +825,7 @@ main{flex:1;overflow-y:auto;}
   <div class="pd-panel" id="pd-note"></div>
   <div class="pd-panel" id="pd-ragionamento"></div>
   <div class="pd-panel" id="pd-riepilogo"></div>
+  <div class="pd-panel" id="pd-comunicazione"></div>
   <div class="pd-panel" id="pd-routine"></div>
   <div class="pd-panel" id="pd-cibo"></div>
 </div>
@@ -6410,7 +6412,7 @@ async function openPaz(id){
     <div class="pd-stat"><div class="pd-stat-lbl">Metabolismo basale</div><div class="pd-stat-val">${lastIb?lastIb.mb+' kcal':'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">BMI</div><div class="pd-stat-val">${lastIb?lastIb.bmi:'—'}</div></div>
     <div class="pd-stat"><div class="pd-stat-lbl">Misurazioni InBody</div><div class="pd-stat-val">${p.inbody?p.inbody.length:0}</div></div>`;
-  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdPercorso(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdCibo(p);
+  renderPazTimeline(p);renderPdAnamnesi(p);renderPdAlimenti(p);renderPdAnalisi(p);renderPdInbody(p);const _ibWarn=document.getElementById("pd-inbody-warn");if(_ibWarn)_ibWarn.remove();if(!p.inbody||!p.inbody.length){const _w=document.createElement("div");_w.id="pd-inbody-warn";_w.style="background:#fff7ed;border:1px solid #fb923c;border-radius:8px;padding:.5rem .9rem;font-size:.77rem;color:#c2410c;margin-bottom:.7rem";_w.textContent="⚠ Nessun InBody caricato per questo paziente";const _cont=document.getElementById("pd-inbody");if(_cont)_cont.insertBefore(_w,_cont.firstChild);}renderPdMacros(p);renderPdPercorso(p);renderPdRagionamento(p);renderPdRoutine(p);renderPdCibo(p);if(typeof renderPdComunicazione==='function')renderPdComunicazione(p);
   renderPdNote(p);
   renderPdRiepilogo(p);
   document.querySelectorAll('.pd-tab')[0].click();
@@ -10180,6 +10182,199 @@ function _fodmapBottoneHtml(p){
 function _fodmapAggiornaBottone(p){
   const box=document.getElementById('pd-fodmap-box');
   if(box) box.innerHTML=_fodmapBottoneHtml(p);
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P87 TAPPA 3 — TAB "COMUNICAZIONE": vista sul registro p.invii + template
+// ---------------------------------------------------------------------------
+// Scope onesto v1 (come da roadmap): template variabilizzati compilati dall'app
+// ({nome}, {cognome}, {appuntamento} dal calendario reale), bottoni wa.me /
+// mailto / copia, e lo storico COMPLETO degli invii con filtri per tipo.
+// Nessun invio "automatico": wa.me apre WhatsApp col testo pronto, il resto
+// lo fa Fabrizio. Ogni invio si registra nel diario unico p.invii (tipo
+// 'messaggio'), quindi lo storico e' sempre vero per costruzione.
+// I template personalizzati vivono in localStorage (per-dispositivo, come le
+// varianti WA-AI): non sono dati clinici, la perdita costa zero.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COM_TEMPLATES=[
+  {id:'promemoria', titolo:'Promemoria appuntamento',
+   testo:"Ciao {nome}, ti ricordo il nostro appuntamento {appuntamento}. A presto!"},
+  {id:'precontrollo', titolo:'Pre-controllo (digiuno misurazione)',
+   testo:"Ciao {nome}, ci vediamo {appuntamento} per il controllo. Ricordati di venire a digiuno da almeno 3 ore per la misurazione della composizione corporea."},
+  {id:'peso', titolo:'Richiesta peso settimanale',
+   testo:"Ciao {nome}, come procede la settimana? Quando riesci mandami il peso di stamattina, grazie!"},
+  {id:'analisi', titolo:'Sollecito referto analisi',
+   testo:"Ciao {nome}, quando hai fatto le analisi mandami pure il referto qui, cosi' lo guardo con calma prima del controllo."},
+  {id:'motivazionale', titolo:'Incoraggiamento',
+   testo:"Ciao {nome}, ricordati che i risultati si costruiscono un pasto alla volta. Stai facendo un ottimo lavoro: continua cosi'!"}
+];
+const COM_TPL_KEY='ng_com_templates';
+function _comTemplatesCustom(){
+  try{ const v=JSON.parse(localStorage.getItem(COM_TPL_KEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; }
+}
+function _comTemplatesTutti(){
+  return COM_TEMPLATES.concat(_comTemplatesCustom());
+}
+
+// Prossimo appuntamento del paziente (oggi incluso), da TUTTE le fonti del
+// calendario (visita, tappe dateCalendario, eventi manuali) via getEventi().
+function _comProssimoApp(p){
+  if(!p||typeof getEventi!=='function') return null;
+  const oggi=(typeof today==='function')?today():new Date().toISOString().slice(0,10);
+  let best=null;
+  getEventi().forEach(function(e){
+    if(e.pazId!==p.id||!e.data||e.data<oggi) return;
+    if(!best || e.data<best.data || (e.data===best.data&&String(e.ora||'')<String(best.ora||''))) best=e;
+  });
+  return best;
+}
+// Compila un template coi dati del paziente. Se manca l'appuntamento, il
+// segnaposto diventa un testo visibile e correggibile, mai un invio muto.
+function _comCompila(testo, p){
+  const ev=_comProssimoApp(p);
+  let app='(nessun appuntamento in calendario)';
+  if(ev&&ev.data){
+    const d=ev.data.split('-').reverse().join('/');
+    app=(ev.ora?('il '+d+' alle '+ev.ora):('il '+d));
+  }
+  return String(testo||'')
+    .replace(/\{nome\}/g,(p&&p.nome)||'')
+    .replace(/\{cognome\}/g,(p&&p.cognome)||'')
+    .replace(/\{appuntamento\}/g,app);
+}
+
+const _COM_TIPI={
+  fodmap:{ico:'📋',label:'Elenco FODMAP'},
+  analisi:{ico:'🩸',label:'Richiesta esami'},
+  piano:{ico:'🍽️',label:'Piano alimentare'},
+  ai:{ico:'✨',label:'Messaggio AI'},
+  messaggio:{ico:'💬',label:'Messaggio'}
+};
+let _comFiltro='';   // '' = tutti
+
+function _comStoricoHtml(p){
+  const tutti=(p&&Array.isArray(p.invii))?p.invii.slice().reverse():[];
+  const lista=_comFiltro?tutti.filter(function(v){return v.tipo===_comFiltro;}):tutti;
+  const chips=[['','Tutti']].concat(Object.keys(_COM_TIPI).map(function(t){return [t,_COM_TIPI[t].ico+' '+_COM_TIPI[t].label];}));
+  let h='<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.6rem">';
+  chips.forEach(function(c){
+    const att=(_comFiltro===c[0]);
+    h+='<button class="btn btn-sm" style="font-size:.68rem;padding:.18rem .55rem;'+(att?'background:var(--teal);color:#fff':'background:var(--s1);color:var(--text2);border:1px solid var(--border)')+'" onclick="comFiltraStorico(\''+c[0]+'\')">'+c[1]+'</button>';
+  });
+  h+='</div>';
+  if(!lista.length){
+    h+='<div class="empty" style="padding:.8rem"><p>'+(_comFiltro?'Nessun invio di questo tipo.':'Nessun invio registrato per questo paziente.')+'</p></div>';
+    return h;
+  }
+  lista.forEach(function(v){
+    const t=_COM_TIPI[v.tipo]||{ico:'📎',label:v.tipo};
+    const d=v.data?v.data.split('-').reverse().join('/'):'';
+    h+='<div style="display:flex;gap:.55rem;align-items:center;font-size:.78rem;padding:.3rem .2rem;border-bottom:1px solid var(--border)">'
+      +'<span>'+t.ico+'</span>'
+      +'<span style="font-weight:600;color:var(--text);min-width:76px">'+_richEsc(d)+'</span>'
+      +'<span style="flex:1;color:var(--text2)">'+_richEsc(v.titolo||t.label)+(v.n?' <span style="opacity:.7">('+v.n+' voci)</span>':'')+'</span>'
+      +'<span style="font-size:.68rem;color:var(--text3)">'+_richEsc(v.esito||'')+'</span>'
+      +(v.url?'<a href="'+_richEsc(v.url)+'" target="_blank" style="color:var(--teal);font-size:.72rem">apri</a>':'')
+      +'</div>';
+  });
+  return h;
+}
+function comFiltraStorico(tipo){
+  _comFiltro=tipo||'';
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  const el=document.getElementById('com-storico');
+  if(el&&p) el.innerHTML=_comStoricoHtml(p);
+}
+
+function renderPdComunicazione(p){
+  const el=document.getElementById('pd-comunicazione');
+  if(!el) return;
+  const tpls=_comTemplatesTutti();
+  let opts='';
+  tpls.forEach(function(t,i){ opts+='<option value="'+i+'">'+_richEsc(t.titolo)+'</option>'; });
+  const ev=_comProssimoApp(p);
+  const evNota=ev
+    ? 'Prossimo appuntamento in calendario: <strong>'+_richEsc(ev.data.split('-').reverse().join('/')+(ev.ora?' ore '+ev.ora:''))+'</strong>'
+    : 'Nessun appuntamento futuro in calendario: il segnaposto {appuntamento} va sostituito a mano.';
+  el.innerHTML=
+    '<div class="card"><div class="card-hd"><h3>📨 Messaggio al paziente</h3></div><div class="card-bd">'
+    +'<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem">'
+    +'<select id="com-tpl-sel" onchange="comTemplateCambia()" style="flex:1;min-width:220px;padding:.42rem .7rem;border:1px solid var(--border);border-radius:8px;font-size:.82rem;background:var(--card);color:inherit">'+opts+'</select>'
+    +'<button class="btn btn-sm" onclick="comSalvaTemplate()" title="Salva il testo attuale come nuovo template (su questo dispositivo)">💾 Salva come template</button>'
+    +'</div>'
+    +'<textarea id="com-testo" rows="4" style="width:100%;padding:.55rem .7rem;border:1px solid var(--border);border-radius:8px;font-size:.84rem;background:var(--card);color:inherit;resize:vertical"></textarea>'
+    +'<div style="font-size:.72rem;color:var(--text3);margin:.3rem 0 .6rem">'+evNota+' · Variabili: {nome} {cognome} {appuntamento}</div>'
+    +'<div style="display:flex;gap:.5rem;flex-wrap:wrap">'
+    +'<button class="btn btn-p" style="flex:1;min-width:150px" onclick="comInviaWa()">💬 Invia su WhatsApp</button>'
+    +'<button class="btn" style="min-width:110px" onclick="comInviaEmail()">✉️ Email</button>'
+    +'<button class="btn" style="min-width:110px" onclick="comCopiaTesto()">📄 Copia testo</button>'
+    +'</div>'
+    +'<div id="com-stato" style="font-size:.75rem;color:var(--text3);margin-top:.4rem"></div>'
+    +'</div></div>'
+    +'<div class="card"><div class="card-hd"><h3>🗂 Storico invii</h3></div><div class="card-bd" id="com-storico">'
+    +_comStoricoHtml(p)
+    +'</div></div>';
+  comTemplateCambia();
+}
+function comTemplateCambia(){
+  const sel=document.getElementById('com-tpl-sel'), ta=document.getElementById('com-testo');
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  if(!sel||!ta||!p) return;
+  const t=_comTemplatesTutti()[parseInt(sel.value,10)]||COM_TEMPLATES[0];
+  ta.value=_comCompila(t.testo,p);
+}
+function _comStato(msg){ const el=document.getElementById('com-stato'); if(el) el.innerHTML=msg; }
+function _comTitoloCorrente(){
+  const sel=document.getElementById('com-tpl-sel');
+  const t=sel?_comTemplatesTutti()[parseInt(sel.value,10)]:null;
+  return t?t.titolo:'Messaggio libero';
+}
+function _comRegistraERinfresca(p, esito){
+  _inviiRegistra(p,{tipo:'messaggio',titolo:_comTitoloCorrente(),url:'',esito:esito});
+  const el=document.getElementById('com-storico');
+  if(el) el.innerHTML=_comStoricoHtml(p);
+}
+function comInviaWa(){
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  const ta=document.getElementById('com-testo');
+  if(!p||!ta||!ta.value.trim()){ notif('⚠ Scrivi prima il messaggio'); return; }
+  window.open(_richWaUrl(p, ta.value.trim()),'_blank');
+  _comRegistraERinfresca(p,'link');
+  _comStato("✅ WhatsApp aperto col testo pronto."+(p.tel?"":" <em>(nessun numero in scheda: scegli tu il contatto)</em>"));
+}
+function comInviaEmail(){
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  const ta=document.getElementById('com-testo');
+  if(!p||!ta||!ta.value.trim()){ notif('⚠ Scrivi prima il messaggio'); return; }
+  const subj=encodeURIComponent('Messaggio dal tuo nutrizionista');
+  window.open('mailto:?subject='+subj+'&body='+encodeURIComponent(ta.value.trim()),'_blank');
+  _comRegistraERinfresca(p,'email');
+  _comStato('✉️ Bozza email aperta nel tuo programma di posta.');
+}
+function comCopiaTesto(){
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  const ta=document.getElementById('com-testo');
+  if(!p||!ta||!ta.value.trim()){ notif('⚠ Scrivi prima il messaggio'); return; }
+  const fatto=function(){ _comRegistraERinfresca(p,'copiato'); _comStato('📄 Testo copiato negli appunti — incollalo dove vuoi.'); };
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(ta.value.trim()).then(fatto).catch(function(){ _comStato('⚠ Copia non riuscita: seleziona e copia a mano.'); }); }
+    else { _comStato('⚠ Copia non disponibile: seleziona e copia a mano.'); }
+  }catch(e){ _comStato('⚠ Copia non riuscita: seleziona e copia a mano.'); }
+}
+function comSalvaTemplate(){
+  const ta=document.getElementById('com-testo');
+  if(!ta||!ta.value.trim()){ notif('⚠ Scrivi prima il testo del template'); return; }
+  const titolo=prompt('Nome del template:');
+  if(!titolo||!titolo.trim()) return;
+  const custom=_comTemplatesCustom();
+  custom.push({id:'custom-'+Date.now(), titolo:titolo.trim(), testo:ta.value});
+  try{ localStorage.setItem(COM_TPL_KEY, JSON.stringify(custom)); }catch(e){ notif('⚠ Salvataggio non riuscito'); return; }
+  const p=db.pazienti.find(function(x){return x.id===currentPazId;});
+  if(p) renderPdComunicazione(p);
+  notif('✓ Template salvato (su questo dispositivo)');
 }
 
 

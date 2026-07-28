@@ -408,17 +408,6 @@ Verifica: `node --check`, test logico del motore, prove browser con DB reale + P
 **FOCUS COMPONENTI COINVOLTI:** AI Layer (compilazione vincolata), Frontend (riuso concetti). 
 **SCHEDA:** Stato: Da fare · Priorità: Bassa-Media · C: 3 | I: 3 | R: 3 (contenuto al paziente) · Modello: Fable (Alto) per i template col medico; runtime anche Haiku via P66 · Autonomia: **L0** sui contenuti.
 
-### P87 — Centro comunicazione (WhatsApp/Telegram/email)
-**L'APPROCCIO ORIGINARIO:** punto unico canali, template, storico invii, invio PDF analisi via WhatsApp.
-**LA CRITICA DEL CTO:** contiene una promessa impossibile a costo zero: "invio automatico" WhatsApp richiede la Business API (approvazioni, costi per conversazione, niente allegati arbitrari facili). Oggi esiste solo `wa.me` (apre l'app con testo precompilato: l'allegato lo fa l'utente). Se non lo si dice, la voce arriverà in sviluppo e morirà lì.
-**LA SOLUZIONE OTTIMIZZATA:** scope onesto v1: tab "Comunicazione" nella scheda paziente = template variabilizzati ({nome},{link},{prossimo appuntamento}), bottoni wa.me/mailto, log invii unificato (oggi il log WA-AI vive già in localStorage: si consolida lì), e per "inviare le analisi": genera PDF + istruzione allega (o link P41 quando esiste). Telegram: fuori. Business API: si rivaluta con P50, non prima.
-**FOCUS COMPONENTI COINVOLTI:** Frontend. Zero backend.
-**PERCORSO A TAPPE (deciso 28 lug 2026, doc `NutriGest_P87_Comunicazione_Analisi.md`):** il valore non è la sezione ma il REGISTRO unificato degli invii, costruibile subito; la sezione è solo la vista finale.
-- **Tappa 1 — FATTA (28 lug 2026, 2ª sessione):** registro unico `p.invii[]` (ordinato alla scrittura, cap 50), motore di invio riusabile `inviaMateriale` (estratto dai 3 livelli di `richInviaWhatsApp`, upload generalizzato `_materialeUpload`), primo cliente = bottone "📋 Invia elenco FODMAP" nell'intestazione scheda paziente (verde+data calcolato dal registro, non da flag). PDF generato dalle liste del semaforo.
-- **Tappa 2 — FATTA (28 lug 2026, 3ª sessione):** ogni invio lascia traccia nel registro unico: piano (`apriWhatsApp` → tipo 'piano'), messaggi AI (click sul link → tipo 'ai'), e `p.richiesteAnalisi[]` MIGRATO in `p.invii[]` (tipo 'analisi', voci/n conservati; campo vecchio eliminato — F4). Migrazione idempotente per firma nei 3 punti d'ingresso dati (load, blob server, import — regola 12). 9 test nuovi (`s2-invii-registro.test.js`).
-- **Tappa 3 — Da fare:** tab "Comunicazione" = vista su `p.invii[]` + template variabilizzati ({nome},{link},{prossimo appuntamento}) + bottoni wa.me/mailto. Valutare qui anche il passaggio dell'invio PIANO al motore a 3 livelli (richiede che generaPDF restituisca il doc invece di salvarlo). Business API: si rivaluta con P50, non prima.
-**SCHEDA:** Stato: **In corso (Tappe 1-2 chiuse)** · Priorità: Bassa · C: 2 | I: 3 | R: 1 · Modello: Sonnet (Media) · Autonomia: L1.
-
 ### P130 — Verifica totale dei dati clinici FODMAP (porzioni e classificazioni)
 **IL PROBLEMA:** le liste `all-fodmap` (classificazione basso/alto) e la mappa `FODMAP_PORZIONI` (tetti in grammi, P87 Tappa 1) usano "i migliori dati che abbiamo oggi", non dati verificati al 100%. La verifica del 28 lug 2026 (doc `NutriGest_FODMAP_Verifica_Perplexity.md`) ha dimostrato che NÉ le stime a memoria NÉ le risposte di un'AI di ricerca (Perplexity: sedano sbagliato di 4-5×, banana matura 2×, mirtilli su dato superato, patate e % riduzione GOS inventati, tutte fonti citate = Alibaba/Scribd, zero Monash) sono affidabili per un software clinico da vendere.
 **LA SOLUZIONE:** una passata sistematica su TUTTI gli alimenti delle liste FODMAP e su tutte le porzioni, contro una fonte primaria verificata al 100% — **app Monash FODMAP** (dataset di laboratorio ufficiale, ~10-12€ una tantum) o altra fonte scientifica peer-reviewed equivalente. Ogni valore inserito con FONTE + DATA del test accanto (il badge porzioni della futura Tappa deve mostrarli, es. `⚖ 42 g · Monash 2024`), così quando Monash aggiorna (già successo coi mirtilli: 40→125 g) si vede a colpo d'occhio cosa è invecchiato. Include: rivedere le 3 correzioni già solide del 28/7 (fragole 65 g, sedano resta evitato, patate dolci abbassate) e la nota cosmetica "Cous cous sotto Cereali senza glutine" nel DB ALIMENTI.
@@ -446,7 +435,7 @@ Verifica: `node --check`, test logico del motore, prove browser con DB reale + P
 ### P35 — Peso intermedio casalingo
 **L'APPROCCIO ORIGINARIO:** raffinare gradualmente: offset bilance, trend, forse grafico/WhatsApp.
 **LA CRITICA DEL CTO:** il problema clinico è UNO: il valore assoluto della bilancia di casa è rumore. Tutto il resto è decorazione.
-**LA SOLUZIONE OTTIMIZZATA:** alla prima pesata casalinga post-visita si calcola e salva `offsetBilancia` (peso casa − peso studio); da lì la sezione mostra SOLO trend normalizzato (sparkline + Δ settimanale), mai il valore grezzo in evidenza. Grafico = sparkline inline, non un nuovo Chart. WhatsApp-intake rimandato a P87/P85.
+**LA SOLUZIONE OTTIMIZZATA:** alla prima pesata casalinga post-visita si calcola e salva `offsetBilancia` (peso casa − peso studio); da lì la sezione mostra SOLO trend normalizzato (sparkline + Δ settimanale), mai il valore grezzo in evidenza. Grafico = sparkline inline, non un nuovo Chart. WhatsApp-intake rimandato a P85 (P87 e' stata chiusa il 28 lug 2026 con la tab Comunicazione: l'intake-da-paziente non ne faceva parte).
 **FOCUS COMPONENTI COINVOLTI:** Frontend + campo additivo.
 **SCHEDA:** Stato: Da fare (trigger uso reale) · Priorità: Bassa · C: 2 | I: 2 | R: 1 · Modello: Sonnet (Bassa) · Autonomia: L1.
 
@@ -1016,6 +1005,18 @@ Test 290 → **301** (`s2-strade.test.js`).
 # ARCHIVIO — ragionamento CTO delle voci chiuse
 
 > Voci completate per intero e uscite dalla pianificazione attiva (REGOLA FONDAMENTALE). Il ragionamento CTO originale è conservato qui perché "c'è SEMPRE un modo di sapere perché è stata presa una decisione". Lo stato del codice, i commit e le note di sessione sono nel CHANGELOG e nel Contesto.
+
+### P87 — Centro comunicazione (WhatsApp/Telegram/email) ✅ CHIUSA 28 luglio 2026 (3 tappe in giornata)
+**L'APPROCCIO ORIGINARIO:** punto unico canali, template, storico invii, invio PDF analisi via WhatsApp.
+**LA CRITICA DEL CTO:** contiene una promessa impossibile a costo zero: "invio automatico" WhatsApp richiede la Business API (approvazioni, costi per conversazione, niente allegati arbitrari facili). Oggi esiste solo `wa.me` (apre l'app con testo precompilato: l'allegato lo fa l'utente). Se non lo si dice, la voce arriverà in sviluppo e morirà lì.
+**LA SOLUZIONE OTTIMIZZATA:** scope onesto v1: tab "Comunicazione" nella scheda paziente = template variabilizzati ({nome},{link},{prossimo appuntamento}), bottoni wa.me/mailto, log invii unificato (oggi il log WA-AI vive già in localStorage: si consolida lì), e per "inviare le analisi": genera PDF + istruzione allega (o link P41 quando esiste). Telegram: fuori. Business API: si rivaluta con P50, non prima.
+**FOCUS COMPONENTI COINVOLTI:** Frontend. Zero backend.
+**PERCORSO A TAPPE (deciso 28 lug 2026, doc `NutriGest_P87_Comunicazione_Analisi.md`):** il valore non è la sezione ma il REGISTRO unificato degli invii, costruibile subito; la sezione è solo la vista finale.
+- **Tappa 1 — FATTA (28 lug 2026, 2ª sessione):** registro unico `p.invii[]` (ordinato alla scrittura, cap 50), motore di invio riusabile `inviaMateriale` (estratto dai 3 livelli di `richInviaWhatsApp`, upload generalizzato `_materialeUpload`), primo cliente = bottone "📋 Invia elenco FODMAP" nell'intestazione scheda paziente (verde+data calcolato dal registro, non da flag). PDF generato dalle liste del semaforo.
+- **Tappa 2 — FATTA (28 lug 2026, 3ª sessione):** ogni invio lascia traccia nel registro unico: piano (`apriWhatsApp` → tipo 'piano'), messaggi AI (click sul link → tipo 'ai'), e `p.richiesteAnalisi[]` MIGRATO in `p.invii[]` (tipo 'analisi', voci/n conservati; campo vecchio eliminato — F4). Migrazione idempotente per firma nei 3 punti d'ingresso dati (load, blob server, import — regola 12). 9 test nuovi (`s2-invii-registro.test.js`).
+- **Tappa 3 — FATTA (28 lug 2026, 3ª sessione):** tab "📨 Comunicazione" = vista completa su `p.invii[]` con filtri per tipo + 5 template di serie variabilizzati ({nome},{cognome},{appuntamento} dal calendario reale via getEventi) + template personali in localStorage + anteprima modificabile + bottoni wa.me/mailto/copia, ogni azione registrata (tipo 'messaggio'). 7 test nuovi (`s2-comunicazione.test.js`).
+**FUORI PERIMETRO (eredità):** passaggio dell'invio PIANO al motore a 3 livelli (richiede che `generaPDF` restituisca il doc: voce a sé se servirà); {link} paziente arriverà con P41; Business API si rivaluta con P50.
+**SCHEDA:** Stato: **✅ CHIUSA (28 lug 2026)** — tutte e 3 le tappe fatte in giornata · C: 2 | I: 3 | R: 1 · Autonomia: L1.
 
 ### P111 — Chiarezza UI: medie settimanali su piano parziale ✅ CHIUSA 13 luglio 2026 (commit `737b790`)
 
