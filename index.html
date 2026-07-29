@@ -283,7 +283,13 @@ main{flex:1;overflow-y:auto;}
 /* INBODY */
 .ib-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:.9rem;}
 /* P99 — scheda InBody a 2 colonne su PC, 1 sola su telefono (invariata lì) */
-.ib-g2col{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;align-items:start;}
+.ib-g2col{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;align-items:stretch;}
+/* P138 — sottotitolo nella testata di un riquadro (es. la data di partenza) */
+.ib-hd-sub{font-size:.72rem;color:var(--text3);font-weight:400;margin-left:auto;padding-right:.5rem;}
+/* P138 — la riga in cima: peso casalingo e memoria paziente affiancati */
+.ib-testa>*{margin-bottom:0!important;height:100%;}
+.ib-mem-riga{display:flex;flex-wrap:wrap;gap:.3rem .9rem;margin-bottom:.7rem;font-size:.76rem;}
+.ib-mem-riga span b{font-weight:600;}
 .ib-g2col>.card{margin-bottom:0!important;}
 @media(max-width:900px){.ib-g2col{grid-template-columns:1fr;}}
 [data-ib]{min-height:40px;}
@@ -298,6 +304,7 @@ main{flex:1;overflow-y:auto;}
 .ib-del:hover{color:#A32D2D;}
 /* P133 — l'analisi segmentale occupa tutta la riga: sono due figure affiancate */
 .ib-g2col>.card.ib-wide{grid-column:1/-1;}
+.ib-g2col>details.card{align-self:start;}
 @media(max-width:900px){.ib-g2col>.card.ib-wide{grid-column:auto;}}
 /* ingrandimento di un singolo riquadro */
 .ib-espandi{border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:7px;
@@ -12371,9 +12378,11 @@ function renderMemoriaInbody(p,sorted){
   const ibColor=(d,inv)=>{if(d===null||Math.abs(d)<0.05)return '#a09890';return (inv?d<0:d>0)?'#16a34a':'#dc2626';};
   const ibSign=(d,unit)=>{if(d===null)return'—';return(d>0?'+':'')+d+unit;};
   const ibArrow=(d)=>{if(d===null||Math.abs(d)<0.05)return'';return d>0?' ▲':' ▼';};
+  // P138 — i delta stanno su una riga sola in corpo piccolo: qui quello che
+  // serve e' il pulsante dell'ascolto, i numeri sono gia' nei grafici sotto.
   const ibCard=(label,d,unit,inv)=>{
     const col=ibColor(d,inv);
-    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.65rem .8rem;text-align:center;box-shadow:var(--shadow)"><div style="font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.3rem">'+label+'</div><div style="font-family:\'DM Serif Display\',serif;font-size:1.05rem;color:'+col+';font-weight:600">'+ibSign(d,unit)+ibArrow(d)+'</div></div>';
+    return '<span style="color:var(--text3)">'+label+' <b style="color:'+col+'">'+ibSign(d,unit)+ibArrow(d)+'</b></span>';
   };
   if(sorted.length>=2){
     const last=sorted[0],prev=sorted[1];
@@ -12392,7 +12401,7 @@ function renderMemoriaInbody(p,sorted){
       +'<span style="font-size:.71rem;color:var(--text2)">'+fData(prev.data)+' → '+fData(last.data)+' · '+settLabel+'</span>'
       +'</div>'
       +'<div class="card-bd">'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;margin-bottom:1rem">'
+      +'<div class="ib-mem-riga">'
       +ibCard('Peso',dPeso,' kg',false)
       +(dG!==null?ibCard('Massa grassa',dG,' kg',true):'')
       +(dPg!==null?ibCard('% Grassa',dPg,'%',true):'')
@@ -12969,7 +12978,7 @@ function _ibGrTempo(S,w){
   // "Massa muscolare" esce dal riquadro (succedeva a 2 colonne su PC)
   const stretto=w<440,corte=w<560;
   const Lm=stretto?40:48,Rm=corte?80:118,Tm=16,Bm=30;
-  const h=stretto?230:262,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+  const h=stretto?252:300,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
   const t0=S[0].t,t1=S[S.length-1].t,span=t1-t0;
   const X=function(t){return span>0?Lm+pw*(t-t0)/span:Lm+pw/2;};
   let lo=0,hi=0;
@@ -13183,8 +13192,8 @@ function _ibGrRitmo(P,w){
   // A colonna stretta la fascia sotto il grafico deve ospitare 4 righe (durata,
   // data di fine, media su due righe) più la nota sul tratteggio: senza spazio
   // dedicato si sovrappongono tra loro.
-  const stretto=w<440,Lm=stretto?40:50,Rm=14,Tm=34,Bm=stretto?96:78;
-  const h=stretto?300:306,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+  const stretto=w<440,Lm=stretto?40:50,Rm=14,Tm=34,Bm=44;
+  const h=stretto?290:300,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
   // La scala segue il GROSSO dei dati, non il singolo periodo anomalo: con 25
   // misurazioni ne basta una sballata (un ritmo da ±3 kg/sett) per schiacciare
   // tutte le altre barre in una striscia illeggibile. Sopra l'85° percentile la
@@ -13282,20 +13291,9 @@ function _ibGrRitmo(P,w){
   s+=_ibEl('g',{'clip-path':'url(#ibClip)'},barre)+assi;
   if(nFuori)s+=_ibTx(Lm+4,Tm-6,nFuori+(nFuori>1?' barre':' barra')+' oltre la scala (▲▼) — il valore è nel passaggio o nel tocco',
     {ta:'start',fs:9.5,fill:_IBC.muted});
-  const mg=_ibMedia(U,'dg'),mm=_ibMedia(U,'dm');
-  const yMed1=h-(stretto?40:22), yMed2=h-(stretto?25:7);
-  if(mg!=null||mm!=null){
-    s+=_ibTx(2,yMed1,'Media reale (senza i periodi sotto le 3 settimane):',{ta:'start',fs:10.5,fill:_IBC.muted,fw:600});
-    s+=_ibTx(2,yMed2,(mg!=null?'grasso '+_ibSg(mg,2)+' kg/sett':'')+
-      (mg!=null&&mm!=null?' · ':'')+(mm!=null?'muscolo '+_ibSg(mm,2)+' kg/sett':''),
-      {ta:'start',fs:stretto?10.5:12,fw:700,fill:_IBC.ink2});
-  }
-  // su PC la nota sta a destra della media (c'è larghezza); a colonna stretta
-  // prende una riga tutta sua in fondo, altrimenti ci finisce sopra
-  if(U.some(function(p){return p.breve;}))
-    s+=stretto
-      ? _ibTx(2,h-6,'tratteggio = periodo troppo breve, fuori dalla media',{ta:'start',fs:9.5,fill:_IBC.grasso})
-      : _ibTx(Lm+pw,yMed1,'tratteggio = periodo troppo breve, fuori dalla media',{ta:'end',fs:9.5,fill:_IBC.grasso});
+  // P138 — la riga "Media reale ..." e la nota sul tratteggio stavano qui, nel
+  // piede dell'SVG: sono salite nella testata e nella legenda del riquadro, e
+  // il grafico si e' accorciato di conseguenza (Bm).
   return _ibSvg(w,h,s);
 }
 
@@ -13310,7 +13308,7 @@ function _ibGrQualita(P,w){
  const U=P.filter(function(p){return p.dg!=null&&p.dm!=null;});
  if(!U.length)return '';
  const stretto=w<440,Lm=stretto?44:56,Rm=14,Tm=14,Bm=stretto?54:58;
- const h=Math.max(stretto?266:300,Math.min(w*0.72+80,360)),pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+ const h=Math.max(stretto?266:300,Math.min(w*0.72+80,320)),pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
  let XM=0.5,YM=0.3;
  U.forEach(function(p){XM=Math.max(XM,Math.abs(p.dg)*1.25);YM=Math.max(YM,Math.abs(p.dm)*1.35);});
  const X=function(v){return Lm+pw*(v+XM)/(2*XM);},Y=function(v){return Tm+ph*(1-(v+YM)/(2*YM));};
@@ -13380,7 +13378,7 @@ function _ibGrBarre(S,w){
   const conIdr=V.some(function(p){return p.idr!=null;});
   const stretto=w<440,Lm=stretto?36:46,Rm=stretto?10:16,Tm=18;
   const Bm=conIdr?(stretto?88:92):(stretto?34:38);
-  const h=(conIdr?(stretto?318:340):(stretto?250:272)),pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+  const h=(conIdr?(stretto?306:320):(stretto?250:280)),pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
   let MAX=0;V.forEach(function(p){const t=ord.reduce(function(s2,o){return s2+p[o[0]];},0);if(t>MAX)MAX=t;});
   MAX=MAX*1.1;
   const Y=function(v){return Tm+ph*(1-v/MAX);};
@@ -13470,7 +13468,7 @@ function _ibGrForme(ib,w){
   if(righe.length<3)return '';   // la forma ha senso solo con tutte e tre
   const stretto=w<520;
   const Lx=stretto?116:182,Rx=stretto?70:132,X0=Lx,Xmax=w-Rx;
-  const Tm=72,rowH=stretto?40:44,h=Tm+rowH*3+30;
+  const Tm=72,rowH=stretto?52:66,h=Tm+rowH*3+16;   // P138 — stessa statura degli altri riquadri
   const X1=X0+(Xmax-X0)*0.30,X2=X0+(Xmax-X0)*0.52;
   const pos=function(v,lo,hi){const t=(v-lo)/(hi-lo);
     if(t<0)return X1+Math.max(t,-1)*(X1-X0);
@@ -13482,7 +13480,9 @@ function _ibGrForme(ib,w){
   s+=_ibEl('rect',{x:X1,y:Tm-22,width:X2-X1,height:22+rowH*3,fill:'#E6F4EE'});
   s+=_ibEl('rect',{x:X2,y:Tm-22,width:Xmax-X2,height:22+rowH*3,fill:'#FBF1EC'});
   s+=_ibTx((X0+X1)/2,Tm-8,'SOTTO',{fs:10,fw:700,fill:'#5B6B78'});
-  s+=_ibTx((X1+X2)/2,Tm-8,stretto?'NORMA':'NELLA NORMA',{fs:10,fw:700,fill:_IBC.good});
+  // l'etichetta si sceglie sulla LARGHEZZA VERA della fascia, non sulla
+  // larghezza del riquadro: a due colonne "NELLA NORMA" sfiorava le vicine
+  s+=_ibTx((X1+X2)/2,Tm-8,(X2-X1)<86?'NORMA':'NELLA NORMA',{fs:10,fw:700,fill:_IBC.good});
   s+=_ibTx((X2+Xmax)/2,Tm-8,'SOPRA',{fs:10,fw:700,fill:'#A05A3C'});
   righe.forEach(function(r,i){
     const v=r[1],lo=r[2][0],hi=r[2][1],y=Tm+rowH*i+rowH/2,bh=17,xv=pos(v,lo,hi);
@@ -13500,7 +13500,6 @@ function _ibGrForme(ib,w){
   s+=_ibEl('rect',{x:6,y:28,width:122,height:21,rx:10.5,fill:F.col,opacity:.15});
   s+=_ibTx(67,43,F.nome,{fs:11,fw:700,fill:F.col});
   if(!stretto)s+=_ibTx(140,43,F.frase,{ta:'start',fs:10.5,fill:_IBC.ink2});
-  s+=_ibTx(X0,h-8,'Le fasce vengono dagli intervalli stampati sul referto',{ta:'start',fs:9.5,fill:_IBC.muted});
   return _ibSvg(w,h,s);
 }
 
@@ -13646,19 +13645,8 @@ function renderPdInbody(p){
   const hasMulti=sorted.length>=2;
   let html='';
 
-  // ── Barra percorso totale ──────────────────────────────────────────────────
-  if(hasMulti&&first.peso&&last.peso){
-    const dPeso=(last.peso-first.peso).toFixed(1);
-    const dPg=first.pg&&last.pg?(last.pg-first.pg).toFixed(1):null;
-    const dMusc=first.musc&&last.musc?(last.musc-first.musc).toFixed(1):null;
-    const pesoStr=(dPeso<0?'−'+Math.abs(dPeso):'+'+dPeso)+' kg di peso';
-    const pgStr=dPg!==null?(dPg<0?' · −'+Math.abs(dPg)+'% di massa grassa':' · +'+dPg+'% di massa grassa'):'';
-    const muscStr=dMusc!==null?(dMusc>0?' · +'+dMusc+' kg di massa muscolare':' · −'+Math.abs(dMusc)+' kg di massa muscolare'):'';
-    html+=`<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:.75rem 1rem;margin-bottom:.7rem;font-size:.84rem;color:#166534">
-      <strong>Dal ${fData(first.data)} ad oggi:</strong> ${pesoStr}${pgStr}${muscStr}
-    </div>`;
-  }
-
+  // P138 — la fascia verde "Dal ... ad oggi" e' stata tolta: gli stessi tre
+  // numeri stanno gia' nelle tessere del grafico Composizione nel tempo.
   // ── Alert ultima misurazione vecchia ──────────────────────────────────────
   if(last.data){
     const giorniFA=Math.round((new Date()-new Date(last.data))/86400000);
@@ -13669,8 +13657,12 @@ function renderPdInbody(p){
     }
   }
 
-  // ── Delta ultima vs precedente (Memoria paziente) ─────────────────────────
-  html+=renderMemoriaInbody(p,sortedDesc);
+  // ── P138 · Peso casalingo e Memoria paziente affiancati, in cima ─────────
+  // Prendevano una riga intera ciascuno: due fasce larghe quanto lo schermo
+  // prima ancora del primo grafico. Ora stanno sulla stessa riga (una colonna
+  // sola sotto i 900px), e la Memoria mostra i delta in piccolo perche' cio'
+  // che serve li' e' il pulsante dell'ascolto.
+  html+='<div class="ib-g2col ib-testa">'+piHtml+renderMemoriaInbody(p,sortedDesc)+'</div>';
 
   // ── GRAFICI INBODY v4 (P99) ──────────────────────────────────────────────
   // Serie normalizzata e periodi si calcolano UNA volta sola e vengono riusati
@@ -13702,7 +13694,8 @@ function renderPdInbody(p){
         +'</div>';
     };
     _cTempo=`<div class="card">
-      <div class="card-hd"><h3>📈 Composizione corporea nel tempo</h3>${_ibBtnFull()}</div>
+      <div class="card-hd"><h3>📈 Composizione corporea nel tempo</h3>
+        <span class="ib-hd-sub">dal ${fData(baseS.data)}</span>${_ibBtnFull()}</div>
       <div class="card-bd">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:.75rem">
           ${_kpi('Peso',ultS.peso,ultS.peso!=null&&baseS.peso!=null?ultS.peso-baseS.peso:null,true)}
@@ -13715,7 +13708,6 @@ function renderPdInbody(p){
           <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.muscolo};display:inline-block"></span>Massa muscolare</span>
         </div>
         <div data-ib="tempo"></div>
-        <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Variazione dal ${fData(baseS.data)}. La forbice tra rosso e verde è la ricomposizione.</div>
       </div>
     </div>`;
     // G2 — Adiposità centrale.
@@ -13745,7 +13737,6 @@ function renderPdInbody(p){
             ${hasVisc?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.acqua};display:inline-block"></span>Grasso viscerale</span>`:''}
           </div>
           <div data-ib="adip"></div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Le scale si adattano al paziente: i righelli laterali mostrano dove sta la finestra dentro la scala clinica completa.</div>
         </div>
       </div>`;
     }
@@ -13756,7 +13747,9 @@ function renderPdInbody(p){
     // Sotto _IB_MIN_GG giorni il ritmo non si mostra e non entra nella media.
     const _ritmoOk=P_.some(function(x){return x.rg!=null||x.rm!=null;});
     if(_ritmoOk){
-      const _mediaG=_ibMedia(P_,'dg'), _mediaP=_ibMedia(P_,'dp'), _ult=P_[P_.length-1];
+      // la media del muscolo stava SOLO nel piede del grafico, che P138 toglie:
+      // sale qui, altrimenti sparirebbe un numero (non una didascalia)
+      const _mediaG=_ibMedia(P_,'dg'), _mediaM=_ibMedia(P_,'dm'), _mediaP=_ibMedia(P_,'dp'), _ult=P_[P_.length-1];
       let obiStr3='';
       // Proiezione all'obiettivo. Oltre l'anno il numero di settimane NON è
       // un'informazione: è preciso all'apparenza e inutile nella sostanza
@@ -13783,6 +13776,7 @@ function renderPdInbody(p){
         <div class="card-bd">
           <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.77rem;margin-bottom:.5rem">
             ${_mediaG!=null?`<span>Media grasso: <strong>${_ibSg(_mediaG,2)} kg/sett</strong></span>`:''}
+            ${_mediaM!=null?`<span>Media muscolo: <strong>${_ibSg(_mediaM,2)} kg/sett</strong></span>`:''}
             ${_ult&&_ult.breve?`<span style="color:#8A6420">Ultimo periodo: solo ${_ult.gg} ${_ult.gg===1?'giorno':'giorni'} — troppo breve per un ritmo settimanale</span>`:(_ult&&_ult.rg!=null?`<span>Ultimo periodo: <strong>${_ibSg(_ult.rg,2)} kg/sett</strong></span>`:'')}
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
@@ -13790,9 +13784,9 @@ function renderPdInbody(p){
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:2px;display:inline-block"></span>Massa muscolare</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#CFE7DC;border-radius:2px;display:inline-block"></span>Ritmo consigliato</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#F4DFBE;border-radius:2px;display:inline-block"></span>Più rapido del consigliato</span>
+            ${P_.some(function(x){return x.breve;})?`<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:repeating-linear-gradient(45deg,#8B8880,#8B8880 2px,transparent 2px,transparent 4px);border-radius:2px;display:inline-block"></span>Periodo troppo breve</span>`:''}
           </div>
           <div data-ib="ritmo"></div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Si parte dal ${fData(P_[0].a.data)}; sotto ogni barra c'è la data in cui quel periodo si chiude. Larghezza della barra = durata del periodo. Sopra lo zero il muscolo che sale, sotto il grasso che scende.<br><b>⚠ segnala solo il lato rischioso</b> — calo più rapido del consigliato o muscolo in calo. Andare più piano della fascia non è un errore: è un'informazione, e non viene colorato.</div>
           ${obiStr3}
         </div>
       </div>`;
@@ -13809,7 +13803,6 @@ function renderPdInbody(p){
               <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:50%;display:inline-block"></span>Grasso in aumento</span>
             </div>
             <div data-ib="qualita"></div>
-            <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Un punto per periodo, grande quanto la sua durata. In alto a sinistra è dove vuoi stare.<br>${P_.filter(function(x){return x.dg!=null&&x.dm!=null;}).map(function(x,i){return '<strong>'+(i+1)+'</strong> '+_ibFmtBreve(x.a.data)+'→'+_ibFmtBreve(x.b.data);}).join(' · ')}</div>
           </div>
         </div>`;
       }
@@ -13831,7 +13824,6 @@ function renderPdInbody(p){
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.acqua};border-radius:2px;display:inline-block"></span>Idratazione</span>
           </div>
           <div data-ib="barre"></div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">La somma delle fette fa il peso esatto. L'acqua è la striscia sotto, in % della massa magra.</div>
         </div>
       </div>`;
     }
@@ -13842,7 +13834,8 @@ function renderPdInbody(p){
     if(_ibVista.ultimoIb&&_ibVista.ultimoIb.rif&&_ibVista.ultimoIb.peso!=null
        &&_ibVista.ultimoIb.musc!=null&&_ibVista.ultimoIb.g!=null){
       _cForme=`<div class="card">
-        <div class="card-hd"><h3>\u{1F4CF} Peso · Muscolo · Grasso</h3>${_ibBtnFull()}</div>
+        <div class="card-hd"><h3>\u{1F4CF} Peso · Muscolo · Grasso</h3>
+          <span class="ib-hd-sub">fasce dagli intervalli del referto</span>${_ibBtnFull()}</div>
         <div class="card-bd">
           <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.peso};border-radius:2px;display:inline-block"></span>Peso</span>
@@ -13850,7 +13843,6 @@ function renderPdInbody(p){
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
           </div>
           <div data-ib="forme"></div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Le tre fasce sono allineate: se un'asticella supera la fascia sta sopra, se non la raggiunge sta sotto. La forma viene riconosciuta in automatico.</div>
         </div>
       </div>`;
     }
@@ -13864,15 +13856,11 @@ function renderPdInbody(p){
   // riga 3: adiposità centrale  | peso/muscolo/grasso
   // riga 4: analisi segmentale (larga, due figure affiancate)
   const _cSegm=_ibSilhouetteSegmentale(last);
-  const _prima=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_cForme].filter(Boolean);
-  // L'analisi segmentale prende tutta la riga SOLO se resterebbe da sola.
-  // Se i riquadri sopra sono in numero dispari (es. il grafico delle forme non
-  // c'è perché il referto non ha gli intervalli) il posto libero è accanto
-  // all'ultimo: ci va lei, invece di lasciare un buco e scendere di riga.
-  const _cOrdine=_prima.concat([
-    _cSegm ? (_prima.length%2===0 ? _cSegm.replace('<div class="card"','<div class="card ib-wide"') : _cSegm) : ''
-  ]);
-  html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
+  // P138 — l'analisi segmentale non prende piu' la riga intera: sta a meta'
+  // come tutti gli altri, e accanto le va la tendina di tutte le misurazioni.
+  // Se il conto resta dispari, e' l'ULTIMO riquadro (la tendina) ad allargarsi:
+  // una tendina chiusa larga non stona, un grafico solo in mezzo alla riga si.
+  const _cOrdine=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_cForme,_cSegm].filter(Boolean);
 
   // ── Tutte le misurazioni, in tabella e chiusa a tendina ──────────────────
   // Prima era una card per misurazione: con 7 referti erano ~1200px di numeri
@@ -13884,7 +13872,7 @@ function renderPdInbody(p){
   const _cel=(v,u,dec)=>v!=null&&v!==''
     ?(_ibN(v,dec==null?(Number.isInteger(+v)?0:1):dec)+(u?'<span style="font-size:.62rem;color:var(--text3)"> '+u+'</span>':''))
     :'<span style="color:var(--text3)">—</span>';
-  html+=`<details class="card" style="margin-bottom:.7rem">
+  let _cTab=`<details class="card" style="margin:0">
     <summary style="padding:.75rem 1.1rem;cursor:pointer;font-weight:600;font-size:.92rem;list-style:none">
       📊 Tutte le misurazioni (${sorted.length}) <span style="font-size:.72rem;color:var(--text3);font-weight:400">— clicca per aprire</span>
     </summary>
@@ -13903,8 +13891,11 @@ function renderPdInbody(p){
       <div style="font-size:.7rem;color:var(--text3);margin-top:.5rem">I valori sono quelli del referto. Le colonne si leggono dall'alto in basso per vedere l'andamento di una singola voce.</div>
     </div>
   </details>`;
+  if(_cOrdine.length%2===0)_cTab=_cTab.replace('<details class="card"','<details class="card ib-wide"');
+  _cOrdine.push(_cTab);
+  html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
 
-  document.getElementById('pd-inbody').innerHTML=piHtml+html;
+  document.getElementById('pd-inbody').innerHTML=html;
 
   // ── Render grafici ────────────────────────────────────────────────────────
   // Tutti e cinque i grafici della scheda InBody sono SVG disegnati da

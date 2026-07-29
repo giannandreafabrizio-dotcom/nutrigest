@@ -10,6 +10,46 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+29 LUGLIO 2026 (4) — P138: PULIZIA ESTETICA DELLA SCHEDA INBODY E ARMONIA FRA I RIQUADRI.
+Test **410/410**. Baseline `79e6cf5`. Include la rigenerazione di INDEX.md.
+Anteprima mostrata a Fabrizio PRIMA di consegnare, come chiesto da lui.
+
+**LA REGOLA CHE HA GUIDATO TUTTO**, parole sue: *"ci deve essere armonia di
+grandezza tra i grafici"*. Otto richieste puntuali, tutte accolte.
+
+**LAYOUT.** Peso casalingo e Memoria paziente affiancati in cima (una colonna
+sotto i 900px): prendevano una riga intera ciascuno, due fasce larghe quanto lo
+schermo prima ancora del primo grafico. Nella Memoria i delta scendono a una riga
+di testo piccolo — li' quello che serve e' il pulsante dell'ascolto. L'analisi
+segmentale non prende piu' la riga intera: sta a meta' con accanto la tendina
+"Tutte le misurazioni", che **resta a meta' anche da aperta** (scelta di
+Fabrizio) e scorre di lato.
+
+**VIA IL TESTO DI SERVIZIO.** La fascia verde "Dal … ad oggi" (gli stessi tre
+numeri sono nelle tessere del primo grafico) e SETTE didascalie sotto i grafici,
+piu' la riga "Media reale …" dal piede del Ritmo. Le date e le fonti non
+spariscono: salgono nella testata del riquadro (`.ib-hd-sub`).
+
+**ARMONIA, IN NUMERI.** Le altezze stavano fra 234 e 360px: tempo 262→300,
+qualita' max 360→320, barre 340→320, ritmo 306→290 (senza il piede), forme
+234→286. `.ib-g2col` passa ad `align-items:stretch`, cosi' due riquadri accanto
+finiscono alla stessa altezza.
+
+**TRE COSE SALVATE DALLA CANCELLAZIONE, PERCHE' NON ERANO DIDASCALIE.**
+- `muscolo −0,01 kg/sett` era **solo** nella riga tolta dal Ritmo: e' salito in
+  testata accanto a "Media grasso". Toglierlo avrebbe tolto un numero, non un
+  commento.
+- Il **tratteggio** delle barre (periodo sotto le 3 settimane) restava senza
+  spiegazione: e' diventato un quadratino nella legenda in alto.
+- La **fonte delle fasce** di Peso·Muscolo·Grasso (regola 14) e' passata nella
+  testata: "fasce dagli intervalli del referto".
+
+**COSA SI PERDE, DETTO A FABRIZIO PRIMA E DA LUI ACCETTATO.** Nella Mappa della
+qualita' i pallini restano numerati ma l'elenco `1 22 ago→3 set · …` non c'e'
+piu': la data del periodo si legge solo col passaggio del mouse o col tocco.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 29 LUGLIO 2026 (3) — P137: I GRAFICI ALLA PROVA DEI 25 REFERTI VERI DI UNA PAZIENTE.
 Test **410/410**. Baseline `c897a5a`. Include la rigenerazione di INDEX.md.
 P133 COLLAUDATA lo stesso giorno: primo import reale con gli intervalli letti dal

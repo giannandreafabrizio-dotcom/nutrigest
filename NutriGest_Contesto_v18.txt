@@ -1899,6 +1899,25 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
       + conteggio scritto nel grafico; "N gg" non si stampa sotto i 30px di barra.
       Etichette di fine curva (tempo, adip): si scansano se convergono, il
       trattino resta sul punto vero.
+    P138 - PULIZIA ESTETICA E ARMONIA (29 lug 2026):
+      LAYOUT: peso casalingo + memoria paziente affiancati in cima
+      (<div class="ib-g2col ib-testa">), memoria coi delta su una riga sola
+      (.ib-mem-riga) perche' li' serve il pulsante dell'ascolto. L'analisi
+      segmentale sta a META' riga come gli altri e accanto le va la tendina
+      "Tutte le misurazioni" (_cTab), che resta a meta' ANCHE DA APERTA - scelta
+      esplicita di Fabrizio - e scorre di lato. La tendina si allarga (ib-wide)
+      solo quando i grafici sono in numero pari e resterebbe da sola.
+      TOLTE: la fascia verde "Dal ... ad oggi" e SETTE didascalie sotto i
+      grafici, piu' la riga "Media reale" dal piede del Ritmo. Le date e le
+      fonti NON si perdono: stanno nella testata del riquadro (.ib-hd-sub).
+      SALVATI dalla cancellazione perche' erano informazione e non commento:
+      la media del MUSCOLO (ora in testata al Ritmo), la spiegazione del
+      TRATTEGGIO (ora quadratino in legenda), la FONTE delle fasce di
+      Peso/Muscolo/Grasso (regola 14, ora in testata).
+      ARMONIA: altezze dei grafici tutte ~300 (erano 234-360) e .ib-g2col con
+      align-items:stretch. Se si aggiunge un grafico, tenerlo su quella misura.
+      ACCETTATO DA FABRIZIO: nella mappa della qualita' i pallini sono numerati
+      ma l'elenco dei periodi non c'e' piu'; la data si legge solo col tocco.
     ORDINE DEI RIQUADRI: i cinque riquadri si costruiscono in variabili
     (_cTempo, _cBarre, _cRitmo, _cQual, _cAdip) e si assemblano in _cOrdine, in
     fondo al blocco. L'ordine a video sta scritto li' e solo li': spostare una
