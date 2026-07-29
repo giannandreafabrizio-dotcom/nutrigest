@@ -287,6 +287,17 @@ main{flex:1;overflow-y:auto;}
 .ib-g2col>.card{margin-bottom:0!important;}
 @media(max-width:900px){.ib-g2col{grid-template-columns:1fr;}}
 [data-ib]{min-height:40px;}
+/* Ritmo e barre con molte misurazioni: la card scorre di lato, niente troncamenti */
+[data-ib].ib-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+[data-ib].ib-scroll::-webkit-scrollbar{height:9px;}
+[data-ib].ib-scroll::-webkit-scrollbar-thumb{background:#cfccc3;border-radius:9px;}
+.ib-scroll-hint{position:sticky;left:0;font-size:.72rem;color:#2A78D6;font-weight:600;padding-top:2px;}
+/* mappa della qualità: apertura a ventaglio dei periodi sovrapposti */
+.ibclu .ibpt{transition:transform .18s cubic-bezier(.3,.8,.4,1);}
+.ibclu:hover .ibpt,.ibclu.aperto .ibpt{transform:translate(var(--dx),var(--dy));}
+.ibclu .iblead{opacity:0;transition:opacity .18s;}
+.ibclu:hover .iblead,.ibclu.aperto .iblead{opacity:.55;}
+.ibclu .ibhit{fill:transparent;pointer-events:all;}
 #ib-tip{position:fixed;pointer-events:none;z-index:9999;background:#1B1A18;color:#fff;font-size:.78rem;line-height:1.45;padding:8px 11px;border-radius:9px;opacity:0;transition:opacity .1s;max-width:250px;box-shadow:0 6px 20px rgba(0,0,0,.22);}
 .ib-item{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem;text-align:center;box-shadow:var(--shadow);}
 .ib-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.25rem;}
@@ -12795,13 +12806,14 @@ function renderPdCibo(p){
 // Perché non Chart.js: servono l'asse del TEMPO REALE (le misurazioni non sono
 // equidistanti: tra due referti possono passare 80 giorni o 1), barre larghe
 // quanto la durata del periodo, nastri di collegamento tra barre e una mappa a
-// quadranti. Forme che Chart.js non disegna senza plugin. L'adiposità centrale
-// (ib-c2) resta su Chart.js: lì non serviva nulla di tutto questo.
+// quadranti. Forme che Chart.js non disegna senza plugin. Dal 28 lug 2026
+// (P131) anche l'adiposità centrale è passata qui: la scheda InBody non usa
+// più Chart.js per nessuno dei suoi grafici.
 // I grafici si ridisegnano al resize leggendo la larghezza del contenitore.
 // ═══════════════════════════════════════════════════════════════════════════
 const _IBC={grasso:'#DD5A33',muscolo:'#1D9E75',acqua:'#2A78D6',resto:'#9A978C',
-  peso:'#6E6B63',grid:'#E8E6DF',axis:'#CBC8BF',muted:'#8B8880',ink:'#141311',
-  ink2:'#55534D',good:'#0F6E56',bad:'#A32D2D'};
+  peso:'#6E6B63',whr:'#C8542A',grid:'#E8E6DF',axis:'#CBC8BF',muted:'#8B8880',
+  ink:'#141311',ink2:'#55534D',good:'#0F6E56',bad:'#A32D2D'};
 // Sotto le 3 settimane il ritmo settimanale non è attendibile: due referti a 1
 // giorno di distanza producevano "−4,9 kg/sett" (0,7 kg diviso 1/7 di settimana).
 const _IB_MIN_GG=21;
@@ -12858,8 +12870,10 @@ function _ibSerie(sorted){
     const magra=(peso!=null&&g!=null)?+(peso-g).toFixed(2):(ib.m?+ib.m:null);
     const resto=(magra!=null&&musc!=null&&magra-musc>0)?+(magra-musc).toFixed(2):null;
     const idr=(acqua!=null&&magra)?+(acqua/magra*100).toFixed(1):null;
+    const whr=ib.cintFianchi?+parseFloat(ib.cintFianchi):null;
+    const visc=ib.visc?+parseFloat(ib.visc):null;
     return {t:_ibDt(ib.data),data:ib.data,peso:peso,g:g,musc:musc,acqua:acqua,
-            magra:magra,resto:resto,idr:idr};
+            magra:magra,resto:resto,idr:idr,whr:whr,visc:visc};
   }).filter(function(x){return x.t&&!isNaN(x.t.getTime());});
 }
 function _ibPeriodi(S){
@@ -12952,6 +12966,136 @@ function _ibGrTempo(S,w){
   return _ibSvg(w,h,s);
 }
 
+// ── Riferimenti clinici, con la FONTE dichiarata accanto al valore ─────────
+// Regola 14 del CLAUDE.md: un valore clinico porta sempre la sua fonte, e la
+// fonte deve arrivare fino allo schermo. Le vecchie soglie "10 attenzione /
+// 15 rischio" del grasso viscerale sono state RIMOSSE il 28 lug 2026: erano in
+// produzione da tempo senza nessuna fonte scritta da nessuna parte, e il referto
+// InBody di Fabrizio dichiara 1–9. Se un domani l'import leggerà gli intervalli
+// stampati sul referto (→ P133), quelli avranno la precedenza su questi.
+const _IB_RIF={
+  visc:{lo:1,hi:9,fonte:'riferimento InBody'},
+  whr :{M:{lo:0.80,hi:0.90},F:{lo:0.75,hi:0.85},fonte:'criterio OMS'}
+};
+
+// ── G2 · Adiposità centrale ───────────────────────────────────────────────
+// Le due scale si adattano al paziente: una scala fissa 0–20 rende invisibile
+// mezzo livello di viscerale su un paziente magro. Ma lo zoom automatico è anche
+// ciò che faceva sembrare un crollo un calo di 0,7 livelli, quindi porta con sé
+// due contrappesi obbligatori: il righello clinico completo di fianco (con
+// evidenziata la finestra mostrata) e la variazione scritta in numeri a fine curva.
+function _ibFinestra(vals,minSpan,vicine,sempre){
+  let lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
+  (sempre||[]).forEach(function(s){lo=Math.min(lo,s);hi=Math.max(hi,s);});
+  const amp0=Math.max(hi-lo,minSpan);
+  (vicine||[]).forEach(function(s){if(s>=lo-amp0*0.9&&s<=hi+amp0*0.9){lo=Math.min(lo,s);hi=Math.max(hi,s);}});
+  const span=Math.max(hi-lo,minSpan),mid=(lo+hi)/2;
+  return [Math.max(mid-span*0.78,0),mid+span*0.78];
+}
+function _ibRighello(o){
+  const Y=function(v){return o.y+o.h*(o.max-v)/(o.max-o.min);};
+  const lx=o.side==='left'?o.x-7:o.x+o.w+7, la=o.side==='left'?'end':'start';
+  let s='';
+  o.zone.forEach(function(z){s+=_ibEl('rect',{x:o.x,y:Y(z.b),width:o.w,
+    height:Math.max(Y(z.a)-Y(z.b),1),fill:z.fill});});
+  s+=_ibEl('rect',{x:o.x,y:o.y,width:o.w,height:o.h,rx:4,fill:'none',stroke:'rgba(20,19,17,.14)','stroke-width':1});
+  [o.lo,o.hi].forEach(function(v){
+    s+=_ibEl('line',{x1:o.x-3,y1:Y(v),x2:o.x+o.w+3,y2:Y(v),stroke:o.col,'stroke-width':1.4,opacity:.85});
+    s+=_ibTx(lx,Y(v)+3.5,o.dec?_ibN(v,2):String(v),{ta:la,fs:9.5,fill:o.col,fw:700});});
+  s+=_ibTx(lx,Y(o.max)-4,o.dec?_ibN(o.max,2):String(o.max),{ta:la,fs:8.5});
+  s+=_ibTx(lx,Y(o.min)+10,o.dec?_ibN(o.min,2):String(o.min),{ta:la,fs:8.5});
+  const a=Y(Math.min(o.win[1],o.max)),b=Y(Math.max(o.win[0],o.min));
+  const bx=o.side==='left'?o.x-2:o.x+o.w+2, dir=o.side==='left'?-1:1;
+  s+=_ibEl('path',{d:'M'+(bx+dir*4)+','+a+'H'+bx+'V'+b+'H'+(bx+dir*4),fill:'none',
+    stroke:o.col,'stroke-width':1.3,opacity:.55});
+  const fx=o.side==='left'?o.x+o.w+3:o.x-3, fd=o.side==='left'?1:-1;
+  s+=_ibEl('path',{d:'M'+fx+','+Y(o.val)+'l'+(fd*7)+',-4.5v9Z',fill:o.col});
+  s+=_ibEl('line',{x1:o.x,y1:Y(o.val),x2:o.x+o.w,y2:Y(o.val),stroke:o.col,'stroke-width':1.8});
+  const txx=o.side==='left'?o.x-42:o.x+o.w+42;
+  s+=_ibTx(txx,o.y+o.h/2,o.tit,{fs:9,fw:640,fill:o.col,tr:'rotate(-90 '+txx+' '+(o.y+o.h/2)+')'});
+  return s;
+}
+function _ibGrAdiposita(S,w,sesso){
+  const V=S.filter(function(p){return p.whr!=null||p.visc!=null;});
+  if(V.length<2)return '';
+  const hasW=V.filter(function(p){return p.whr!=null;}).length>1;
+  const hasV=V.filter(function(p){return p.visc!=null;}).length>1;
+  if(!hasW&&!hasV)return '';
+  const stretto=w<560;
+  const Lm=stretto?86:142,Rm=stretto?96:272,Tm=22,Bm=44;
+  const h=stretto?280:300,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+  const t0=V[0].t,t1=V[V.length-1].t,span=t1-t0;
+  const X=function(t){return span>0?Lm+pw*(t-t0)/span:Lm+pw/2;};
+  const RW=_IB_RIF.whr[sesso==='F'?'F':'M'], RV=_IB_RIF.visc;
+  const vw=V.filter(function(p){return p.whr!=null;}).map(function(p){return p.whr;});
+  const vv=V.filter(function(p){return p.visc!=null;}).map(function(p){return p.visc;});
+  const fw2=hasW?_ibFinestra(vw,0.05,[RW.lo],[RW.hi]):[0,1];
+  const fv=hasV?_ibFinestra(vv,2,[RV.hi,RV.lo],[]):[0,1];
+  const Yw=function(v){return Tm+ph*(fw2[1]-v)/(fw2[1]-fw2[0]);};
+  const Yv=function(v){return Tm+ph*(fv[1]-v)/(fv[1]-fv[0]);};
+  let s='';
+  if(hasW){const pas=(fw2[1]-fw2[0])>0.12?0.05:(fw2[1]-fw2[0])>0.06?0.02:0.01;
+    for(let v=Math.ceil(fw2[0]/pas)*pas;v<=fw2[1]+1e-9;v+=pas){
+      s+=_ibEl('line',{x1:Lm,y1:Yw(v),x2:Lm+pw,y2:Yw(v),stroke:_IBC.grid,'stroke-width':1});
+      s+=_ibTx(Lm-8,Yw(v)+4,_ibN(v,2),{ta:'end',fs:11,fill:_IBC.whr,fw:600});}}
+  if(hasV){const pas=(fv[1]-fv[0])>4?2:(fv[1]-fv[0])>1.6?0.5:0.2;
+    for(let v=Math.ceil(fv[0]/pas)*pas;v<=fv[1]+1e-9;v+=pas)
+      s+=_ibTx(Lm+pw+8,Yv(v)+4,'lv.'+_ibN(v,v%1?1:0),{ta:'start',fs:11,fill:_IBC.acqua,fw:600});}
+  // soglie: dentro se ci stanno, altrimenti dichiarate al bordo
+  if(hasW)[[RW.lo,'inferiore'],[RW.hi,'superiore']].forEach(function(o){
+    if(o[0]<fw2[0]||o[0]>fw2[1])return;
+    s+=_ibEl('line',{x1:Lm,y1:Yw(o[0]),x2:Lm+pw,y2:Yw(o[0]),stroke:'#D03B3B','stroke-width':1.4,'stroke-dasharray':'5 4'});
+    s+=_ibTx(Lm+6,Yw(o[0])-7,_ibN(o[0],2)+(stretto?'':' — limite '+o[1]+' OMS'),{ta:'start',fs:9.5,fill:'#A32D2D',fw:600});});
+  if(hasV){
+    let fuori=null;
+    [[RV.lo,'inferiore'],[RV.hi,'superiore']].forEach(function(o){
+      if(o[0]>=fv[0]&&o[0]<=fv[1]){
+        s+=_ibEl('line',{x1:Lm,y1:Yv(o[0]),x2:Lm+pw,y2:Yv(o[0]),stroke:_IBC.acqua,'stroke-width':1.4,'stroke-dasharray':'5 4'});
+        s+=_ibTx(Lm+pw-6,Yv(o[0])-7,'lv.'+o[0]+(stretto?'':' — limite '+o[1]+' InBody'),{ta:'end',fs:9.5,fill:_IBC.acqua,fw:600});
+      }else if(o[0]>fv[1])fuori=o[0];});
+    const ultV=vv[vv.length-1];
+    if(fuori!==null&&!stretto)
+      s+=_ibTx(Lm+pw-6,Tm+11,'▲ lv.'+fuori+' (limite InBody) fuori scala — sei '+_ibN(fuori-ultV)+' livelli sotto',
+        {ta:'end',fs:9.5,fill:_IBC.acqua,fw:600});
+  }
+  if(hasV){const pts=V.filter(function(p){return p.visc!=null;}).map(function(p){return [X(p.t),Yv(p.visc)];});
+    s+=_ibEl('path',{d:_ibCurva(pts),fill:'none',stroke:_IBC.acqua,'stroke-width':2.2});}
+  if(hasW){const pts=V.filter(function(p){return p.whr!=null;}).map(function(p){return [X(p.t),Yw(p.whr)];});
+    s+=_ibEl('path',{d:_ibCurva(pts),fill:'none',stroke:_IBC.whr,'stroke-width':2.2});}
+  V.forEach(function(p){
+    if(p.visc!=null)s+=_ibEl('circle',{cx:X(p.t),cy:Yv(p.visc),r:4.2,fill:_IBC.acqua,stroke:'#fff','stroke-width':2});
+    if(p.whr!=null)s+=_ibEl('circle',{cx:X(p.t),cy:Yw(p.whr),r:4.2,fill:_IBC.whr,stroke:'#fff','stroke-width':2});
+    s+=_ibEl('rect',{x:X(p.t)-13,y:Tm,width:26,height:ph,fill:'transparent',
+      'data-ibtip':'<b>'+fData(p.data)+'</b>'
+        +(p.whr!=null?'<br>Cintura/fianchi <b>'+_ibN(p.whr,2)+'</b>':'')
+        +(p.visc!=null?'<br>Grasso viscerale <b>lv. '+_ibN(p.visc)+'</b>':'')});});
+  // la variazione scritta in numeri: la grandezza del movimento non si affida alla pendenza
+  if(!stretto){
+    if(hasW){const a=vw[0],b=vw[vw.length-1];
+      s+=_ibTx(Lm+pw+56,Yw(b)-1,_ibN(b,2),{ta:'start',fs:13,fw:700,fill:_IBC.whr});
+      s+=_ibTx(Lm+pw+56,Yw(b)+12,_ibSg(b-a,2)+' dal '+_ibFmtBreve(V[0].data),{ta:'start',fs:9.5,fill:_IBC.muted});}
+    if(hasV){const a=vv[0],b=vv[vv.length-1];
+      s+=_ibTx(Lm+pw+56,Yv(b)-1,'lv. '+_ibN(b),{ta:'start',fs:13,fw:700,fill:_IBC.acqua});
+      s+=_ibTx(Lm+pw+56,Yv(b)+12,_ibSg(b-a)+' lv. dal '+_ibFmtBreve(V[0].data),{ta:'start',fs:9.5,fill:_IBC.muted});}
+  }
+  // i due righelli clinici completi, con la finestra mostrata evidenziata
+  if(!stretto){
+    const gy=Tm+8,gh=ph-16,gw=13;
+    if(hasW)s+=_ibRighello({x:64,y:gy,h:gh,w:gw,min:0.65,max:1.05,val:vw[vw.length-1],win:fw2,
+      lo:RW.lo,hi:RW.hi,col:_IBC.whr,side:'left',dec:true,tit:'cintura / fianchi',
+      zone:[{a:0.65,b:RW.lo,fill:'#EFF4F8'},{a:RW.lo,b:RW.hi,fill:'#E6F4EE'},{a:RW.hi,b:1.05,fill:'#FBEEEA'}]});
+    if(hasV)s+=_ibRighello({x:w-46,y:gy,h:gh,w:gw,min:0,max:20,val:vv[vv.length-1],win:fv,
+      lo:RV.lo,hi:RV.hi,col:_IBC.acqua,side:'right',dec:false,tit:'grasso viscerale',
+      zone:[{a:0,b:RV.lo,fill:'#EFF4F8'},{a:RV.lo,b:RV.hi,fill:'#E6F4EE'},{a:RV.hi,b:20,fill:'#FAF3EA'}]});
+  }
+  _ibDate(V,pw).forEach(function(i){s+=_ibTx(X(V[i].t),h-24,_ibFmtBreve(V[i].data),{fs:10.5});});
+  // le fonti arrivano fino allo schermo, non restano nel codice
+  s+=_ibTx(Lm,h-6,(hasW?'cintura/fianchi: '+_IB_RIF.whr.fonte+' ('+_ibN(RW.lo,2)+'–'+_ibN(RW.hi,2)+', '+(sesso==='F'?'donna':'uomo')+')':'')
+    +(hasW&&hasV?'  ·  ':'')+(hasV?'grasso viscerale: '+RV.fonte+' ('+RV.lo+'–'+RV.hi+')':''),
+    {ta:'start',fs:9.5,fill:_IBC.muted});
+  return _ibSvg(w,h,s);
+}
+
 // ── G3a · Ritmo: barre a specchio, kg/sett, larghezza = durata ────────────
 function _ibGrRitmo(P,w){
   const U=P.filter(function(p){return p.rg!=null||p.rm!=null;});
@@ -13026,40 +13170,70 @@ function _ibGrRitmo(P,w){
 }
 
 // ── G3b · Mappa della qualità (quadranti Δgrasso × Δmuscolo) ──────────────
+// Il numero del periodo è SEMPRE scritto, anche sui punti vecchi: a sbiadire è
+// solo il colore del pallino, mai l'etichetta. Quando più periodi finiscono
+// quasi nello stesso punto, il gruppo si apre a ventaglio al passaggio del mouse
+// (o al tocco) e ogni pallino resta legato alla sua posizione vera da un filo:
+// spostare un dato, anche per un attimo, è disegnarlo dove non è — il filo è
+// ciò che rende leggibile il trucco invece di renderlo una bugia.
 function _ibGrQualita(P,w){
-  const U=P.filter(function(p){return p.dg!=null&&p.dm!=null;});
-  if(!U.length)return '';
-  const stretto=w<440,Lm=stretto?44:56,Rm=14,Tm=14,Bm=stretto?54:58;
-  const h=Math.max(stretto?266:300,Math.min(w*0.72+80,360)),pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
-  let XM=0.5,YM=0.3;
-  U.forEach(function(p){XM=Math.max(XM,Math.abs(p.dg)*1.25);YM=Math.max(YM,Math.abs(p.dm)*1.35);});
-  const X=function(v){return Lm+pw*(v+XM)/(2*XM);},Y=function(v){return Tm+ph*(1-(v+YM)/(2*YM));};
-  let s='';
-  s+=_ibEl('rect',{x:Lm,y:Tm,width:X(0)-Lm,height:Y(0)-Tm,fill:'#E6F4EE'});
-  s+=_ibEl('rect',{x:X(0),y:Tm,width:Lm+pw-X(0),height:Y(0)-Tm,fill:'#EEF3FB'});
-  s+=_ibEl('rect',{x:Lm,y:Y(0),width:X(0)-Lm,height:Tm+ph-Y(0),fill:'#FAF3EA'});
-  s+=_ibEl('rect',{x:X(0),y:Y(0),width:Lm+pw-X(0),height:Tm+ph-Y(0),fill:'#FBEEEA'});
-  s+=_ibTx(Lm+6,Tm+15,'Ricomposizione',{ta:'start',fs:11,fw:700,fill:'#0F6E56'});
-  s+=_ibTx(Lm+pw-6,Tm+15,'Massa',{ta:'end',fs:11,fw:700,fill:'#1C5CAB'});
-  s+=_ibTx(Lm+6,Tm+ph-8,stretto?'Perdita di muscolo':'Dimagrimento con perdita di muscolo',{ta:'start',fs:10.5,fw:700,fill:'#8A6420'});
-  s+=_ibTx(Lm+pw-6,Tm+ph-8,'Peggioramento',{ta:'end',fs:10.5,fw:700,fill:_IBC.bad});
-  s+=_ibEl('line',{x1:Lm,y1:Y(0),x2:Lm+pw,y2:Y(0),stroke:_IBC.axis,'stroke-width':1.4});
-  s+=_ibEl('line',{x1:X(0),y1:Tm,x2:X(0),y2:Tm+ph,stroke:_IBC.axis,'stroke-width':1.4});
-  const px=XM>1.2?1:XM>0.6?0.5:0.25,py=YM>0.6?0.5:YM>0.3?0.25:0.1;
-  for(let v=-Math.floor(XM/px)*px;v<=XM;v+=px)if(Math.abs(v)>1e-9||true)s+=_ibTx(X(v),Tm+ph+17,_ibSg(v,px<1?2:1),{fs:10});
-  for(let v=-Math.floor(YM/py)*py;v<=YM;v+=py)s+=_ibTx(Lm-7,Y(v)+4,_ibSg(v,py<0.5?2:1),{ta:'end',fs:10});
-  s+=_ibTx(Lm+pw/2,Tm+ph+34,'variazione MASSA GRASSA (kg)',{fs:10.5,fw:640,fill:_IBC.ink2});
-  s+=_ibTx(14,Tm+ph/2,'MASSA MUSCOLARE (kg)',{fs:10,fw:640,fill:_IBC.ink2,tr:'rotate(-90 14 '+(Tm+ph/2)+')'});
-  s+=_ibEl('path',{d:U.map(function(p,i){return (i?'L':'M')+X(p.dg)+','+Y(p.dm);}).join(''),
-    fill:'none',stroke:_IBC.muted,'stroke-width':1.3,opacity:.45,'stroke-dasharray':'4 4'});
-  U.forEach(function(p,i){
-    const r=Math.max(7,Math.min(stretto?11:18,Math.sqrt(p.gg)*(stretto?1.35:2.1)));
-    const c=(p.dg<0&&p.dm>=0)?_IBC.muscolo:(p.dg>0?_IBC.grasso:'#C9922F');
-    s+=_ibEl('circle',{cx:X(p.dg),cy:Y(p.dm),r:r,fill:c,opacity:.9,stroke:'#fff','stroke-width':2,
-      'data-ibtip':'<b>'+_ibFmtBreve(p.a.data)+' → '+_ibFmtBreve(p.b.data)+'</b><br>'+p.gg+' giorni<br>Grasso <b>'+_ibSg(p.dg)+' kg</b><br>Muscolo <b>'+_ibSg(p.dm)+' kg</b>'});
-    s+=_ibTx(X(p.dg),Y(p.dm)+(stretto?3.5:4),String(i+1),{fs:stretto?9:10.5,fw:700,fill:'#fff'});
-  });
-  return _ibSvg(w,h,s);
+ const U=P.filter(function(p){return p.dg!=null&&p.dm!=null;});
+ if(!U.length)return '';
+ const stretto=w<440,Lm=stretto?44:56,Rm=14,Tm=14,Bm=stretto?54:58;
+ const h=Math.max(stretto?266:300,Math.min(w*0.72+80,360)),pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+ let XM=0.5,YM=0.3;
+ U.forEach(function(p){XM=Math.max(XM,Math.abs(p.dg)*1.25);YM=Math.max(YM,Math.abs(p.dm)*1.35);});
+ const X=function(v){return Lm+pw*(v+XM)/(2*XM);},Y=function(v){return Tm+ph*(1-(v+YM)/(2*YM));};
+ let s='';
+ s+=_ibEl('rect',{x:Lm,y:Tm,width:X(0)-Lm,height:Y(0)-Tm,fill:'#E6F4EE'});
+ s+=_ibEl('rect',{x:X(0),y:Tm,width:Lm+pw-X(0),height:Y(0)-Tm,fill:'#EEF3FB'});
+ s+=_ibEl('rect',{x:Lm,y:Y(0),width:X(0)-Lm,height:Tm+ph-Y(0),fill:'#FAF3EA'});
+ s+=_ibEl('rect',{x:X(0),y:Y(0),width:Lm+pw-X(0),height:Tm+ph-Y(0),fill:'#FBEEEA'});
+ s+=_ibTx(Lm+6,Tm+15,'Ricomposizione',{ta:'start',fs:11,fw:700,fill:'#0F6E56'});
+ s+=_ibTx(Lm+pw-6,Tm+15,'Massa',{ta:'end',fs:11,fw:700,fill:'#1C5CAB'});
+ s+=_ibTx(Lm+6,Tm+ph-8,stretto?'Perdita di muscolo':'Dimagrimento con perdita di muscolo',{ta:'start',fs:10.5,fw:700,fill:'#8A6420'});
+ s+=_ibTx(Lm+pw-6,Tm+ph-8,'Peggioramento',{ta:'end',fs:10.5,fw:700,fill:_IBC.bad});
+ s+=_ibEl('line',{x1:Lm,y1:Y(0),x2:Lm+pw,y2:Y(0),stroke:_IBC.axis,'stroke-width':1.4});
+ s+=_ibEl('line',{x1:X(0),y1:Tm,x2:X(0),y2:Tm+ph,stroke:_IBC.axis,'stroke-width':1.4});
+ const px=XM>1.2?1:XM>0.6?0.5:0.25,py=YM>0.6?0.5:YM>0.3?0.25:0.1;
+ for(let v=-Math.floor(XM/px)*px;v<=XM;v+=px)s+=_ibTx(X(v),Tm+ph+17,_ibSg(v,px<1?2:1),{fs:10});
+ for(let v=-Math.floor(YM/py)*py;v<=YM;v+=py)s+=_ibTx(Lm-7,Y(v)+4,_ibSg(v,py<0.5?2:1),{ta:'end',fs:10});
+ s+=_ibTx(Lm+pw/2,Tm+ph+34,'variazione MASSA GRASSA (kg)',{fs:10.5,fw:640,fill:_IBC.ink2});
+ s+=_ibTx(14,Tm+ph/2,'MASSA MUSCOLARE (kg)',{fs:10,fw:640,fill:_IBC.ink2,tr:'rotate(-90 14 '+(Tm+ph/2)+')'});
+ s+=_ibEl('path',{d:U.map(function(p,i){return (i?'L':'M')+X(p.dg)+','+Y(p.dm);}).join(''),
+   fill:'none',stroke:_IBC.muted,'stroke-width':1.3,opacity:.35,'stroke-dasharray':'4 4'});
+ const pts=U.map(function(p,i){return {i:i,x:X(p.dg),y:Y(p.dm),
+   r:Math.max(stretto?7:9,Math.min(stretto?11:16,Math.sqrt(p.gg)*(stretto?1.35:1.9))),p:p};});
+ // gruppi di pallini che si toccano
+ const par=pts.map(function(_,i){return i;});
+ const find=function(a){while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
+ for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+  const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);
+  if(d<(pts[i].r+pts[j].r)*0.98){const a=find(i),b=find(j);if(a!==b)par[a]=b;}}
+ const grp={};pts.forEach(function(q,i){const k=find(i);(grp[k]=grp[k]||[]).push(q);});
+ const dot=function(q,dx,dy){
+  const op=0.40+0.60*Math.pow((q.i+1)/pts.length,1.9);
+  const col=(q.p.dg<0&&q.p.dm>=0)?_IBC.muscolo:(q.p.dg>0?_IBC.grasso:'#C9922F');
+  return _ibEl('g',{class:'ibpt',style:'--dx:'+dx.toFixed(1)+'px;--dy:'+dy.toFixed(1)+'px',
+    'data-ibtip':'<b>'+_ibFmtBreve(q.p.a.data)+' → '+_ibFmtBreve(q.p.b.data)+'</b><br>'+q.p.gg+' giorni<br>Grasso <b>'+_ibSg(q.p.dg)+' kg</b><br>Muscolo <b>'+_ibSg(q.p.dm)+' kg</b>'},
+    _ibEl('circle',{cx:q.x,cy:q.y,r:q.r,fill:col,'fill-opacity':op,stroke:'#fff','stroke-width':2})
+   +_ibTx(q.x,q.y+(stretto?3.5:4),String(q.i+1),{fs:stretto?9:10.5,fw:700,fill:'#fff'}));};
+ Object.keys(grp).forEach(function(k){
+  const G=grp[k];
+  if(G.length===1){s+=_ibEl('g',{class:'ibclu'},dot(G[0],0,0));return;}
+  const cx=G.reduce(function(a,q){return a+q.x;},0)/G.length;
+  const cy=G.reduce(function(a,q){return a+q.y;},0)/G.length;
+  const rmax=Math.max.apply(null,G.map(function(q){return q.r;}));
+  const R=Math.max(rmax*1.32,(rmax*0.86)/Math.sin(Math.PI/G.length));
+  let fili='',dots='';
+  G.forEach(function(q,j){
+   const ang=-Math.PI/2+2*Math.PI*j/G.length;
+   const tx=cx+R*Math.cos(ang),ty=cy+R*Math.sin(ang);
+   fili+=_ibEl('line',{class:'iblead',x1:q.x,y1:q.y,x2:tx,y2:ty,stroke:_IBC.muted,'stroke-width':1});
+   dots+=dot(q,tx-q.x,ty-q.y);});
+  s+=_ibEl('g',{class:'ibclu'},_ibEl('circle',{class:'ibhit',cx:cx,cy:cy,r:R+rmax+6})+fili+dots);});
+ s+=_ibTx(Lm+pw-6,Tm+ph+34,'colore più pieno = periodo più recente',{ta:'end',fs:9.5});
+ return _ibSvg(w,h,s);
 }
 
 // ── G4 · Composizione: le fette sommano al peso, idratazione a parte ──────
@@ -13121,19 +13295,37 @@ function _ibGrBarre(S,w){
 function _ibDisegnaSvg(){
   if(!_ibVista)return;
   const mappa={tempo:function(w){return _ibGrTempo(_ibVista.S,w);},
+               adip:function(w){return _ibGrAdiposita(_ibVista.S,w,_ibVista.sesso);},
                ritmo:function(w){return _ibGrRitmo(_ibVista.P,w);},
                qualita:function(w){return _ibGrQualita(_ibVista.P,w);},
                barre:function(w){return _ibGrBarre(_ibVista.S,w);}};
+  // Ritmo e Composizione a barre, con molte misurazioni, non ci stanno: invece di
+  // troncare in silenzio si disegnano piu' larghi e la card scorre di lato.
+  const largMin={ritmo:function(){return 78*_ibVista.P.length;},
+                 barre:function(){return 62*_ibVista.S.length;}};
   document.querySelectorAll('#pd-inbody [data-ib]').forEach(function(el){
-    const fn=mappa[el.getAttribute('data-ib')];if(!fn)return;
-    const w=Math.max(Math.round(el.clientWidth||el.parentElement.clientWidth||320),240);
-    el.innerHTML=fn(w);
+    const k=el.getAttribute('data-ib'),fn=mappa[k];if(!fn)return;
+    const disp=Math.max(Math.round(el.clientWidth||el.parentElement.clientWidth||320),240);
+    const need=largMin[k]?Math.max(largMin[k](),disp):disp;
+    el.classList.toggle('ib-scroll',need>disp+8);
+    el.innerHTML=need>disp+8
+      ? '<div style="min-width:'+need+'px">'+fn(need)+'</div>'
+        +'<div class="ib-scroll-hint">← trascina per vedere tutte le '+
+          (k==='ritmo'?_ibVista.P.length+' variazioni':_ibVista.S.length+' misurazioni')+' →</div>'
+      : fn(disp);
   });
   if(!document.getElementById('ib-tip')){
     const d=document.createElement('div');d.id='ib-tip';document.body.appendChild(d);
   }
+  // equivalente touch dell'apertura a ventaglio: tocco per aprire, tocco fuori per chiudere
+  document.querySelectorAll('#pd-inbody .ibclu').forEach(function(g){
+    g.onclick=function(ev){
+      document.querySelectorAll('#pd-inbody .ibclu').forEach(function(o){if(o!==g)o.classList.remove('aperto');});
+      g.classList.toggle('aperto');ev.stopPropagation();};});
   if(!_ibResizeOn){
     _ibResizeOn=true;
+    document.addEventListener('click',function(){
+      document.querySelectorAll('#pd-inbody .ibclu').forEach(function(o){o.classList.remove('aperto');});});
     window.addEventListener('resize',function(){clearTimeout(_ibResizeT);_ibResizeT=setTimeout(_ibDisegnaSvg,140);});
     document.addEventListener('mousemove',function(e){
       const tip=document.getElementById('ib-tip');if(!tip)return;
@@ -13191,7 +13383,7 @@ function renderPdInbody(p){
   // Serie normalizzata e periodi si calcolano UNA volta sola e vengono riusati
   // sia dai numeri in testata sia dai grafici: così non possono divergere.
   const S_=_ibSerie(sorted), P_=_ibPeriodi(S_);
-  _ibVista={S:S_,P:P_};
+  _ibVista={S:S_,P:P_,sesso:p.sesso||'M'};
   // I riquadri si costruiscono in variabili separate e si assemblano in fondo:
   // l'ORDINE a video sta scritto in un punto solo (_cOrdine), non nell'ordine
   // in cui il codice capita di generarli.
@@ -13233,33 +13425,34 @@ function renderPdInbody(p){
         <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Variazione dal ${fData(baseS.data)}. La forbice tra rosso e verde è la ricomposizione.</div>
       </div>
     </div>`;
-    // G2 — Adiposità centrale (cintura/fianchi + viscerale, senza gauge)
-    const hasVisc=sorted.some(ib=>ib.visc);
-    const hasCF=sorted.some(ib=>ib.cintFianchi);
+    // G2 — Adiposità centrale.
+    // Le soglie del viscerale "10 attenzione / 15 rischio" che stavano qui sono
+    // state rimosse: erano in produzione senza nessuna fonte scritta da nessuna
+    // parte, e il referto InBody dichiara 1-9. Ora i riferimenti stanno in
+    // _IB_RIF con la fonte accanto, e la fonte si vede a schermo.
+    const hasVisc=S_.some(function(x){return x.visc!=null;});
+    const hasCF=S_.some(function(x){return x.whr!=null;});
     if(hasVisc||hasCF){
-      const lastVisc=last.visc?parseFloat(last.visc):null;
-      const viscColor=lastVisc===null?'#6b7280':lastVisc<10?'#0F6E56':lastVisc<15?'#BA7517':'#A32D2D';
-      const viscLabel=lastVisc===null?'—':lastVisc<10?'zona sicura':lastVisc<15?'attenzione':'rischio elevato';
-      const sogliaCF=p.sesso==='M'?0.90:0.85;
+      const lastVisc=ultS.visc, RV=_IB_RIF.visc;
+      const viscColor=lastVisc===null?'#6b7280':lastVisc<=RV.hi?'#0F6E56':'#BA7517';
+      const viscLabel=lastVisc===null?'—':lastVisc<=RV.hi?'dentro il riferimento':'sopra il riferimento';
+      const RW=_IB_RIF.whr[p.sesso==='F'?'F':'M'];
       _cAdip=`<div class="card">
-        <div class="card-hd"><h3>🫀 Adiposità centrale</h3></div>
+        <div class="card-hd"><h3>\u{1FAC0} Adiposità centrale</h3></div>
         <div class="card-bd">
           ${lastVisc!==null?`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:.6rem;flex-wrap:wrap">
             <span style="font-size:.73rem;color:var(--text2)">Grasso viscerale attuale:</span>
-            <span style="font-size:1.3rem;font-weight:500;color:${viscColor}">${lastVisc}</span>
+            <span style="font-size:1.3rem;font-weight:500;color:${viscColor}">${_ibN(lastVisc)}</span>
             <span style="font-size:.75rem;font-weight:500;color:${viscColor}">${viscLabel}</span>
-            <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;font-size:.68rem">
-              <span style="padding:1px 6px;background:#EAF3DE;color:#27500A;border-radius:4px">&lt;10 sicuro</span>
-              <span style="padding:1px 6px;background:#FAEEDA;color:#633806;border-radius:4px">10–14 att.</span>
-              <span style="padding:1px 6px;background:#FCEBEB;color:#A32D2D;border-radius:4px">≥15 rischio</span>
-            </span>
+            <span style="margin-left:auto;font-size:.68rem;padding:1px 8px;background:#EAF3DE;color:#27500A;border-radius:4px">riferimento InBody ${RV.lo}–${RV.hi}</span>
           </div>`:''}
-          ${hasCF?`<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:#D85A30;display:inline-block"></span>Rapporto cintura/fianchi</span>
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:0;border-top:2px dashed #E24B4A;display:inline-block"></span>Soglia ${sogliaCF} (${p.sesso==='M'?'M':'F'})</span>
-            ${hasVisc?'<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:#378ADD;display:inline-block"></span>Grasso viscerale</span>':''}
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
+            ${hasCF?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.whr};display:inline-block"></span>Rapporto cintura/fianchi</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:0;border-top:2px dashed #D03B3B;display:inline-block"></span>Riferimento OMS ${_ibN(RW.lo,2)}–${_ibN(RW.hi,2)} (${p.sesso==='F'?'donna':'uomo'})</span>`:''}
+            ${hasVisc?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.acqua};display:inline-block"></span>Grasso viscerale</span>`:''}
           </div>
-          <canvas id="ib-c2" style="max-height:200px"></canvas>`:''}
+          <div data-ib="adip"></div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Le scale si adattano al paziente: i righelli laterali mostrano dove sta la finestra dentro la scala clinica completa.</div>
         </div>
       </div>`;
     }
@@ -13379,29 +13572,12 @@ function renderPdInbody(p){
   document.getElementById('pd-inbody').innerHTML=piHtml+html;
 
   // ── Render grafici ────────────────────────────────────────────────────────
-  // G1/G3a/G3b/G4 sono SVG disegnati da _ibDisegnaSvg (asse del tempo reale,
-  // barre a larghezza variabile, nastri, quadranti: forme fuori portata di
-  // Chart.js). L'adiposità centrale resta su Chart.js, invariata.
+  // Tutti e cinque i grafici della scheda InBody sono SVG disegnati da
+  // _ibDisegnaSvg. Chart.js non serve piu' qui: l'ultimo che lo usava era
+  // l'adiposita' centrale, passata al motore proprio il 28 lug 2026 (P131).
+  ['_ibC1','_ibC2','_ibC3','_ibC4'].forEach(function(k){
+    if(window[k]){try{window[k].destroy();}catch(e){}window[k]=null;}});
   _ibDisegnaSvg();
-  if(hasMulti&&typeof Chart!=='undefined'){
-    const gC='rgba(128,128,128,.1)';
-    const tk={color:'#888',font:{size:11}};
-    const labels=sorted.map(ib=>_ibFmtBreve(ib.data));
-    ['_ibC1','_ibC2','_ibC3','_ibC4'].forEach(k=>{if(window[k]){window[k].destroy();window[k]=null;}});
-    // C2 — Adiposità centrale (cintura/fianchi + viscerale)
-    const c2=document.getElementById('ib-c2');
-    if(c2){
-      const dCF=sorted.map(ib=>ib.cintFianchi?Math.round(parseFloat(ib.cintFianchi)*100)/100:null);
-      const dVs=sorted.map(ib=>ib.visc?parseFloat(ib.visc):null);
-      const sCF=p.sesso==='M'?0.90:0.85;
-      const cfVals=dCF.filter(Boolean);
-      window._ibC2=new Chart(c2,{type:'line',data:{labels,datasets:[
-        {label:'Cintura/fianchi',data:dCF,borderColor:'#D85A30',backgroundColor:'transparent',tension:.35,pointRadius:5,pointBackgroundColor:dCF.map(v=>v===null?'#D85A30':v>sCF?'#E24B4A':'#1D9E75'),borderWidth:2,fill:false,yAxisID:'y'},
-        {label:'Soglia',data:sorted.map(()=>sCF),borderColor:'#E24B4A',borderDash:[5,3],pointRadius:0,fill:false,borderWidth:1.5,yAxisID:'y'},
-        {label:'Viscerale',data:dVs,borderColor:'#378ADD',backgroundColor:'transparent',tension:.35,pointRadius:5,pointBackgroundColor:dVs.map(v=>v===null?'#378ADD':v<10?'#1D9E75':v<15?'#BA7517':'#E24B4A'),borderWidth:2,fill:false,yAxisID:'y2'}
-      ]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}},scales:{y:{min:cfVals.length?Math.min(...cfVals)-0.05:undefined,ticks:{...tk,callback:v=>v.toFixed(2)},grid:{color:gC}},y2:{position:'right',ticks:{...tk,color:'#185FA5',callback:v=>'lv.'+v},grid:{display:false}},x:{ticks:tk,grid:{display:false}}}}});
-    }
-  }
 }
 
 let _macrosPaziente = null;

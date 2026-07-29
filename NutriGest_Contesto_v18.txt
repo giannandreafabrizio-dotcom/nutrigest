@@ -1812,8 +1812,30 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
     soglia di distinguibilita' nel daltonismo rosso-verde), muscolo #1D9E75,
     acqua #2A78D6, resto della magra #9A978C, peso #6E6B63.
     Layout .ib-g2col: 2 colonne da >=900px, 1 colonna sotto (iPhone invariato).
-    L'ADIPOSITA' CENTRALE (canvas ib-c2) e' l'unico grafico rimasto su Chart.js
-    ed e' invariata: ha ancora due assi verticali -> voce P131.
+    ADIPOSITA' CENTRALE (P131, 28 lug 2026): passata anch'essa al motore SVG, la
+    scheda InBody non usa piu' Chart.js per nessun grafico.
+      _IB_RIF = riferimenti clinici CON LA FONTE accanto al valore:
+        visc {lo:1, hi:9, fonte:'riferimento InBody'}
+        whr  {M:{0.80,0.90}, F:{0.75,0.85}, fonte:'criterio OMS'}
+      La fonte non resta nel codice: viene stampata sotto il grafico. Le vecchie
+      soglie 10/15 del viscerale sono state RIMOSSE (erano in produzione senza
+      nessuna fonte scritta da nessuna parte, mentre il referto dichiara 1-9).
+      Quando l'import leggera' gli intervalli stampati sul referto (P133), quelli
+      avranno la precedenza su _IB_RIF.
+      _ibFinestra(vals,minSpan,vicine,sempre) -> le scale si ADATTANO al paziente
+      (una scala fissa 0-20 rende invisibili 0,5 livelli su un magro), con
+      ampiezza minima e allargamento per inglobare una soglia se e' a portata.
+      Poiche' lo zoom automatico e' anche cio' che fa sembrare un crollo un calo
+      minimo, e' accompagnato da due contrappesi OBBLIGATORI: _ibRighello (il
+      righello clinico completo di fianco, con evidenziata la finestra mostrata) e
+      la variazione scritta in numeri a fine curva.
+    MAPPA DELLA QUALITA': il numero del periodo e' sempre scritto (sbiadisce solo
+      il colore del pallino); i gruppi di punti sovrapposti si aprono a ventaglio
+      su hover/tocco (classi .ibclu / .ibpt / .iblead / .ibhit) e ogni pallino
+      resta legato alla posizione vera da un filo.
+    MOLTE MISURAZIONI: Ritmo e Composizione a barre, quando non ci stanno, si
+      disegnano piu' larghi e la card scorre di lato (.ib-scroll + avviso), invece
+      di troncare in silenzio.
     ORDINE DEI RIQUADRI: i cinque riquadri si costruiscono in variabili
     (_cTempo, _cBarre, _cRitmo, _cQual, _cAdip) e si assemblano in _cOrdine, in
     fondo al blocco. L'ordine a video sta scritto li' e solo li': spostare una

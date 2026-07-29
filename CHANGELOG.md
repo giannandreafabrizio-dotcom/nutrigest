@@ -10,6 +10,67 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (l) — P131 CHIUSA: ADIPOSITÀ CENTRALE SENZA PIÙ SOGLIE SENZA FONTE, SCALE CHE SI ADATTANO AL PAZIENTE, MAPPA CHE SI APRE A VENTAGLIO.
+Test **410/410**. Baseline `02120b5`. Include la rigenerazione di INDEX.md.
+
+**LA COSA PIÙ IMPORTANTE DI QUESTA SESSIONE NON È UN GRAFICO.** Fabrizio ha
+chiesto: *"perché hai aggiunto il livello 15 come rischio? il mio InBody dà 1–9"*.
+Controllando: le soglie **&lt;10 sicuro / 10–14 attenzione / ≥15 rischio** erano già
+in produzione **prima** di questa sessione (verificato sul commit `f54cfb0`), e nel
+CHANGELOG non esisteva nessuna voce che dicesse da dove venissero. Io le avevo
+**ereditate e ricopiate** nei grafici nuovi senza chiedermi la fonte.
+È esattamente la regola 14, applicata male da chi l'aveva appena scritta.
+**Correzione:** le soglie ora vivono in `_IB_RIF` **con la fonte accanto al valore**,
+e la fonte **arriva fino allo schermo** (riga sotto il grafico). Il 10/15 è stato
+rimosso: il referto dichiara 1–9 e la macchina del paziente vince.
+Per il rapporto cintura/fianchi restano i valori OMS (0,80–0,90 uomo · 0,75–0,85
+donna) — hanno una fonte, che ora è scritta — con **entrambi** i limiti mostrati.
+
+**P131 — ADIPOSITÀ CENTRALE (era l'ultimo grafico su Chart.js).**
+- **Le scale si adattano al paziente.** Richiesta di Fabrizio, e ha ragione: una
+  scala fissa 0–20 rende invisibili 0,5 livelli di viscerale su un paziente magro.
+  `_ibFinestra` parte dai valori del paziente con un'ampiezza minima (2 livelli /
+  0,04) e si allarga per includere una soglia se è a portata.
+- **Ma lo zoom automatico è la stessa cosa che faceva sembrare un crollo un calo di
+  0,7 livelli**, quindi arriva con due contrappesi obbligatori: il **righello
+  clinico completo** di fianco (`_ibRighello`, con evidenziata la finestra che si
+  sta guardando) e la **variazione scritta in numeri** a fine curva. Se il grafico
+  dice "−0,9 lv." nessuno legge un crollo in una linea che scende.
+- Numeri degli assi colorati come le rispettive linee (idea di Fabrizio): risolve
+  "quale righello è di chi", che prima andava dedotto.
+- Con questo **la scheda InBody non usa più Chart.js per nessun grafico.**
+
+**MAPPA DELLA QUALITÀ.** Il numero del periodo è ora **sempre scritto**, anche sui
+punti vecchi: a sbiadire è solo il colore del pallino. Quando più periodi cadono
+quasi nello stesso punto il gruppo **si apre a ventaglio** al passaggio del mouse o
+al tocco, e ogni pallino resta legato alla posizione vera da **un filo sottile** —
+spostare un dato, anche per un attimo, è disegnarlo dove non è: il filo è ciò che
+rende leggibile il trucco invece di renderlo una bugia.
+
+**MOLTE MISURAZIONI.** Provato con 25 referti su 3 anni: i grafici non si rompono
+allo stesso modo. L'andamento nel tempo regge (migliora); le barre reggono ma le %
+di idratazione si accavallano; **Ritmo e Composizione a barre si rompono**. Ora,
+quando non ci stanno, si disegnano più larghi e la card **scorre di lato** con
+l'avviso "trascina per vedere tutte le N misurazioni". Nessun troncamento
+silenzioso: è la stessa regola del "niente valori di ripiego muti".
+
+**UNA LEZIONE DI METODO, PICCOLA E COSTOSA.** La curva del rapporto cintura/fianchi
+non si disegnava: usavo `_IBC.whr`, che **non esisteva** nella palette. `_ibEl`
+salta gli attributi `undefined`, quindi lo `stroke` spariva e la linea diventava
+invisibile — **nessun errore in console, nessun test rosso**. L'ha trovata solo il
+render con Playwright guardato a occhio. *Regola:* su un motore che costruisce SVG
+per concatenazione di stringhe, una chiave di palette sbagliata è un guasto
+silenzioso — il controllo che lo intercetta è guardare l'immagine, non leggere il log.
+
+**RIMANDATO (con motivo).** Il grafico a tre asticelle peso/muscolo/grasso che
+Fabrizio usa in visita (forme a C / a D / equivalenti) → **P133**: non si può
+copiare la scala InBody perché è in % di uno "standard" calcolato da una formula
+loro che non abbiamo, e inventarsi il denominatore sarebbe il livello 15 daccapo.
+La via giusta è leggere gli **intervalli stampati sul referto** (`109,8 ( 52,8~71,4 )`),
+come già si fa per il sangue. Serve prima quella modifica all'import.
+Filtri di periodo e tocco-per-leggere-i-valori → **P134**. P132 attende una
+decisione clinica di Fabrizio.
+
 28 LUGLIO 2026 (i) — GRAFICI INBODY: RIFINITURE DOPO IL COLLAUDO DI FABRIZIO SUI DATI VERI.
 Test **410/410**. Baseline `359db86`. Include la rigenerazione di INDEX.md.
 
