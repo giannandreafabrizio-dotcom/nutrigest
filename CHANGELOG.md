@@ -10,6 +10,41 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+29 LUGLIO 2026 (3) — P137: I GRAFICI ALLA PROVA DEI 25 REFERTI VERI DI UNA PAZIENTE.
+Test **410/410**. Baseline `c897a5a`. Include la rigenerazione di INDEX.md.
+P133 COLLAUDATA lo stesso giorno: primo import reale con gli intervalli letti dal
+referto, la card "Peso · Muscolo · Grasso" compare e riconosce la Forma a C.
+
+Il collaudo vero e' arrivato da una paziente con 25 misurazioni: periodi da 12
+giorni ad anni, un dato anomalo (+24 kg di muscolo in una misurazione), ±35 kg
+di escursione. Quattro difetti, quattro rimedi:
+
+**1. `_ibPasso` — il passo degli assi si adatta.** Prima era fisso per grafico
+("passo 2 sopra i 6 kg"): con ±35 kg uscivano piu' di trenta etichette una
+sull'altra. Ora escono sempre ~5-8 etichette (passi 1·2·5 per potenza di dieci),
+su Composizione nel tempo, Ritmo, Mappa della qualita' e Adiposita'.
+
+**2. Scorrimento anche per Composizione nel tempo e Adiposita' centrale.**
+Scelta di Fabrizio ("ogni misurazione ha il suo spazio"). Parte solo oltre le 8
+misurazioni: sotto, il layout di oggi non cambia di un pixel.
+
+**3. Ritmo — la scala segue il GROSSO dei dati (85° percentile).** Un solo
+periodo anomalo da ±3 kg/sett schiacciava tutte le barre in una striscia. Le
+barre tagliate hanno il marcatore ▲/▼ e il conteggio e' scritto NEL grafico: si
+taglia, mai in silenzio. Le scritte "12 gg" sotto le barre piu' strette di 30px
+non si stampano (lineetta rossa e tocco restano).
+
+**4. Testi che si accavallavano.** Le date sotto l'asse ora si scelgono sui
+PIXEL e non contando le misurazioni (con l'asse del tempo reale due referti
+ravvicinati fondevano "22 ago" con "24 set"); le etichette di fine curva si
+scansano se le curve convergono, col trattino agganciato al punto vero; "kg"
+non si stampa piu' sopra il tick piu' alto della Composizione a barre.
+
+Verificato su: paziente sintetica 25 misurazioni (PC e iPhone), paziente da 7
+(nessuna differenza rispetto a ieri), test suite completa.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 29 LUGLIO 2026 (2) — P136: I GRAFICI INBODY DISEGNATI ALLA LARGHEZZA VERA · FILTRI DI PERIODO RIMOSSI.
 Test **410/410**. Baseline `bea7fef`. Include la rigenerazione di INDEX.md.
 

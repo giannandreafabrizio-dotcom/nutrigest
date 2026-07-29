@@ -12934,10 +12934,28 @@ function _ibMedia(P,campo){
 }
 // quali date etichettare senza sovrapporsi, in base alla larghezza disponibile
 function _ibDate(S,w){
-  const n=S.length,passo=Math.max(1,Math.ceil(n/Math.max(2,Math.floor(w/86))));
-  const out=[];for(let i=0;i<n;i+=passo)out.push(i);
-  if(out[out.length-1]!==n-1)out.push(n-1);
+  // Le date da scrivere sotto l'asse si scelgono sui PIXEL, non contando le
+  // misurazioni: con l'asse del tempo reale due referti a una settimana di
+  // distanza stanno vicinissimi, e scegliere "una data ogni N" li faceva
+  // scrivere uno sopra l'altro ("22 ago" fuso con "24 set").
+  const n=S.length;if(!n)return [];
+  const t0=S[0].t,t1=S[n-1].t,span=t1-t0||1;
+  const px=function(i){return w*(S[i].t-t0)/span;};
+  const out=[0];let ux=px(0);
+  for(let i=1;i<n-1;i++)if(px(i)-ux>=74){out.push(i);ux=px(i);}
+  // l'ultima data si scrive sempre: se l'ultima scelta le sta addosso, cede il posto
+  if(n>1){while(out.length>1&&px(n-1)-px(out[out.length-1])<74)out.pop();out.push(n-1);}
   return out;
+}
+// Passo "gentile" per gli assi: qualunque sia l'estensione dei dati escono
+// sempre ~5–8 etichette (1, 2 o 5 per potenza di dieci). Prima il passo era
+// fisso per grafico: con la paziente da 25 misurazioni e ±35 kg di escursione
+// uscivano oltre trenta etichette accatastate una sull'altra.
+function _ibPasso(range,target){
+  if(!(range>0))return 1;
+  const grezzo=range/(target||7),p10=Math.pow(10,Math.floor(Math.log10(grezzo)));
+  const m=grezzo/p10;
+  return (m<=1?1:m<=2?2:m<=5?5:10)*p10;
 }
 
 // ── G1 · Variazione dal punto di partenza ─────────────────────────────────
@@ -12960,8 +12978,8 @@ function _ibGrTempo(S,w){
   const pad=Math.max((hi-lo)*0.18,0.4);lo-=pad;hi+=pad;
   const Y=function(v){return Tm+ph*(hi-v)/(hi-lo);};
   let s='';
-  const passo=(hi-lo)>6?2:(hi-lo)>2.5?1:0.5;
-  for(let v=Math.ceil(lo/passo)*passo;v<=hi;v+=passo){
+  const passo=Math.max(_ibPasso(hi-lo),0.5);
+  for(let v=Math.ceil(lo/passo)*passo;v<=hi+1e-9;v+=passo){
     s+=_ibEl('line',{x1:Lm,y1:Y(v),x2:Lm+pw,y2:Y(v),stroke:Math.abs(v)<1e-9?_IBC.axis:_IBC.grid,'stroke-width':Math.abs(v)<1e-9?1.4:1});
     s+=_ibTx(Lm-7,Y(v)+4,_ibSg(v,passo<1?1:0),{ta:'end',fs:12});
   }
@@ -12988,14 +13006,27 @@ function _ibGrTempo(S,w){
     });
     s+=_ibEl('rect',{x:X(p.t)-13,y:Tm,width:26,height:ph,fill:'transparent','data-ibtip':tip});
   });
-  const ult=S[S.length-1];
-  serie.forEach(function(sr){
-    if(ult[sr[0]]==null)return;
-    const v=ult[sr[0]]-base[sr[0]],xe=X(ult.t);
-    s+=_ibEl('line',{x1:xe+4,y1:Y(v),x2:xe+13,y2:Y(v),stroke:sr[2],'stroke-width':1.5,opacity:.5});
-    s+=_ibTx(xe+17,Y(v)-1,corte?(sr[0]==='musc'?'Muscolo':sr[0]==='g'?'Grasso':'Peso'):sr[1],
+  const ult=S[S.length-1],xe=X(ult.t);
+  // le etichette di fine curva si scansano quanto basta per non accavallarsi
+  // (con le curve che convergono finivano una sull'altra); il trattino resta
+  // agganciato al punto VERO, così lo spostamento si vede ed è dichiarato
+  const fine=[];
+  serie.forEach(function(sr){if(ult[sr[0]]==null)return;
+    const v=ult[sr[0]]-base[sr[0]];fine.push({sr:sr,v:v,y:Y(v)});});
+  fine.sort(function(a,b){return a.y-b.y;});
+  const _gapE=30;
+  if(fine.length){
+    fine[0].y=Math.max(fine[0].y,Tm+12);
+    for(let i=1;i<fine.length;i++)if(fine[i].y<fine[i-1].y+_gapE)fine[i].y=fine[i-1].y+_gapE;
+    const fondo=Tm+ph;
+    if(fine[fine.length-1].y>fondo){fine[fine.length-1].y=fondo;
+      for(let i=fine.length-2;i>=0;i--)if(fine[i].y>fine[i+1].y-_gapE)fine[i].y=fine[i+1].y-_gapE;}
+  }
+  fine.forEach(function(f){
+    s+=_ibEl('line',{x1:xe+4,y1:Y(f.v),x2:xe+13,y2:f.y,stroke:f.sr[2],'stroke-width':1.5,opacity:.5});
+    s+=_ibTx(xe+17,f.y-1,corte?(f.sr[0]==='musc'?'Muscolo':f.sr[0]==='g'?'Grasso':'Peso'):f.sr[1],
       {ta:'start',fs:stretto?10.5:11.5,fw:640,fill:_IBC.ink2});
-    s+=_ibTx(xe+17,Y(v)+13,_ibSg(v),{ta:'start',fs:stretto?12:13,fw:700,fill:sr[2]});
+    s+=_ibTx(xe+17,f.y+13,_ibSg(f.v),{ta:'start',fs:stretto?12:13,fw:700,fill:f.sr[2]});
   });
   _ibDate(S,pw).forEach(function(i){s+=_ibTx(X(S[i].t),h-9,_ibFmtBreve(S[i].data),{fs:11.5});});
   return _ibSvg(w,h,s);
@@ -13069,11 +13100,11 @@ function _ibGrAdiposita(S,w,sesso){
   const Yw=function(v){return Tm+ph*(fw2[1]-v)/(fw2[1]-fw2[0]);};
   const Yv=function(v){return Tm+ph*(fv[1]-v)/(fv[1]-fv[0]);};
   let s='';
-  if(hasW){const pas=(fw2[1]-fw2[0])>0.12?0.05:(fw2[1]-fw2[0])>0.06?0.02:0.01;
+  if(hasW){const pas=Math.max(_ibPasso(fw2[1]-fw2[0]),0.01);
     for(let v=Math.ceil(fw2[0]/pas)*pas;v<=fw2[1]+1e-9;v+=pas){
       s+=_ibEl('line',{x1:Lm,y1:Yw(v),x2:Lm+pw,y2:Yw(v),stroke:_IBC.grid,'stroke-width':1});
       s+=_ibTx(Lm-8,Yw(v)+4,_ibN(v,2),{ta:'end',fs:11,fill:_IBC.whr,fw:600});}}
-  if(hasV){const pas=(fv[1]-fv[0])>4?2:(fv[1]-fv[0])>1.6?0.5:0.2;
+  if(hasV){const pas=Math.max(_ibPasso(fv[1]-fv[0]),0.2);
     for(let v=Math.ceil(fv[0]/pas)*pas;v<=fv[1]+1e-9;v+=pas)
       s+=_ibTx(Lm+pw+8,Yv(v)+4,'lv.'+_ibN(v,v%1?1:0),{ta:'start',fs:11,fill:_IBC.acqua,fw:600});}
   // soglie: dentro se ci stanno, altrimenti dichiarate al bordo
@@ -13104,14 +13135,23 @@ function _ibGrAdiposita(S,w,sesso){
       'data-ibtip':'<b>'+fData(p.data)+'</b>'
         +(p.whr!=null?'<br>Cintura/fianchi <b>'+_ibN(p.whr,2)+'</b>':'')
         +(p.visc!=null?'<br>Grasso viscerale <b>lv. '+_ibN(p.visc)+'</b>':'')});});
-  // la variazione scritta in numeri: la grandezza del movimento non si affida alla pendenza
+  // la variazione scritta in numeri: la grandezza del movimento non si affida
+  // alla pendenza. I due blocchi si scansano se le curve finiscono vicine —
+  // sulle pazienti reali si scrivevano uno sopra l'altro, illeggibili entrambi.
   if(!stretto){
+    const blo=[];
     if(hasW){const a=vw[0],b=vw[vw.length-1];
-      s+=_ibTx(Lm+pw+56,Yw(b)-1,_ibN(b,2),{ta:'start',fs:13,fw:700,fill:_IBC.whr});
-      s+=_ibTx(Lm+pw+56,Yw(b)+12,_ibSg(b-a,2)+' dal '+_ibFmtBreve(V[0].data),{ta:'start',fs:9.5,fill:_IBC.muted});}
+      blo.push({y:Yw(b),t1:_ibN(b,2),t2:_ibSg(b-a,2)+' dal '+_ibFmtBreve(V[0].data),col:_IBC.whr});}
     if(hasV){const a=vv[0],b=vv[vv.length-1];
-      s+=_ibTx(Lm+pw+56,Yv(b)-1,'lv. '+_ibN(b),{ta:'start',fs:13,fw:700,fill:_IBC.acqua});
-      s+=_ibTx(Lm+pw+56,Yv(b)+12,_ibSg(b-a)+' lv. dal '+_ibFmtBreve(V[0].data),{ta:'start',fs:9.5,fill:_IBC.muted});}
+      blo.push({y:Yv(b),t1:'lv. '+_ibN(b),t2:_ibSg(b-a)+' lv. dal '+_ibFmtBreve(V[0].data),col:_IBC.acqua});}
+    blo.sort(function(a,b){return a.y-b.y;});
+    if(blo.length===2&&blo[1].y-blo[0].y<32){
+      const m=(blo[0].y+blo[1].y)/2;blo[0].y=m-16;blo[1].y=m+16;}
+    blo.forEach(function(b){b.y=Math.max(Tm+12,Math.min(b.y,Tm+ph-8));});
+    if(blo.length===2&&blo[1].y-blo[0].y<32)blo[0].y=Math.max(Tm+12,blo[1].y-32);
+    blo.forEach(function(b){
+      s+=_ibTx(Lm+pw+56,b.y-1,b.t1,{ta:'start',fs:13,fw:700,fill:b.col});
+      s+=_ibTx(Lm+pw+56,b.y+12,b.t2,{ta:'start',fs:9.5,fill:_IBC.muted});});
   }
   // i due righelli clinici completi, con la finestra mostrata evidenziata
   if(!stretto){
@@ -13145,9 +13185,21 @@ function _ibGrRitmo(P,w){
   // dedicato si sovrappongono tra loro.
   const stretto=w<440,Lm=stretto?40:50,Rm=14,Tm=34,Bm=stretto?96:78;
   const h=stretto?300:306,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
-  let mx=0.16;
-  U.forEach(function(p){if(p.rg!=null&&Math.abs(p.rg)>mx&&!p.breve)mx=Math.abs(p.rg);
-                        if(p.rm!=null&&Math.abs(p.rm)>mx&&!p.breve)mx=Math.abs(p.rm);});
+  // La scala segue il GROSSO dei dati, non il singolo periodo anomalo: con 25
+  // misurazioni ne basta una sballata (un ritmo da ±3 kg/sett) per schiacciare
+  // tutte le altre barre in una striscia illeggibile. Sopra l'85° percentile la
+  // barra viene tagliata al bordo con un marcatore ▲/▼ e il conteggio dei
+  // fuori scala è scritto nel grafico: si taglia, ma mai in silenzio.
+  const rr=[];
+  U.forEach(function(p){if(p.breve)return;
+    if(p.rg!=null)rr.push(Math.abs(p.rg));
+    if(p.rm!=null)rr.push(Math.abs(p.rm));});
+  rr.sort(function(a,b){return a-b;});
+  const vMax=rr.length?rr[rr.length-1]:0;
+  const q85=rr.length?rr[Math.min(rr.length-1,Math.floor(rr.length*0.85))]:0;
+  const mx=(rr.length>=6&&vMax>2.2*Math.max(q85,0.05))
+    ? Math.max(q85*1.25,0.16)
+    : Math.max(vMax,0.16);
   const FA=_ibFasciaRitmo(_ibVista&&_ibVista.pesoAttuale);
   const HI=Math.max(mx*0.7,0.12),LO=-Math.max(mx*1.15,0.2);   // la scala segue i DATI: la fascia consigliata di un paziente magro sta molto piu' in basso e li schiacciava tutti in alto
   const Y=function(v){return Tm+ph*(HI-v)/(HI-LO);},yz=Y(0);
@@ -13162,8 +13214,8 @@ function _ibGrRitmo(P,w){
     // andare piano è un'informazione, non un allarme.
     _ibEl('rect',{x:Lm,y:Y(FA[0]),width:pw,height:Math.max(Y(FA[1])-Y(FA[0]),0),fill:_IBC.muscolo,opacity:.11})
    +_ibEl('rect',{x:Lm,y:Y(FA[1]),width:pw,height:Math.max(Tm+ph-Y(FA[1]),0),fill:'#E8A33D',opacity:.10}));
-  const passo=(HI-LO)>0.9?0.25:0.1;
-  for(let v=Math.ceil(LO/passo)*passo;v<=HI;v+=passo){
+  const passo=Math.max(_ibPasso(HI-LO,6),0.05);
+  for(let v=Math.ceil(LO/passo)*passo;v<=HI+1e-9;v+=passo){
     s+=_ibEl('line',{x1:Lm,y1:Y(v),x2:Lm+pw,y2:Y(v),stroke:Math.abs(v)<1e-9?_IBC.axis:_IBC.grid,'stroke-width':Math.abs(v)<1e-9?1.4:1});
     s+=_ibTx(Lm-6,Y(v)+4,_ibSg(v,2),{ta:'end',fs:10.5});
   }
@@ -13183,7 +13235,10 @@ function _ibGrRitmo(P,w){
     _ibEl('tspan',{fill:_IBC.muscolo},'▲ muscolo su')
    +_ibEl('tspan',{fill:_IBC.muted},'   ·   ')
    +_ibEl('tspan',{fill:_IBC.grasso},'▼ grasso giù'));
-  const GAP=stretto?5:8;let x=Lm,barre='',assi='';
+  const GAP=stretto?5:8;let x=Lm,barre='',assi='',nFuori=0;
+  // marcatore per una barra tagliata dalla scala: ▼ al bordo basso, ▲ a quello alto
+  const fuoriGiu=function(cx,tip){nFuori++;return _ibEl('path',{d:'M'+(cx-4)+','+(Tm+ph-9)+'h8l-4,7Z',fill:_IBC.muted,'data-ibtip':tip});};
+  const fuoriSu =function(cx,tip){nFuori++;return _ibEl('path',{d:'M'+(cx-4)+','+(Tm+9)+'h8l-4,-7Z',fill:_IBC.muted,'data-ibtip':tip});};
   const bar=function(xx,ww,v){
     if(v>=0)return _ibCima(xx,Y(v),ww,Math.max(yz-Y(v),2),3);
     const hg=Math.max(Y(v)-yz,2),r=Math.min(3,hg/2,ww/2);
@@ -13196,8 +13251,11 @@ function _ibGrRitmo(P,w){
       (p.dm!=null?'<br>Muscolo <b>'+_ibSg(p.dm)+' kg</b> · '+_ibN(p.rm,2)+' kg/sett':'')+
       (p.breve?'<br>⚠ periodo troppo breve: ritmo non attendibile, escluso dalla media':'');
     if(p.rg!=null){barre+=_ibEl('path',{d:bar(x,mez,p.rg),fill:p.breve?'url(#ibHatch)':_IBC.grasso,'data-ibtip':tip});
-      if(p.rg<LO)barre+=_ibEl('path',{d:'M'+(x+mez/2-4)+','+(Tm+ph-9)+'h8l-4,7Z',fill:_IBC.muted,'data-ibtip':tip});}
-    if(p.rm!=null)barre+=_ibEl('path',{d:bar(x+mez+3,mez,p.rm),fill:p.breve?'url(#ibHatch)':_IBC.muscolo,'data-ibtip':tip});
+      if(p.rg<LO)barre+=fuoriGiu(x+mez/2,tip);
+      if(p.rg>HI)barre+=fuoriSu(x+mez/2,tip);}
+    if(p.rm!=null){barre+=_ibEl('path',{d:bar(x+mez+3,mez,p.rm),fill:p.breve?'url(#ibHatch)':_IBC.muscolo,'data-ibtip':tip});
+      if(p.rm<LO)barre+=fuoriGiu(x+mez+3+mez/2,tip);
+      if(p.rm>HI)barre+=fuoriSu(x+mez+3+mez/2,tip);}
     // P132 b — si segnala SOLO ciò che è rischioso: calo più rapido del ritmo
     // consigliato, o muscolo che scende. La lentezza non si segnala mai.
     if(!p.breve){
@@ -13211,7 +13269,9 @@ function _ibGrRitmo(P,w){
       }
     }
     assi+=_ibEl('line',{x1:x,y1:Tm+ph+20,x2:x+bw,y2:Tm+ph+20,stroke:p.breve?_IBC.grasso:_IBC.axis,'stroke-width':1.4});
-    assi+=_ibTx(x+bw/2,Tm+ph+15,p.gg+' gg',{fs:10,fill:p.breve?_IBC.grasso:_IBC.muted,fw:p.breve?700:400});
+    // sotto i 30px la scritta "12 gg" non ci sta e si fonde con le vicine: resta
+    // la lineetta (rossa se il periodo è breve) e la durata nel passaggio/tocco
+    if(bw>=30)assi+=_ibTx(x+bw/2,Tm+ph+15,p.gg+' gg',{fs:10,fill:p.breve?_IBC.grasso:_IBC.muted,fw:p.breve?700:400});
     // sempre e solo la data di FINE del periodo: mescolare "6 ott → 24 nov" sulle
     // barre larghe e "7 mag" su quelle strette faceva sembrare un errore quello
     // che era soltanto mancanza di spazio. La data di partenza sta nella
@@ -13220,6 +13280,8 @@ function _ibGrRitmo(P,w){
     x+=bw+GAP;
   });
   s+=_ibEl('g',{'clip-path':'url(#ibClip)'},barre)+assi;
+  if(nFuori)s+=_ibTx(Lm+4,Tm-6,nFuori+(nFuori>1?' barre':' barra')+' oltre la scala (▲▼) — il valore è nel passaggio o nel tocco',
+    {ta:'start',fs:9.5,fill:_IBC.muted});
   const mg=_ibMedia(U,'dg'),mm=_ibMedia(U,'dm');
   const yMed1=h-(stretto?40:22), yMed2=h-(stretto?25:7);
   if(mg!=null||mm!=null){
@@ -13263,9 +13325,9 @@ function _ibGrQualita(P,w){
  s+=_ibTx(Lm+pw-6,Tm+ph-8,'Peggioramento',{ta:'end',fs:10.5,fw:700,fill:_IBC.bad});
  s+=_ibEl('line',{x1:Lm,y1:Y(0),x2:Lm+pw,y2:Y(0),stroke:_IBC.axis,'stroke-width':1.4});
  s+=_ibEl('line',{x1:X(0),y1:Tm,x2:X(0),y2:Tm+ph,stroke:_IBC.axis,'stroke-width':1.4});
- const px=XM>1.2?1:XM>0.6?0.5:0.25,py=YM>0.6?0.5:YM>0.3?0.25:0.1;
- for(let v=-Math.floor(XM/px)*px;v<=XM;v+=px)s+=_ibTx(X(v),Tm+ph+17,_ibSg(v,px<1?2:1),{fs:10});
- for(let v=-Math.floor(YM/py)*py;v<=YM;v+=py)s+=_ibTx(Lm-7,Y(v)+4,_ibSg(v,py<0.5?2:1),{ta:'end',fs:10});
+ const px=Math.max(_ibPasso(2*XM,8),0.25),py=Math.max(_ibPasso(2*YM,6),0.1);
+ for(let v=-Math.floor(XM/px)*px;v<=XM+1e-9;v+=px)s+=_ibTx(X(v),Tm+ph+17,_ibSg(v,px<1?2:1),{fs:10});
+ for(let v=-Math.floor(YM/py)*py;v<=YM+1e-9;v+=py)s+=_ibTx(Lm-7,Y(v)+4,_ibSg(v,py<0.5?2:1),{ta:'end',fs:10});
  s+=_ibTx(Lm+pw/2,Tm+ph+34,'variazione MASSA GRASSA (kg)',{fs:10.5,fw:640,fill:_IBC.ink2});
  s+=_ibTx(14,Tm+ph/2,'MASSA MUSCOLARE (kg)',{fs:10,fw:640,fill:_IBC.ink2,tr:'rotate(-90 14 '+(Tm+ph/2)+')'});
  s+=_ibEl('path',{d:U.map(function(p,i){return (i?'L':'M')+X(p.dg)+','+Y(p.dm);}).join(''),
@@ -13330,7 +13392,7 @@ function _ibGrBarre(S,w){
     s+=_ibEl('line',{x1:Lm,y1:Y(v),x2:Lm+pw,y2:Y(v),stroke:_IBC.grid,'stroke-width':1});
     s+=_ibTx(Lm-6,Y(v)+4,v,{ta:'end',fs:11});
   }
-  s+=_ibTx(Lm-6,Tm-2,'kg',{ta:'end',fs:10.5});
+  s+=_ibTx(Lm-6,Tm-10,'kg',{ta:'end',fs:10.5});   // a Tm-2 finiva sopra l'etichetta del tick piu' alto ("1kg20")
   // nastri: fanno VEDERE il movimento tra una misurazione e l'altra
   for(let i=0;i<V.length-1;i++){let a=0,b=0;
     ord.forEach(function(o){const a0=a,b0=b,a1=a+V[i][o[0]],b1=b+V[i+1][o[0]];
@@ -13485,10 +13547,19 @@ function _ibDisegnaSvg(radice){
                qualita:function(w){return _ibGrQualita(_ibVista.P,w);},
                barre:function(w){return _ibGrBarre(_ibVista.S,w);},
                forme:function(w){return _ibGrForme(_ibVista.ultimoIb,w);}};
-  // Ritmo e Composizione a barre, con molte misurazioni, non ci stanno: invece di
-  // troncare in silenzio si disegnano piu' larghi e la card scorre di lato.
+  // Con molte misurazioni i grafici non ci stanno: invece di troncare in
+  // silenzio si disegnano piu' larghi e la card scorre di lato. Per i grafici
+  // sull'asse del tempo (tempo, adip) lo scorrimento parte solo oltre le 8
+  // misurazioni: sotto, il layout di oggi va bene cosi' com'e'.
+  const nAdip=_ibVista.S.filter(function(p){return p.whr!=null||p.visc!=null;}).length;
   const largMin={ritmo:function(){return 78*_ibVista.P.length;},
-                 barre:function(){return 62*_ibVista.S.length;}};
+                 barre:function(){return 62*_ibVista.S.length;},
+                 tempo:function(){return _ibVista.S.length>8?46*_ibVista.S.length+170:0;},
+                 adip :function(){return nAdip>8?46*nAdip+420:0;}};
+  const nScroll={ritmo:function(){return _ibVista.P.length+' variazioni';},
+                 barre:function(){return _ibVista.S.length+' misurazioni';},
+                 tempo:function(){return _ibVista.S.length+' misurazioni';},
+                 adip :function(){return nAdip+' misurazioni';}};
   R.querySelectorAll('[data-ib]').forEach(function(el){
     const k=el.getAttribute('data-ib'),fn=mappa[k];if(!fn)return;
     // P136 — la scheda viene costruita anche mentre la sua linguetta e' ancora
@@ -13505,8 +13576,7 @@ function _ibDisegnaSvg(radice){
     el.classList.toggle('ib-scroll',need>disp+8);
     el.innerHTML=need>disp+8
       ? '<div style="min-width:'+need+'px">'+fn(need)+'</div>'
-        +'<div class="ib-scroll-hint">← trascina per vedere tutte le '+
-          (k==='ritmo'?_ibVista.P.length+' variazioni':_ibVista.S.length+' misurazioni')+' →</div>'
+        +'<div class="ib-scroll-hint">← trascina per vedere tutte le '+nScroll[k]()+' →</div>'
       : fn(disp);
   });
   if(!document.getElementById('ib-tip')){

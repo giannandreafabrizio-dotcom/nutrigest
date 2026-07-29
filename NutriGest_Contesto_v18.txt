@@ -1887,6 +1887,18 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
       REGOLA DI COLLAUDO: le prove Playwright devono costruire la scheda da
       NASCOSTA e poi mostrarla - renderla visibile prima di disegnarla nasconde
       esattamente questa classe di difetti.
+    P137 - MOLTE MISURAZIONI, RIFINITURE (29 lug 2026, collaudo su 25 referti reali):
+      _ibPasso(range,target) -> passo degli assi 1/2/5 per potenza di dieci,
+      ~5-8 etichette qualunque sia l'escursione. Usato da tempo, ritmo, qualita'
+      (entrambi gli assi) e adiposita'. NON tornare ai passi fissi.
+      Scorrimento laterale anche per tempo e adip (solo >8 misurazioni; sotto,
+      layout invariato). _ibDate sceglie le date sui PIXEL, non ogni N indici:
+      con l'asse del tempo reale i referti ravvicinati fondevano le date.
+      RITMO: la scala usa l'85° percentile dei ritmi (non il massimo) - un
+      periodo anomalo non schiaccia gli altri; barre tagliate = marcatore su/giu
+      + conteggio scritto nel grafico; "N gg" non si stampa sotto i 30px di barra.
+      Etichette di fine curva (tempo, adip): si scansano se convergono, il
+      trattino resta sul punto vero.
     ORDINE DEI RIQUADRI: i cinque riquadri si costruiscono in variabili
     (_cTempo, _cBarre, _cRitmo, _cQual, _cAdip) e si assemblano in _cOrdine, in
     fondo al blocco. L'ordine a video sta scritto li' e solo li': spostare una
