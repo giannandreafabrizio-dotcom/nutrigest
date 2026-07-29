@@ -287,6 +287,29 @@ main{flex:1;overflow-y:auto;}
 .ib-g2col>.card{margin-bottom:0!important;}
 @media(max-width:900px){.ib-g2col{grid-template-columns:1fr;}}
 [data-ib]{min-height:40px;}
+/* tabella di tutte le misurazioni (sostituisce le card una per referto) */
+.ib-tab{border-collapse:collapse;width:100%;font-size:.83rem;font-variant-numeric:tabular-nums;}
+.ib-tab th,.ib-tab td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;}
+.ib-tab th:first-child,.ib-tab td:first-child{text-align:left;}
+.ib-tab th{color:var(--text3);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;}
+.ib-tab tbody tr:hover{background:var(--bg);}
+.ib-tab tr.ib-ultima td{background:#F0FAF5;}
+.ib-del{border:0;background:none;color:#c4bfb6;cursor:pointer;font-size:.9rem;padding:0 2px;}
+.ib-del:hover{color:#A32D2D;}
+/* P133 — l'analisi segmentale occupa tutta la riga: sono due figure affiancate */
+.ib-g2col>.card.ib-wide{grid-column:1/-1;}
+@media(max-width:900px){.ib-g2col>.card.ib-wide{grid-column:auto;}}
+/* ingrandimento di un singolo riquadro */
+.ib-espandi{border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:7px;
+  width:26px;height:26px;min-width:26px;cursor:pointer;font-size:.82rem;line-height:1;padding:0;}
+.ib-espandi:hover{background:var(--bg);color:var(--text);}
+#ib-ov{position:fixed;inset:0;z-index:9998;background:rgba(20,19,17,.55);display:none;
+  align-items:center;justify-content:center;padding:2vh 2vw;}
+#ib-ov-box{position:relative;background:var(--s1,#fff);border-radius:16px;width:100%;
+  max-width:1600px;max-height:96vh;overflow:auto;padding:8px;}
+#ib-ov-box .card{border:0;box-shadow:none;margin:0!important;}
+#ib-ov-x{position:absolute;top:12px;right:14px;z-index:2;border:1px solid var(--border);
+  background:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:.95rem;}
 /* Ritmo e barre con molte misurazioni: la card scorre di lato, niente troncamenti */
 [data-ib].ib-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 [data-ib].ib-scroll::-webkit-scrollbar{height:9px;}
@@ -13291,19 +13314,133 @@ function _ibGrBarre(S,w){
   return _ibSvg(w,h,s);
 }
 
+// ── P133 · Intervalli di riferimento letti dal referto ─────────────────────
+// Stessa disciplina già in uso per il sangue: "sul referto del paziente fa fede
+// il range del laboratorio". Il referto InBody li stampa tra parentesi accanto a
+// ogni valore. Qui si ripuliscono prima di salvarli: un intervallo malformato
+// (l'AI può sbagliare a leggere) viene SCARTATO, non aggiustato — meglio nessun
+// riferimento che uno inventato.
+function _ibPuliRiferimenti(r){
+  if(!r||typeof r!=='object')return null;
+  const out={},chiavi=['peso','massa_muscolare','massa_grassa','acqua_totale',
+                       'metabolismo_basale','cintura_fianchi','grasso_viscerale'];
+  chiavi.forEach(function(k){
+    const v=r[k];
+    if(!Array.isArray(v)||v.length!==2)return;
+    const a=parseFloat(v[0]),b=parseFloat(v[1]);
+    if(!isFinite(a)||!isFinite(b)||a<0||b<=a)return;
+    out[k]=[a,b];
+  });
+  return Object.keys(out).length?out:null;
+}
+
+// ── G5 · Peso / Muscolo / Grasso — il grafico delle forme ──────────────────
+// Le tre fasce di riferimento sono ALLINEATE nella stessa colonna: è questo che
+// fa emergere la forma (a C, a D, o le tre asticelle equivalenti). Il software
+// riconosce la forma e scrive la frase che Fabrizio direbbe a voce.
+// Si disegna solo se il referto ha stampato gli intervalli: senza quelli non
+// esiste un denominatore onesto e il grafico semplicemente non compare.
+function _ibFormaDi(tp,tm,tg){
+  if(tg>1&&tm<tp&&tp>0.9)return {nome:'Forma a C',col:_IBC.grasso,
+    frase:'Peso e grasso sopra la norma, muscolo sotto: la priorità è togliere grasso proteggendo il muscolo.'};
+  if(tm>tp&&tg<tp&&tm>0.75)return {nome:'Forma a D',col:_IBC.muscolo,
+    frase:'Il peso è sopra perché il muscolo è tanto, non perché c’è grasso: è la composizione da raggiungere.'};
+  if(Math.max(tp,tm,tg)-Math.min(tp,tm,tg)<0.22)return {nome:'Forma bilanciata',col:_IBC.peso,
+    frase:'Le tre asticelle si equivalgono: massa magra e massa grassa sono in proporzione simile.'};
+  return {nome:'Forma intermedia',col:_IBC.peso,
+    frase:'Non ricade in nessuna delle tre forme tipiche: si legge riga per riga.'};
+}
+function _ibGrForme(ib,w){
+  if(!ib||!ib.rif)return '';
+  const R=ib.rif;
+  const righe=[['peso',ib.peso,R.peso,'Peso','kg',_IBC.peso],
+               ['musc',ib.musc,R.massa_muscolare,'Muscolo scheletrico','kg',_IBC.muscolo],
+               ['grasso',ib.g,R.massa_grassa,'Massa grassa','kg',_IBC.grasso]]
+    .filter(function(r){return r[1]!=null&&Array.isArray(r[2]);});
+  if(righe.length<3)return '';   // la forma ha senso solo con tutte e tre
+  const stretto=w<520;
+  const Lx=stretto?116:182,Rx=stretto?70:132,X0=Lx,Xmax=w-Rx;
+  const Tm=72,rowH=stretto?40:44,h=Tm+rowH*3+30;
+  const X1=X0+(Xmax-X0)*0.30,X2=X0+(Xmax-X0)*0.52;
+  const pos=function(v,lo,hi){const t=(v-lo)/(hi-lo);
+    if(t<0)return X1+Math.max(t,-1)*(X1-X0);
+    if(t>1)return X2+Math.min(t-1,3)/3*(Xmax-X2);
+    return X1+t*(X2-X1);};
+  const rat=function(v,lo,hi){return (v-lo)/(hi-lo);};
+  let s='';
+  s+=_ibEl('rect',{x:X0,y:Tm-22,width:X1-X0,height:22+rowH*3,fill:'#EFF4F8'});
+  s+=_ibEl('rect',{x:X1,y:Tm-22,width:X2-X1,height:22+rowH*3,fill:'#E6F4EE'});
+  s+=_ibEl('rect',{x:X2,y:Tm-22,width:Xmax-X2,height:22+rowH*3,fill:'#FBF1EC'});
+  s+=_ibTx((X0+X1)/2,Tm-8,'SOTTO',{fs:10,fw:700,fill:'#5B6B78'});
+  s+=_ibTx((X1+X2)/2,Tm-8,'NELLA NORMA',{fs:10,fw:700,fill:_IBC.good});
+  s+=_ibTx((X2+Xmax)/2,Tm-8,'SOPRA',{fs:10,fw:700,fill:'#A05A3C'});
+  righe.forEach(function(r,i){
+    const v=r[1],lo=r[2][0],hi=r[2][1],y=Tm+rowH*i+rowH/2,bh=17,xv=pos(v,lo,hi);
+    s+=_ibEl('rect',{x:X0,y:y-bh/2,width:Math.max(xv-X0,3),height:bh,rx:bh/2,fill:r[5],opacity:.92,
+      'data-ibtip':'<b>'+r[3]+'</b><br><b>'+_ibN(v)+' '+r[4]+'</b><br>intervallo del referto: '+_ibN(lo)+'–'+_ibN(hi)+' '+r[4]});
+    s+=_ibTx(X0-12,y-2,stretto?r[3].split(' ')[0]:r[3],{ta:'end',fs:11.5,fw:640,fill:_IBC.ink2});
+    s+=_ibTx(X0-12,y+11,'rif. '+_ibN(lo)+'–'+_ibN(hi),{ta:'end',fs:9,fill:_IBC.muted});
+    s+=_ibTx(xv+9,y+4,_ibN(v)+' '+r[4],{ta:'start',fs:12.5,fw:700,fill:r[5]});
+  });
+  [X1,X2].forEach(function(x){s+=_ibEl('line',{x1:x,y1:Tm-22,x2:x,y2:Tm+rowH*3,stroke:'#fff','stroke-width':2});});
+  const F=_ibFormaDi(rat(righe[0][1],righe[0][2][0],righe[0][2][1]),
+                     rat(righe[1][1],righe[1][2][0],righe[1][2][1]),
+                     rat(righe[2][1],righe[2][2][0],righe[2][2][1]));
+  s+=_ibTx(6,16,'Referto del '+fData(ib.data),{ta:'start',fs:11.5,fw:700,fill:_IBC.ink});
+  s+=_ibEl('rect',{x:6,y:28,width:122,height:21,rx:10.5,fill:F.col,opacity:.15});
+  s+=_ibTx(67,43,F.nome,{fs:11,fw:700,fill:F.col});
+  if(!stretto)s+=_ibTx(140,43,F.frase,{ta:'start',fs:10.5,fill:_IBC.ink2});
+  s+=_ibTx(X0,h-8,'Le fasce vengono dagli intervalli stampati sul referto',{ta:'start',fs:9.5,fill:_IBC.muted});
+  return _ibSvg(w,h,s);
+}
+
+// ── Ingrandimento a tutto schermo di un singolo riquadro ───────────────────
+// Overlay proprio invece della Fullscreen API del browser: su iPhone Safari la
+// modalità a schermo intero funziona solo sui video, quindi l'API qui non
+// servirebbe a niente. Il riquadro viene clonato e il grafico ridisegnato alla
+// larghezza grande — non è uno zoom dell'immagine, è lo stesso disegno rifatto.
+function _ibBtnFull(){
+  return '<button class="ib-espandi" title="Ingrandisci" aria-label="Ingrandisci il grafico" onclick="_ibEspandi(this)">\u2922</button>';
+}
+function _ibChiudiFull(){
+  const ov=document.getElementById('ib-ov');
+  if(ov){ov.style.display='none';ov.innerHTML='';}
+  document.body.style.overflow='';
+}
+function _ibEspandi(btn){
+  const card=btn.closest('.card'); if(!card)return;
+  let ov=document.getElementById('ib-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='ib-ov';document.body.appendChild(ov);
+    ov.addEventListener('click',function(e){if(e.target===ov||e.target.id==='ib-ov-x')_ibChiudiFull();});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')_ibChiudiFull();});
+  }
+  ov.innerHTML='<div id="ib-ov-box"><button id="ib-ov-x" title="Chiudi (Esc)">\u2715</button><div id="ib-ov-in"></div></div>';
+  const clone=card.cloneNode(true);
+  clone.querySelectorAll('.ib-espandi').forEach(function(b){b.remove();});
+  document.getElementById('ib-ov-in').appendChild(clone);
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+  // ridisegna alla larghezza dell'overlay (il clone porta con sé un SVG piccolo)
+  requestAnimationFrame(function(){_ibDisegnaSvg(ov);});
+}
+
 // ── dispatcher: disegna/ridisegna tutti i contenitori [data-ib] ───────────
-function _ibDisegnaSvg(){
+function _ibDisegnaSvg(radice){
   if(!_ibVista)return;
+  const R=radice||document.getElementById('pd-inbody');
+  if(!R)return;
   const mappa={tempo:function(w){return _ibGrTempo(_ibVista.S,w);},
                adip:function(w){return _ibGrAdiposita(_ibVista.S,w,_ibVista.sesso);},
                ritmo:function(w){return _ibGrRitmo(_ibVista.P,w);},
                qualita:function(w){return _ibGrQualita(_ibVista.P,w);},
-               barre:function(w){return _ibGrBarre(_ibVista.S,w);}};
+               barre:function(w){return _ibGrBarre(_ibVista.S,w);},
+               forme:function(w){return _ibGrForme(_ibVista.ultimoIb,w);}};
   // Ritmo e Composizione a barre, con molte misurazioni, non ci stanno: invece di
   // troncare in silenzio si disegnano piu' larghi e la card scorre di lato.
   const largMin={ritmo:function(){return 78*_ibVista.P.length;},
                  barre:function(){return 62*_ibVista.S.length;}};
-  document.querySelectorAll('#pd-inbody [data-ib]').forEach(function(el){
+  R.querySelectorAll('[data-ib]').forEach(function(el){
     const k=el.getAttribute('data-ib'),fn=mappa[k];if(!fn)return;
     const disp=Math.max(Math.round(el.clientWidth||el.parentElement.clientWidth||320),240);
     const need=largMin[k]?Math.max(largMin[k](),disp):disp;
@@ -13318,9 +13455,9 @@ function _ibDisegnaSvg(){
     const d=document.createElement('div');d.id='ib-tip';document.body.appendChild(d);
   }
   // equivalente touch dell'apertura a ventaglio: tocco per aprire, tocco fuori per chiudere
-  document.querySelectorAll('#pd-inbody .ibclu').forEach(function(g){
+  R.querySelectorAll('.ibclu').forEach(function(g){
     g.onclick=function(ev){
-      document.querySelectorAll('#pd-inbody .ibclu').forEach(function(o){if(o!==g)o.classList.remove('aperto');});
+      R.querySelectorAll('.ibclu').forEach(function(o){if(o!==g)o.classList.remove('aperto');});
       g.classList.toggle('aperto');ev.stopPropagation();};});
   if(!_ibResizeOn){
     _ibResizeOn=true;
@@ -13383,11 +13520,11 @@ function renderPdInbody(p){
   // Serie normalizzata e periodi si calcolano UNA volta sola e vengono riusati
   // sia dai numeri in testata sia dai grafici: così non possono divergere.
   const S_=_ibSerie(sorted), P_=_ibPeriodi(S_);
-  _ibVista={S:S_,P:P_,sesso:p.sesso||'M'};
+  _ibVista={S:S_,P:P_,sesso:p.sesso||'M',ultimoIb:sortedDesc[0]};
   // I riquadri si costruiscono in variabili separate e si assemblano in fondo:
   // l'ORDINE a video sta scritto in un punto solo (_cOrdine), non nell'ordine
   // in cui il codice capita di generarli.
-  let _cTempo='',_cAdip='',_cRitmo='',_cQual='',_cBarre='';
+  let _cTempo='',_cAdip='',_cRitmo='',_cQual='',_cBarre='',_cForme='';
   if(hasMulti){
     const pesoTarget=p.pesoTarget||null;
     const baseS=S_[0], ultS=S_[S_.length-1];
@@ -13409,7 +13546,7 @@ function renderPdInbody(p){
         +'</div>';
     };
     _cTempo=`<div class="card">
-      <div class="card-hd"><h3>📈 Composizione corporea nel tempo</h3></div>
+      <div class="card-hd"><h3>📈 Composizione corporea nel tempo</h3>${_ibBtnFull()}</div>
       <div class="card-bd">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:.75rem">
           ${_kpi('Peso',ultS.peso,ultS.peso!=null&&baseS.peso!=null?ultS.peso-baseS.peso:null,true)}
@@ -13438,7 +13575,7 @@ function renderPdInbody(p){
       const viscLabel=lastVisc===null?'—':lastVisc<=RV.hi?'dentro il riferimento':'sopra il riferimento';
       const RW=_IB_RIF.whr[p.sesso==='F'?'F':'M'];
       _cAdip=`<div class="card">
-        <div class="card-hd"><h3>\u{1FAC0} Adiposità centrale</h3></div>
+        <div class="card-hd"><h3>\u{1FAC0} Adiposità centrale</h3>${_ibBtnFull()}</div>
         <div class="card-bd">
           ${lastVisc!==null?`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:.6rem;flex-wrap:wrap">
             <span style="font-size:.73rem;color:var(--text2)">Grasso viscerale attuale:</span>
@@ -13485,7 +13622,7 @@ function renderPdInbody(p){
         }
       }
       _cRitmo=`<div class="card">
-        <div class="card-hd"><h3>⚡ Ritmo — quanto e come, periodo per periodo</h3></div>
+        <div class="card-hd"><h3>⚡ Ritmo — quanto e come, periodo per periodo</h3>${_ibBtnFull()}</div>
         <div class="card-bd">
           <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.77rem;margin-bottom:.5rem">
             ${_mediaG!=null?`<span>Media grasso: <strong>${_ibSg(_mediaG,2)} kg/sett</strong></span>`:''}
@@ -13506,7 +13643,7 @@ function renderPdInbody(p){
       // domanda che le barre affiancate non riuscivano a far leggere a colpo d'occhio.
       if(P_.some(function(x){return x.dg!=null&&x.dm!=null;})){
         _cQual=`<div class="card">
-          <div class="card-hd"><h3>🎯 Ritmo — la qualità di ogni periodo</h3></div>
+          <div class="card-hd"><h3>🎯 Ritmo — la qualità di ogni periodo</h3>${_ibBtnFull()}</div>
           <div class="card-bd">
             <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
               <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:50%;display:inline-block"></span>Ricomposizione</span>
@@ -13527,7 +13664,7 @@ function renderPdInbody(p){
     // striscia a parte, come percentuale della magra (indicatore di idratazione).
     if(S_.filter(function(x){return x.g!=null&&x.magra!=null;}).length>=2){
       _cBarre=`<div class="card">
-        <div class="card-hd"><h3>🧱 Composizione — peso, pezzo per pezzo</h3></div>
+        <div class="card-hd"><h3>🧱 Composizione — peso, pezzo per pezzo</h3>${_ibBtnFull()}</div>
         <div class="card-bd">
           <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.6rem;font-size:.73rem;color:var(--text2)">
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
@@ -13540,34 +13677,68 @@ function renderPdInbody(p){
         </div>
       </div>`;
     }
-  }
 
+    // G5 — Peso / Muscolo / Grasso: il grafico delle forme (P133).
+    // Compare solo se il referto ha stampato gli intervalli di riferimento:
+    // senza quelli non c'è un denominatore onesto su cui disegnare le asticelle.
+    if(_ibVista.ultimoIb&&_ibVista.ultimoIb.rif&&_ibVista.ultimoIb.peso!=null
+       &&_ibVista.ultimoIb.musc!=null&&_ibVista.ultimoIb.g!=null){
+      _cForme=`<div class="card">
+        <div class="card-hd"><h3>\u{1F4CF} Peso · Muscolo · Grasso</h3>${_ibBtnFull()}</div>
+        <div class="card-bd">
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.peso};border-radius:2px;display:inline-block"></span>Peso</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:2px;display:inline-block"></span>Muscolo scheletrico</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
+          </div>
+          <div data-ib="forme"></div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Le tre fasce sono allineate: se un'asticella supera la fascia sta sopra, se non la raggiunge sta sotto. La forma viene riconosciuta in automatico.</div>
+        </div>
+      </div>`;
+    }
+  }
   // ── Ordine dei riquadri nella scheda (2 colonne su PC, 1 su telefono) ────
   // riga 1: andamento nel tempo | composizione del peso
   // riga 2: ritmo               | qualità del ritmo
   // riga 3: adiposità centrale  | analisi segmentale
-  const _cOrdine=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_ibSilhouetteSegmentale(last)];
+  // riga 1: andamento nel tempo | composizione del peso
+  // riga 2: ritmo               | qualità del ritmo
+  // riga 3: adiposità centrale  | peso/muscolo/grasso
+  // riga 4: analisi segmentale (larga, due figure affiancate)
+  const _cSegm=_ibSilhouetteSegmentale(last);
+  const _cOrdine=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_cForme,
+                  _cSegm?_cSegm.replace('<div class="card"','<div class="card ib-wide"'):''];
   html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
 
-  // ── Cards singole misurazioni ─────────────────────────────────────────────
-  html+=sortedDesc.map((ib,i)=>`
-    <div class="card" style="margin-bottom:.7rem">
-      <div class="card-hd"><h3>📊 ${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}${ib.condizioneBia?`<span class="tag" style="background:#EEF2FF;color:#4338CA;margin-left:4px">🩺 ${ib.condizioneBia}</span>`:''}</h3>
-        <button class="btn btn-d btn-sm" onclick="delInbody('${ib.id}')">✕</button></div>
-      <div class="card-bd">
-        <div class="ib-grid">
-          ${ib.peso?`<div class="ib-item"><div class="ib-lbl">Peso</div><div class="ib-val">${ib.peso}<span class="ib-unit"> kg</span></div></div>`:''}
-          ${ib.pg?`<div class="ib-item"><div class="ib-lbl">% Grassa</div><div class="ib-val">${ib.pg}<span class="ib-unit"> %</span></div></div>`:''}
-          ${ib.g?`<div class="ib-item"><div class="ib-lbl">Massa grassa</div><div class="ib-val">${ib.g}<span class="ib-unit"> kg</span></div></div>`:''}
-          ${ib.m?`<div class="ib-item"><div class="ib-lbl">Massa magra</div><div class="ib-val">${ib.m}<span class="ib-unit"> kg</span></div></div>`:''}
-          ${ib.musc?`<div class="ib-item"><div class="ib-lbl">Massa musc.</div><div class="ib-val">${ib.musc}<span class="ib-unit"> kg</span></div></div>`:''}
-          ${ib.acqua?`<div class="ib-item"><div class="ib-lbl">Acqua</div><div class="ib-val">${ib.acqua}<span class="ib-unit"> L</span></div></div>`:''}
-          ${ib.mb?`<div class="ib-item"><div class="ib-lbl">Metabolismo</div><div class="ib-val">${ib.mb}<span class="ib-unit"> kcal</span></div></div>`:''}
-          ${ib.visc?`<div class="ib-item"><div class="ib-lbl">Grasso viscerale</div><div class="ib-val">${ib.visc}</div></div>`:''}
-          ${ib.bmi?`<div class="ib-item"><div class="ib-lbl">BMI</div><div class="ib-val">${ib.bmi}</div></div>`:''}
-        </div>
-        ${ib.note?`<div style="font-size:.77rem;color:var(--text2);margin-top:.4rem;padding:.5rem;background:var(--bg);border-radius:6px">${ib.note}</div>`:''}
-      </div></div>`).join('');
+  // ── Tutte le misurazioni, in tabella e chiusa a tendina ──────────────────
+  // Prima era una card per misurazione: con 7 referti erano ~1200px di numeri
+  // che i grafici sopra hanno già raccontato, e con 25 diventava una pagina
+  // infinita. La tabella non è solo più compatta: è l'unica forma che si legge
+  // IN COLONNA — "come è andata l'acqua" era impossibile saltando fra le card.
+  // decimali fissi per colonna: in una tabella i numeri si leggono in verticale,
+  // e "79" accanto a "78,1" spezza l'allineamento della virgola
+  const _cel=(v,u,dec)=>v!=null&&v!==''
+    ?(_ibN(v,dec==null?(Number.isInteger(+v)?0:1):dec)+(u?'<span style="font-size:.62rem;color:var(--text3)"> '+u+'</span>':''))
+    :'<span style="color:var(--text3)">—</span>';
+  html+=`<details class="card" style="margin-bottom:.7rem">
+    <summary style="padding:.75rem 1.1rem;cursor:pointer;font-weight:600;font-size:.92rem;list-style:none">
+      📊 Tutte le misurazioni (${sortedDesc.length}) <span style="font-size:.72rem;color:var(--text3);font-weight:400">— clicca per aprire</span>
+    </summary>
+    <div class="card-bd" style="overflow-x:auto;padding-top:0">
+      <table class="ib-tab">
+        <thead><tr><th>Data</th><th>Peso</th><th>% grassa</th><th>M. grassa</th><th>M. magra</th>
+          <th>M. musc.</th><th>Acqua</th><th>Metab.</th><th>Visc.</th><th>BMI</th><th></th></tr></thead>
+        <tbody>${sortedDesc.map((ib,i)=>`<tr${i===0?' class="ib-ultima"':''}>
+          <td><div style="font-weight:600">${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</div>
+            ${ib.condizioneBia||ib.note?`<div style="font-size:.66rem;color:var(--text3)">${ib.condizioneBia||''}${ib.condizioneBia&&ib.note?' · ':''}${ib.note?'<span title="'+String(ib.note).replace(/"/g,'&quot;')+'">📝 nota</span>':''}</div>`:''}</td>
+          <td><b>${_cel(ib.peso,'',1)}</b></td><td>${_cel(ib.pg,'%',1)}</td><td>${_cel(ib.g,'',1)}</td><td>${_cel(ib.m,'',1)}</td>
+          <td>${_cel(ib.musc,'',1)}</td><td>${_cel(ib.acqua,'',1)}</td><td>${_cel(ib.mb,'',0)}</td><td>${_cel(ib.visc)}</td><td>${_cel(ib.bmi,'',1)}</td>
+          <td><button class="ib-del" title="Elimina questa misurazione" onclick="delInbody('${ib.id}')">✕</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <div style="font-size:.7rem;color:var(--text3);margin-top:.5rem">I valori sono quelli del referto. Le colonne si leggono dall'alto in basso per vedere l'andamento di una singola voce.</div>
+    </div>
+  </details>`;
 
   document.getElementById('pd-inbody').innerHTML=piHtml+html;
 
@@ -25067,6 +25238,7 @@ async function generaPDF(paziente, giorni) {
 
 function openInbody(){
   window._ibAutofill=null;
+  window._ibRifImport=null;   // P133 — mai riferimenti ereditati da un import precedente
   document.getElementById('ib-data').value=today();
   ['ib-bia','ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-mb','ib-visc','ib-bmi','ib-altezza','ib-peso-ideale','ib-note','ib-cint-fianchi','ib-girovita','ib-pa-sbp','ib-pa-dbp','ib-ms-bracsx','ib-ms-bracdx','ib-ms-tronco','ib-ms-gambsx','ib-ms-gambdx','ib-gs-bracsx','ib-gs-bracdx','ib-gs-tronco','ib-gs-gambsx','ib-gs-gambdx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
@@ -25102,7 +25274,8 @@ function salvaInbody(){
     girovita:gn('ib-girovita'),paSbp:gn('ib-pa-sbp'),paDbp:gn('ib-pa-dbp'),
     magraSegm:{bracSx:gn('ib-ms-bracsx'),bracDx:gn('ib-ms-bracdx'),tronco:gn('ib-ms-tronco'),gambSx:gn('ib-ms-gambsx'),gambDx:gn('ib-ms-gambdx')},
     grassaSegm:{bracSx:gn('ib-gs-bracsx'),bracDx:gn('ib-gs-bracdx'),tronco:gn('ib-gs-tronco'),gambSx:gn('ib-gs-gambsx'),gambDx:gn('ib-gs-gambdx')},
-    note:document.getElementById('ib-note').value.trim()};
+    note:document.getElementById('ib-note').value.trim(),
+    rif:window._ibRifImport||null};   // P133 — intervalli stampati sul referto
   // F7 (26 lug 2026) — il referto continua ad aggiornare l'altezza (è il dato
   // più recente e misurato sul posto), ma uno scarto grosso viene DICHIARATO:
   // può essere una lettura sbagliata del PDF o il referto di un'altra persona,
@@ -26725,7 +26898,7 @@ async function loadInbodyPDF(e) {
         : {type:'document', source:{type:'base64', media_type:'application/pdf', data:base64}};
       const data = await aiCall({tipo:'import-inbody',max_tokens:1000,messages:[{role:'user', content:[
             contentBlock,
-            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- data_referto (formato YYYY-MM-DD — la DATA DEL TEST stampata sul referto, spesso etichettata "Data del test"/"Test Date"/"Data misurazione" e accompagnata dall\'ora. NON confonderla con la data di nascita. Se sul referto non c\'è, metti null: non dedurla e non inventarla)\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
+            {type:'text', text:'Sei un nutrizionista. Estrai dal referto InBody questi valori in JSON. Rispondi SOLO con il JSON, zero testo prima o dopo, zero markdown.\nCampi richiesti:\n- data_referto (formato YYYY-MM-DD — la DATA DEL TEST stampata sul referto, spesso etichettata "Data del test"/"Test Date"/"Data misurazione" e accompagnata dall\'ora. NON confonderla con la data di nascita. Se sul referto non c\'è, metti null: non dedurla e non inventarla)\n- peso (kg)\n- altezza (cm)\n- percentuale_grassa (%)\n- massa_grassa (kg)\n- massa_magra (kg)\n- massa_muscolare (kg)\n- acqua_totale (L)\n- metabolismo_basale (kcal)\n- grasso_viscerale (livello numerico 1-20, NON la stringa)\n- bmi\n- peso_ideale (kg, valore "Peso ideale" o "Peso target" riportato sul referto InBody)\n- cintura_fianchi (rapporto numerico es. 0.92)\n- riferimenti: gli INTERVALLI DI RIFERIMENTO stampati TRA PARENTESI accanto ai valori (sezioni \"Analisi della Composizione Corporea\" e \"Parametri di Ricerca\"). Esempio: \"Peso (kg) 79,1 ( 55,3~74,8 )\" -> peso:[55.3,74.8]. Formato: {peso:[min,max], massa_muscolare:[min,max], massa_grassa:[min,max], acqua_totale:[min,max], metabolismo_basale:[min,max], cintura_fianchi:[min,max], grasso_viscerale:[min,max]}. Metti null il singolo intervallo che NON è stampato sul referto: non dedurlo e non inventarlo.\n- data_nascita (formato YYYY-MM-DD, se presente sul referto — spesso vicino a nome/età del paziente)\n- sesso ("M" o "F", se presente sul referto)\n- magra_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\n- grassa_segmentale: {braccio_sx (kg), braccio_dx (kg), tronco (kg), gamba_sx (kg), gamba_dx (kg)}\nSe un valore non è leggibile nel documento metti null.'}
           ]}]});
       const testo = data.content?.[0]?.text || '';
       const clean = testo.replace(/```json|```/g,'').trim();
@@ -26735,6 +26908,12 @@ async function loadInbodyPDF(e) {
       s('ib-m',ib.massa_magra); s('ib-musc',ib.massa_muscolare); s('ib-acqua',ib.acqua_totale);
       s('ib-mb',ib.metabolismo_basale); s('ib-visc',ib.grasso_viscerale); s('ib-bmi',ib.bmi); s('ib-altezza',ib.altezza); s('ib-peso-ideale',ib.peso_ideale);
       s('ib-cint-fianchi', ib.cintura_fianchi);
+      // P133 — gli intervalli di riferimento stampati sul referto non hanno un
+      // campo nel modale (non si modificano a mano: appartengono al referto, non
+      // ai valori). Restano qui fino al salvataggio, che li scrive sulla
+      // misurazione. openInbody li azzera, così un import non lascia in giro i
+      // riferimenti del paziente precedente.
+      window._ibRifImport=_ibPuliRiferimenti(ib.riferimenti);
       // ── P120 — DATA DEL TEST dal referto ────────────────────────────────────
       // Prima il campo restava sulla data di OGGI (precompilata da openInbody):
       // importando 10 referti storici si ottenevano 10 misurazioni datate oggi,

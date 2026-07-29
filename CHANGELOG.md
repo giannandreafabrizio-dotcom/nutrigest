@@ -10,6 +10,65 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (m) — P133 TAPPA 1+2: GLI INTERVALLI DAL REFERTO E IL GRAFICO DELLE FORME · MISURAZIONI IN TABELLA · INGRANDIMENTO A TUTTO SCHERMO.
+Test **410/410**. Baseline `5f1167b`. Include la rigenerazione di INDEX.md.
+
+**P133 — DA DOVE NASCE.** Fabrizio mostra in visita il grafico InBody
+"Analisi Muscolo-Grasso" (tre asticelle peso / muscolo / grasso con zone
+Sotto-Normale-Sopra) e ne spiega le forme: **a C** (peso e grasso alti, muscolo
+basso), **a D** (peso contenuto, tanto muscolo, poco grasso), o le tre asticelle
+**equivalenti**. Voleva la stessa cosa in NutriGest.
+
+**PERCHÉ NON SI POTEVA COPIARE — e il motivo vero non è legale.** L'idea e la
+lettura clinica non sono proteggibili, la grafica sì: una versione nostra si può
+fare. Ma le asticelle InBody sono in **percentuale rispetto a un valore
+"standard" calcolato da una formula loro che non abbiamo**. Ricostruire quella
+scala avrebbe significato inventarsi il denominatore — cioè rifare l'errore del
+livello 15 un'ora dopo averlo scoperto.
+
+**LA VIA D'USCITA ERA GIÀ IN CASA.** Il referto **stampa gli intervalli tra
+parentesi** accanto a ogni valore (`Peso (kg) 79,1 ( 55,3~74,8 )`), e NutriGest
+ha già questa disciplina per il sangue: *"sul referto del paziente fa sempre fede
+il range del laboratorio"*. Estesa all'InBody.
+- **Tappa 1** — il prompt di `loadInbodyPDF` chiede anche `riferimenti` (peso,
+  muscolo, grasso, acqua, metabolismo, cintura/fianchi, viscerale), con l'esempio
+  del formato preso dal referto reale di un paziente. `_ibPuliRiferimenti`
+  **scarta** un intervallo malformato invece di aggiustarlo (min≥max, non
+  numerico, negativo): meglio nessun riferimento che uno inventato. Gli intervalli
+  non hanno un campo nel modale — appartengono al referto, non ai valori — quindi
+  viaggiano in `window._ibRifImport`, azzerato da `openInbody` (altrimenti un
+  import lascerebbe in giro i riferimenti del paziente precedente) e scritto da
+  `salvaInbody` in `ib.rif`.
+- **Tappa 2** — `_ibGrForme`: le tre fasce di riferimento sono **allineate nella
+  stessa colonna** (è questo che fa emergere la forma), e `_ibFormaDi` **riconosce
+  la forma e scrive la frase** che Fabrizio direbbe a voce. Quest'ultima parte è
+  ciò che rende il grafico nostro e non loro: InBody la forma non la nomina.
+  **Il grafico non compare se il referto non ha stampato gli intervalli** — senza
+  denominatore non si disegna niente, e tutto il resto della scheda resta com'è.
+
+**MISURAZIONI IN TABELLA (scelta di Fabrizio).** Le card una-per-referto erano
+~1200px di numeri che i grafici sopra hanno già raccontato, e con 25 referti
+diventavano una pagina infinita. Ora: una **tabella dentro un `<details>` chiuso**.
+Il guadagno non è solo lo spazio — *"le card non si potevano confrontare"*: per
+seguire l'acqua bisognava saltare da un riquadro all'altro, mentre **una tabella
+si legge in colonna**. Decimali fissi per colonna, perché "79" accanto a "78,1"
+spezza l'allineamento della virgola.
+
+**INGRANDIMENTO A TUTTO SCHERMO** su ogni riquadro (⤢ in alto a destra).
+*Perché un overlay nostro e non la Fullscreen API:* su iPhone Safari la modalità a
+schermo intero funziona **solo sui video**, quindi l'API non servirebbe proprio
+dove serve di più. Il riquadro viene clonato e **il grafico ridisegnato alla
+larghezza grande** — non è uno zoom dell'immagine, è lo stesso disegno rifatto:
+`_ibDisegnaSvg` ora accetta una radice.
+Analisi segmentale spostata a **riga intera** (`.ib-wide`): sono due figure
+affiancate e in mezza colonna stavano strette.
+
+**RESTA APERTO.** P132 aspetta la decisione clinica di Fabrizio (la fascia del
+ritmo deve giudicare anche la lentezza, o solo il lato pericoloso?). P134
+(filtri di periodo + tocco per leggere i valori su telefono) non toccata.
+**Da collaudare con un import vero:** la tappa 1 è scritta ma non è mai passata
+per una chiamata AI reale — il primo referto importato è il collaudo.
+
 28 LUGLIO 2026 (l) — P131 CHIUSA: ADIPOSITÀ CENTRALE SENZA PIÙ SOGLIE SENZA FONTE, SCALE CHE SI ADATTANO AL PAZIENTE, MAPPA CHE SI APRE A VENTAGLIO.
 Test **410/410**. Baseline `02120b5`. Include la rigenerazione di INDEX.md.
 
