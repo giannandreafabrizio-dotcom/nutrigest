@@ -12840,7 +12840,19 @@ const _IBC={grasso:'#DD5A33',muscolo:'#1D9E75',acqua:'#2A78D6',resto:'#9A978C',
 // Sotto le 3 settimane il ritmo settimanale non è attendibile: due referti a 1
 // giorno di distanza producevano "−4,9 kg/sett" (0,7 kg diviso 1/7 di settimana).
 const _IB_MIN_GG=21;
-const _IB_RITMO_OK=[-0.10,-0.35];   // fascia di perdita grasso consigliata, kg/sett
+// P132 — la fascia di perdita grasso consigliata si calcola sul PESO del paziente
+// (0,3–0,7% a settimana in massa grassa): una fascia fissa uguale per tutti dava
+// un falso allarme "stai calando troppo in fretta" a chi pesa 113 kg e perde
+// 0,45 kg/sett, che va benissimo.
+function _ibFasciaRitmo(peso){
+  if(!peso||!isFinite(peso))return null;   // senza peso niente fascia: non si inventa
+  return [-peso*0.003,-peso*0.007];        // [lenta, rapida]
+}
+// P132 scelta b — il colore d'allarme segnala SOLO il lato pericoloso: calo più
+// rapido del consigliato e muscolo che scende. Andare più piano non è un errore
+// e non si colora: un paziente lento vedeva la barra fuori dal verde a ogni
+// apertura della scheda, cioè un rimprovero a ogni visita per un fatto che spesso
+// non dipende da lui.
 // oltre questo orizzonte la proiezione all'obiettivo non si mostra come numero
 const _IB_MAX_SETT=52;
 let _ibVista=null,_ibResizeOn=false,_ibResizeT=null;
@@ -13131,21 +13143,37 @@ function _ibGrRitmo(P,w){
   let mx=0.16;
   U.forEach(function(p){if(p.rg!=null&&Math.abs(p.rg)>mx&&!p.breve)mx=Math.abs(p.rg);
                         if(p.rm!=null&&Math.abs(p.rm)>mx&&!p.breve)mx=Math.abs(p.rm);});
-  const HI=Math.max(mx*0.7,0.12),LO=-Math.max(mx*1.15,_IB_RITMO_OK[1]*-1+0.05);
+  const FA=_ibFasciaRitmo(_ibVista&&_ibVista.pesoAttuale);
+  const HI=Math.max(mx*0.7,0.12),LO=-Math.max(mx*1.15,0.2);   // la scala segue i DATI: la fascia consigliata di un paziente magro sta molto piu' in basso e li schiacciava tutti in alto
   const Y=function(v){return Tm+ph*(HI-v)/(HI-LO);},yz=Y(0);
   const totGG=U.reduce(function(s,p){return s+p.gg;},0);
   let s=_ibEl('defs',{},
     _ibEl('pattern',{id:'ibHatch',width:6,height:6,patternTransform:'rotate(45)',patternUnits:'userSpaceOnUse'},
       _ibEl('line',{x1:0,y1:0,x2:0,y2:6,stroke:_IBC.muted,'stroke-width':2.5,opacity:.55}))
    +_ibEl('clipPath',{id:'ibClip'},_ibEl('rect',{x:Lm,y:Tm,width:pw,height:ph})));
-  s+=_ibEl('g',{'clip-path':'url(#ibClip)'},_ibEl('rect',{x:Lm,y:Y(_IB_RITMO_OK[0]),
-    width:pw,height:Math.max(Y(_IB_RITMO_OK[1])-Y(_IB_RITMO_OK[0]),0),fill:_IBC.muscolo,opacity:.11}));
+  if(FA)s+=_ibEl('g',{'clip-path':'url(#ibClip)'},
+    // verde = ritmo consigliato · ambra = più rapido del consigliato (l'unico
+    // lato che si segnala). Sopra la fascia non c'è nessuna zona colorata:
+    // andare piano è un'informazione, non un allarme.
+    _ibEl('rect',{x:Lm,y:Y(FA[0]),width:pw,height:Math.max(Y(FA[1])-Y(FA[0]),0),fill:_IBC.muscolo,opacity:.11})
+   +_ibEl('rect',{x:Lm,y:Y(FA[1]),width:pw,height:Math.max(Tm+ph-Y(FA[1]),0),fill:'#E8A33D',opacity:.10}));
   const passo=(HI-LO)>0.9?0.25:0.1;
   for(let v=Math.ceil(LO/passo)*passo;v<=HI;v+=passo){
     s+=_ibEl('line',{x1:Lm,y1:Y(v),x2:Lm+pw,y2:Y(v),stroke:Math.abs(v)<1e-9?_IBC.axis:_IBC.grid,'stroke-width':Math.abs(v)<1e-9?1.4:1});
     s+=_ibTx(Lm-6,Y(v)+4,_ibSg(v,2),{ta:'end',fs:10.5});
   }
   s+=_ibTx(2,Tm-18,'kg / settimana',{ta:'start',fs:10.5,fw:600});
+  if(FA&&!stretto){
+    if(FA[1]>LO){
+      s+=_ibTx(Lm+pw-6,(Y(Math.max(FA[0],LO))+Y(FA[1]))/2+4,'ritmo consigliato',{ta:'end',fs:9.5,fill:_IBC.good,fw:600});
+      if(Tm+ph-Y(FA[1])>16)s+=_ibTx(Lm+pw-6,Y(FA[1])+13,'più rapido del consigliato',{ta:'end',fs:9.5,fill:'#8A6420',fw:600});
+    }else{
+      // la zona "più rapido del consigliato" è sotto la finestra: nessuno la sfiora.
+      // Si dichiara invece di lasciar credere che non esista.
+      s+=_ibTx(Lm+pw-6,Tm+ph-6,'fascia consigliata '+_ibN(FA[0],2)+' / '+_ibN(FA[1],2)+' — il limite rapido è fuori scala',
+        {ta:'end',fs:9.5,fill:_IBC.good,fw:600});
+    }
+  }
   s+=_ibEl('text',{x:Lm+pw,y:Tm-18,'text-anchor':'end','font-size':11,'font-weight':640},
     _ibEl('tspan',{fill:_IBC.muscolo},'▲ muscolo su')
    +_ibEl('tspan',{fill:_IBC.muted},'   ·   ')
@@ -13165,6 +13193,18 @@ function _ibGrRitmo(P,w){
     if(p.rg!=null){barre+=_ibEl('path',{d:bar(x,mez,p.rg),fill:p.breve?'url(#ibHatch)':_IBC.grasso,'data-ibtip':tip});
       if(p.rg<LO)barre+=_ibEl('path',{d:'M'+(x+mez/2-4)+','+(Tm+ph-9)+'h8l-4,7Z',fill:_IBC.muted,'data-ibtip':tip});}
     if(p.rm!=null)barre+=_ibEl('path',{d:bar(x+mez+3,mez,p.rm),fill:p.breve?'url(#ibHatch)':_IBC.muscolo,'data-ibtip':tip});
+    // P132 b — si segnala SOLO ciò che è rischioso: calo più rapido del ritmo
+    // consigliato, o muscolo che scende. La lentezza non si segnala mai.
+    if(!p.breve){
+      const _rapido=FA&&p.rg!=null&&p.rg<FA[1];
+      const _muscGiu=p.rm!=null&&p.dm!=null&&p.rm<-0.03&&p.dm<-0.25;  // 0,15 kg in 7 settimane e' rumore di misura, non un calo
+      if(_rapido||_muscGiu){
+        const _y=Math.max(Math.min(_rapido?Y(Math.max(p.rg,LO)):Tm+ph,_muscGiu?Y(p.rm):Tm+ph)-8,Tm+11);
+        barre+=_ibEl('text',{x:x+bw/2,y:_y,'text-anchor':'middle','font-size':12,
+          'data-ibtip':tip+'<br>⚠ '+(_rapido?'calo più rapido del ritmo consigliato':'')
+            +(_rapido&&_muscGiu?' · ':'')+(_muscGiu?'massa muscolare in calo':'')},'\u26A0');
+      }
+    }
     assi+=_ibEl('line',{x1:x,y1:Tm+ph+20,x2:x+bw,y2:Tm+ph+20,stroke:p.breve?_IBC.grasso:_IBC.axis,'stroke-width':1.4});
     assi+=_ibTx(x+bw/2,Tm+ph+15,p.gg+' gg',{fs:10,fill:p.breve?_IBC.grasso:_IBC.muted,fw:p.breve?700:400});
     // sempre e solo la data di FINE del periodo: mescolare "6 ott → 24 nov" sulle
@@ -13520,7 +13560,7 @@ function renderPdInbody(p){
   // Serie normalizzata e periodi si calcolano UNA volta sola e vengono riusati
   // sia dai numeri in testata sia dai grafici: così non possono divergere.
   const S_=_ibSerie(sorted), P_=_ibPeriodi(S_);
-  _ibVista={S:S_,P:P_,sesso:p.sesso||'M',ultimoIb:sortedDesc[0]};
+  _ibVista={S:S_,P:P_,sesso:p.sesso||'M',ultimoIb:sortedDesc[0],pesoAttuale:(S_.length?S_[S_.length-1].peso:null)};
   // I riquadri si costruiscono in variabili separate e si assemblano in fondo:
   // l'ORDINE a video sta scritto in un punto solo (_cOrdine), non nell'ordine
   // in cui il codice capita di generarli.
@@ -13618,7 +13658,8 @@ function renderPdInbody(p){
           else if(sett===null)
             obiStr3=box('#8A6420','#FBF7EE',`Mancano <strong>${_ibN(mancano)} kg</strong> all'obiettivo, ma al ritmo attuale <strong>il peso non si sta avvicinando</strong>: da rivedere in visita.`);
           else
-            obiStr3=box('#8A6420','#FBF7EE',`Mancano <strong>${_ibN(mancano)} kg</strong> all'obiettivo: al ritmo attuale servirebbe <strong>più di un anno</strong>. È il ritmo da rivedere, non il tempo da aspettare.`);
+            // P132 b — informazione, non rimprovero: colore neutro
+            obiStr3=box('#185FA5','#E6F1FB',`Mancano <strong>${_ibN(mancano)} kg</strong> all'obiettivo: al ritmo attuale servirebbe <strong>più di un anno</strong>. Vale la pena riparlarne in visita.`);
         }
       }
       _cRitmo=`<div class="card">
@@ -13632,9 +13673,10 @@ function renderPdInbody(p){
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:2px;display:inline-block"></span>Massa muscolare</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#CFE7DC;border-radius:2px;display:inline-block"></span>Ritmo consigliato</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#F4DFBE;border-radius:2px;display:inline-block"></span>Più rapido del consigliato</span>
           </div>
           <div data-ib="ritmo"></div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Si parte dal ${fData(P_[0].a.data)}; sotto ogni barra c'è la data in cui quel periodo si chiude. Larghezza della barra = durata del periodo. Sopra lo zero il muscolo che sale, sotto il grasso che scende.</div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:.4rem">Si parte dal ${fData(P_[0].a.data)}; sotto ogni barra c'è la data in cui quel periodo si chiude. Larghezza della barra = durata del periodo. Sopra lo zero il muscolo che sale, sotto il grasso che scende.<br><b>⚠ segnala solo il lato rischioso</b> — calo più rapido del consigliato o muscolo in calo. Andare più piano della fascia non è un errore: è un'informazione, e non viene colorato.</div>
           ${obiStr3}
         </div>
       </div>`;
@@ -13706,8 +13748,14 @@ function renderPdInbody(p){
   // riga 3: adiposità centrale  | peso/muscolo/grasso
   // riga 4: analisi segmentale (larga, due figure affiancate)
   const _cSegm=_ibSilhouetteSegmentale(last);
-  const _cOrdine=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_cForme,
-                  _cSegm?_cSegm.replace('<div class="card"','<div class="card ib-wide"'):''];
+  const _prima=[_cTempo,_cBarre,_cRitmo,_cQual,_cAdip,_cForme].filter(Boolean);
+  // L'analisi segmentale prende tutta la riga SOLO se resterebbe da sola.
+  // Se i riquadri sopra sono in numero dispari (es. il grafico delle forme non
+  // c'è perché il referto non ha gli intervalli) il posto libero è accanto
+  // all'ultimo: ci va lei, invece di lasciare un buco e scendere di riga.
+  const _cOrdine=_prima.concat([
+    _cSegm ? (_prima.length%2===0 ? _cSegm.replace('<div class="card"','<div class="card ib-wide"') : _cSegm) : ''
+  ]);
   html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
 
   // ── Tutte le misurazioni, in tabella e chiusa a tendina ──────────────────

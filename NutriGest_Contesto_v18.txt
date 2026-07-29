@@ -1836,6 +1836,17 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
     MOLTE MISURAZIONI: Ritmo e Composizione a barre, quando non ci stanno, si
       disegnano piu' larghi e la card scorre di lato (.ib-scroll + avviso), invece
       di troncare in silenzio.
+    P132 - FASCIA DEL RITMO (28 lug 2026): _ibFasciaRitmo(peso) = 0,3-0,7% del
+      peso a settimana in massa grassa; senza peso nessuna fascia. Variante (b)
+      scelta da Fabrizio: il colore d'allarme segnala SOLO il lato pericoloso
+      (calo piu' rapido del consigliato, muscolo che scende -> marcatore su
+      quelle barre); la lentezza non si colora mai. La scala del grafico segue i
+      DATI e non la fascia: includerla tutta schiacciava le barre di un paziente
+      magro. Soglia del muscolo in calo: rm<-0,03 E dm<-0,25 kg insieme.
+    LAYOUT: l'analisi segmentale prende tutta la riga (.ib-wide) SOLO se i
+      riquadri sopra sono in numero pari, altrimenti riempie il posto libero
+      accanto all'ultimo. Serve perche' il grafico delle forme e' condizionale.
+
     P133 - INTERVALLI DI RIFERIMENTO DAL REFERTO (28 lug 2026):
       il prompt di loadInbodyPDF chiede anche `riferimenti` = gli intervalli
       stampati TRA PARENTESI sul referto (peso, massa_muscolare, massa_grassa,

@@ -10,6 +10,50 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+28 LUGLIO 2026 (n) — P132 CHIUSA (scelta b): LA FASCIA DEL RITMO SEGNALA SOLO IL LATO PERICOLOSO · ANALISI SEGMENTALE RIMESSA IN RIGA.
+Test **410/410**. Baseline `f49f015`. Include la rigenerazione di INDEX.md.
+
+**P132 — LA FASCIA SI CALCOLA SUL PAZIENTE.** `_ibFasciaRitmo(peso)` = 0,3–0,7%
+del peso a settimana in massa grassa. La fascia fissa uguale per tutti dava un
+falso allarme "stai calando troppo in fretta" a chi pesa 113 kg e perde 0,45
+kg/sett, che va benissimo. **Senza peso non si disegna nessuna fascia** — non si
+inventa un riferimento.
+
+**LA SCELTA DI FABRIZIO È LA (b): il colore d'allarme segnala SOLO il lato
+pericoloso.** Calo più rapido del consigliato (zona ambra sotto la fascia) e
+muscolo che scende: quelli prendono un ⚠ sulla barra, con il motivo nel
+passaggio del mouse. **Andare più piano non si colora affatto.**
+*Il perché conta più della regola:* un paziente lento vedeva la barra fuori dal
+verde a ogni apertura della scheda — un rimprovero a ogni visita per un fatto che
+spesso non dipende da lui. Sul paziente di prova, al 15% di grasso, sarebbe
+uscito "sotto il ritmo" praticamente sempre. Nella stessa logica la riga della
+proiezione all'obiettivo passa da ambra a **neutra**: "vale la pena riparlarne in
+visita" invece di "è il ritmo da rivedere".
+
+**DUE TARATURE CHE SEMBRANO DETTAGLI E NON LO SONO.**
+- **La scala segue i DATI, non la fascia.** Al primo tentativo la finestra si
+  allargava per contenere tutta la fascia consigliata: su un paziente magro,
+  la cui fascia sta molto più in basso delle sue barre reali, **tutte le barre si
+  schiacciavano nella metà alta del grafico**. Ora la scala resta sui dati, la
+  fascia viene tagliata al bordo e — se il limite rapido finisce fuori — c'è
+  scritto a schermo che è fuori scala. Stessa scelta già fatta per le soglie del
+  viscerale in P131.
+- **La soglia del muscolo in calo è ritmo E quantità insieme** (`rm < −0,03` **e**
+  `dm < −0,25 kg`). Con la sola soglia sul ritmo, 0,15 kg persi in sette settimane
+  — cioè rumore di misura — accendevano il ⚠. Un allarme che si accende sul
+  rumore smette di essere un allarme.
+
+**ANALISI SEGMENTALE: A RIGA INTERA SOLO SE RESTEREBBE DA SOLA.** Fabrizio l'ha
+vista scendere sotto invece di stare accanto all'adiposità. Causa: il grafico
+delle forme (P133) non compare sui referti già importati — non hanno gli
+intervalli — quindi i riquadri sopra erano **5, dispari**, e il segmentale a riga
+intera lasciava un buco. Ora la larghezza si decide contando i riquadri
+effettivamente presenti: se sono dispari, il segmentale prende il posto libero
+accanto all'ultimo. *Lezione:* una regola di layout scritta sul caso "tutto
+presente" si rompe al primo riquadro condizionale.
+
+**COLLAUDATO DA FABRIZIO:** l'ingrandimento a tutto schermo dei riquadri funziona.
+
 28 LUGLIO 2026 (m) — P133 TAPPA 1+2: GLI INTERVALLI DAL REFERTO E IL GRAFICO DELLE FORME · MISURAZIONI IN TABELLA · INGRANDIMENTO A TUTTO SCHERMO.
 Test **410/410**. Baseline `5f1167b`. Include la rigenerazione di INDEX.md.
 

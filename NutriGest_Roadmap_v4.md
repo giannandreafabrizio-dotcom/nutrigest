@@ -621,8 +621,9 @@ Implementazione: funzioni condivise `_ngEtichettaGiorno`/`_ngEtichettaGiornoBrev
 
 ### P132 — Ritmo: fascia consigliata calcolata sul paziente
 **IL PROBLEMA:** `_IB_RITMO_OK` è fissa a −0,10 / −0,35 kg/sett di massa grassa per chiunque. Su un paziente normopeso in ricomposizione e su uno con obesità la stessa fascia dice cose diverse — e nel primo caso segnala "troppo lento" un ritmo che va benissimo.
-**LA SOLUZIONE:** derivarla da peso e adiposità (es. 0,25–0,7% del peso a settimana, con tetto più basso quando la % di grasso è già bassa). Serve la regola che Fabrizio usa in visita: da chiedere prima di implementare, non da inventare.
-**SCHEDA:** Stato: Da fare (serve la regola clinica) · Priorità: Bassa · C: 1 | I: 2 | R: 2 (un riferimento sbagliato orienta male la visita) · Modello: Sonnet (Media) · Autonomia: L0.
+**COSA È STATO FATTO (28 lug 2026):** `_ibFasciaRitmo(peso)` = 0,3–0,7% del peso a settimana in massa grassa (senza peso, nessuna fascia: non si inventa). **Fabrizio ha scelto la variante (b): il colore d'allarme segnala solo il lato pericoloso** — calo più rapido del consigliato e muscolo che scende prendono un ⚠ con il motivo nel tooltip; andare più piano non si colora. Il motivo: un paziente lento vedeva la barra fuori dal verde a ogni apertura della scheda, cioè un rimprovero a ogni visita per un fatto che spesso non dipende da lui. Nella stessa logica la proiezione all'obiettivo è passata da ambra a neutra.
+**DUE TARATURE DA RICORDARE:** (a) la scala del grafico segue i **dati**, non la fascia — includerla tutta schiacciava le barre di un paziente magro nella metà alta; la fascia si taglia al bordo e si dichiara quando è fuori scala; (b) il ⚠ sul muscolo richiede **ritmo E quantità** (`rm<−0,03` e `dm<−0,25 kg`): con la sola soglia sul ritmo si accendeva sul rumore di misura.
+**SCHEDA:** Stato: **CHIUSA** ✅ 28 lug 2026 · Test 410/410 · Modello: Sonnet (Media) · Autonomia: L1.
 
 ### P100 — Grasso viscerale: parser
 **L'APPROCCIO ORIGINARIO:** rivedere l'estrazione nei casi in cui fallisce o è ambigua (livello vs area).
