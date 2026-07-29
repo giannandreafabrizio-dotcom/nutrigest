@@ -10,6 +10,41 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+29 LUGLIO 2026 — P134 CHIUSA: FILTRI DI PERIODO E LETTURA DEI VALORI COL TOCCO.
+Test **410/410**. Baseline `a9db8d3`. Include la rigenerazione di INDEX.md.
+
+**(a) I PULSANTI 6 MESI · 1 ANNO · 2 ANNI · TUTTO.** Filtrano tutti i grafici
+insieme, default "Tutto". Tre decisioni che contano più del codice:
+- **Il taglio parte dall'ultima misurazione, non da oggi.** `_ibFiltraPeriodo`
+  guarda indietro dall'ultimo referto: un paziente che non viene da un anno
+  altrimenti vedrebbe "6 mesi" vuoto, cioè un grafico bianco al posto della sua
+  storia.
+- **Archivio e finestra sono due variabili diverse.** `sortedTutte` è tutto,
+  `sorted` è ciò che l'utente ha scelto. I grafici usano la finestra, **la
+  tabella in fondo e i conteggi usano sempre l'archivio**: l'etichetta "Tutte le
+  misurazioni (N)" resta vera qualunque pulsante sia premuto.
+- **Niente troncamenti silenziosi.** Sotto i pulsanti c'è sempre scritto quante
+  misurazioni si vedono su quante, con "le altre restano a un clic, non sono
+  cancellate". Un pulsante che lascerebbe meno di 2 misurazioni è disattivato e
+  dice il motivo; la barra non compare sotto le 4 misurazioni; cambiando paziente
+  si riparte da "Tutto".
+
+**(b) IL TOCCO SU IPHONE.** Un solo `pointerdown` che ignora
+`pointerType==='mouse'` e **riusa gli stessi bersagli invisibili e la stessa
+etichetta del desktop**: nessun testo mantenuto in due posti, nessuna soglia di
+pressione prolungata da indovinare. L'etichetta esce **sopra il dito** — sotto,
+sarebbe coperta proprio dalla mano che l'ha aperta — e si chiude toccando fuori,
+allo scorrimento o dopo 5 secondi.
+
+**TRE COLLISIONI DI TESTO TROVATE SOLO GUARDANDO IL RENDER A 430px.** Nessun
+test le vedeva, nessun errore in console: didascalia della mappa qualità
+sovrapposta al titolo dell'asse; "NELLA NORMA" più larga della fascia che
+etichetta; fonti dell'adiposità centrale tagliate dal bordo destro. È la stessa
+lezione di `_IBC.whr` di ieri — **su una grafica scritta a mano, il collaudo è
+guardare l'immagine**: il codice che non fallisce non è codice che funziona.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 28 LUGLIO 2026 (n) — P132 CHIUSA (scelta b): LA FASCIA DEL RITMO SEGNALA SOLO IL LATO PERICOLOSO · ANALISI SEGMENTALE RIMESSA IN RIGA.
 Test **410/410**. Baseline `f49f015`. Include la rigenerazione di INDEX.md.
 

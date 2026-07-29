@@ -322,6 +322,16 @@ main{flex:1;overflow-y:auto;}
 .ibclu:hover .iblead,.ibclu.aperto .iblead{opacity:.55;}
 .ibclu .ibhit{fill:transparent;pointer-events:all;}
 #ib-tip{position:fixed;pointer-events:none;z-index:9999;background:#1B1A18;color:#fff;font-size:.78rem;line-height:1.45;padding:8px 11px;border-radius:9px;opacity:0;transition:opacity .1s;max-width:250px;box-shadow:0 6px 20px rgba(0,0,0,.22);}
+/* P134 — scelta del periodo mostrato nei grafici (l'archivio resta sempre intero) */
+.ib-perbar{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.1rem 0 .8rem;}
+.ib-per{border:1px solid var(--border);background:var(--s1);color:var(--text2);border-radius:999px;
+  padding:.3rem .8rem;font-size:.78rem;font-weight:600;cursor:pointer;line-height:1.2;}
+.ib-per:hover:not(:disabled){background:var(--bg);color:var(--text);}
+.ib-per.sel{background:#1D9E75;border-color:#1D9E75;color:#fff;}
+.ib-per:disabled{opacity:.38;cursor:not-allowed;}
+.ib-pernota{font-size:.74rem;color:var(--text3);margin-left:.3rem;}
+.ib-pernota b{color:var(--text2);}
+@media(max-width:600px){.ib-pernota{margin-left:0;flex-basis:100%;}}
 .ib-item{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem;text-align:center;box-shadow:var(--shadow);}
 .ib-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.25rem;}
 .ib-val{font-family:'DM Serif Display',serif;font-size:1.1rem;}
@@ -12855,7 +12865,7 @@ function _ibFasciaRitmo(peso){
 // non dipende da lui.
 // oltre questo orizzonte la proiezione all'obiettivo non si mostra come numero
 const _IB_MAX_SETT=52;
-let _ibVista=null,_ibResizeOn=false,_ibResizeT=null;
+let _ibVista=null,_ibResizeOn=false,_ibResizeT=null,_ibTipT=null;
 
 function _ibDt(d){return new Date(String(d).length===10?d+'T00:00:00':d);}
 function _ibN(v,dec){dec=dec==null?1:dec;const m=Math.pow(10,dec);
@@ -13057,8 +13067,8 @@ function _ibGrAdiposita(S,w,sesso){
   const hasV=V.filter(function(p){return p.visc!=null;}).length>1;
   if(!hasW&&!hasV)return '';
   const stretto=w<560;
-  const Lm=stretto?86:142,Rm=stretto?96:272,Tm=22,Bm=44;
-  const h=stretto?280:300,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
+  const Lm=stretto?86:142,Rm=stretto?96:272,Tm=22,Bm=stretto?58:44;
+  const h=stretto?298:300,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
   const t0=V[0].t,t1=V[V.length-1].t,span=t1-t0;
   const X=function(t){return span>0?Lm+pw*(t-t0)/span:Lm+pw/2;};
   const RW=_IB_RIF.whr[sesso==='F'?'F':'M'], RV=_IB_RIF.visc;
@@ -13125,9 +13135,14 @@ function _ibGrAdiposita(S,w,sesso){
   }
   _ibDate(V,pw).forEach(function(i){s+=_ibTx(X(V[i].t),h-24,_ibFmtBreve(V[i].data),{fs:10.5});});
   // le fonti arrivano fino allo schermo, non restano nel codice
-  s+=_ibTx(Lm,h-6,(hasW?'cintura/fianchi: '+_IB_RIF.whr.fonte+' ('+_ibN(RW.lo,2)+'–'+_ibN(RW.hi,2)+', '+(sesso==='F'?'donna':'uomo')+')':'')
-    +(hasW&&hasV?'  ·  ':'')+(hasV?'grasso viscerale: '+RV.fonte+' ('+RV.lo+'–'+RV.hi+')':''),
-    {ta:'start',fs:9.5,fill:_IBC.muted});
+  const fo1=hasW?'cintura/fianchi: '+_IB_RIF.whr.fonte+' ('+_ibN(RW.lo,2)+'–'+_ibN(RW.hi,2)+', '+(sesso==='F'?'donna':'uomo')+')':'';
+  const fo2=hasV?'grasso viscerale: '+RV.fonte+' ('+RV.lo+'–'+RV.hi+')':'';
+  if(stretto){   // in una riga sola le fonti uscirebbero dallo schermo: meglio due righe che un taglio
+    if(fo1)s+=_ibTx(2,h-14,fo1,{ta:'start',fs:9,fill:_IBC.muted});
+    if(fo2)s+=_ibTx(2,h-4,fo2,{ta:'start',fs:9,fill:_IBC.muted});
+  }else{
+    s+=_ibTx(Lm,h-6,fo1+(fo1&&fo2?'  ·  ':'')+fo2,{ta:'start',fs:9.5,fill:_IBC.muted});
+  }
   return _ibSvg(w,h,s);
 }
 
@@ -13295,7 +13310,10 @@ function _ibGrQualita(P,w){
    fili+=_ibEl('line',{class:'iblead',x1:q.x,y1:q.y,x2:tx,y2:ty,stroke:_IBC.muted,'stroke-width':1});
    dots+=dot(q,tx-q.x,ty-q.y);});
   s+=_ibEl('g',{class:'ibclu'},_ibEl('circle',{class:'ibhit',cx:cx,cy:cy,r:R+rmax+6})+fili+dots);});
- s+=_ibTx(Lm+pw-6,Tm+ph+34,'colore più pieno = periodo più recente',{ta:'end',fs:9.5});
+ // su schermo stretto la didascalia va a capo: sulla stessa riga finirebbe sopra al titolo dell'asse
+ s+= stretto
+   ? _ibTx(Lm+pw/2,Tm+ph+47,'colore più pieno = periodo più recente',{fs:9.5})
+   : _ibTx(Lm+pw-6,Tm+ph+34,'colore più pieno = periodo più recente',{ta:'end',fs:9.5});
  return _ibSvg(w,h,s);
 }
 
@@ -13412,7 +13430,7 @@ function _ibGrForme(ib,w){
   s+=_ibEl('rect',{x:X1,y:Tm-22,width:X2-X1,height:22+rowH*3,fill:'#E6F4EE'});
   s+=_ibEl('rect',{x:X2,y:Tm-22,width:Xmax-X2,height:22+rowH*3,fill:'#FBF1EC'});
   s+=_ibTx((X0+X1)/2,Tm-8,'SOTTO',{fs:10,fw:700,fill:'#5B6B78'});
-  s+=_ibTx((X1+X2)/2,Tm-8,'NELLA NORMA',{fs:10,fw:700,fill:_IBC.good});
+  s+=_ibTx((X1+X2)/2,Tm-8,stretto?'NORMA':'NELLA NORMA',{fs:10,fw:700,fill:_IBC.good});
   s+=_ibTx((X2+Xmax)/2,Tm-8,'SOPRA',{fs:10,fw:700,fill:'#A05A3C'});
   righe.forEach(function(r,i){
     const v=r[1],lo=r[2][0],hi=r[2][1],y=Tm+rowH*i+rowH/2,bh=17,xv=pos(v,lo,hi);
@@ -13432,6 +13450,38 @@ function _ibGrForme(ib,w){
   if(!stretto)s+=_ibTx(140,43,F.frase,{ta:'start',fs:10.5,fill:_IBC.ink2});
   s+=_ibTx(X0,h-8,'Le fasce vengono dagli intervalli stampati sul referto',{ta:'start',fs:9.5,fill:_IBC.muted});
   return _ibSvg(w,h,s);
+}
+
+// ── P134 · Filtro di periodo della scheda InBody ───────────────────────────
+// Una riga di pulsanti sopra i grafici che li restringe TUTTI insieme.
+// Parte da "Tutto" e scrive quante misurazioni si stanno vedendo su quante:
+// niente si nasconde in silenzio, si decide solo quanto guardare per volta.
+// Un pulsante che lascerebbe meno di 2 misurazioni è disattivato, non finto.
+let _ibFiltroMesi=0,_ibFiltroPaz=null;
+const _IB_PERIODI=[{m:6,lab:'6 mesi'},{m:12,lab:'1 anno'},{m:24,lab:'2 anni'},{m:0,lab:'Tutto'}];
+function _ibFiltraPeriodo(arr,mesi){
+  if(!mesi||arr.length<2)return arr;
+  const fine=_ibDt(arr[arr.length-1].data).getTime();
+  const inizio=fine-mesi*30.44*86400000;
+  return arr.filter(function(x){return _ibDt(x.data).getTime()>=inizio;});
+}
+function _ibSetFiltro(m){
+  _ibFiltroMesi=m;
+  const p=(typeof db!=='undefined'&&db.pazienti)?db.pazienti.find(function(x){return x.id===currentPazId;}):null;
+  if(p)renderPdInbody(p);
+}
+function _ibBarraPeriodo(tutte,viste){
+  if(tutte.length<4)return '';   // sotto le 4 misurazioni non serve a niente
+  const bottoni=_IB_PERIODI.map(function(o){
+    const n=_ibFiltraPeriodo(tutte,o.m).length;
+    const off=o.m&&n<2, sel=_ibFiltroMesi===o.m;
+    return '<button class="ib-per'+(sel?' sel':'')+'"'+(off?' disabled title="Meno di 2 misurazioni in questo periodo"':'')
+      +' onclick="_ibSetFiltro('+o.m+')">'+o.lab+'</button>';
+  }).join('');
+  const nota=viste.length<tutte.length
+    ? 'Vedi <b>'+viste.length+'</b> misurazioni su '+tutte.length+' — le altre restano a un clic, non sono cancellate.'
+    : 'Vedi tutte e '+tutte.length+' le misurazioni.';
+  return '<div class="ib-perbar">'+bottoni+'<span class="ib-pernota">'+nota+'</span></div>';
 }
 
 // ── Ingrandimento a tutto schermo di un singolo riquadro ───────────────────
@@ -13512,6 +13562,24 @@ function _ibDisegnaSvg(radice){
       let x=e.clientX+14;if(x+250>window.innerWidth)x=e.clientX-tip.offsetWidth-14;
       tip.style.left=x+'px';tip.style.top=(e.clientY-10)+'px';
     });
+    // P134 — su iPhone non esiste il passaggio del puntatore: il tocco su un punto
+    // del grafico apre la stessa etichetta che il mouse mostra al passaggio.
+    document.addEventListener('pointerdown',function(e){
+      if(e.pointerType==='mouse')return;
+      const tip=document.getElementById('ib-tip');if(!tip)return;
+      const t=e.target&&e.target.closest?e.target.closest('[data-ibtip]'):null;
+      if(!t){tip.style.opacity=0;return;}
+      tip.innerHTML=t.getAttribute('data-ibtip');tip.style.opacity=1;
+      let x=e.clientX-tip.offsetWidth/2;
+      x=Math.max(8,Math.min(x,window.innerWidth-tip.offsetWidth-8));
+      let y=e.clientY-tip.offsetHeight-20;      // sopra il dito, che altrimenti la coprirebbe
+      if(y<8)y=e.clientY+24;
+      tip.style.left=x+'px';tip.style.top=y+'px';
+      clearTimeout(_ibTipT);_ibTipT=setTimeout(function(){tip.style.opacity=0;},5000);
+    },true);
+    // se la pagina o la card scorrono, l'etichetta resterebbe appesa nel vuoto
+    document.addEventListener('scroll',function(){
+      const tip=document.getElementById('ib-tip');if(tip)tip.style.opacity=0;},true);
   }
 }
 
@@ -13523,7 +13591,12 @@ function renderPdInbody(p){
   // ─────────────────────────────────────────────────────────────────────────
 
   if(!list.length){document.getElementById('pd-inbody').innerHTML=piHtml+'<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
-  const sorted=[...list].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
+  // P134 — `sortedTutte` è l'archivio completo (tabella in fondo, conteggi),
+  // `sorted` è la finestra che l'utente ha scelto e su cui girano i grafici.
+  const sortedTutte=[...list].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
+  if(_ibFiltroPaz!==p.id){_ibFiltroMesi=0;_ibFiltroPaz=p.id;}   // cambio paziente = si riparte da "Tutto"
+  if(_ibFiltroMesi&&_ibFiltraPeriodo(sortedTutte,_ibFiltroMesi).length<2)_ibFiltroMesi=0;
+  const sorted=_ibFiltraPeriodo(sortedTutte,_ibFiltroMesi);
   if(!sorted.length){document.getElementById('pd-inbody').innerHTML=piHtml+'<div class="empty"><p>Nessuna misurazione InBody valida</p></div>';return;}
   const sortedDesc=[...sorted].reverse();
   const last=sortedDesc[0],first=sorted[0];
@@ -13756,6 +13829,7 @@ function renderPdInbody(p){
   const _cOrdine=_prima.concat([
     _cSegm ? (_prima.length%2===0 ? _cSegm.replace('<div class="card"','<div class="card ib-wide"') : _cSegm) : ''
   ]);
+  html+=_ibBarraPeriodo(sortedTutte,sorted);
   html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
 
   // ── Tutte le misurazioni, in tabella e chiusa a tendina ──────────────────
@@ -13770,13 +13844,13 @@ function renderPdInbody(p){
     :'<span style="color:var(--text3)">—</span>';
   html+=`<details class="card" style="margin-bottom:.7rem">
     <summary style="padding:.75rem 1.1rem;cursor:pointer;font-weight:600;font-size:.92rem;list-style:none">
-      📊 Tutte le misurazioni (${sortedDesc.length}) <span style="font-size:.72rem;color:var(--text3);font-weight:400">— clicca per aprire</span>
+      📊 Tutte le misurazioni (${sortedTutte.length}) <span style="font-size:.72rem;color:var(--text3);font-weight:400">— clicca per aprire</span>
     </summary>
     <div class="card-bd" style="overflow-x:auto;padding-top:0">
       <table class="ib-tab">
         <thead><tr><th>Data</th><th>Peso</th><th>% grassa</th><th>M. grassa</th><th>M. magra</th>
           <th>M. musc.</th><th>Acqua</th><th>Metab.</th><th>Visc.</th><th>BMI</th><th></th></tr></thead>
-        <tbody>${sortedDesc.map((ib,i)=>`<tr${i===0?' class="ib-ultima"':''}>
+        <tbody>${[...sortedTutte].reverse().map((ib,i)=>`<tr${i===0?' class="ib-ultima"':''}>
           <td><div style="font-weight:600">${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</div>
             ${ib.condizioneBia||ib.note?`<div style="font-size:.66rem;color:var(--text3)">${ib.condizioneBia||''}${ib.condizioneBia&&ib.note?' · ':''}${ib.note?'<span title="'+String(ib.note).replace(/"/g,'&quot;')+'">📝 nota</span>':''}</div>`:''}</td>
           <td><b>${_cel(ib.peso,'',1)}</b></td><td>${_cel(ib.pg,'%',1)}</td><td>${_cel(ib.g,'',1)}</td><td>${_cel(ib.m,'',1)}</td>

@@ -1868,6 +1868,24 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
       RIDISEGNARE il grafico alla larghezza grande. Overlay proprio e non
       Fullscreen API: su iPhone Safari il fullscreen vale solo per i video.
       _ibDisegnaSvg accetta ora una radice (default #pd-inbody).
+    P134 - FILTRI DI PERIODO E TOCCO (29 lug 2026):
+      _IB_PERIODI = 6 mesi / 1 anno / 2 anni / Tutto; _ibFiltroMesi (0 = tutto),
+      _ibFiltroPaz (cambio paziente -> si riparte da "Tutto").
+      _ibFiltraPeriodo(arr,mesi) taglia a partire dall'ULTIMA MISURAZIONE, non da
+      oggi: un paziente che non viene da un anno vedrebbe altrimenti "6 mesi"
+      vuoto. In renderPdInbody sortedTutte = archivio completo, sorted = finestra
+      scelta: i grafici usano `sorted`, la TABELLA IN FONDO E I CONTEGGI usano
+      sempre `sortedTutte`, altrimenti l'etichetta "Tutte le misurazioni (N)"
+      mentirebbe. _ibBarraPeriodo: compare solo da 4 misurazioni in su, disattiva
+      i pulsanti che lascerebbero meno di 2 misurazioni (col motivo nel title) e
+      scrive SEMPRE quante se ne vedono su quante.
+      TOCCO: un pointerdown su document che salta pointerType==='mouse' e riusa
+      gli STESSI bersagli [data-ibtip] e la STESSA etichetta #ib-tip del desktop
+      (nessun testo mantenuto in due posti). L'etichetta esce SOPRA il dito e si
+      chiude al tocco fuori, allo scorrimento (listener in cattura) o dopo 5s.
+      A 430px sono state corrette tre collisioni di testo che nessun test vedeva:
+      didascalia della mappa qualita' a capo, "NELLA NORMA" -> "NORMA", fonti
+      dell'adiposita' centrale su due righe (h 280 -> 298, Bm 44 -> 58).
     ORDINE DEI RIQUADRI: i cinque riquadri si costruiscono in variabili
     (_cTempo, _cBarre, _cRitmo, _cQual, _cAdip) e si assemblano in _cOrdine, in
     fondo al blocco. L'ordine a video sta scritto li' e solo li': spostare una
