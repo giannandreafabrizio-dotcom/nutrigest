@@ -322,16 +322,6 @@ main{flex:1;overflow-y:auto;}
 .ibclu:hover .iblead,.ibclu.aperto .iblead{opacity:.55;}
 .ibclu .ibhit{fill:transparent;pointer-events:all;}
 #ib-tip{position:fixed;pointer-events:none;z-index:9999;background:#1B1A18;color:#fff;font-size:.78rem;line-height:1.45;padding:8px 11px;border-radius:9px;opacity:0;transition:opacity .1s;max-width:250px;box-shadow:0 6px 20px rgba(0,0,0,.22);}
-/* P134 — scelta del periodo mostrato nei grafici (l'archivio resta sempre intero) */
-.ib-perbar{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.1rem 0 .8rem;}
-.ib-per{border:1px solid var(--border);background:var(--s1);color:var(--text2);border-radius:999px;
-  padding:.3rem .8rem;font-size:.78rem;font-weight:600;cursor:pointer;line-height:1.2;}
-.ib-per:hover:not(:disabled){background:var(--bg);color:var(--text);}
-.ib-per.sel{background:#1D9E75;border-color:#1D9E75;color:#fff;}
-.ib-per:disabled{opacity:.38;cursor:not-allowed;}
-.ib-pernota{font-size:.74rem;color:var(--text3);margin-left:.3rem;}
-.ib-pernota b{color:var(--text2);}
-@media(max-width:600px){.ib-pernota{margin-left:0;flex-basis:100%;}}
 .ib-item{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.7rem;text-align:center;box-shadow:var(--shadow);}
 .ib-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:.25rem;}
 .ib-val{font-family:'DM Serif Display',serif;font-size:1.1rem;}
@@ -13452,37 +13442,6 @@ function _ibGrForme(ib,w){
   return _ibSvg(w,h,s);
 }
 
-// ── P134 · Filtro di periodo della scheda InBody ───────────────────────────
-// Una riga di pulsanti sopra i grafici che li restringe TUTTI insieme.
-// Parte da "Tutto" e scrive quante misurazioni si stanno vedendo su quante:
-// niente si nasconde in silenzio, si decide solo quanto guardare per volta.
-// Un pulsante che lascerebbe meno di 2 misurazioni è disattivato, non finto.
-let _ibFiltroMesi=0,_ibFiltroPaz=null;
-const _IB_PERIODI=[{m:6,lab:'6 mesi'},{m:12,lab:'1 anno'},{m:24,lab:'2 anni'},{m:0,lab:'Tutto'}];
-function _ibFiltraPeriodo(arr,mesi){
-  if(!mesi||arr.length<2)return arr;
-  const fine=_ibDt(arr[arr.length-1].data).getTime();
-  const inizio=fine-mesi*30.44*86400000;
-  return arr.filter(function(x){return _ibDt(x.data).getTime()>=inizio;});
-}
-function _ibSetFiltro(m){
-  _ibFiltroMesi=m;
-  const p=(typeof db!=='undefined'&&db.pazienti)?db.pazienti.find(function(x){return x.id===currentPazId;}):null;
-  if(p)renderPdInbody(p);
-}
-function _ibBarraPeriodo(tutte,viste){
-  if(tutte.length<4)return '';   // sotto le 4 misurazioni non serve a niente
-  const bottoni=_IB_PERIODI.map(function(o){
-    const n=_ibFiltraPeriodo(tutte,o.m).length;
-    const off=o.m&&n<2, sel=_ibFiltroMesi===o.m;
-    return '<button class="ib-per'+(sel?' sel':'')+'"'+(off?' disabled title="Meno di 2 misurazioni in questo periodo"':'')
-      +' onclick="_ibSetFiltro('+o.m+')">'+o.lab+'</button>';
-  }).join('');
-  const nota=viste.length<tutte.length
-    ? 'Vedi <b>'+viste.length+'</b> misurazioni su '+tutte.length+' — le altre restano a un clic, non sono cancellate.'
-    : 'Vedi tutte e '+tutte.length+' le misurazioni.';
-  return '<div class="ib-perbar">'+bottoni+'<span class="ib-pernota">'+nota+'</span></div>';
-}
 
 // ── Ingrandimento a tutto schermo di un singolo riquadro ───────────────────
 // Overlay proprio invece della Fullscreen API del browser: su iPhone Safari la
@@ -13532,7 +13491,16 @@ function _ibDisegnaSvg(radice){
                  barre:function(){return 62*_ibVista.S.length;}};
   R.querySelectorAll('[data-ib]').forEach(function(el){
     const k=el.getAttribute('data-ib'),fn=mappa[k];if(!fn)return;
-    const disp=Math.max(Math.round(el.clientWidth||el.parentElement.clientWidth||320),240);
+    // P136 — la scheda viene costruita anche mentre la sua linguetta e' ancora
+    // nascosta: li' clientWidth vale 0. Disegnare a una larghezza inventata (240)
+    // e lasciare che il CSS stiri l'SVG al 100% e' cio' che faceva uscire i
+    // grafici enormi e sfocati fino al primo cambio di zoom. Meglio non disegnare
+    // e aspettare la larghezza vera: la porta l'osservatore piu' sotto.
+    const largh=Math.round(el.clientWidth||el.parentElement.clientWidth||0);
+    if(largh<80){el.removeAttribute('data-ibw');return;}
+    const disp=Math.max(largh,240);
+    if(el.getAttribute('data-ibw')===String(disp)&&el.firstChild)return;  // stessa larghezza: niente da rifare
+    el.setAttribute('data-ibw',String(disp));
     const need=largMin[k]?Math.max(largMin[k](),disp):disp;
     el.classList.toggle('ib-scroll',need>disp+8);
     el.innerHTML=need>disp+8
@@ -13554,6 +13522,16 @@ function _ibDisegnaSvg(radice){
     document.addEventListener('click',function(){
       document.querySelectorAll('#pd-inbody .ibclu').forEach(function(o){o.classList.remove('aperto');});});
     window.addEventListener('resize',function(){clearTimeout(_ibResizeT);_ibResizeT=setTimeout(_ibDisegnaSvg,140);});
+    // P136 — l'osservatore di larghezza: quando la scheda passa da nascosta a
+    // visibile (o cambia lo zoom della pagina) i riquadri ricevono la loro
+    // larghezza vera e i grafici si ridisegnano da soli. Prima serviva cambiare
+    // lo zoom a mano perche' l'unico evento che rientrava qui era `resize`.
+    if(window.ResizeObserver){
+      const host=document.getElementById('pd-inbody');
+      if(host)new ResizeObserver(function(){
+        clearTimeout(_ibResizeT);_ibResizeT=setTimeout(function(){_ibDisegnaSvg();},60);
+      }).observe(host);
+    }
     document.addEventListener('mousemove',function(e){
       const tip=document.getElementById('ib-tip');if(!tip)return;
       const t=e.target&&e.target.closest?e.target.closest('[data-ibtip]'):null;
@@ -13591,12 +13569,7 @@ function renderPdInbody(p){
   // ─────────────────────────────────────────────────────────────────────────
 
   if(!list.length){document.getElementById('pd-inbody').innerHTML=piHtml+'<div class="empty"><p>Nessuna misurazione InBody</p><span>Clicca "📊 InBody" per inserire la prima misurazione</span></div>';return;}
-  // P134 — `sortedTutte` è l'archivio completo (tabella in fondo, conteggi),
-  // `sorted` è la finestra che l'utente ha scelto e su cui girano i grafici.
-  const sortedTutte=[...list].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
-  if(_ibFiltroPaz!==p.id){_ibFiltroMesi=0;_ibFiltroPaz=p.id;}   // cambio paziente = si riparte da "Tutto"
-  if(_ibFiltroMesi&&_ibFiltraPeriodo(sortedTutte,_ibFiltroMesi).length<2)_ibFiltroMesi=0;
-  const sorted=_ibFiltraPeriodo(sortedTutte,_ibFiltroMesi);
+  const sorted=[...list].filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
   if(!sorted.length){document.getElementById('pd-inbody').innerHTML=piHtml+'<div class="empty"><p>Nessuna misurazione InBody valida</p></div>';return;}
   const sortedDesc=[...sorted].reverse();
   const last=sortedDesc[0],first=sorted[0];
@@ -13829,7 +13802,6 @@ function renderPdInbody(p){
   const _cOrdine=_prima.concat([
     _cSegm ? (_prima.length%2===0 ? _cSegm.replace('<div class="card"','<div class="card ib-wide"') : _cSegm) : ''
   ]);
-  html+=_ibBarraPeriodo(sortedTutte,sorted);
   html+='<div class="ib-g2col">'+_cOrdine.join('')+'</div>';
 
   // ── Tutte le misurazioni, in tabella e chiusa a tendina ──────────────────
@@ -13844,13 +13816,13 @@ function renderPdInbody(p){
     :'<span style="color:var(--text3)">—</span>';
   html+=`<details class="card" style="margin-bottom:.7rem">
     <summary style="padding:.75rem 1.1rem;cursor:pointer;font-weight:600;font-size:.92rem;list-style:none">
-      📊 Tutte le misurazioni (${sortedTutte.length}) <span style="font-size:.72rem;color:var(--text3);font-weight:400">— clicca per aprire</span>
+      📊 Tutte le misurazioni (${sorted.length}) <span style="font-size:.72rem;color:var(--text3);font-weight:400">— clicca per aprire</span>
     </summary>
     <div class="card-bd" style="overflow-x:auto;padding-top:0">
       <table class="ib-tab">
         <thead><tr><th>Data</th><th>Peso</th><th>% grassa</th><th>M. grassa</th><th>M. magra</th>
           <th>M. musc.</th><th>Acqua</th><th>Metab.</th><th>Visc.</th><th>BMI</th><th></th></tr></thead>
-        <tbody>${[...sortedTutte].reverse().map((ib,i)=>`<tr${i===0?' class="ib-ultima"':''}>
+        <tbody>${[...sorted].reverse().map((ib,i)=>`<tr${i===0?' class="ib-ultima"':''}>
           <td><div style="font-weight:600">${fData(ib.data)} ${i===0?'<span class="tag tag-teal">Ultima</span>':''}</div>
             ${ib.condizioneBia||ib.note?`<div style="font-size:.66rem;color:var(--text3)">${ib.condizioneBia||''}${ib.condizioneBia&&ib.note?' · ':''}${ib.note?'<span title="'+String(ib.note).replace(/"/g,'&quot;')+'">📝 nota</span>':''}</div>`:''}</td>
           <td><b>${_cel(ib.peso,'',1)}</b></td><td>${_cel(ib.pg,'%',1)}</td><td>${_cel(ib.g,'',1)}</td><td>${_cel(ib.m,'',1)}</td>

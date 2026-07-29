@@ -10,6 +10,36 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+29 LUGLIO 2026 (2) — P136: I GRAFICI INBODY DISEGNATI ALLA LARGHEZZA VERA · FILTRI DI PERIODO RIMOSSI.
+Test **410/410**. Baseline `bea7fef`. Include la rigenerazione di INDEX.md.
+
+**P136 — IL DIFETTO CHE SI "RIPARAVA" CAMBIANDO LO ZOOM.** Fabrizio: aprendo la
+scheda InBody i grafici uscivano giganti e sgranati; scendendo a 90% e tornando a
+100% si vedevano bene. **Causa:** `renderPdInbody` gira da `openPaz` **mentre la
+linguetta InBody è ancora nascosta**, dove `clientWidth` vale 0; `_ibDisegnaSvg`
+cadeva sul ripiego 240–320 px, disegnava piccolo e il CSS (`width:100%`) stirava
+l'SVG fino alla larghezza vera. Misurato sulla versione pubblicata: **stiramento
+2,02×** su tre riquadri su cinque. Il cambio di zoom "riparava" perché `resize`
+era l'unico evento che faceva rientrare il codice.
+**Correzione:** (a) sotto gli 80 px **non si disegna** — una larghezza inventata è
+peggio di un riquadro vuoto per un istante; (b) `ResizeObserver` su `#pd-inbody`
+che ridisegna appena arriva la larghezza vera; (c) `data-ibw` ricorda la
+larghezza già usata, così l'osservatore non gira a vuoto.
+**Perché è durato settimane:** in collaudo la scheda veniva **sempre resa
+visibile prima di disegnarla**, cioè la prova non ripeteva il percorso reale
+dell'utente. Il test nuovo la costruisce da nascosta, la mostra e verifica che
+larghezza-riquadro / larghezza-disegno faccia 1,00.
+
+**P134 (a) RIMOSSA, LO STESSO GIORNO.** Fabrizio, dopo averla usata: *"non mi
+piace questa modifica che hai fatto con i 3 filtri, voglio tornare come era
+prima"*. Via la riga di pulsanti, il CSS e la separazione archivio/finestra: la
+scheda mostra sempre tutte le misurazioni. **Resta il tocco (parte b), che non
+era in discussione.** Da ricordare: il problema di partenza — 25 referti
+illeggibili — era già risolto dallo scorrimento laterale; il filtro aggiungeva un
+comando in cima alla scheda per un fastidio che in visita non si sente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 29 LUGLIO 2026 — P134 CHIUSA: FILTRI DI PERIODO E LETTURA DEI VALORI COL TOCCO.
 Test **410/410**. Baseline `a9db8d3`. Include la rigenerazione di INDEX.md.
 
