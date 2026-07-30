@@ -822,10 +822,41 @@ p.richiesteAnalisi[] — DISMESSO (P87 Tappa 2, 28 lug 2026)
   // server (_pazAssicuraBlob), import backup. Dopo la migrazione il campo viene
   // eliminato (F4). Nessun codice lo scrive né lo legge più.
 
-CALENDARIO — le tre viste e la tripla fonte  // aggiornato 30 lug 2026
-  getEventi() compone gli eventi da TRE fonti: p.visitaData, p.dateCalendario[primo|
-  chiamata|sett2|sett3|controllo] e db.eventi. **Solo db.eventi ha il campo `ora`.**
-  Conseguenze storiche (sintomi riparati il 30 lug, causa radice aperta come P140):
+CALENDARIO — pianificazione e calendario sono due cose diverse  // P140 T1, 30 lug 2026
+  DAL 30 LUG 2026 (P140 Tappa 1) UN APPUNTAMENTO NASCE E VIVE IN db.eventi, punto.
+  getEventi() compone ora DUE cose distinte:
+    - PIANIFICAZIONE, da p.dateCalendario[primo|chiamata|sett2|sett3]: promemoria per
+      il nutrizionista derivati dalla data di inizio piano. NON sono appuntamenti,
+      nessuno si presenta in studio, non hanno ne' avranno mai un orario.
+    - CALENDARIO, da db.eventi: gli appuntamenti veri (prima visita, controllo,
+      meeting, altro). Hanno id, ora, prezzo, note, promemoria, sync dedicato.
+  p.visitaData e p.controlloData restano come SPECCHIO leggibile dei due appuntamenti
+  (schema di P118 tappa 1 e di p.pesoTarget): una decina di punti li legge gia'
+  (timeline paziente, scadenze dashboard, "paziente sparito", calcolo inizio piano).
+  Lo specchio e' tenuto allineato da _appSyncPaz(p, propagaCancellazione):
+    - id DETERMINISTICO 'anag-<tipo>-<idPaziente>' (_appIdAnag), MAI uid(): PC e
+      iPhone eseguono la migrazione ognuno per conto proprio e con un id casuale
+      nascerebbero due eventi per la stessa visita, che al sync diventano doppione.
+      Inoltre spostare la data cambia la STESSA riga: l'ora gia' fissata non si perde.
+    - un evento segnato A MANO per quel giorno vince: lo specchio non si aggiunge.
+    - propagaCancellazione VERO solo da salvaPaz (azione esplicita di Fabrizio): in
+      migrazione non si cancella su Supabase, perche' il blob locale puo' essere piu'
+      vecchio di quello di un altro dispositivo.
+  Migrazione idempotente _appMigraPaziente/_appMigraTutti su QUATTRO punti d'ingresso:
+  i tre della regola 12 (loadLocal, _pazFetchBlob, importa) PIU' pullEventiSupabase,
+  che SOSTITUISCE db.eventi col contenuto del server — senza quel quarto punto un
+  dispositivo gia' migrato vede sparire le visite appena si sincronizza con uno no.
+  delEvento: se l'evento e' uno specchio (origin 'anagrafica') spegne anche il campo
+  del paziente, altrimenti la migrazione lo RICREA alla ricarica dopo.
+  IL CONTROLLO NON SI INVENTA PIU': salvaPaz scriveva controllo = g('p-controllo') ||
+  addDays(ini,28). Quel +28 finiva in calendario come appuntamento fissato e la
+  dashboard ci costruiva sopra l'avviso "controllo saltato". Ora e' `|| null`: il
+  controllo si concorda col paziente (14 gg in keto, 25, 32... dipende) o non c'e'.
+  Regola 11 del CLAUDE.md, terzo caso della famiglia.
+  APERTO (Tappa 2): specchio inverso db.eventi -> p.visitaData; punto d'ingresso
+  dell'ORA in interfaccia (da decidere provando); avviso "controllo DA FISSARE".
+
+  Conseguenze storiche (sintomi riparati il 30 lug, causa radice chiusa in P140 T1):
     - Vista MESE (renderCalMonth): filtra solo su e.data → ha sempre mostrato tutto.
     - Vista SETTIMANA (renderCalWeek): filtrava (e.ora||'').startsWith(hh); con ora
       vuota il confronto e' falso per TUTTE le fasce → l'evento spariva, non finiva
@@ -1134,7 +1165,10 @@ getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiam
   24 test JSDOM in P78. Regola permanente: nessun nuovo punto del codice deve ricalcolare
   i target autonomamente — sempre getTargetAttivi.
 
-p.dateCalendario: { visita, controllo, chiamata1, msg2 }  // generate da inizioPiano
+p.dateCalendario: { primo, chiamata, sett2, sett3, controllo }  // generate da inizioAlim.
+  Dal 30 lug 2026 (P140 T1) e' PIANIFICAZIONE, non calendario: `controllo` non viene
+  piu' inventato a +28 (vale p.controlloData o null) e non esce piu' da getEventi() —
+  prima visita e controllo sono appuntamenti e vivono in db.eventi.
 p.pesiIntermedi[] = { data, peso }  // futura — sblocca msg WA clinici (C4)
 
 CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0+1): Map id→record che avvolge

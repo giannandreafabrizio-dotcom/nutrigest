@@ -3951,6 +3951,7 @@ function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.pars
   // a schermo si vedevano ma erano invisibili al generatore e ai controlli.
   if(typeof _semaforoMigraTutti==='function') _semaforoMigraTutti(db.pazienti);
   if(typeof _inviiMigraTutti==='function') _inviiMigraTutti(db.pazienti); // P87 T2 — richiesteAnalisi confluisce nel registro unico
+  if(typeof _appMigraTutti==='function') _appMigraTutti(db.pazienti); // P140 T1 — prima visita e controllo diventano eventi veri di calendario
   caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -4099,6 +4100,7 @@ async function _pazFetchBlob(id){
     if(typeof _ibOrdinaPerData==='function') _ibOrdinaPerData(row.data); // P120 — migrazione: storico InBody ordinato per data appena il blob entra in memoria
     if(typeof _semaforoMigraPaziente==='function') _semaforoMigraPaziente(row.data); // F9 — stesso punto, stesso motivo: si migra appena il dato entra
     if(typeof _inviiMigraPaziente==='function') _inviiMigraPaziente(row.data); // P87 T2 — idem
+    if(typeof _appMigraPaziente==='function') _appMigraPaziente(row.data); // P140 T1 — idem: l'appuntamento si allinea appena il blob entra
     const i = db.pazienti.findIndex(x=>x&&x.id===id);
     if(i>=0) db.pazienti[i]=row.data; else db.pazienti.push(row.data);
     _p69SetBaseline(id, row.updated_at); // versione server ora vista da questo dispositivo
@@ -5235,6 +5237,12 @@ async function pullEventiSupabase(){
     if(!resp.ok){ console.error('[EVENTI] pull ERRORE — status:', resp.status); return false; }
     const rows = await resp.json();
     db.eventi = (rows||[]).map(row => row.data).filter(Boolean);
+    // P140 T1 — questo pull SOSTITUISCE db.eventi con quello che c'è sul
+    // server: se un dispositivo aveva già migrato e un altro no, senza questa
+    // riga la prima visita sparirebbe dal calendario appena si sincronizza.
+    // La migrazione è idempotente e gli id sono deterministici: rigirarla qui
+    // non crea doppioni, li impedisce.
+    if(typeof _appMigraTutti==='function') _appMigraTutti(db.pazienti);
     console.log('[EVENTI] pull OK —', db.eventi.length, 'eventi');
     return true;
   } catch(e) {
@@ -5319,7 +5327,7 @@ function initAntCard(){
   try{ localStorage.removeItem('anthropicApiKey'); localStorage.removeItem('anthropic_api_key'); }catch(e){}
 }
 function esporta(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='nutrigest_'+today()+'.json';a.click();URL.revokeObjectURL(u);}
-function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(typeof _semaforoMigraTutti==='function')_semaforoMigraTutti(db.pazienti);/* F9 — un backup vecchio è l'altra porta d'ingresso dei colori legacy */if(typeof _inviiMigraTutti==='function')_inviiMigraTutti(db.pazienti);/* P87 T2 — e delle richiesteAnalisi pre-migrazione */save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
+function importa(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(!d.pazienti)return alert('File non valido.');if(!confirm('Sostituire tutti i dati?'))return;db=d;['pazienti','ricette','eventi','entrate','piani'].forEach(k=>{if(!db[k])db[k]=[];});if(!db.disponibilita)db.disponibilita={};if(typeof _semaforoMigraTutti==='function')_semaforoMigraTutti(db.pazienti);/* F9 — un backup vecchio è l'altra porta d'ingresso dei colori legacy */if(typeof _inviiMigraTutti==='function')_inviiMigraTutti(db.pazienti);/* P87 T2 — e delle richiesteAnalisi pre-migrazione */if(typeof _appMigraTutti==='function')_appMigraTutti(db.pazienti);/* P140 T1 — un backup vecchio porta dentro visite e controlli in formato pre-calendario */save();renderPaz();renderRic();renderCal();renderEntrate();notif('✓ Importato!');}catch(err){alert('Errore nel file.');}};r.readAsText(file);e.target.value='';}
 
 // ════════════════════════════════════════════════════════════════
 // NAV
@@ -6390,13 +6398,28 @@ function salvaPaz(){
     alimenti:window._alStato||{},
     prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
     studio:g('p-studio'),
-    dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||addDays(ini,28)}:null
+    // P140 T1 — il controllo NON si inventa più a +28 giorni. Quel valore di
+    // ripiego finiva in calendario come se fosse un appuntamento fissato e la
+    // dashboard ci costruiva sopra l'avviso "controllo saltato", contando i
+    // giorni da una data mai concordata con nessuno. Il controllo si decide col
+    // paziente (14 gg in keto, 25, 32… dipende) e quindi o c'è, o non c'è.
+    dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||null}:null
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
     if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';if(_old.bia&&!pd.bia)pd.bia=_old.bia;_pazPreservaCampi(pd,_old);db.pazienti[idx]=pd;}
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.refertiSangue=[];pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
+  }
+  // P140 T1 — punto di SCRITTURA dell'appuntamento (regola 10: l'invariante si
+  // garantisce dove si scrive, non correggendo i lettori uno per uno). Salvare
+  // il paziente allinea qui l'evento di calendario: se la data della visita si
+  // sposta, si sposta la STESSA riga di db.eventi e l'ora già fissata resta.
+  if(pd.id&&typeof _appSyncPaz==='function'&&_appSyncPaz(pd,true)){
+    ['visita','controllo'].forEach(function(t){
+      const ev=(db.eventi||[]).find(function(e){return e&&e.id===_appIdAnag(pd.id,t);});
+      if(ev&&typeof pushEventoSupabase==='function') pushEventoSupabase(ev);
+    });
   }
   _obiettivoPazienteDaForm(pd);   // P122 Tappa 2 — scrive SOLO obiettivoPercorso.paziente (clinico/storico già preservati)
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
@@ -26515,12 +26538,101 @@ function selCatAl(cat){
 // ════════════════════════════════════════════════════════════════
 // CALENDARIO
 // ════════════════════════════════════════════════════════════════
+// ── P140 Tappa 1 — un appuntamento nasce e vive in db.eventi ────────────────
+// Prima gli appuntamenti arrivavano da TRE posti (p.visitaData, p.dateCalendario,
+// db.eventi) e solo db.eventi aveva il campo `ora`. Ma le tre fonti non
+// descrivevano la stessa cosa: quattro delle cinque date di dateCalendario
+// (inizio, chiamata sett.1, msg sett.2/3) NON sono appuntamenti — sono
+// promemoria per il nutrizionista, derivati dalla data di inizio piano: nessuno
+// si presenta in studio e un orario non gli serve. Gli unici due fatti che sono
+// appuntamenti veri sono la PRIMA VISITA e il CONTROLLO.
+// Quindi: dateCalendario resta la PIANIFICAZIONE, db.eventi diventa il
+// CALENDARIO. I campi p.visitaData / p.controlloData restano come SPECCHIO
+// leggibile (stesso schema di P118 tappa 1 e di p.pesoTarget), perché una
+// decina di punti li legge già: timeline paziente, scadenze dashboard,
+// "paziente sparito", calcolo inizio piano.
+//
+// L'id dell'evento-specchio è DETERMINISTICO — 'anag-<tipo>-<idPaziente>' — e
+// non uid(), per due motivi che con un id casuale diventano bug:
+//  1. PC e iPhone eseguono la stessa migrazione ognuno per conto proprio: con
+//     uid() nascerebbero DUE eventi diversi per la stessa visita, e al primo
+//     sync il doppione che stiamo eliminando tornerebbe dalla porta di servizio.
+//     Con l'id deterministico i due record si sovrappongono (upsert).
+//  2. Spostare l'appuntamento cambia la DATA della stessa riga: l'ora già
+//     fissata non si perde e non resta in giro un evento orfano da cancellare.
+function _appIdAnag(pazId,tipo){ return 'anag-'+tipo+'-'+pazId; }
+
+// Allinea gli eventi-specchio di UN paziente ai suoi campi anagrafici.
+// Idempotente: chiamarla due volte di fila non cambia nulla la seconda volta.
+// `propagaCancellazione` è FALSO durante la migrazione e VERO solo quando è
+// Fabrizio a salvare il paziente. Motivo: la migrazione gira anche su blob
+// arrivati dal server e potenzialmente più vecchi di quelli di un altro
+// dispositivo — cancellare una riga di Supabase in base a una copia stantia
+// sarebbe una perdita di dato silenziosa. In migrazione si aggiunge e si
+// allinea in locale, non si distrugge sul server.
+function _appSyncPaz(p,propagaCancellazione){
+  if(!p||!p.id) return false;
+  if(!Array.isArray(db.eventi)) db.eventi=[];
+  let cambiato=false;
+  const nome=((p.nome||'')+' '+(p.cognome||'')).trim();
+  [['visita',p.visitaData],['controllo',p.controlloData]].forEach(function(par){
+    const tipo=par[0], data=par[1]||'', id=_appIdAnag(p.id,tipo);
+    const i=db.eventi.findIndex(function(e){return e&&e.id===id;});
+    // Se quell'appuntamento è già segnato a mano in calendario per quel giorno
+    // (magari con l'ora), quello vince: non se ne mette un secondo accanto.
+    const giaAMano=!!data&&db.eventi.some(function(e){
+      return e&&e.id!==id&&e.pazId===p.id&&e.tipo===tipo&&e.data===data;});
+    if(!data||giaAMano){
+      if(i>=0){
+        db.eventi.splice(i,1); cambiato=true;
+        if(propagaCancellazione&&typeof delEventoSupabase==='function') delEventoSupabase(id);
+      }
+      return;
+    }
+    if(i>=0){
+      const e=db.eventi[i];
+      if(e.data!==data||e.pazNome!==nome||e.tel!==(p.tel||'')){
+        e.data=data; e.pazNome=nome; e.tel=p.tel||''; cambiato=true;
+      }
+    }else{
+      db.eventi.push({id:id,data:data,ora:'',tipo:tipo,pazId:p.id,pazNome:nome,
+        tel:p.tel||'',note:'',prezzo:0,promemoria:'no',origin:'anagrafica'});
+      cambiato=true;
+    }
+  });
+  return cambiato;
+}
+
+// Migrazione idempotente di UN paziente. Oltre a creare l'evento-specchio,
+// porta via il CONTROLLO INVENTATO a +28 giorni: non era un appuntamento, era
+// un valore di ripiego silenzioso su un dato che ordina il tempo (regola 11 del
+// CLAUDE.md, la stessa di `data: campo.value || today()` in salvaInbody).
+// Il controllo si concorda col paziente e può cadere a 14, 25, 32 giorni — non
+// esiste un default onesto. Nessun dato inserito a mano viene toccato: il +28
+// era derivato da inizioAlim ed è ricalcolabile in qualsiasi momento.
+function _appMigraPaziente(p){
+  if(!p) return false;
+  let c=false;
+  if(p.dateCalendario&&p.dateCalendario.controllo!==(p.controlloData||null)){
+    p.dateCalendario.controllo=p.controlloData||null; c=true;
+  }
+  if(_appSyncPaz(p,false)) c=true;
+  return c;
+}
+function _appMigraTutti(pazienti){
+  if(!Array.isArray(pazienti)) return false;
+  let c=false;
+  pazienti.forEach(function(p){ if(_appMigraPaziente(p)) c=true; });
+  return c;
+}
+
 function getEventi(){
   const all=[];
   db.pazienti.forEach(p=>{
-    if(p.visitaData)all.push({data:p.visitaData,tipo:'visita',pazId:p.id,pazNome:p.nome+' '+p.cognome,tel:p.tel});
+    // P140 — 'visita' e 'controllo' NON escono più da qui: sono appuntamenti e
+    // vivono in db.eventi (che ha l'ora). Qui resta solo la pianificazione.
     if(p.dateCalendario){
-      ['primo','chiamata','sett2','sett3','controllo'].forEach(t=>{
+      ['primo','chiamata','sett2','sett3'].forEach(t=>{
         if(p.dateCalendario[t])all.push({data:p.dateCalendario[t],tipo:t,pazId:p.id,pazNome:p.nome+' '+p.cognome,tel:p.tel});
       });
     }
@@ -26794,8 +26906,23 @@ function openEvDetail(pazId,tipo,evId){
 
 async function delEvento(id){
   if(!confirm('Eliminare evento?'))return;
+  // P140 T1 — se l'evento è lo specchio di un campo dell'anagrafica, cancellare
+  // SOLO la riga di db.eventi non basta: alla ricarica successiva la migrazione
+  // lo ricrea dal campo del paziente e l'appuntamento "risorge". Va spento
+  // anche il campo — che è poi il significato del gesto: quella visita non c'è.
+  const _ev=(db.eventi||[]).find(x=>x&&x.id===id);
+  let _pazDaSalvare=null;
+  if(_ev&&_ev.origin==='anagrafica'&&_ev.pazId){
+    const _p=(db.pazienti||[]).find(x=>x&&x.id===_ev.pazId);
+    if(_p){
+      if(_ev.tipo==='visita') _p.visitaData='';
+      if(_ev.tipo==='controllo'){ _p.controlloData=''; if(_p.dateCalendario) _p.dateCalendario.controllo=null; }
+      _pazDaSalvare=_p;
+    }
+  }
   db.eventi=db.eventi.filter(x=>x.id!==id);
   saveLocal();closeM('mo-ev-detail');renderCal();
+  if(_pazDaSalvare&&typeof save==='function') save(_pazDaSalvare.id);
   await delEventoSupabase(id);
   notif('Evento eliminato');
 }
@@ -26824,7 +26951,9 @@ function aggiornaPrev(ini){
       <div><span class="cal-ev ev-chiamata" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.1</span> ${fData(addDays(ini,7))} — Chiamata</div>
       <div><span class="cal-ev ev-sett2" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.2</span> ${fData(addDays(ini,14))} — Messaggio</div>
       <div><span class="cal-ev ev-sett3" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.3</span> ${fData(addDays(ini,21))} — Messaggio</div>
-      <div><span class="cal-ev ev-controllo" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.4</span> ${fData(addDays(ini,28))} — Controllo</div>
+    </div>
+    <div style="font-size:.7rem;color:var(--text3);margin-top:.5rem;border-top:1px solid var(--border);padding-top:.5rem">
+      🔴 Il <strong>controllo</strong> non è più proposto in automatico a 28 giorni: si concorda col paziente e si scrive nel campo «Controllo personalizzato» qui sotto (o direttamente in calendario, con l'ora).
     </div></div>`;
 }
 

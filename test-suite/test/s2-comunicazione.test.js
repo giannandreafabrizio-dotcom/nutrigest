@@ -3,8 +3,9 @@
 //   1) la compilazione dei template: i segnaposto {nome}/{cognome}/{appuntamento}
 //      devono sparire SEMPRE dal testo — un segnaposto non sostituito che parte
 //      su WhatsApp e' il bug piu' visibile che questa tab possa produrre;
-//   2) {appuntamento} viene dal calendario REALE (getEventi: visita, tappe,
-//      eventi manuali) e prende il primo appuntamento futuro, non uno a caso;
+//   2) {appuntamento} viene dal calendario REALE (getEventi: appuntamenti di
+//      db.eventi + tappe di pianificazione) e prende il primo appuntamento
+//      futuro, non uno a caso;
 //   3) lo storico della tab mostra tutti i tipi del registro p.invii e il
 //      filtro per tipo non perde voci.
 //
@@ -67,10 +68,17 @@ test('APPUNTAMENTO — prende il primo evento futuro del paziente, ignora passat
   assert.strictEqual(out, 'il 01/02/2099 alle 11:00');
 });
 
-test('APPUNTAMENTO — vede anche la visita iniziale del paziente (fonte dateCalendario/visitaData)', () => {
+test('APPUNTAMENTO — vede anche la prima visita del paziente (dal 30 lug 2026 via db.eventi, P140 T1)', () => {
+  // Prima di P140 la visita entrava in getEventi() direttamente da p.visitaData,
+  // e per questo non poteva avere un orario. Ora p.visitaData è lo SPECCHIO di un
+  // evento vero: la migrazione lo crea, e da lì in poi l'appuntamento può avere
+  // un'ora. Il risultato per la tab Comunicazione non cambia — questo test lo
+  // fissa — ma la strada sì.
   const p = pazInDb({ visitaData: '2099-05-05' });
+  win.eval('_appMigraTutti(db.pazienti)');
   const ev = win._comProssimoApp(p);
   assert.ok(ev && ev.data === '2099-05-05', 'la visita da scheda paziente entra nel calcolo');
+  assert.ok(ev.id, 'ed è un evento vero, con un id: può ricevere un orario');
 });
 
 // ── 3. Storico con filtri ────────────────────────────────────────────────────

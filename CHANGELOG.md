@@ -10,6 +10,107 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+30 LUGLIO 2026 (6a sessione) — P140 TAPPA 1: L'APPUNTAMENTO NASCE IN UN POSTO
+SOLO. Baseline 8996053.
+
+IL PROBLEMA DI PARTENZA (scheda P140). getEventi() componeva il calendario da
+TRE posti che descrivono lo stesso fatto — p.visitaData, p.dateCalendario e
+db.eventi — ma solo db.eventi ha il campo `ora`. Conseguenza operativa: il
+template {appuntamento} usciva monco ("il 12/08/2026" senza ora) e il flusso di
+prenotazione chiesto in P142 restava bloccato.
+
+LA SCOPERTA CHE HA CAMBIATO LA FORMA DEL PROBLEMA. Le tre fonti NON descrivono
+la stessa cosa. Quattro delle cinque date di p.dateCalendario (primo, chiamata
+sett.1, msg sett.2, msg sett.3) non sono appuntamenti: sono promemoria per il
+nutrizionista, derivati dalla data di inizio piano. Nessuno si presenta in
+studio e un orario non gli serve, ne' gli servira' mai. Gli unici due fatti che
+sono appuntamenti veri — il paziente viene a un'ora — sono la PRIMA VISITA e il
+CONTROLLO. Quindi non era una tripla fonte su tutto: era una DOPPIA fonte sulle
+due sole cose che sono appuntamenti. Da qui la scelta fra le due ipotesi della
+scheda: non fusione, ma la separazione onesta — dateCalendario resta la
+PIANIFICAZIONE, db.eventi diventa il CALENDARIO.
+
+IL SECONDO DIFETTO, EMERSO DAL RACCONTO DI FABRIZIO. Descrivendo la sua
+procedura reale (il paziente chiama, si fissa la prima visita con giorno E ora;
+il controllo si concorda insieme alla prima visita o alla chiamata della
+settimana dopo, e cade a 14 giorni per i keto, o a 25, o a 32 — "dipende da
+tante variabili") e' venuto fuori che salvaPaz scriveva
+`controllo: g('p-controllo') || addDays(ini,28)`. Quel +28 non era un default
+ragionevole: era UN APPUNTAMENTO INVENTATO. Finiva in calendario come se fosse
+fissato, e la dashboard ci costruiva sopra l'avviso "controllo saltato"
+contando i giorni da una data mai concordata con nessuno. E' la regola 11 del
+CLAUDE.md alla lettera — la stessa di `data: campo.value || today()` in
+salvaInbody. Terzo caso della famiglia.
+
+COSA E' STATO FATTO (Tappa 1, nessuna modifica di interfaccia).
+  - `_appIdAnag(pazId,tipo)` -> 'anag-<tipo>-<idPaziente>': l'id dell'evento e'
+    DETERMINISTICO, non uid(). Due motivi, entrambi bug con un id casuale:
+    (1) PC e iPhone eseguono la migrazione ognuno per conto proprio — con uid()
+    nascerebbero due eventi diversi per la stessa visita e al primo sync il
+    doppione tornerebbe dalla porta di servizio; con l'id deterministico i due
+    record si sovrappongono (upsert merge-duplicates gia' in uso);
+    (2) spostare l'appuntamento cambia la DATA della stessa riga, quindi l'ora
+    gia' fissata non si perde e non resta in giro un evento orfano.
+  - `_appSyncPaz(p, propagaCancellazione)`: allinea gli eventi-specchio ai campi
+    anagrafici. Idempotente. Se un evento e' gia' segnato A MANO per quel giorno
+    (magari con l'ora), quello vince e lo specchio non si aggiunge.
+    `propagaCancellazione` e' VERO solo quando e' Fabrizio a salvare il
+    paziente: in migrazione si aggiunge e si allinea in locale ma non si
+    cancella su Supabase, perche' un blob arrivato dal server puo' essere piu'
+    vecchio di quello di un altro dispositivo.
+  - `_appMigraPaziente` / `_appMigraTutti`: migrazione idempotente ai TRE punti
+    d'ingresso dati (regola 12) — loadLocal, _pazFetchBlob, importa — PIU' un
+    quarto punto non ovvio: pullEventiSupabase, che SOSTITUISCE db.eventi con
+    quello del server. Senza quella riga, un dispositivo gia' migrato vedeva
+    sparire le visite dal calendario appena si sincronizzava con uno non ancora
+    migrato. La migrazione azzera anche il controllo inventato
+    (`dateCalendario.controllo = p.controlloData || null`): nessun dato inserito
+    a mano viene toccato — il +28 era derivato da inizioAlim, ricalcolabile.
+  - salvaPaz: `|| addDays(ini,28)` diventa `|| null` (punto di SCRITTURA,
+    regola 10) e chiama `_appSyncPaz(pd,true)` pushando gli eventi toccati.
+  - getEventi(): 'visita' e 'controllo' non escono piu' da p.visitaData /
+    p.dateCalendario. Restano solo i quattro promemoria di pianificazione.
+  - delEvento: se l'evento cancellato e' uno specchio (origin 'anagrafica'),
+    spegne anche il campo del paziente. Senza questo, la migrazione lo avrebbe
+    RICREATO alla ricarica successiva: un appuntamento cancellato che risorge.
+  - aggiornaPrev: la riga "S.4 — Controllo" nella preview "Date automatiche"
+    sostituita da una nota che dice come si fissa davvero il controllo.
+
+EFFETTI COLLATERALI POSITIVI, tutti gratis dopo l'unificazione.
+  - Il KPI "appuntamenti della settimana" in dashboard contava solo db.eventi:
+    una prima visita scritta in anagrafica non veniva contata. Ora si'.
+  - Un appuntamento nato dall'anagrafica non aveva `id`: dal calendario non lo
+    potevi ne' spostare ne' cancellare (openEvDetail riceveva evId=''). Ora ce
+    l'ha ed e' un evento a tutti gli effetti.
+  - Le due medicazioni sul sintomo del 30 lug (fascia "senza orario" in vista
+    Settimana, blocco "SENZA ORARIO" in vista Giorno) restano valide e utili,
+    ma ora coprono il caso vero (evento senza ora ancora fissata) invece di un
+    difetto strutturale.
+
+COLLAUDO. Banco di prova deterministico a tavolino: 23 asserzioni su 9 scenari
+(migrazione storica, idempotenza a due giri, zero doppioni, due dispositivi in
+parallelo che generano lo stesso id, spostamento data con ora conservata,
+evento manuale che vince, cancellazione che spegne il campo, controllo vero con
+orario, paziente senza date). Tutte verdi. `node --check` sul blocco script.
+
+DECISIONI PRESE CON FABRIZIO.
+  - Appuntamenti storici: migrati tutti, senza ora. Nessun orario convenzionale
+    (sarebbe un dato inventato). Una regola sola, nessuna eccezione da ricordare.
+  - Il +28 sparisce. In cambio l'avviso rosso "controllo saltato" — che era
+    calcolato su quella data finta — smette di scattare per chi non ha un
+    controllo fissato, e in Tappa 2 diventa "controllo DA FISSARE", che e'
+    l'avviso onesto e quello davvero utile.
+  - Dove si fissa l'ora nell'interfaccia: Fabrizio non sa quale preferisce fra
+    campo-ora in anagrafica e bottone "Fissa appuntamento" — vuole PROVARLI.
+    Tappa 2 si apre con un mockup a confronto (stesso metodo di P145).
+
+RESTA APERTO (Tappa 2). Lo specchio inverso db.eventi -> p.visitaData (oggi un
+evento creato dal calendario non compila il campo dell'anagrafica); il punto
+d'ingresso dell'ORA; il nuovo avviso "controllo da fissare". Finche' l'ora non
+si puo' inserire, {appuntamento} resta senza orario: P140 sblocca P142 solo a
+Tappa 2 finita.
+
+
 30 LUGLIO 2026 (5ª sessione) — P145: LA SCHEDA InBody ALLA PRIMA MISURAZIONE.
 Baseline 047f135. Nata da uno screenshot di Fabrizio: paziente nuovo, una sola
 misurazione, scheda InBody senza NESSUN grafico.
