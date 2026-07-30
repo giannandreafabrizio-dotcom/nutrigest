@@ -10,6 +10,99 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+30 LUGLIO 2026 — P139 APERTA: PLICOMETRIA. SESSIONE DI SOLO RAGIONAMENTO, NESSUN
+CODICE TOCCATO. Baseline `4833ca6`. Modificati solo Roadmap e CHANGELOG.
+
+**LA DOMANDA DI FABRIZIO:** *"molti nutrizionisti usano come metodo di misura
+anche la plicometria, vorrei aggiungerla. Ma prima vorrei ragionare se ne vale
+davvero la pena, e se sì qual è il modo migliore e come la colleghiamo alle
+altre funzioni."* Dato dichiarato subito, e che ha riorientato tutta la sessione:
+**Fabrizio il plicometro non l'ha mai usato.** Quindi la funzione non nasce da un
+bisogno della sua pratica ma dal posizionamento commerciale, e lo standard va
+scelto su cosa fanno gli altri, non su cosa farebbe lui.
+
+**IL VERDETTO: sì, ma per un motivo solo, ed è commerciale.** Come stima della %
+di grasso, a lui che ha l'InBody la plicometria non serve. Il punto vero è che
+NutriGest oggi ha un presupposto nascosto: **serve un InBody.** Il motore TDEE
+parte dal MB sulla massa magra InBody, P122 deriva il traguardo dalla massa magra
+InBody, la scheda composizione è una scheda InBody. Un collega senza InBody compra
+l'app e ne trova spenta la metà caratterizzante. La plicometria è il **secondo
+motore d'ingresso**. Mercato verificato: Dietosystem la vende come modulo
+dedicato, WinFood/MetaDieta/Bodygeo/Sifa la hanno; i gestionali economici
+(Nutribook, Appuntoo, Nutriverso) non gestiscono composizione corporea. Non
+averla colloca NutriGest in quella seconda fascia.
+
+**IL NUMERO CHE HA DECISO L'ARCHITETTURA.** Stesso paziente inventato ma
+plausibile (uomo 42 anni, 88 kg, 178 cm), stesse pliche, calcolato con tutti i
+metodi: Jackson-Pollock 3 → **18,6%**, JP7 → 20,0%, Durnin-Womersley → 27,3%,
+Peterson → 27,2%. **8,8 punti di ampiezza.** Propagati a Katch-McArdle:
+**da 1.751 a 1.918 kcal di metabolismo basale — 167 kcal decise da quale riga di
+codice si è scelta.** Dal lato opposto, il minimo cambiamento *rilevabile* su una
+somma di 7 pliche (MDC₉₅ = 2,77 × errore tecnico) è ≈ 7 mm, cioè **meno di 1
+punto percentuale di grasso**. L'errore del metodo è dieci volte il segnale che
+si vuole misurare.
+
+**DA LÌ LA REGOLA: si salvano i millimetri, la percentuale è derivata.**
+Indicatore primario = somma pliche in mm e sua traiettoria; la % grasso è output
+terziario collassato, con equazione ed errore dichiarati accanto. È la **terza
+applicazione** dello schema "fonte di verità grezza + specchio derivato" già usato
+in P118 tappa 1 e in P122 (`pesoTarget`). Coincide con la posizione della
+letteratura recente (German J Sports Med 2022, position statement IOC/Ackland
+2012, prassi ISAK): convertire in percentuale aggiunge un passaggio d'errore più
+grande del segnale.
+
+**IL RISCHIO È IL "FALSO AMICO" DI P101, AUTO-INFLITTO.** Sarebbe la terza fonte
+di verità sulla composizione corporea, dopo InBody e peso casalingo. Famiglia già
+vissuta due volte (P118 sui referti del sangue, P120 sullo storico InBody): è la
+ragione per cui esistono le lezioni 10-11 di CLAUDE.md. Regola scritta nella
+scheda: **serie plicometrica sempre separata da quella InBody, mai fuse in un
+unico grafico o campo "% grasso"**. L'unico confronto legittimo fra i due metodi
+è indicizzato alla variazione dal basale — cioè il grafico già scelto in P99.
+
+**TRE COSE TROVATE DALLA RICERCA CHE NESSUNO SI ASPETTAVA.**
+- **L'equazione di Faulkner non è di Faulkner.** È un errore bibliografico
+  smentito nel 2007 (Glaner & Pires Neto, *"o fim de um mito"*): deriva da
+  coefficienti mai pubblicati di Yuhasz, propagati dai laboratori brasiliani alla
+  letteratura ispanofona e poi italiana. Nessuna popolazione di validazione,
+  nessun errore documentato. È diffusa perché si calcola a mente e perché dà
+  valori stabilmente bassi sui magri e allenati — conferma quello che il cliente
+  sportivo vuole sentirsi dire. **Mai come default.**
+- **Vincolo normativo che chiude una porta:** linee guida ONB/FNOB (delibera
+  433/2019, par. 7) vietano di demandare il rilievo al cliente. **Niente
+  inserimento pliche lato app paziente**, anche se sarebbe comodo. Il biologo
+  nutrizionista può invece eseguirla senza vincoli (par. 8, apparecchi non
+  invasivi).
+- **Tre siti anatomici diversi si chiamano tutti "sovrailiaca"** (cresta iliaca
+  ISAK / sovraspinale ISAK / suprailiaca ACSM), e le equazioni ne usano di
+  diversi. Mai l'etichetta generica da sola, mai riusare il valore di un sito per
+  popolare l'altro.
+
+**IL RISCHIO DI COLLAUDO, MESSO PER ISCRITTO INVECE CHE SCOPERTO DOPO.** Fabrizio
+non sa usare il plicometro, quindi **non può collaudare sul campo** — e la lezione
+del 29 luglio dice che su questo genere di lavoro il collaudo vero è guardare il
+risultato reale, non il test verde. Le tappe sono state ordinate perché quel
+rischio cada il più tardi possibile: 1-2 (registro e grafico) sono deterministiche
+e verificabili a tavolino, 3-5 richiedono giudizio clinico. Fra la 2 e la 3 c'è una
+fermata esplicita. Contromisure: collaudo numerico delle equazioni nella
+test-suite, un plicometro da €30 per provare l'interfaccia con due mani occupate,
+e soprattutto **un collega che la usa già**.
+
+**PERCHÉ QUESTA VOCE ESISTE ANCHE SE NON SI IMPLEMENTA SUBITO.** Fabrizio ha detto
+che la farà "più in là nel tempo" e ha chiesto se poteva lasciare la chat aperta.
+No: la sessione è effimera. Il ragionamento sta nel progetto Claude, ma **la
+roadmap è l'unica cosa che una sessione futura legge per sapere cosa fare** —
+senza la scheda, fra tre mesi il documento resta lì e nessuno lo va a cercare.
+È l'incidente del 16 luglio (P62/P77 fatte ma roadmap ferma su "Da fare") girato
+al contrario, e la lezione è la stessa: **il posto dove una decisione va scritta
+non è dove è stata presa, è dove verrà cercata.**
+
+**RAGIONAMENTO COMPLETO** (formule esatte con tutti i coefficienti, tabella
+Durnin-Womersley per fascia d'età, modello dati, schermata di inserimento, sei
+punti bibliografici da chiudere prima di codificare, fonti primarie):
+`claude/NutriGest_Plicometria_Ragionamento.md` nel progetto Claude.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 29 LUGLIO 2026 (4) — P138: PULIZIA ESTETICA DELLA SCHEDA INBODY E ARMONIA FRA I RIQUADRI.
 Test **410/410**. Baseline `79e6cf5`. Include la rigenerazione di INDEX.md.
 Anteprima mostrata a Fabrizio PRIMA di consegnare, come chiesto da lui.
