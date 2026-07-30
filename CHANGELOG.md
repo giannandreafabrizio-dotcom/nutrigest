@@ -10,6 +10,101 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+30 LUGLIO 2026 (5ª sessione) — P145: LA SCHEDA InBody ALLA PRIMA MISURAZIONE.
+Baseline 047f135. Nata da uno screenshot di Fabrizio: paziente nuovo, una sola
+misurazione, scheda InBody senza NESSUN grafico.
+
+IL DIFETTO. Tutti e sei i riquadri erano costruiti dentro un solo `if(hasMulti)`
+(hasMulti = sorted.length>=2). Restavano a video la silhouette segmentale e la
+tendina delle misurazioni: nient'altro.
+
+LA DIAGNOSI. `hasMulti` era diventato una scorciatoia per "abbiamo abbastanza
+dati", ma i sei grafici non hanno lo stesso fabbisogno:
+  - PERCORSO (servono >=2, e le loro guardie interne sono corrette):
+    Composizione nel tempo (variazione dal basale: con un punto sono tre zeri),
+    Ritmo e Qualita' (lavorano sui PERIODI, e un periodo e' la distanza fra due
+    referti: con uno solo _ibPeriodi ne restituisce zero), curva dell'adiposita'.
+  - FOTOGRAFIA (bastava una misurazione): la composizione a barre, e soprattutto
+    G5 «Peso · Muscolo · Grasso» (P133) — `_ibGrForme(ib,w)` riceve UNA
+    misurazione (`_ibVista.ultimoIb`), non la serie. Era l'unico dei sei che per
+    costruzione non poteva aver bisogno di due referti, ed era chiuso li' dentro
+    per il solo punto del file in cui era stato scritto: il grafico piu' utile
+    alla prima visita era l'unico che alla prima visita non si vedeva.
+
+LEZIONE. Una condizione di guardia scritta per un GRUPPO di funzioni assorbe
+tutto cio' che viene aggiunto dentro quel gruppo, anche cio' che non le
+appartiene. Aggiungendo un riquadro a un blocco condizionale la domanda non e'
+"sta bene qui?" ma "questa condizione parla anche di lui?". E' la stessa
+famiglia dell'incidente del 30 lug (3ª sessione): li' un `return` anticipato
+spegneva meta' dashboard, qui una `if` di gruppo spegneva sei grafici su un
+caso d'uso intero.
+
+METODO. Prima di scrivere codice, mockup a confronto costruito con il MOTORE
+VERO (funzioni _ib* copiate da 047f135, dati del paziente dello screenshot) e
+tre scenari messi a video: A (solo G5), B (scheda "prima visita"), C (tutti i
+grafici sempre). C e' servito a rispondere visivamente al dubbio di Fabrizio
+"mostro anche gli altri?": quattro riquadri su sei restano vuoti e la scheda
+sembra rotta. Fabrizio ha scelto B.
+
+LA MODIFICA (index.html):
+1) Tre riquadri escono da `if(hasMulti)`: G5, composizione a barre, adiposita'.
+   L'ordine dei riquadri (_cOrdine) NON cambia: quelli vuoti cadono nel
+   .filter(Boolean) e la griglia si richiude su chi resta.
+2) `_ibGrBarre`: soglia da `V.length<2` a `V.length<1` + ramo "barra unica" —
+   barra larga e centrata (con 1 sola misurazione il calcolo normale la lasciava
+   a 46px in mezzo a mezzo riquadro vuoto) e nomi/kg/% scritti DI FIANCO alle
+   fette invece che nel tooltip, che su un referto stampato non esiste.
+   La percentuale e' a un decimale: cosi' la fetta del grasso ridice esattamente
+   la "% grassa" del referto (34,5%) e le tre fette fanno 100 e non 101.
+3) `_ibAdipCurva(S)` — nuova: "questa serie puo' disegnare una curva?" in UN
+   posto solo, usata sia da renderPdInbody per scegliere il riquadro sia da
+   `_ibGrAdiposita` per disegnare. Due copie della stessa condizione sono la
+   premessa di F9: divergono, e resta un riquadro con dentro il vuoto.
+4) `_ibGrRighelliOggi()` — nuova: alla prima misurazione l'adiposita' centrale
+   mostra i due RIGHELLI clinici (viscerale e cintura/fianchi con le fasce e la
+   fonte) al posto della curva. Non e' un grafico nuovo: e' `_ibRighello`, che
+   gia' stava di fianco alla curva. Stessa card, stesso posto nella griglia.
+5) `_ibFormeMotivo(ib)` — nuova: G5 non sparisce piu' in silenzio quando manca
+   `ib.rif`. Il riquadro resta e SCRIVE perche' ("questo referto non porta gli
+   intervalli di riferimento... reimporta il PDF"). Prima erano due `return ''`
+   dentro il disegno piu' una `if(...)` in renderPdInbody: tre condizioni per la
+   stessa cosa, e a video il nulla. Famiglia F6/F7 — l'uscita silenziosa.
+6) `_ibFormaPaziente(ib)` — nuova: la forma riconosciuta (a C / a D /
+   bilanciata) calcolata in un posto solo, per il badge nel disegno e per la
+   frase in HTML.
+
+TRE ETICHETTE TAGLIATE, trovate GUARDANDO il rendering (non nei test):
+  - la frase clinica della forma ("...la priorita' e' togliere grasso
+    proteggendo il muscolo") era un <text> SVG, che non va a capo: a mezza
+    colonna finiva troncata a meta' parola e sotto i 520px spariva del tutto,
+    cioe' proprio su iPhone. Ora e' HTML sotto il grafico: si adatta da sola e
+    su telefono si vede per la prima volta.
+  - l'etichetta dell'idratazione usciva dal riquadro ("atteso 72–7" a mezza
+    colonna, "· atteso" su iPhone): accorciata due volte, una per soglia.
+  - la riga del grasso si leggeva «Massa» accanto a «Muscolo» (taglio
+    automatico alla prima parola, `r[3].split(' ')[0]`): ora le versioni corte
+    sono scritte per esteso — Peso / Muscolo / Grasso.
+  Un'etichetta tagliata e' peggio di un'etichetta corta.
+
+COLLAUDO (Playwright sul file vero, scheda costruita DA NASCOSTA e poi mostrata,
+come impone la regola di P136):
+  1 misurazione con rif   → barre, righelli e forme disegnati; nessun riquadro
+                            vuoto; frase clinica presente e intera.
+  1 misurazione senza rif → forme mostra il messaggio "referto senza intervalli"
+                            (nessun contenitore [data-ib] vuoto).
+  2 misurazioni           → tempo, barre, ritmo, qualita', adip (CURVA), forme:
+                            invariato rispetto a prima, nessuna regressione.
+  iPhone (430px)          → tutte e tre le etichette accorciate entrano; le
+                            versioni corte Peso/Muscolo/Grasso si leggono.
+Suite 410/410. INDEX.md rigenerato.
+
+FUORI PERIMETRO (visto nel collaudo, NON toccato per non allargare il giro):
+nella Mappa della qualita' a mezza colonna il titolo dell'asse X "variazione
+MASSA GRASSA (kg)" e la didascalia "colore piu' pieno = periodo piu' recente"
+si sovrappongono. Difetto pre-esistente, stessa famiglia dei tre qui sopra
+(testo SVG che non va a capo): da segnare in roadmap.
+
+
 30 LUGLIO 2026 (4ª sessione) — NAVIGAZIONE CALENDARIO CORRETTA PER OGNI VISTA,
 SCADENZE DASHBOARD RAGGRUPPATE PER PAZIENTE. Baseline 5da94f1. Sessione nata dal
 collaudo di Fabrizio sulle due sessioni precedenti: due difetti reali trovati

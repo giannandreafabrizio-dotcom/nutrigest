@@ -265,6 +265,13 @@
 
 # PRIORITÀ 1 — Bug aperti
 
+### P146 — Testi SVG che si sovrappongono nella Mappa della qualità
+**IL PROBLEMA:** a mezza colonna (~545px) il titolo dell'asse X «variazione MASSA GRASSA (kg)» e la didascalia «colore più pieno = periodo più recente» finiscono uno sopra l'altro e diventano illeggibili entrambi. Trovato guardando il rendering durante P145 (30 lug 2026), non toccato lì per non allargare il giro.
+**LA FAMIGLIA:** è la stessa dei tre difetti corretti in P145 — un `<text>` SVG non va a capo e non si accorcia da solo, quindi qualunque etichetta scritta pensando alla larghezza piena si taglia o si sovrappone a mezza colonna e su iPhone. Vale la pena passare in rassegna TUTTE le etichette di testo dei sei grafici alle due larghezze reali (~545px e ~397px) in un giro solo, invece di correggerle una alla volta quando saltano fuori.
+**LA SOLUZIONE:** o la didascalia esce dall'SVG e diventa HTML sotto il grafico (come è stato fatto per la frase clinica della forma in P145 — è la soluzione che si adatta da sola a ogni larghezza), o le due righe si separano in verticale sotto una soglia di larghezza.
+**FOCUS COMPONENTI COINVOLTI:** Frontend, `_ibGrQualita` e rassegna degli altri cinque grafici.
+**SCHEDA:** Stato: Da fare · Priorità: Bassa (estetico, nessun dato sbagliato) · C: 1 | I: 2 | R: 1 · Modello: Sonnet 4.6 Medium · Autonomia: L1.
+
 ### P144 — "Gestito" nelle scadenze dashboard vive in localStorage
 **IL PROBLEMA:** `segnaGestito()` scrive nella chiave `localStorage` `scadenze_gestite`, fuori da `db`. Stessa famiglia di difetto dell'agenda rimossa il 30 lug 2026 (3ª sessione): fuori dal backup JSON, non sincronizzato tra dispositivi. Se Fabrizio segna "gestito" 20 avvisi dal computer dello studio, sul telefono li rivede tutti.
 **LA SOLUZIONE:** spostare in un campo su `db` (es. `p._scadenzeGestite = {chiave: dataGestione}`, o un registro unico simile a `p.invii[]`). L'auto-scadenza a 14 giorni già presente va portata invariata.
@@ -1131,6 +1138,15 @@ Test 290 → **301** (`s2-strade.test.js`).
 # ARCHIVIO — ragionamento CTO delle voci chiuse
 
 > Voci completate per intero e uscite dalla pianificazione attiva (REGOLA FONDAMENTALE). Il ragionamento CTO originale è conservato qui perché "c'è SEMPRE un modo di sapere perché è stata presa una decisione". Lo stato del codice, i commit e le note di sessione sono nel CHANGELOG e nel Contesto.
+
+### P145 — La scheda InBody alla PRIMA misurazione ✅ CHIUSA 30 luglio 2026 (5ª sessione)
+**IL PROBLEMA (portato da Fabrizio con uno screenshot di un paziente nuovo):** su un paziente con una sola misurazione la scheda InBody non mostrava **nessun grafico**. Tutti e sei i riquadri erano costruiti dentro un unico `if(hasMulti)` (`sorted.length>=2`), e restavano a video solo la silhouette segmentale e la tendina delle misurazioni.
+**LA DIAGNOSI:** `hasMulti` era diventato una scorciatoia per "abbiamo abbastanza dati", ma i sei grafici non hanno lo stesso fabbisogno. Quattro raccontano un PERCORSO e con un punto solo non hanno nulla da disegnare: *Composizione nel tempo* misura la variazione dal basale (con un referto sono tre zeri), *Ritmo* e *Qualità* lavorano sui periodi e un periodo è la distanza fra due referti, la *curva* dell'adiposità è una curva. Ma gli altri due sono FOTOGRAFIE di un referto: la *composizione a barre* (l'Analisi Peso-Muscolo-Grasso del referto InBody) e soprattutto **G5 «Peso · Muscolo · Grasso»** (P133), la cui funzione `_ibGrForme(ib,w)` riceve **una** misurazione e non la serie. Il grafico più utile alla prima visita era l'unico che alla prima visita non si vedeva — e non per un vincolo, ma per il punto del file in cui era stato scritto.
+**LA LEZIONE GENERALIZZABILE:** una condizione di guardia scritta per un gruppo di funzioni tende ad assorbire tutto ciò che viene aggiunto dentro quel gruppo, anche ciò che non le appartiene. Quando si aggiunge un riquadro a un blocco condizionale, la domanda non è "sta bene qui?" ma **"questa condizione parla anche di lui?"**.
+**LA SOLUZIONE SCELTA (opzione B di tre mostrate a Fabrizio in un mockup a confronto):** i tre riquadri che reggono con un punto solo escono da `if(hasMulti)` — G5, la composizione a barre (con un ramo "barra unica" che si allarga e porta i nomi delle fette di fianco invece che nel tooltip), e l'adiposità centrale che alla prima misurazione mostra i **righelli clinici** (`_ibRighello`, componente già esistente) al posto della curva. I quattro longitudinali restano dentro.
+**DECISIONI DI FABRIZIO (30 lug 2026):** (a) scheda "prima visita" completa, non il solo G5; (b) quando `ib.rif` manca, il riquadro **dice perché** e invita a reimportare il PDF, invece di sparire; (c) etichette corte «Peso / Muscolo / Grasso» al posto del taglio automatico alla prima parola.
+**FOCUS COMPONENTI COINVOLTI:** Frontend, scheda InBody. Nessun cambio di struttura dati, nessuna migrazione.
+**SCHEDA:** Stato: ✅ Chiusa 30 lug 2026 · Baseline `047f135` · Suite 410/410 · Priorità: Alta (difetto visibile a ogni paziente nuovo) · C: 2 | I: 4 | R: 1 · Autonomia: L1.
 
 ### P87 — Centro comunicazione (WhatsApp/Telegram/email) ✅ CHIUSA 28 luglio 2026 (3 tappe in giornata)
 **L'APPROCCIO ORIGINARIO:** punto unico canali, template, storico invii, invio PDF analisi via WhatsApp.

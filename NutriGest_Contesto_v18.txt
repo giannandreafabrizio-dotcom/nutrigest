@@ -1925,8 +1925,10 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
     _ibGrForme + _ibFormaDi: il grafico a tre asticelle peso/muscolo/grasso con le
       fasce ALLINEATE in verticale (e' l'allineamento che fa emergere la forma) e
       il riconoscimento automatico della forma a C / a D / bilanciata, con la
-      frase clinica. Non si disegna se ib.rif manca: senza intervalli non c'e' un
-      denominatore onesto.
+      frase clinica. Senza ib.rif non c'e' un denominatore onesto e il disegno
+      non si fa - ma dal 30 lug (P145) il riquadro resta e DICE perche' (vedi
+      _ibFormeMotivo). La frase clinica sta in HTML sotto il grafico, non
+      nell'SVG: un <text> non va a capo e a mezza colonna veniva troncato.
     LISTA MISURAZIONI: tabella .ib-tab dentro un <details> chiuso (prima era una
       card per referto). Decimali fissi per colonna: la tabella si legge in
       verticale e "79" accanto a "78,1" spezza l'allineamento della virgola.
@@ -1983,6 +1985,39 @@ MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
       Peso/Muscolo/Grasso (regola 14, ora in testata).
       ARMONIA: altezze dei grafici tutte ~300 (erano 234-360) e .ib-g2col con
       align-items:stretch. Se si aggiunge un grafico, tenerlo su quella misura.
+    P145 - QUALI RIQUADRI SERVONO DUE MISURAZIONI E QUALI NO (30 lug 2026):
+      hasMulti (sorted.length>=2) NON e' piu' la guardia di tutti i grafici:
+      era diventato una scorciatoia per "abbiamo abbastanza dati", ma i sei
+      riquadri non hanno lo stesso fabbisogno.
+        DENTRO if(hasMulti) - raccontano un PERCORSO:
+          Composizione nel tempo (variazione dal basale), Ritmo, Qualita' del
+          ritmo (lavorano sui PERIODI: con un referto _ibPeriodi ne da' zero),
+          e la CURVA dell'adiposita'.
+        FUORI - sono la FOTOGRAFIA di un referto:
+          G5 Peso/Muscolo/Grasso (_ibGrForme riceve ultimoIb, non la serie),
+          composizione a barre (ramo `uno`: barra larga e centrata, nomi e kg
+          scritti di fianco alle fette invece che nel tooltip), e l'adiposita'
+          centrale che alla prima misurazione mostra _ibGrRighelliOggi - i due
+          righelli clinici gia' esistenti - AL POSTO della curva, stessa card.
+      _ibAdipCurva(S) e' l'unico punto che decide "questa serie puo' disegnare
+      una curva?": la usano sia renderPdInbody per scegliere il riquadro sia
+      _ibGrAdiposita per disegnare. Non duplicarla (sarebbe F9).
+      _ibFormeMotivo(ib) -> null se G5 si puo' disegnare, altrimenti la FRASE da
+      mostrare al posto del disegno (referto senza intervalli, intervalli
+      incompleti, valori mancanti). Un riquadro che sparisce senza dire perche'
+      e' un guasto muto (F6/F7): qui invita a reimportare il PDF.
+      _ibFormaPaziente(ib) -> la forma riconosciuta, calcolata UNA volta per il
+      badge nell'SVG e per la frase in HTML.
+      L'ORDINE dei riquadri (_cOrdine) non cambia mai con il numero di
+      misurazioni: quelli vuoti cadono nel .filter(Boolean) e la griglia si
+      richiude su chi resta.
+      ETICHETTE: le versioni corte per colonna stretta si scrivono per esteso
+      (Peso / Muscolo / Grasso), non si ricavano tagliando alla prima parola -
+      "Massa grassa" diventava "Massa" accanto a "Muscolo". Regola generale
+      emersa qui: in un SVG un'etichetta tagliata e' peggio di un'etichetta
+      corta, perche' il testo SVG non va a capo e nessuno se ne accorge finche'
+      non si GUARDA il rendering alla larghezza vera (mezza colonna ~545px e
+      iPhone ~397px sono le due misure da provare).
       ACCETTATO DA FABRIZIO: nella mappa della qualita' i pallini sono numerati
       ma l'elenco dei periodi non c'e' piu'; la data si legge solo col tocco.
     ORDINE DEI RIQUADRI: i cinque riquadri si costruiscono in variabili

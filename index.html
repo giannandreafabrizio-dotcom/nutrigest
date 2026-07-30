@@ -13090,12 +13090,22 @@ function _ibRighello(o){
   s+=_ibTx(txx,o.y+o.h/2,o.tit,{fs:9,fw:640,fill:o.col,tr:'rotate(-90 '+txx+' '+(o.y+o.h/2)+')'});
   return s;
 }
+// P145 — "questa serie può disegnare una curva?" si decide in UN posto solo.
+// renderPdInbody deve saperlo PRIMA di scegliere quale riquadro costruire
+// (curva o righelli del punto di partenza), e _ibGrAdiposita quando disegna:
+// due copie della stessa condizione sono la premessa di F9 — divergono, e a
+// video resta un riquadro con dentro il vuoto.
+function _ibAdipCurva(S){
+  const V=S.filter(function(p){return p.whr!=null||p.visc!=null;});
+  if(V.length<2)return false;
+  return V.filter(function(p){return p.whr!=null;}).length>1
+      || V.filter(function(p){return p.visc!=null;}).length>1;
+}
 function _ibGrAdiposita(S,w,sesso){
   const V=S.filter(function(p){return p.whr!=null||p.visc!=null;});
-  if(V.length<2)return '';
+  if(!_ibAdipCurva(S))return '';
   const hasW=V.filter(function(p){return p.whr!=null;}).length>1;
   const hasV=V.filter(function(p){return p.visc!=null;}).length>1;
-  if(!hasW&&!hasV)return '';
   const stretto=w<560;
   const Lm=stretto?86:142,Rm=stretto?96:272,Tm=22,Bm=stretto?58:44;
   const h=stretto?298:300,pw=Math.max(60,w-Lm-Rm),ph=h-Tm-Bm;
@@ -13182,6 +13192,53 @@ function _ibGrAdiposita(S,w,sesso){
   }else{
     s+=_ibTx(Lm,h-6,fo1+(fo1&&fo2?'  ·  ':'')+fo2,{ta:'start',fs:9.5,fill:_IBC.muted});
   }
+  return _ibSvg(w,h,s);
+}
+
+// ── G2b · "Dove sei oggi" — i righelli clinici senza la curva ─────────────
+// P145. Non è un grafico nuovo: è lo stesso _ibRighello che sta di fianco alla
+// curva dell'adiposità centrale, usato da solo. Con una misurazione la curva
+// non esiste, ma la domanda della prima visita non è "come sta andando": è
+// "dove cade rispetto ai riferimenti", ed è esattamente ciò che il righello
+// risponde. Subentra al posto della curva, non si aggiunge: quando i punti
+// diventano due il riquadro torna a essere quello di prima (i righelli sono
+// già lì dentro, ai lati).
+function _ibGrRighelliOggi(S,w,sesso){
+  const p=S.length?S[S.length-1]:null;
+  if(!p)return '';
+  const RW=_IB_RIF.whr[sesso==='F'?'F':'M'], RV=_IB_RIF.visc;
+  const hasW=p.whr!=null, hasV=p.visc!=null;
+  if(!hasW&&!hasV)return '';
+  const stretto=w<440;
+  const h=268, gy=64, gh=h-64-62, gw=stretto?16:18;
+  const n=(hasW?1:0)+(hasV?1:0);
+  const cx=function(i){return w*(n===1?0.5:(i===0?0.32:0.72));};
+  let s='',k=0;
+  if(hasW){
+    const x=cx(k++)-gw/2, dentro=p.whr>=RW.lo&&p.whr<=RW.hi;
+    s+=_ibRighello({x:x,y:gy,h:gh,w:gw,min:0.65,max:1.05,val:p.whr,win:[0.65,1.05],
+      lo:RW.lo,hi:RW.hi,col:_IBC.whr,side:'left',dec:true,tit:'cintura / fianchi',
+      zone:[{a:0.65,b:RW.lo,fill:'#EFF4F8'},{a:RW.lo,b:RW.hi,fill:'#E6F4EE'},{a:RW.hi,b:1.05,fill:'#FBEEEA'}]});
+    s+=_ibTx(x+gw/2,gy-14,_ibN(p.whr,2),{fs:18,fw:700,fill:_IBC.whr});
+    s+=_ibTx(x+gw/2,h-36,'cintura / fianchi',{fs:10.5,fw:640,fill:_IBC.ink2});
+    s+=_ibTx(x+gw/2,h-22,dentro?'dentro il riferimento':'sopra il riferimento',
+      {fs:10,fw:600,fill:dentro?_IBC.good:'#A05A3C'});
+    s+=_ibTx(x+gw/2,h-8,_IB_RIF.whr.fonte+' '+_ibN(RW.lo,2)+'–'+_ibN(RW.hi,2)+' ('+(sesso==='F'?'donna':'uomo')+')',
+      {fs:9,fill:_IBC.muted});
+  }
+  if(hasV){
+    const x=cx(k++)-gw/2, dentro=p.visc>=RV.lo&&p.visc<=RV.hi;
+    s+=_ibRighello({x:x,y:gy,h:gh,w:gw,min:0,max:20,val:p.visc,win:[0,20],
+      lo:RV.lo,hi:RV.hi,col:_IBC.acqua,side:'right',dec:false,tit:'grasso viscerale',
+      zone:[{a:0,b:RV.lo,fill:'#EFF4F8'},{a:RV.lo,b:RV.hi,fill:'#E6F4EE'},{a:RV.hi,b:20,fill:'#FAF3EA'}]});
+    s+=_ibTx(x+gw/2,gy-14,'lv. '+_ibN(p.visc,0),{fs:18,fw:700,fill:_IBC.acqua});
+    s+=_ibTx(x+gw/2,h-36,'grasso viscerale',{fs:10.5,fw:640,fill:_IBC.ink2});
+    s+=_ibTx(x+gw/2,h-22,dentro?'dentro il riferimento':'sopra il riferimento',
+      {fs:10,fw:600,fill:dentro?_IBC.good:'#A05A3C'});
+    s+=_ibTx(x+gw/2,h-8,RV.fonte+' '+RV.lo+'–'+RV.hi,{fs:9,fill:_IBC.muted});
+  }
+  s+=_ibTx(6,15,'Referto del '+fData(p.data)+' — punto di partenza',{ta:'start',fs:11.5,fw:700,fill:_IBC.ink});
+  s+=_ibTx(6,30,'la freccia dice dove cadi; le fasce sono i riferimenti clinici',{ta:'start',fs:9.5,fill:_IBC.muted});
   return _ibSvg(w,h,s);
 }
 
@@ -13374,7 +13431,12 @@ function _ibGrBarre(S,w){
     ? [['resto','Resto della massa magra',_IBC.resto],['musc','Massa muscolare',_IBC.muscolo],['g','Massa grassa',_IBC.grasso]]
     : [['magra','Massa magra',_IBC.muscolo],['g','Massa grassa',_IBC.grasso]];
   const V=S.filter(function(p){return ord.every(function(o){return p[o[0]]!=null;});});
-  if(V.length<2)return '';
+  // P145 — bastava UNA misurazione: la composizione del peso e' una fotografia,
+  // non un andamento (e' l'"Analisi Peso-Muscolo-Grasso" del referto). La soglia
+  // a 2 era ereditata dal blocco dei grafici longitudinali, non un vincolo del
+  // disegno: alla prima visita nascondeva l'unica lettura possibile.
+  if(V.length<1)return '';
+  const uno=V.length===1;
   const conIdr=V.some(function(p){return p.idr!=null;});
   const stretto=w<440,Lm=stretto?36:46,Rm=stretto?10:16,Tm=18;
   const Bm=conIdr?(stretto?88:92):(stretto?34:38);
@@ -13382,7 +13444,11 @@ function _ibGrBarre(S,w){
   let MAX=0;V.forEach(function(p){const t=ord.reduce(function(s2,o){return s2+p[o[0]];},0);if(t>MAX)MAX=t;});
   MAX=MAX*1.1;
   const Y=function(v){return Tm+ph*(1-v/MAX);};
-  const slot=pw/V.length,bw=Math.min(stretto?26:46,Math.max(slot-(stretto?8:16),6));
+  const slot=pw/V.length;
+  // con una barra sola il calcolo normale la lascerebbe larga 46px in mezzo a
+  // mezzo riquadro vuoto: si allarga e lo spazio a destra porta le etichette
+  const bw=uno?Math.min(stretto?86:104,pw*0.42)
+             :Math.min(stretto?26:46,Math.max(slot-(stretto?8:16),6));
   const xs=V.map(function(p,i){return Lm+slot*(i+0.5)-bw/2;});
   let s='';
   const passo=MAX>60?20:MAX>25?10:5;
@@ -13403,8 +13469,18 @@ function _ibGrBarre(S,w){
         fill:o[2],'data-ibtip':'<b>'+fData(p.data)+'</b><br>'+o[1]+': <b>'+_ibN(v)+' kg</b>'+
           (p.peso?'<br>peso '+_ibN(p.peso)+' kg':'')+
           (p.g!=null&&p.peso?' · grasso '+_ibN(p.g/p.peso*100)+'%':'')});
+      // barra unica: nome e kg si scrivono di fianco alla fetta invece di
+      // restare nel tooltip, che su un referto stampato o girato al paziente
+      // non esiste. Percentuale a un decimale: cosi' la fetta del grasso
+      // ridice esattamente la "% grassa" del referto e i tre valori fanno 100.
+      if(uno&&hg>22){
+        s+=_ibTx(x+bw+10,Y(acc+v)+hg/2-2,o[1],{ta:'start',fs:11,fw:640,fill:_IBC.ink2});
+        s+=_ibTx(x+bw+10,Y(acc+v)+hg/2+12,_ibN(v)+' kg · '+_ibN(v/tot*100,1)+'% del peso',
+          {ta:'start',fs:11.5,fw:700,fill:o[2]});
+      }
       acc+=v;});
-    if(i===0||i===V.length-1)s+=_ibTx(x+bw/2,Y(tot)-7,_ibN(tot),{fs:12,fw:700,fill:_IBC.ink});
+    if(uno)s+=_ibTx(x+bw/2,Y(tot)-8,_ibN(tot)+' kg',{fs:12.5,fw:700,fill:_IBC.ink});
+    else if(i===0||i===V.length-1)s+=_ibTx(x+bw/2,Y(tot)-7,_ibN(tot),{fs:12,fw:700,fill:_IBC.ink});
   });
   if(conIdr){
     const sy=Tm+ph+26,sh=20;
@@ -13415,10 +13491,18 @@ function _ibGrBarre(S,w){
       const f=Math.max(Math.min((p.idr-68)/10,1),0.12);
       s+=_ibEl('rect',{x:x,y:sy+sh-sh*f,width:bw,height:sh*f,rx:3,fill:_IBC.acqua,opacity:.85,
         'data-ibtip':'<b>'+fData(p.data)+'</b><br>Acqua totale <b>'+_ibN(p.acqua)+' L</b><br>= <b>'+_ibN(p.idr)+'%</b> della massa magra<br>valore atteso 72–74%'});
-      if(!stretto||i%2===0)s+=_ibTx(x+bw/2,sy+sh+14,_ibN(p.idr)+'%',{fs:10,fill:_IBC.acqua,fw:600});
+      // Il testo si accorcia due volte perché lo spazio a destra della barra si
+      // accorcia due volte: a mezza colonna (w~545) la versione lunga si leggeva
+      // "atteso 72–7", su iPhone (w~397) si fermava a "· atteso". Un'etichetta
+      // tagliata è peggio di un'etichetta corta — e un <text> SVG non va a capo.
+      if(uno)s+=_ibTx(x+bw+10,sy+sh-4,
+        stretto?_ibN(p.idr)+'% · atteso 72–74%':_ibN(p.idr)+'% della magra · atteso 72–74%',
+        {ta:'start',fs:10.5,fill:_IBC.acqua,fw:600});
+      else if(!stretto||i%2===0)s+=_ibTx(x+bw/2,sy+sh+14,_ibN(p.idr)+'%',{fs:10,fill:_IBC.acqua,fw:600});
     });
   }
-  _ibDate(V,pw).forEach(function(i){s+=_ibTx(xs[i]+bw/2,h-8,_ibFmtBreve(V[i].data),{fs:11});});
+  if(uno)s+=_ibTx(xs[0]+bw/2,h-8,_ibFmtBreve(V[0].data),{fs:11});
+  else _ibDate(V,pw).forEach(function(i){s+=_ibTx(xs[i]+bw/2,h-8,_ibFmtBreve(V[i].data),{fs:11});});
   return _ibSvg(w,h,s);
 }
 
@@ -13458,12 +13542,36 @@ function _ibFormaDi(tp,tm,tg){
   return {nome:'Forma intermedia',col:_IBC.peso,
     frase:'Non ricade in nessuna delle tre forme tipiche: si legge riga per riga.'};
 }
+// P145 — perché il grafico non si può disegnare: null se si può, altrimenti la
+// frase da mostrare al posto del disegno. Prima le stesse condizioni erano due
+// `return ''` dentro _ibGrForme e una `if(...)` in renderPdInbody: il riquadro
+// spariva senza dire niente, e su un referto senza intervalli sembrava un guasto.
+// È la famiglia F6/F7 — l'uscita silenziosa — quindi la ragione si dichiara.
+function _ibFormeMotivo(ib){
+  if(!ib)return 'Nessuna misurazione InBody.';
+  if(ib.peso==null||ib.musc==null||ib.g==null)
+    return 'Questo referto non riporta tutti e tre i valori (peso, muscolo scheletrico, massa grassa): senza uno dei tre la forma non si legge.';
+  if(!ib.rif)
+    return 'Questo referto non porta con sé gli <b>intervalli di riferimento</b> stampati tra parentesi accanto ai valori: sono loro a disegnare le fasce SOTTO / NELLA NORMA / SOPRA. Reimporta il PDF del referto con «📄 Importa da referto» per leggerli.';
+  if(!Array.isArray(ib.rif.peso)||!Array.isArray(ib.rif.massa_muscolare)||!Array.isArray(ib.rif.massa_grassa))
+    return 'Di questo referto sono stati letti solo alcuni intervalli di riferimento: per la forma servono quelli di <b>peso, muscolo scheletrico e massa grassa</b>. Reimporta il PDF del referto per riprovare a leggerli.';
+  return null;
+}
+// P145 — la forma riconosciuta si calcola in UN posto solo: la usano sia il
+// badge dentro il disegno sia la frase in HTML sotto il disegno. Due calcoli
+// separati della stessa cosa sono l'inizio di F9.
+function _ibFormaPaziente(ib){
+  if(_ibFormeMotivo(ib))return null;
+  const R=ib.rif, rat=function(v,r){return (v-r[0])/(r[1]-r[0]);};
+  return _ibFormaDi(rat(ib.peso,R.peso),rat(ib.musc,R.massa_muscolare),rat(ib.g,R.massa_grassa));
+}
 function _ibGrForme(ib,w){
-  if(!ib||!ib.rif)return '';
+  if(_ibFormeMotivo(ib))return '';
   const R=ib.rif;
-  const righe=[['peso',ib.peso,R.peso,'Peso','kg',_IBC.peso],
-               ['musc',ib.musc,R.massa_muscolare,'Muscolo scheletrico','kg',_IBC.muscolo],
-               ['grasso',ib.g,R.massa_grassa,'Massa grassa','kg',_IBC.grasso]]
+  //                            nome intero            corto (colonna stretta)
+  const righe=[['peso',ib.peso,R.peso,'Peso','kg',_IBC.peso,'Peso'],
+               ['musc',ib.musc,R.massa_muscolare,'Muscolo scheletrico','kg',_IBC.muscolo,'Muscolo'],
+               ['grasso',ib.g,R.massa_grassa,'Massa grassa','kg',_IBC.grasso,'Grasso']]
     .filter(function(r){return r[1]!=null&&Array.isArray(r[2]);});
   if(righe.length<3)return '';   // la forma ha senso solo con tutte e tre
   const stretto=w<520;
@@ -13488,18 +13596,22 @@ function _ibGrForme(ib,w){
     const v=r[1],lo=r[2][0],hi=r[2][1],y=Tm+rowH*i+rowH/2,bh=17,xv=pos(v,lo,hi);
     s+=_ibEl('rect',{x:X0,y:y-bh/2,width:Math.max(xv-X0,3),height:bh,rx:bh/2,fill:r[5],opacity:.92,
       'data-ibtip':'<b>'+r[3]+'</b><br><b>'+_ibN(v)+' '+r[4]+'</b><br>intervallo del referto: '+_ibN(lo)+'–'+_ibN(hi)+' '+r[4]});
-    s+=_ibTx(X0-12,y-2,stretto?r[3].split(' ')[0]:r[3],{ta:'end',fs:11.5,fw:640,fill:_IBC.ink2});
+    // P145 — il taglio automatico alla prima parola scriveva «Massa» accanto a
+    // «Muscolo»: due tronconi che non dicono più quale delle due masse sia.
+    // Le versioni corte sono scritte per esteso in righe[] (Peso/Muscolo/Grasso).
+    s+=_ibTx(X0-12,y-2,stretto?r[6]:r[3],{ta:'end',fs:11.5,fw:640,fill:_IBC.ink2});
     s+=_ibTx(X0-12,y+11,'rif. '+_ibN(lo)+'–'+_ibN(hi),{ta:'end',fs:9,fill:_IBC.muted});
     s+=_ibTx(xv+9,y+4,_ibN(v)+' '+r[4],{ta:'start',fs:12.5,fw:700,fill:r[5]});
   });
   [X1,X2].forEach(function(x){s+=_ibEl('line',{x1:x,y1:Tm-22,x2:x,y2:Tm+rowH*3,stroke:'#fff','stroke-width':2});});
-  const F=_ibFormaDi(rat(righe[0][1],righe[0][2][0],righe[0][2][1]),
-                     rat(righe[1][1],righe[1][2][0],righe[1][2][1]),
-                     rat(righe[2][1],righe[2][2][0],righe[2][2][1]));
+  const F=_ibFormaPaziente(ib);
   s+=_ibTx(6,16,'Referto del '+fData(ib.data),{ta:'start',fs:11.5,fw:700,fill:_IBC.ink});
   s+=_ibEl('rect',{x:6,y:28,width:122,height:21,rx:10.5,fill:F.col,opacity:.15});
   s+=_ibTx(67,43,F.nome,{fs:11,fw:700,fill:F.col});
-  if(!stretto)s+=_ibTx(140,43,F.frase,{ta:'start',fs:10.5,fill:_IBC.ink2});
+  // P145 — la frase NON sta più qui dentro. Un <text> SVG non va a capo: a
+  // mezza colonna veniva tagliata a metà parola ("...proteggendo il") e sotto
+  // i 520px spariva del tutto, cioè proprio su iPhone. Ora è HTML sotto il
+  // grafico, dove si adatta da sola a qualsiasi larghezza.
   return _ibSvg(w,h,s);
 }
 
@@ -13544,6 +13656,7 @@ function _ibDisegnaSvg(radice){
                adip:function(w){return _ibGrAdiposita(_ibVista.S,w,_ibVista.sesso);},
                ritmo:function(w){return _ibGrRitmo(_ibVista.P,w);},
                qualita:function(w){return _ibGrQualita(_ibVista.P,w);},
+               righelli:function(w){return _ibGrRighelliOggi(_ibVista.S,w,_ibVista.sesso);},
                barre:function(w){return _ibGrBarre(_ibVista.S,w);},
                forme:function(w){return _ibGrForme(_ibVista.ultimoIb,w);}};
   // Con molte misurazioni i grafici non ci stanno: invece di troncare in
@@ -13673,9 +13786,9 @@ function renderPdInbody(p){
   // l'ORDINE a video sta scritto in un punto solo (_cOrdine), non nell'ordine
   // in cui il codice capita di generarli.
   let _cTempo='',_cAdip='',_cRitmo='',_cQual='',_cBarre='',_cForme='';
+  const pesoTarget=p.pesoTarget||null;
+  const baseS=S_.length?S_[0]:null, ultS=S_.length?S_[S_.length-1]:null;
   if(hasMulti){
-    const pesoTarget=p.pesoTarget||null;
-    const baseS=S_[0], ultS=S_[S_.length-1];
 
     // G1 — Variazione dal punto di partenza.
     // Prima erano tre linee su un asse 0–90 kg: con peso 80, muscolo 38 e grasso 12
@@ -13710,37 +13823,6 @@ function renderPdInbody(p){
         <div data-ib="tempo"></div>
       </div>
     </div>`;
-    // G2 — Adiposità centrale.
-    // Le soglie del viscerale "10 attenzione / 15 rischio" che stavano qui sono
-    // state rimosse: erano in produzione senza nessuna fonte scritta da nessuna
-    // parte, e il referto InBody dichiara 1-9. Ora i riferimenti stanno in
-    // _IB_RIF con la fonte accanto, e la fonte si vede a schermo.
-    const hasVisc=S_.some(function(x){return x.visc!=null;});
-    const hasCF=S_.some(function(x){return x.whr!=null;});
-    if(hasVisc||hasCF){
-      const lastVisc=ultS.visc, RV=_IB_RIF.visc;
-      const viscColor=lastVisc===null?'#6b7280':lastVisc<=RV.hi?'#0F6E56':'#BA7517';
-      const viscLabel=lastVisc===null?'—':lastVisc<=RV.hi?'dentro il riferimento':'sopra il riferimento';
-      const RW=_IB_RIF.whr[p.sesso==='F'?'F':'M'];
-      _cAdip=`<div class="card">
-        <div class="card-hd"><h3>\u{1FAC0} Adiposità centrale</h3>${_ibBtnFull()}</div>
-        <div class="card-bd">
-          ${lastVisc!==null?`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:.6rem;flex-wrap:wrap">
-            <span style="font-size:.73rem;color:var(--text2)">Grasso viscerale attuale:</span>
-            <span style="font-size:1.3rem;font-weight:500;color:${viscColor}">${_ibN(lastVisc)}</span>
-            <span style="font-size:.75rem;font-weight:500;color:${viscColor}">${viscLabel}</span>
-            <span style="margin-left:auto;font-size:.68rem;padding:1px 8px;background:#EAF3DE;color:#27500A;border-radius:4px">riferimento InBody ${RV.lo}–${RV.hi}</span>
-          </div>`:''}
-          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
-            ${hasCF?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.whr};display:inline-block"></span>Rapporto cintura/fianchi</span>
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:0;border-top:2px dashed #D03B3B;display:inline-block"></span>Riferimento OMS ${_ibN(RW.lo,2)}–${_ibN(RW.hi,2)} (${p.sesso==='F'?'donna':'uomo'})</span>`:''}
-            ${hasVisc?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.acqua};display:inline-block"></span>Grasso viscerale</span>`:''}
-          </div>
-          <div data-ib="adip"></div>
-        </div>
-      </div>`;
-    }
-
     // G3a — Ritmo: barre a specchio, kg/settimana, larghezza = durata.
     // La riga "Ultimo: −4,9 kg/sett" era un artefatto: l'ultimo periodo durava
     // 1 giorno e dividere per 1/7 di settimana gonfia qualsiasi decimale.
@@ -13808,53 +13890,115 @@ function renderPdInbody(p){
       }
     }
 
-    // G4 — Composizione: le fette sommano al PESO.
-    // Prima si impilava grasso + muscolo + acqua, ma l'acqua corporea totale sta
-    // dentro la massa magra: era un doppio conteggio e le barre arrivavano a
-    // ~100 kg per un paziente di 79. Ora l'acqua esce dalla pila e diventa una
-    // striscia a parte, come percentuale della magra (indicatore di idratazione).
-    if(S_.filter(function(x){return x.g!=null&&x.magra!=null;}).length>=2){
-      _cBarre=`<div class="card">
-        <div class="card-hd"><h3>🧱 Composizione — peso, pezzo per pezzo</h3>${_ibBtnFull()}</div>
-        <div class="card-bd">
-          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.6rem;font-size:.73rem;color:var(--text2)">
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:2px;display:inline-block"></span>Massa muscolare</span>
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.resto};border-radius:2px;display:inline-block"></span>Resto della massa magra</span>
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.acqua};border-radius:2px;display:inline-block"></span>Idratazione</span>
-          </div>
-          <div data-ib="barre"></div>
-        </div>
-      </div>`;
-    }
+  }
 
-    // G5 — Peso / Muscolo / Grasso: il grafico delle forme (P133).
-    // Compare solo se il referto ha stampato gli intervalli di riferimento:
-    // senza quelli non c'è un denominatore onesto su cui disegnare le asticelle.
-    if(_ibVista.ultimoIb&&_ibVista.ultimoIb.rif&&_ibVista.ultimoIb.peso!=null
-       &&_ibVista.ultimoIb.musc!=null&&_ibVista.ultimoIb.g!=null){
-      _cForme=`<div class="card">
-        <div class="card-hd"><h3>\u{1F4CF} Peso · Muscolo · Grasso</h3>
-          <span class="ib-hd-sub">fasce dagli intervalli del referto</span>${_ibBtnFull()}</div>
-        <div class="card-bd">
-          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
+  // ══ Riquadri che NON hanno bisogno di due misurazioni (P145) ═════════════
+  // Stavano dentro `if(hasMulti)` per il posto in cui erano stati scritti, non
+  // perche' ne avessero bisogno: alla prima visita la scheda restava senza un
+  // solo grafico — e il paziente nuovo e' proprio quello a cui il referto va
+  // spiegato. Restano dentro i quattro che raccontano un PERCORSO (tempo,
+  // ritmo, qualita', curva dell'adiposita'): con un punto solo non esiste ne'
+  // una variazione ne' un periodo, e disegnarli darebbe riquadri vuoti.
+
+  // G2 — Adiposità centrale.
+  // Le soglie del viscerale "10 attenzione / 15 rischio" che stavano qui sono
+  // state rimosse: erano in produzione senza nessuna fonte scritta da nessuna
+  // parte, e il referto InBody dichiara 1-9. Ora i riferimenti stanno in
+  // _IB_RIF con la fonte accanto, e la fonte si vede a schermo.
+  const hasVisc=S_.some(function(x){return x.visc!=null;});
+  const hasCF=S_.some(function(x){return x.whr!=null;});
+  if(_ibAdipCurva(S_)){
+    const lastVisc=ultS.visc, RV=_IB_RIF.visc;
+    const viscColor=lastVisc===null?'#6b7280':lastVisc<=RV.hi?'#0F6E56':'#BA7517';
+    const viscLabel=lastVisc===null?'—':lastVisc<=RV.hi?'dentro il riferimento':'sopra il riferimento';
+    const RW=_IB_RIF.whr[p.sesso==='F'?'F':'M'];
+    _cAdip=`<div class="card">
+      <div class="card-hd"><h3>\u{1FAC0} Adiposità centrale</h3>${_ibBtnFull()}</div>
+      <div class="card-bd">
+        ${lastVisc!==null?`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:.6rem;flex-wrap:wrap">
+          <span style="font-size:.73rem;color:var(--text2)">Grasso viscerale attuale:</span>
+          <span style="font-size:1.3rem;font-weight:500;color:${viscColor}">${_ibN(lastVisc)}</span>
+          <span style="font-size:.75rem;font-weight:500;color:${viscColor}">${viscLabel}</span>
+          <span style="margin-left:auto;font-size:.68rem;padding:1px 8px;background:#EAF3DE;color:#27500A;border-radius:4px">riferimento InBody ${RV.lo}–${RV.hi}</span>
+        </div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
+          ${hasCF?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.whr};display:inline-block"></span>Rapporto cintura/fianchi</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:0;border-top:2px dashed #D03B3B;display:inline-block"></span>Riferimento OMS ${_ibN(RW.lo,2)}–${_ibN(RW.hi,2)} (${p.sesso==='F'?'donna':'uomo'})</span>`:''}
+          ${hasVisc?`<span style="display:flex;align-items:center;gap:5px"><span style="width:18px;height:2px;background:${_IBC.acqua};display:inline-block"></span>Grasso viscerale</span>`:''}
+        </div>
+        <div data-ib="adip"></div>
+      </div>
+    </div>`;
+  }else if(ultS&&(ultS.visc!=null||ultS.whr!=null)){
+    // P145 — un punto solo: al posto della curva, i righelli clinici. Stessa
+    // card, stesso posto nella griglia, stessi riferimenti con la fonte a
+    // schermo: cambia solo cio' che si puo' onestamente disegnare.
+    const RVo=_IB_RIF.visc, RWo=_IB_RIF.whr[p.sesso==='F'?'F':'M'];
+    _cAdip=`<div class="card">
+      <div class="card-hd"><h3>\u{1FAC0} Adiposità centrale</h3>
+        <span class="ib-hd-sub">prima misurazione: nessun andamento da mostrare</span>${_ibBtnFull()}</div>
+      <div class="card-bd">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
+          ${ultS.whr!=null?`<span>Cintura/fianchi — ${_IB_RIF.whr.fonte} ${_ibN(RWo.lo,2)}–${_ibN(RWo.hi,2)} (${p.sesso==='F'?'donna':'uomo'})</span>`:''}
+          ${ultS.visc!=null?`<span>Grasso viscerale — ${RVo.fonte} ${RVo.lo}–${RVo.hi}</span>`:''}
+        </div>
+        <div data-ib="righelli"></div>
+      </div>
+    </div>`;
+  }
+
+  // G4 — Composizione: le fette sommano al PESO.
+  // Prima si impilava grasso + muscolo + acqua, ma l'acqua corporea totale sta
+  // dentro la massa magra: era un doppio conteggio e le barre arrivavano a
+  // ~100 kg per un paziente di 79. Ora l'acqua esce dalla pila e diventa una
+  // striscia a parte, come percentuale della magra (indicatore di idratazione).
+  if(S_.filter(function(x){return x.g!=null&&x.magra!=null;}).length>=1){
+    _cBarre=`<div class="card">
+      <div class="card-hd"><h3>🧱 Composizione — peso, pezzo per pezzo</h3>${hasMulti?'':'<span class="ib-hd-sub">prima misurazione</span>'}${_ibBtnFull()}</div>
+      <div class="card-bd">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.6rem;font-size:.73rem;color:var(--text2)">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:2px;display:inline-block"></span>Massa muscolare</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.resto};border-radius:2px;display:inline-block"></span>Resto della massa magra</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.acqua};border-radius:2px;display:inline-block"></span>Idratazione</span>
+        </div>
+        <div data-ib="barre"></div>
+      </div>
+    </div>`;
+  }
+
+  // G5 — Peso / Muscolo / Grasso: il grafico delle forme (P133).
+  // P145 — e' la FOTOGRAFIA di un referto (_ibGrForme riceve `ultimoIb`, non la
+  // serie): era l'unico dei sei a non poter avere bisogno di due misurazioni, ed
+  // era chiuso in `if(hasMulti)` per il solo punto in cui era stato scritto.
+  // Se manca cio' che serve per disegnarlo, si scrive PERCHE': prima il riquadro
+  // spariva e basta, che su un referto senza intervalli sembra un guasto.
+  if(_ibVista.ultimoIb&&_ibVista.ultimoIb.peso!=null){
+    const _fMot=_ibFormeMotivo(_ibVista.ultimoIb);
+    _cForme=`<div class="card">
+      <div class="card-hd"><h3>\u{1F4CF} Peso · Muscolo · Grasso</h3>
+        <span class="ib-hd-sub">${_fMot?'referto senza intervalli':'fasce dagli intervalli del referto'}</span>${_fMot?'':_ibBtnFull()}</div>
+      <div class="card-bd">
+        ${_fMot?`<div style="font-size:.79rem;color:#7A6321;background:#FBF7EE;border:1px solid #EBDCC0;border-radius:8px;padding:.7rem .85rem;line-height:1.5">${_fMot}</div>`
+        :`<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.5rem;font-size:.73rem;color:var(--text2)">
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.peso};border-radius:2px;display:inline-block"></span>Peso</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.muscolo};border-radius:2px;display:inline-block"></span>Muscolo scheletrico</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:${_IBC.grasso};border-radius:2px;display:inline-block"></span>Massa grassa</span>
           </div>
           <div data-ib="forme"></div>
-        </div>
-      </div>`;
-    }
+          ${(function(){const F=_ibFormaPaziente(_ibVista.ultimoIb);return F?`<div style="font-size:.79rem;color:var(--text2);margin-top:.55rem;line-height:1.5"><b style="color:${F.col}">${F.nome}</b> — ${F.frase}</div>`:'';})()}`}
+      </div>
+    </div>`;
   }
+
   // ── Ordine dei riquadri nella scheda (2 colonne su PC, 1 su telefono) ────
   // riga 1: andamento nel tempo | composizione del peso
   // riga 2: ritmo               | qualità del ritmo
-  // riga 3: adiposità centrale  | analisi segmentale
-  // riga 1: andamento nel tempo | composizione del peso
-  // riga 2: ritmo               | qualità del ritmo
   // riga 3: adiposità centrale  | peso/muscolo/grasso
-  // riga 4: analisi segmentale (larga, due figure affiancate)
+  // riga 4: analisi segmentale | tendina di tutte le misurazioni
+  // I riquadri che risultano vuoti cadono nel .filter(Boolean) subito sotto,
+  // quindi alla prima misurazione la griglia si richiude su quelli rimasti
+  // senza lasciare buchi: l'ordine resta questo, cambia solo chi c'e'.
   const _cSegm=_ibSilhouetteSegmentale(last);
   // P138 — l'analisi segmentale non prende piu' la riga intera: sta a meta'
   // come tutti gli altri, e accanto le va la tendina di tutte le misurazioni.
