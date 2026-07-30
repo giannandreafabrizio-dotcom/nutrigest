@@ -40,6 +40,29 @@ GitHub `main` è la fonte di verità per TUTTO (codice + documentazione: `index.
 - Una sola sessione di lavoro Claude alla volta sul repo: mai due chat in parallelo che modificano file.
 - Rollback: ogni commit è recuperabile con `git revert <sha>` — la storia di GitHub è il backup del progetto; non servono copie manuali.
 
+## Due lezioni del 30 luglio 2026
+
+**1. I documenti del progetto Claude sono foto PIU' VECCHIE della roadmap.**
+La regola "incrocia il CHANGELOG prima di implementare" (nata da P62/P77) va estesa ai
+file `claude_NutriGest_*.md` del progetto. Il 30 lug una sessione stava per ricostruire
+`p.invii[]` e il motore di invio — esistenti dal 28 lug, P87 CHIUSA — perche' il documento
+`NutriGest_P87_Comunicazione_Analisi.md` descrive il PIANO di quel giorno e e' stato letto
+come stato attuale. Quei documenti non portano una data di stato e non vengono aggiornati
+quando il codice avanza: sono ragionamenti congelati, non fotografie del presente.
+**In pratica:** prima di implementare qualunque cosa descritta in un documento di progetto,
+verificare nel CODICE che non esista gia' (`grep` sui nomi delle funzioni proposte).
+
+**2. ORFANI_NOTI e' un elenco di deroghe, non di assoluzioni.**
+Il test `s1-doc-allineata` vieta gli id orfani NUOVI e classifica i vecchi in `ORFANI_NOTI`
+con un motivo. Ma "censito" non vuol dire "innocuo": il 30 lug si e' scoperto che
+`#dash-agenda`, orfano noto, era letto da `renderDashboard()` con un `if(!agendaEl) return;`
+che usciva dalla funzione a meta'. Risultato: Sintesi clinica, Pazienti recenti, l'intera
+funzione Scadenze (C8) e gli Spunti non erano MAI stati eseguiti, e nessuno se n'era accorto
+perche' quelle sezioni mostravano il testo statico dell'HTML.
+**In pratica:** per ogni voce di ORFANI_NOTI la domanda non e' "e' censita?" ma **"cosa
+smette di funzionare quando l'elemento non c'e'?"**. Un orfano dentro una guardia che fa
+`return` e' un pezzo di programma spento in silenzio.
+
 ## Checklist documentazione — OBBLIGATORIA dopo ogni modifica
 Nata da un incidente reale (16 lug 2026): P62/P77 erano state implementate il 7 lug ma la Roadmap era rimasta "Da fare" — una sessione successiva stava per rifarle da zero; salvata solo dall'incrocio col CHANGELOG. La documentazione NON si aggiorna "dopo, con calma": si aggiorna nello stesso giro di consegna della modifica, e i file documentali entrano nello STESSO blocco commit del codice.
 

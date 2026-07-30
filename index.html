@@ -696,7 +696,7 @@ main{flex:1;overflow-y:auto;}
     </div>
   </div>
 
-  <div class="dash-2col" style="display:grid;grid-template-columns:1fr 300px;gap:1.1rem;align-items:start">
+  <div class="dash-2col" style="display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:start">
 
     <!-- COLONNA SINISTRA -->
     <div>
@@ -757,53 +757,6 @@ main{flex:1;overflow-y:auto;}
       <div class="card">
         <div class="card-hd"><h3>💡 Spunti per i piani alimentari</h3></div>
         <div class="card-bd" id="dash-spunti-list"></div>
-      </div>
-    </div>
-
-    <!-- COLONNA DESTRA — Agenda -->
-    <div style="position:sticky;top:1rem">
-      <!-- Con orario -->
-      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px 12px 0 0;padding:.75rem .9rem;border-bottom:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
-          <span style="font-size:.75rem;font-weight:600;color:var(--text)">🗓 Con orario</span>
-          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
-  <button onclick="navigaAgenda(-1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.15rem .45rem;cursor:pointer;font-size:.8rem;color:var(--text2)">←</button>
-  <span id="agenda-data-label" style="font-size:.75rem;font-weight:600;color:var(--text);flex:1;text-align:center"></span>
-  <button onclick="navigaAgenda(+1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.15rem .45rem;cursor:pointer;font-size:.8rem;color:var(--text2)">→</button>
-  <button onclick="navigaAgenda(0)" style="background:none;border:1px solid var(--border2);border-radius:6px;padding:.15rem .45rem;cursor:pointer;font-size:.68rem;color:var(--text3)">oggi</button>
-</div>
-          <button onclick="toggleFormAgenda()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
-        </div>
-        <div id="dash-form-agenda" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-          <input id="da-testo" type="text" placeholder="Descrizione..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
-          <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
-            <input id="da-ora" type="time" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
-            <select id="da-cat" style="flex:1;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
-              <option value="Nutrizionista">Nutrizionista</option>
-              <option value="Personale">Personale</option>
-              <option value="Vigile del fuoco">Vigile del fuoco</option>
-            </select>
-          </div>
-          <button onclick="salvaAgendaItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
-        </div>
-        <div id="dash-agenda-orario"></div>
-      </div>
-      <!-- Separatore + Da fare -->
-      <div style="background:var(--s1);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:.75rem .9rem;border-top:2px solid var(--border2)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
-          <span style="font-size:.75rem;font-weight:600;color:var(--text)">📋 Da fare oggi</span>
-          <button onclick="toggleFormTodo()" style="font-size:.7rem;padding:.18rem .55rem;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--teal);cursor:pointer">+ aggiungi</button>
-        </div>
-        <div id="dash-form-todo" style="display:none;margin-bottom:.6rem;padding:.6rem;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-          <input id="dt-testo" type="text" placeholder="Cosa devi fare..." style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
-          <select id="dt-cat" style="width:100%;margin-bottom:.4rem;padding:.3rem .5rem;font-size:.78rem;border:1px solid var(--border);border-radius:6px;background:var(--s1);color:var(--text);outline:none">
-            <option value="Nutrizionista">Nutrizionista</option>
-            <option value="Personale">Personale</option>
-            <option value="Vigile del fuoco">Vigile del fuoco</option>
-          </select>
-          <button onclick="salvaTodoItem()" style="width:100%;padding:.3rem;font-size:.78rem;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer">Salva</button>
-        </div>
-        <div id="dash-todo-list"></div>
       </div>
     </div>
 
@@ -4022,7 +3975,6 @@ function getSyncColor(){
 }
 let _syncOk=false;
 window._syncPendingFail=false; window._syncInFlight=false; // P-SYNC-GUARD: stato iniziale
-let _agendaData=today();
 function aggiornaStatoSync(){
   const urlEl=document.getElementById('ss-url');
   const statoEl=document.getElementById('ss-stato');
@@ -5378,7 +5330,6 @@ function goTo(name,btn){
   const pg=document.getElementById('page-'+name);if(pg)pg.classList.add('active');
   if(btn)btn.classList.add('active');
   if(name==='pazienti')renderPaz();
-  if(name==='dashboard')renderAgendaDx();
   if(name==='calendario')renderCal();
   if(name==='ricette')renderRic();
   if(name==='entrate')renderEntrate();
@@ -10280,8 +10231,57 @@ function _fodmapAggiornaBottone(p){
 const COM_TEMPLATES=[
   {id:'promemoria', titolo:'Promemoria appuntamento',
    testo:"Ciao {nome}, ti ricordo il nostro appuntamento {appuntamento}. A presto!"},
-  {id:'precontrollo', titolo:'Pre-controllo (digiuno misurazione)',
-   testo:"Ciao {nome}, ci vediamo {appuntamento} per il controllo. Ricordati di venire a digiuno da almeno 3 ore per la misurazione della composizione corporea."},
+  {id:'prep_uomo', titolo:'Preparazione prima visita — uomo',
+   testo:`Ciao {nome}, ti ricordo il nostro appuntamento {appuntamento}.
+
+Faremo la bioimpedenziometria. Per avere un risultato corretto e confrontabile con i controlli successivi, segui queste regole:
+
+NELLE 24 ORE PRIMA
+• Niente alcolici
+• Niente allenamento intenso (una camminata va bene)
+• Niente sauna
+• Bevi come sempre, senza forzare né limitare
+
+LA MATTINA
+• A digiuno, senza colazione (se l'appuntamento è nel pomeriggio: almeno 4 ore dall'ultimo pasto)
+• Solo un bicchiere d'acqua, niente caffè nelle 3 ore prima
+• Niente creme su mani e piedi
+
+Porta con te le analisi del sangue più recenti, anche di qualche mese fa.
+
+Se salta qualcosa — una cena fuori, un allenamento non spostabile — dimmelo all'arrivo: meglio saperlo che leggere un dato falsato.
+
+A presto!
+Dott. Fabrizio Giannandrea`},
+  {id:'prep_donna', titolo:'Preparazione prima visita — donna',
+   testo:`Ciao {nome}, ti ricordo il nostro appuntamento {appuntamento}.
+
+Faremo la bioimpedenziometria. Per avere un risultato corretto e confrontabile con i controlli successivi, segui queste regole:
+
+NELLE 24 ORE PRIMA
+• Niente alcolici
+• Niente allenamento intenso (una camminata va bene)
+• Niente sauna
+• Bevi come sempre, senza forzare né limitare
+
+LA MATTINA
+• A digiuno, senza colazione (se l'appuntamento è nel pomeriggio: almeno 4 ore dall'ultimo pasto)
+• Solo un bicchiere d'acqua, niente caffè nelle 3 ore prima
+• Niente creme su mani e piedi
+
+SE SEI VICINA AL CICLO
+Nei giorni delle mestruazioni e nella settimana precedente il corpo trattiene liquidi: la misurazione non è confrontabile. Se l'appuntamento cade lì, scrivimi e lo spostiamo.
+
+Porta con te le analisi del sangue più recenti, anche di qualche mese fa.
+
+Se salta qualcosa — una cena fuori, un allenamento non spostabile — dimmelo all'arrivo: meglio saperlo che leggere un dato falsato.
+
+A presto!
+Dott. Fabrizio Giannandrea`},
+  {id:'precontrollo', titolo:'Pre-controllo (preparazione misurazione)',
+   testo:`Ciao {nome}, ci vediamo {appuntamento} per il controllo.
+
+Perché la misurazione sia confrontabile con le precedenti: vieni a digiuno (almeno 4 ore dall'ultimo pasto), niente alcolici e niente allenamento intenso nelle 24 ore prima, e bevi come fai di solito.`},
   {id:'peso', titolo:'Richiesta peso settimanale',
    testo:"Ciao {nome}, come procede la settimana? Quando riesci mandami il peso di stamattina, grazie!"},
   {id:'analisi', titolo:'Sollecito referto analisi',
@@ -10383,7 +10383,7 @@ function renderPdComunicazione(p){
     +'<select id="com-tpl-sel" onchange="comTemplateCambia()" style="flex:1;min-width:220px;padding:.42rem .7rem;border:1px solid var(--border);border-radius:8px;font-size:.82rem;background:var(--card);color:inherit">'+opts+'</select>'
     +'<button class="btn btn-sm" onclick="comSalvaTemplate()" title="Salva il testo attuale come nuovo template (su questo dispositivo)">💾 Salva come template</button>'
     +'</div>'
-    +'<textarea id="com-testo" rows="4" style="width:100%;padding:.55rem .7rem;border:1px solid var(--border);border-radius:8px;font-size:.84rem;background:var(--card);color:inherit;resize:vertical"></textarea>'
+    +'<textarea id="com-testo" rows="8" style="width:100%;padding:.55rem .7rem;border:1px solid var(--border);border-radius:8px;font-size:.84rem;background:var(--card);color:inherit;resize:vertical"></textarea>'
     +'<div style="font-size:.72rem;color:var(--text3);margin:.3rem 0 .6rem">'+evNota+' · Variabili: {nome} {cognome} {appuntamento}</div>'
     +'<div style="display:flex;gap:.5rem;flex-wrap:wrap">'
     +'<button class="btn btn-p" style="flex:1;min-width:150px" onclick="comInviaWa()">💬 Invia su WhatsApp</button>'
@@ -26428,16 +26428,33 @@ function renderCalMonth(anno,mese,tutti,giorni){
   document.getElementById('cal-days-names').innerHTML=giorni.map(g=>`<div class="cal-dn">${g}</div>`).join('');
 }
 
+// Data locale in formato YYYY-MM-DD. NON usare toISOString() qui: converte in
+// UTC, e in Italia fra mezzanotte e le 2:00 restituirebbe il giorno prima.
+function _calYmd(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function renderCalWeek(tutti,giorni){
   const d=new Date(calDate);d.setDate(d.getDate()-((d.getDay()+6)%7));
   let html='<div class="week-grid">';
   html+='<div class="wg-hdr">Ora</div>';
   for(let i=0;i<7;i++){const dd=new Date(d);dd.setDate(d.getDate()+i);html+=`<div class="wg-hdr">${giorni[i]}<br><strong>${dd.getDate()}</strong></div>`;}
+  // Fascia "senza orario": gli eventi che nascono da p.visitaData e da
+  // p.dateCalendario non hanno il campo `ora`. Il filtro orario li scartava da
+  // TUTTE le 16 fasce (''.startsWith('09') e' false), quindi sparivano del tutto
+  // dalla vista settimana pur essendo visibili nel mese. Qui trovano posto.
+  html+='<div class="wg-time" style="font-size:.58rem;line-height:1.15">senza<br>orario</div>';
+  for(let i=0;i<7;i++){
+    const dd=new Date(d);dd.setDate(d.getDate()+i);
+    const ds=_calYmd(dd);
+    const evNo=tutti.filter(e=>e.data===ds&&!e.ora);
+    html+=`<div class="wg-cell" style="background:var(--s2)">${evNo.map(e=>`<div class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.58rem" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">${e.pazNome?e.pazNome.split(' ')[0]:e.tipo}</div>`).join('')}</div>`;
+  }
   for(let h=7;h<=22;h++){
     html+=`<div class="wg-time">${h}:00</div>`;
     for(let i=0;i<7;i++){
       const dd=new Date(d);dd.setDate(d.getDate()+i);
-      const ds=dd.toISOString().slice(0,10);
+      const ds=_calYmd(dd);
       const evH=tutti.filter(e=>e.data===ds&&(e.ora||'').startsWith(String(h).padStart(2,'0')));
       html+=`<div class="wg-cell">${evH.map(e=>`<div class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.58rem" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">${e.pazNome?e.pazNome.split(' ')[0]:e.tipo}</div>`).join('')}</div>`;
     }
@@ -26446,17 +26463,56 @@ function renderCalWeek(tutti,giorni){
   document.getElementById('cal-body').innerHTML=html;
 }
 
+// Vista Giorno — timeline a slot di 30'. Eredita il disegno dalla vecchia agenda
+// di dashboard (rimossa il 30 lug 2026), ma legge gli eventi VERI da getEventi()
+// invece dei promemoria personali in localStorage. Prima era una lista piatta
+// nemmeno ordinata per ora: usciva nell'ordine di produzione di getEventi().
 function renderCalDay(tutti){
-  const ds=calDate.toISOString().slice(0,10);
+  const ds=_calYmd(calDate);
+  const oggiStr=_calYmd(new Date());
   const evD=tutti.filter(e=>e.data===ds);
-  let html=`<div style="padding:1rem">`;
-  if(!evD.length){html+='<div class="empty"><p>Nessun evento oggi</p></div>';}
-  else{
-    html+=evD.map(e=>`<div style="display:flex;align-items:center;gap:.7rem;padding:.6rem .9rem;background:var(--bg);border-radius:8px;border:1px solid var(--border);margin-bottom:.4rem;cursor:pointer" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">
-      <span class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.72rem;padding:3px 8px">${EV_TYPES[e.tipo]?.label||e.tipo}</span>
-      <span style="font-weight:500">${e.pazNome||e.note||''}</span>
-      ${e.ora?`<span style="margin-left:auto;font-size:.75rem;color:var(--text2)">${e.ora}</span>`:''}
-    </div>`).join('');
+  const senzaOra=evD.filter(e=>!e.ora);
+  const conOra=evD.filter(e=>e.ora).sort((a,b)=>String(a.ora).localeCompare(String(b.ora)));
+
+  const gg=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+  const mesi=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  let intest=gg[calDate.getDay()]+' '+calDate.getDate()+' '+mesi[calDate.getMonth()];
+  if(ds===oggiStr)intest='Oggi — '+intest;
+
+  const card=e=>{
+    const t=EV_TYPES[e.tipo]||EV_TYPES.altro;
+    return `<div class="cal-ev ${t.cls}" style="display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;margin-bottom:3px;border-radius:6px;cursor:pointer;font-size:.78rem" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">
+      <span style="font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.pazNome||e.note||t.label}</span>
+      <span style="font-size:.66rem;opacity:.75;flex-shrink:0">${t.label}</span>
+    </div>`;
+  };
+  const blocco=(titolo,lista)=>'<div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;margin-bottom:.8rem">'
+    +'<div style="font-size:.66rem;color:var(--text3);font-weight:600;margin-bottom:.35rem">'+titolo+'</div>'
+    +lista.map(card).join('')+'</div>';
+
+  let html='<div style="padding:.9rem">';
+  html+=`<div style="font-size:.9rem;font-weight:700;margin-bottom:.7rem;color:${ds===oggiStr?'var(--teal)':'var(--text)'}">${intest}</div>`;
+
+  if(!evD.length){
+    html+='<div class="empty"><p>Nessun evento in questa giornata</p></div>';
+  }else{
+    if(senzaOra.length)html+=blocco('SENZA ORARIO',senzaOra);
+    const slots=[];
+    for(let h=7;h<=19;h++){for(let m=0;m<60;m+=30){if(h===7&&m===0)continue;slots.push(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'));}}
+    // Un evento cade nello slot da 30' che lo contiene: 09:15 -> 09:00
+    const slotDi=ora=>{const p=String(ora).split(':');return String(p[0]).padStart(2,'0')+':'+((parseInt(p[1],10)||0)<30?'00':'30');};
+    // Rete di sicurezza: chi ha un orario fuori dalla griglia non deve sparire —
+    // e' esattamente il difetto che questa modifica sta correggendo altrove.
+    const fuori=conOra.filter(e=>slots.indexOf(slotDi(e.ora))<0);
+    html+=slots.map(s=>{
+      const ev=conOra.filter(e=>slotDi(e.ora)===s);
+      return `<div style="display:flex;gap:6px;min-height:30px;align-items:${ev.length?'flex-start':'center'}">
+        <div style="font-size:.66rem;color:var(--text3);width:38px;flex-shrink:0;text-align:right;padding-top:${ev.length?'5px':'0'}">${s}</div>
+        <div style="width:2px;background:${ev.length?'var(--teal)':'var(--border)'};flex-shrink:0;align-self:stretch;margin:0 5px;border-radius:2px"></div>
+        <div style="flex:1;padding:${ev.length?'2px 0':'0'}">${ev.map(card).join('')}</div>
+      </div>`;
+    }).join('');
+    if(fuori.length)html+='<div style="margin-top:.8rem">'+blocco('FUORI FASCIA (prima delle 7:30 o dopo le 19:30)',fuori)+'</div>';
   }
   html+='</div>';
   document.getElementById('cal-body').innerHTML=html;
@@ -27516,169 +27572,22 @@ async function openNuovoConcetto() {
 // DASHBOARD
 // ═══════════════════════════════════════
 // ── AGENDA PERSONALE (localStorage) ─────────────────────────────────────────
-function getAgendaPersonale(){return JSON.parse(localStorage.getItem('agendaPersonale')||'[]');}
-function saveAgendaPersonale(a){localStorage.setItem('agendaPersonale',JSON.stringify(a));}
-function getAgendaTodo(){return JSON.parse(localStorage.getItem('agendaTodo')||'[]');}
-function saveAgendaTodo(a){localStorage.setItem('agendaTodo',JSON.stringify(a));}
-
-function pulisciAgendaVecchia(){
-  // Non cancella più automaticamente — l'utente gestisce i todo manualmente
-}
-
-function navigaAgenda(delta){
-  if(delta===0){_agendaData=today();}
-  else{
-    const dt=new Date(_agendaData);
-    dt.setDate(dt.getDate()+delta);
-    _agendaData=dt.toISOString().slice(0,10);
-  }
-  renderAgendaDx();
-}
-function toggleFormAgenda(){const el=document.getElementById('dash-form-agenda');if(el)el.style.display=el.style.display==='none'?'block':'none';}
-function toggleFormTodo(){const el=document.getElementById('dash-form-todo');if(el)el.style.display=el.style.display==='none'?'block':'none';}
-
-function salvaAgendaItem(){
-  const testo=(document.getElementById('da-testo').value||'').trim();
-  const ora=document.getElementById('da-ora').value||'';
-  const cat=document.getElementById('da-cat').value||'Nutrizionista';
-  if(!testo)return;
-  const arr=getAgendaPersonale();
-  arr.push({id:uid(),testo,ora,categoria:cat,fatto:false,data:today()});
-  saveAgendaPersonale(arr);
-  document.getElementById('da-testo').value='';
-  document.getElementById('da-ora').value='';
-  toggleFormAgenda();
-  renderAgendaDx();
-}
-
-function salvaTodoItem(){
-  const testo=(document.getElementById('dt-testo').value||'').trim();
-  const cat=document.getElementById('dt-cat').value||'Nutrizionista';
-  if(!testo)return;
-  const arr=getAgendaTodo();
-  arr.push({id:uid(),testo,categoria:cat,fatto:false,data:today()});
-  saveAgendaTodo(arr);
-  document.getElementById('dt-testo').value='';
-  toggleFormTodo();
-  renderAgendaDx();
-}
-
-function toggleAgendaFatto(id){
-  const arr=getAgendaPersonale();
-  const item=arr.find(x=>x.id===id);if(!item)return;
-  item.fatto=!item.fatto;
-  saveAgendaPersonale(arr);
-  renderAgendaDx();
-}
-
-function toggleTodoFatto(id){
-  const arr=getAgendaTodo();
-  const item=arr.find(x=>x.id===id);if(!item)return;
-  item.fatto=!item.fatto;
-  saveAgendaTodo(arr);
-  renderAgendaDx();
-}
-
-const AGENDA_CAT={
-  'Nutrizionista':{dot:'#1D9E75',bg:'#E1F5EE',border:'#1D9E75'},
-  'Personale':{dot:'#378ADD',bg:'#E6F1FB',border:'#378ADD'},
-  'Vigile del fuoco':{dot:'#E24B4A',bg:'#FCEBEB',border:'#E24B4A'}
-};
-function _catCol(cat){return AGENDA_CAT[cat]||{dot:'#94a3b8',bg:'#f1f5f9',border:'#94a3b8'};}
-
-function renderAgendaDx(dataOverride){
-  if(dataOverride)_agendaData=dataOverride;
-  const og=_agendaData;
-  const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up S2',sett3:'Follow-up S3',meeting:'Meeting',altro:'Altro'};
-
-  // ── Con orario — timeline ────────────────────────────────────────────────
-  const evDb=db.eventi.filter(e=>e.data===og&&e.ora);
-  const personali=getAgendaPersonale().filter(x=>x.data===og&&x.ora);
-  const eventiOrario=[
-    ...evDb.map(e=>{
-      const paz=db.pazienti.find(p=>p.id===e.pazId);
-      return{id:e.id,testo:paz?paz.nome+' '+paz.cognome:(e.note||EV_LABELS[e.tipo]||e.tipo),ora:e.ora,categoria:'Nutrizionista',fonte:'db',fatto:false};
-    }),
-    ...personali.map(p=>({id:p.id,testo:p.testo,ora:p.ora,categoria:p.categoria||'Personale',fonte:'personale',fatto:p.fatto}))
-  ];
-
-  // Genera slot 07:30–19:00 ogni 30 min
-  const slots=[];
-  for(let h=7;h<=19;h++){
-    for(let m=0;m<60;m+=30){
-      if(h===7&&m===0)continue; // inizia da 07:30
-      const hh=String(h).padStart(2,'0'),mm=String(m).padStart(2,'0');
-      slots.push(hh+':'+mm);
-    }
-  }
-
-  const labelEl=document.getElementById('agenda-data-label');
-  if(labelEl){
-    const ogStr=today();
-    const ieri=addDays(ogStr,-1);
-    const domani=addDays(ogStr,+1);
-    const gg=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
-    const mesi=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
-    const dt=new Date(og);
-    let label=gg[dt.getDay()]+' '+dt.getDate()+' '+mesi[dt.getMonth()];
-    if(og===ogStr)label='Oggi — '+label;
-    else if(og===ieri)label='Ieri — '+label;
-    else if(og===domani)label='Domani — '+label;
-    labelEl.textContent=label;
-    labelEl.style.color=og===ogStr?'var(--teal)':'var(--text)';
-  }
-  const orarioEl=document.getElementById('dash-agenda-orario');
-  if(orarioEl){
-    // Legenda
-    const legenda=`<div style="display:flex;gap:.7rem;margin-bottom:.6rem;flex-wrap:wrap">
-      ${Object.entries(AGENDA_CAT).map(([k,v])=>`<span style="font-size:.68rem;color:${v.dot};display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.dot};display:inline-block"></span>${k}</span>`).join('')}
-    </div>`;
-
-    const timelineHtml=slots.map(slot=>{
-      const evSlot=eventiOrario.filter(e=>e.ora===slot);
-      const lineCol=evSlot.length?'var(--teal)':'var(--border)';
-      const contenuto=evSlot.map(ev=>{
-        const c=_catCol(ev.categoria);
-        const cb=ev.fonte==='personale'
-          ?`<input type="checkbox" ${ev.fatto?'checked':''} onchange="toggleAgendaFatto('${ev.id}')" style="cursor:pointer;accent-color:${c.dot};flex-shrink:0">`
-          :`<input type="checkbox" disabled style="opacity:.35;flex-shrink:0">`;
-        return`<div style="background:${c.bg};border-left:3px solid ${c.border};border-radius:0 6px 6px 0;padding:.3rem .5rem;margin-bottom:2px;display:flex;align-items:center;gap:.4rem;${ev.fatto?'opacity:.5':''}">
-          ${cb}
-          <span style="width:7px;height:7px;border-radius:50%;background:${c.dot};flex-shrink:0"></span>
-          <span style="font-size:.76rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.testo}</span>
-        </div>`;
-      }).join('');
-      return`<div style="display:flex;gap:6px;min-height:28px;align-items:${evSlot.length?'flex-start':'center'}">
-        <div style="font-size:.65rem;color:var(--text3);width:32px;flex-shrink:0;padding-top:${evSlot.length?'4px':'0'};text-align:right">${slot}</div>
-        <div style="width:1px;background:${lineCol};flex-shrink:0;align-self:stretch;margin:0 4px"></div>
-        <div style="flex:1;padding:${evSlot.length?'2px 0':'0'}">${contenuto}</div>
-      </div>`;
-    }).join('');
-
-    orarioEl.innerHTML=legenda+timelineHtml;
-  }
-
-  // ── Da fare oggi ────────────────────────────────────────────────────────
-  const todo=getAgendaTodo().filter(x=>x.data===og);
-  const todoSorted=[...todo.filter(x=>!x.fatto),...todo.filter(x=>x.fatto)];
-  const todoEl=document.getElementById('dash-todo-list');
-  if(todoEl){
-    if(!todoSorted.length){
-      todoEl.innerHTML='<div style="font-size:.77rem;color:var(--text3);text-align:center;padding:.5rem 0;font-style:italic">Nessuna attività</div>';
-    } else {
-      todoEl.innerHTML=todoSorted.map(t=>{
-        const c=_catCol(t.categoria);
-        return`<div style="display:flex;align-items:flex-start;gap:.4rem;padding:.4rem 0;border-bottom:1px solid var(--border);${t.fatto?'opacity:.45':''}">
-          <input type="checkbox" ${t.fatto?'checked':''} onchange="toggleTodoFatto('${t.id}')" style="margin-top:.15rem;cursor:pointer;accent-color:${c.dot}">
-          <div style="flex:1">
-            <div style="font-size:.79rem;${t.fatto?'text-decoration:line-through':''}">${t.testo}</div>
-            <div style="font-size:.68rem;color:${c.dot};font-weight:600">${t.categoria}</div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-  }
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// AGENDA DI DASHBOARD — RIMOSSA il 30 luglio 2026.
+// Erano ~165 righe: getAgendaPersonale/Todo, salvaAgendaItem, salvaTodoItem,
+// navigaAgenda, AGENDA_CAT, _catCol, renderAgendaDx e i toggle 'fatto'.
+// Motivo: (1) salvaAgendaItem e salvaTodoItem scrivevano data:today() cablato,
+// senza campo data nel form — un promemoria futuro era IMPOSSIBILE da creare,
+// cioe' proprio l'uso per cui la funzione esisteva; (2) pulisciAgendaVecchia()
+// era un corpo vuoto, quindi i todo si accumulavano per sempre in localStorage;
+// (3) i dati vivevano in localStorage, fuori da db, quindi fuori dal backup JSON;
+// (4) AGENDA_CAT duplicava EV_TYPES come sistema di colori/categorie; (5) le
+// categorie erano cablate su Fabrizio ('Vigile del fuoco'): inadatte a un
+// prodotto venduto a terzi. Il follow-up clinico e' gia' coperto da
+// p.dateCalendario (chiamata sett.1, msg sett.2/3, controllo).
+// L'UNICA cosa salvata e' il DISEGNO della timeline a slot di 30', trapiantato
+// in renderCalDay() dove ha dati veri da mostrare.
+// ═══════════════════════════════════════════════════════════════════════════
 
 function renderDashboard(){
   const oggi = new Date();
@@ -28519,8 +28428,6 @@ const savedUrl=getUrl();
 if(savedUrl){const el=document.getElementById('cfg-url');if(el)el.value=savedUrl;}
 setSyncStatus(!!localStorage.getItem('lastSync'));
 aggiornaStatoSync();
-pulisciAgendaVecchia();
-renderAgendaDx();
 initAntCard();
 
 // Verifica sessione — avvia app o mostra login

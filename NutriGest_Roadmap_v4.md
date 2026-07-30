@@ -265,6 +265,22 @@
 
 # PRIORITÀ 1 — Bug aperti
 
+### P140 — Appuntamenti: tripla fonte di verità, e solo una ha l'orario
+**IL PROBLEMA:** `getEventi()` compone gli eventi da TRE posti che descrivono lo stesso fatto — `p.visitaData`, `p.dateCalendario[primo|chiamata|sett2|sett3|controllo]` e `db.eventi` — ma **solo `db.eventi` ha il campo `ora`**. È F4 (doppia/tripla fonte) allo stato puro, ed è la causa RADICE dei due difetti riparati il 30 lug 2026 nelle viste Settimana e Giorno: quelle correzioni sono medicazioni sul sintomo, non sulla causa.
+**PERCHÉ CONTA ORA:** il flusso di prenotazione che Fabrizio vuole (telefonata → profilo → messaggio di preparazione con data E ora) ha bisogno di un appuntamento con orario. Se l'appuntamento nasce dal campo del profilo, l'orario non esiste e il template `{appuntamento}` esce monco ("il 12/08/2026" senza ora). Il messaggio di preparazione NON è utilizzabile in pieno finché questa voce è aperta.
+**LA SOLUZIONE PROPOSTA:** `db.eventi` diventa l'unica fonte dove NASCE un appuntamento; `p.visitaData` e `p.dateCalendario` diventano derivati (scritti dal motore, letti da chi già li legge — stesso schema di P118 tappa 1 e di `p.pesoTarget`), oppure vengono dismessi con migrazione idempotente sui tre punti d'ingresso dati (load, blob server, import — regola 12). Nessun campo va tolto prima che l'ultimo lettore sia stato spostato.
+**DA DECIDERE PRIMA DI CODIFICARE:** cosa succede agli appuntamenti storici privi di orario (restano senza, o si assegna un orario convenzionale? — la seconda inventa un dato, quindi no); e se `p.dateCalendario` resti come *pianificazione* (le tappe calcolate dalla data di inizio piano) mentre `db.eventi` diventa il *calendario* (gli appuntamenti veri), che sarebbe una separazione onesta invece di una fusione.
+**FOCUS COMPONENTI COINVOLTI:** Frontend + struttura dati paziente + migrazione.
+**SCHEDA:** Stato: Da fare · Priorità: Alta (blocca il flusso prenotazione) · C: 3 | I: 3 | R: 2 · Modello: **Opus High + Thinking ON** (dati pazienti + migrazione) · Autonomia: L2 (decisioni sopra da chiudere con Fabrizio).
+
+### P141 — `today()` restituisce ieri fra mezzanotte e le 2:00
+**IL PROBLEMA:** `today()` è `new Date().toISOString().slice(0,10)`. `toISOString` converte in UTC: in Italia (UTC+2 d'estate, +1 d'inverno) fra le 00:00 e le 02:00 locali restituisce **il giorno precedente**. Nel file ci sono **45 usi di `toISOString`**, molti dei quali su date costruite in ora locale.
+**IMPATTO:** basso in frequenza, alto in insidiosità — chi apre l'app a tarda notte vede la giornata sbagliata in dashboard, calendario e in ogni campo che si autocompila con la data di oggi (inclusi i dati che vengono SALVATI con quella data, che è la parte che non si corregge da sola il giorno dopo).
+**LA SOLUZIONE:** un helper `_ymdLoc(d)` che compone la stringa da `getFullYear/getMonth/getDate` locali, e sostituzione dei 45 usi previa verifica caso per caso (alcuni potrebbero volere davvero UTC). Nel codice nuovo del 30 lug 2026 è già stato introdotto `_calYmd()` con questa logica, per non propagare il difetto.
+**ATTENZIONE:** è una modifica ad alto conteggio e basso rischio unitario, cioè il profilo perfetto per un errore di distrazione. Va fatta con la test-suite davanti e un caso di prova che simuli l'ora locale notturna.
+**FOCUS COMPONENTI COINVOLTI:** Trasversale.
+**SCHEDA:** Stato: Da fare · Priorità: Media · C: 2 | I: 2 | R: 2 · Modello: Sonnet 4.6 Medium (ma con test dedicato) · Autonomia: L1.
+
 # PRIORITÀ 2 — Ricettario
 
 ### P33b — Aggancio automatico alternative nella scomposizione
@@ -351,6 +367,25 @@ SMOOTHIE BOWL: da valutare quando si decide di inserirle
 
 # PRIORITÀ 3 — Contenuti e prodotto
 
+### P142 — Flusso di prenotazione: il paziente nasce alla telefonata
+**LA RICHIESTA (Fabrizio, 30 lug 2026):** quando un nuovo paziente chiama per fissare la prima visita, creare subito il profilo e poter mandare, nei giorni precedenti, il messaggio con le istruzioni per prepararsi alla bioimpedenziometria.
+**COSA ESISTE GIÀ (verificato, non da rifare):** il motore di invio `inviaMateriale`, il registro `p.invii[]` e la tab "📨 Comunicazione" con i template variabilizzati sono in produzione dal 28 lug (P87 CHIUSA). I due template `prep_uomo` / `prep_donna` sono stati aggiunti il 30 lug. **Il "tasto" chiesto da Fabrizio quindi c'è già:** manca il flusso attorno.
+**COSA MANCA DAVVERO:**
+1. `p.stato = 'prenotato'` — oggi il campo `stato` esiste ma conosce solo `'archiviato'`. Serve per non sporcare l'elenco pazienti con i no-show. Elenco filtrato per default, più una vista "📅 In arrivo".
+2. Il passaggio automatico `prenotato → attivo` alla prima misurazione registrata.
+3. L'appuntamento con ORARIO, che dipende da **P140**.
+**BONUS NON BANALE:** dopo qualche mese, `p.stato` dà il tasso di no-show, oggi non misurabile.
+**DECISIONE PRESA:** il profilo si crea alla telefonata, NON si costruisce un generatore di messaggi svincolato dal profilo. Motivo: i dati non si retrofittano, le viste sì — il messaggio di preparazione è l'evento zero della storia del paziente e mandarlo fuori dal sistema lo perde per sempre (stesso principio che ha guidato la P87).
+**FOCUS COMPONENTI COINVOLTI:** Frontend + campo additivo.
+**SCHEDA:** Stato: Da fare (dipende da P140 per l'orario) · Priorità: Media · C: 2 | I: 3 | R: 1 · Modello: **Opus High + Thinking ON** (tocca lo stato del paziente) · Autonomia: L1.
+
+### P143 — Categorie configurabili al posto di quelle cablate
+**IL PROBLEMA:** l'agenda di dashboard aveva `AGENDA_CAT` con tre categorie scritte nel codice — Nutrizionista / Personale / **Vigile del fuoco** — cioè la vita di Fabrizio dentro un prodotto destinato ad altri nutrizionisti. L'agenda è stata rimossa il 30 lug 2026 e con essa il problema immediato, ma il tema resta: `EV_TYPES` (i tipi di evento del calendario) è anch'esso cablato, con etichette e colori fissi.
+**LA SOLUZIONE:** tipi di evento configurabili in Impostazioni, con i valori attuali come default. Non è banale solo perché il colore è agganciato al nome del tipo e le classi CSS (`ev-visita`, `ev-controllo`…) sono statiche: serve passare a colori inline o a variabili CSS generate.
+**QUANDO:** non prima che Fabrizio usi davvero il calendario. Riorganizzare uno strumento non ancora in uso significa decidere su un'ipotesi invece che su un'esperienza.
+**FOCUS COMPONENTI COINVOLTI:** Frontend + Impostazioni + CSS.
+**SCHEDA:** Stato: Da fare (trigger: uso reale del calendario) · Priorità: Bassa · C: 2 | I: 2 | R: 1 · Modello: Sonnet 4.6 Medium · Autonomia: L1.
+
 ### P19 — Libreria colazioni fisse
 **L'APPROCCIO ORIGINARIO:** 10-20 colazioni predefinite, selettore, grammature fisse ritoccabili, categoria funzionale salvata.
 **LA CRITICA DEL CTO:** "libreria" al singolare è la parola pericolosa: implica una SECONDA struttura parallela al ricettario, con secondo editor, secondo sync, secondo filtro. Ridondanza pura.
@@ -369,6 +404,9 @@ SMOOTHIE BOWL: da valutare quando si decide di inserirle
 **L'APPROCCIO ORIGINARIO:** rivedere insieme il questionario originale; priorità alle domande che alimentano il generatore.
 **LA CRITICA DEL CTO:** com'è scritta produce un documento, non una feature. Il valore c'è solo se ogni domanda atterra su un campo che `costruisciContestoPaziente` legge.
 **LA SOLUZIONE OTTIMIZZATA:** vincolo di accettazione esplicito: ogni domanda nuova → campo `p.anamnesi.*` → riga nel contesto AI → (dove sensato) leva nel generatore (pasti fuori casa → vincolo pranzo; chi cucina/tempo → filtro tempoPrep, che ora esiste). Domande senza consumatore: fuori. Sessione unica con Fabrizio, poi 1h di implementazione.
+**RICHIESTA ESPLICITA DI FABRIZIO (30 lug 2026) — DA NON PERDERE:** il questionario deve includere la **misurazione del girovita in cm**. Non è una domanda ma una misura, e ha il miglior rapporto valore/costo della scheda: alimenta il **WHtR** (girovita/altezza, cutoff universale 0,5, predittore cardiometabolico migliore del BMI e valido senza correzioni per sesso ed etnia), è il criterio **obbligatorio** IDF per la sindrome metabolica (≥94 cm M / ≥80 cm F), e si muove prima e più del peso — spesso è l'unico segnale di miglioramento quando la bilancia è ferma. Nota tecnica: il rapporto Cintura/Fianchi che l'InBody 120 stampa è una **stima da BIA**, non una misura; il metro è un dato indipendente e più solido, quindi i due non vanno confusi nella stessa serie.
+**PROTOCOLLO DI MISURA DA SCRIVERE IN UI:** sempre lo stesso punto (metà tra ultima costa e cresta iliaca, a fine espirazione) o la serie storica diventa rumore. Vale la stessa logica del campo `condizioneBia`: senza protocollo dichiarato il confronto nel tempo non è interpretabile.
+**AGGANCIO NATURALE (non obbligatorio per chiudere P4):** con girovita + pressione (già in scheda) + trigliceridi + HDL + glicemia sono in casa tutti e 5 i criteri della sindrome metabolica. Un indice "Sindrome metabolica: X/5" in `CALCOLI_CLINICI` costerebbe poco e chiuderebbe il cerchio.
 **FOCUS COMPONENTI COINVOLTI:** Struttura dati (additiva) + AI Layer (contesto).
 **SCHEDA:** Stato: Da fare (materiale da Fabrizio) · Priorità: Bassa · C: 2 | I: 3 | R: 1 · Modello: Fable (Alto) per il mapping, Sonnet per l'implementazione · Autonomia: L2 sulle domande.
 

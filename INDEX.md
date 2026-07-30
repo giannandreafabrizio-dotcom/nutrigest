@@ -47,328 +47,328 @@ Mappa funzioni → righe di `index.html`, organizzata per area funzionale.
 ---
 
 ### CATALOGO UNICO ALIMENTI (P108 fase 0) — record {id,nome,categoriaSem,gDefault,per100g,fonte}, risoluzione id/nome
-Righe 2455-2497
+Righe 2408-2450
 
-- `2455` — _slugAlimento
-- `2463` — _catalogoIndicizza
-- `2467` — _catalogoDeindicizza
-- `2474` — costruisciCatalogo
-- `2497` — risolviAlimento
+- `2408` — _slugAlimento
+- `2416` — _catalogoIndicizza
+- `2420` — _catalogoDeindicizza
+- `2427` — costruisciCatalogo
+- `2450` — risolviAlimento
 
 ---
 
 ### MACROS PIANO — calcolo e badge macro reali vs target
-Righe 2512-2775
+Righe 2465-2728
 
-- `2512` — getValoriCREA
-- `2524` — getCurrentPaziente
-- `2544` — getKcalWeekend
-- `2601` — getMacrosRicettaComposta
-- `2607` — calcolaMacrosPiano
-- `2709` — renderBadgeMacrosReali
+- `2465` — getValoriCREA
+- `2477` — getCurrentPaziente
+- `2497` — getKcalWeekend
+- `2554` — getMacrosRicettaComposta
+- `2560` — calcolaMacrosPiano
+- `2662` — renderBadgeMacrosReali
 - `2611` — pctStr
 - `2612` — color
 - `2625` — row
-- `2775` — renderBadgeMacrosReali_DOM
+- `2728` — renderBadgeMacrosReali_DOM
 
 ---
 
 ### ANALISI DEL SANGUE — parsing, indici clinici derivati, interpretazione
-Righe 3060-3247
+Righe 3013-3200
 
-- `3060` — _parseAnalisiNum
-- `3068` — calcolaIndice
-- `3221` — interpretaAnalisi
-- `3233` — _interpAnalisiHtml
-- `3247` — mostraInfoRange
+- `3013` — _parseAnalisiNum
+- `3021` — calcolaIndice
+- `3174` — interpretaAnalisi
+- `3186` — _interpAnalisiHtml
+- `3200` — mostraInfoRange
 
 ---
 
 ### CONCETTI EDUCATIVI — sync Supabase, migrazione
-Righe 3390-3414
+Righe 3343-3367
 
-- `3390` — pushConcetiSupabase
-- `3400` — pullConcetiSupabase
-- `3414` — migraConcetti
+- `3343` — pushConcetiSupabase
+- `3353` — pullConcetiSupabase
+- `3367` — migraConcetti
 
 ---
 
 ### ALIMENTI — categorie funzionali/semaforo, chip UI, equivalenze porzioni
-Righe 3604-3959
+Righe 3557-3912
 
-- `3604` — getCategoriaSemaforo
-- `3621` — _getCategorieGruppo
-- `3635` — calcolaGrammaturaEquivalente
-- `3675` — _gruppoEquiv  (P121: gruppo di equivalenza + criterio per categoria funzionale)
-- `3681` — _porzioneStandard  (P121: porzione `g` di database dell'alimento)
-- `3696` — suggerisciGrEquivalente  (P121: firma a 3 argomenti, il gruppo si deduce dai due alimenti)
-- `3722` — _etichettaCriterio  (P121: ≈carbo / ≈prot / ≈grassi / fissa / porzione)
-- `3737` — _promptAlternativeGrassi  (P121: riga del prompt AI generata dal motore)
-- `3753` — ricalcolaAlternative  (P121: MOTORE UNICO, unico punto che scrive la grammatura di un'alternativa)
-- `3772` — ricalcolaAlternativePiano  (P121: applica il motore a tutte le celle di un piano)
-- `3821` — arrotondaGrammatura  (P121: sostituisce arrotondaPorzioneDiscreta — pezzi interi senza tetto / 5g)
-- `3831` — getCategoriaFunzionale
-- `3871` — catArr
-- `3887` — _tagComuniTrova
-- `3891` — getTagComuniChip
-- `3894` — setTagComuniChip
-- `3902` — setCatChips
-- `3915` — getStagioniChip
-- `3918` — setStagioniChip
-- `3925` — getProfiloChip
-- `3928` — setProfiloChip
-- `3937` — wireChipGroup
-- `3948` — wireAttrChipGroups
-- `3959` — wireRadioChipGroup
+- `3557` — getCategoriaSemaforo
+- `3574` — _getCategorieGruppo
+- `3588` — calcolaGrammaturaEquivalente
+- `3628` — _gruppoEquiv  (P121: gruppo di equivalenza + criterio per categoria funzionale)
+- `3634` — _porzioneStandard  (P121: porzione `g` di database dell'alimento)
+- `3649` — suggerisciGrEquivalente  (P121: firma a 3 argomenti, il gruppo si deduce dai due alimenti)
+- `3675` — _etichettaCriterio  (P121: ≈carbo / ≈prot / ≈grassi / fissa / porzione)
+- `3690` — _promptAlternativeGrassi  (P121: riga del prompt AI generata dal motore)
+- `3706` — ricalcolaAlternative  (P121: MOTORE UNICO, unico punto che scrive la grammatura di un'alternativa)
+- `3725` — ricalcolaAlternativePiano  (P121: applica il motore a tutte le celle di un piano)
+- `3774` — arrotondaGrammatura  (P121: sostituisce arrotondaPorzioneDiscreta — pezzi interi senza tetto / 5g)
+- `3784` — getCategoriaFunzionale
+- `3824` — catArr
+- `3840` — _tagComuniTrova
+- `3844` — getTagComuniChip
+- `3847` — setTagComuniChip
+- `3855` — setCatChips
+- `3868` — getStagioniChip
+- `3871` — setStagioniChip
+- `3878` — getProfiloChip
+- `3881` — setProfiloChip
+- `3890` — wireChipGroup
+- `3901` — wireAttrChipGroups
+- `3912` — wireRadioChipGroup
 
 ---
 
 ### CONFIG / STORAGE LOCALE — cfg, localStorage db, util data/valuta
-Righe 3987-4366
+Righe 3940-4318
 
-- `3987` — getCfg
-- `3988` — saveCfgL
-- `3989` — getUrl
-- `3990` — saveLocal
-- `3991` — loadLocal
-- `4002` — uid
-- `4003` — today
-- `4004` — addDays
-- `4005` — fData
-- `4006` — fEur
-- `4008` — getLastSyncText
-- `4018` — getSyncColor
-- `4026` — aggiornaStatoSync
-- `4052` — setSyncStatus
-- `4320` — _registraTombstone
-- `4328` — _tombstoneAttivi
-- `4340` — _fondiTombstones
-- `4354` — _mergeTombstonesRemoti *(dal 24/7 legge il meta da `collections`, P74 1d)*
-- `4366` — _applicaTombstones
-- `4227` — _pazFetchMeta *(P74 1d — solo `collections`)*
-- `4248` — _collectionsUpsert *(P74 — scrittura primaria dei 4 meta-record dal cutover 1d)*
-- `4270` — _collectionsFetch *(P74 1d — lettura unica dei meta-record)*
-- `4293` — _analisiSangueUpsert *(P74 fase 2 — scrittura ombra analisi del sangue, 24/7)*
+- `3940` — getCfg
+- `3941` — saveCfgL
+- `3942` — getUrl
+- `3943` — saveLocal
+- `3944` — loadLocal
+- `3955` — uid
+- `3956` — today
+- `3957` — addDays
+- `3958` — fData
+- `3959` — fEur
+- `3961` — getLastSyncText
+- `3971` — getSyncColor
+- `3978` — aggiornaStatoSync
+- `4004` — setSyncStatus
+- `4272` — _registraTombstone
+- `4280` — _tombstoneAttivi
+- `4292` — _fondiTombstones
+- `4306` — _mergeTombstonesRemoti *(dal 24/7 legge il meta da `collections`, P74 1d)*
+- `4318` — _applicaTombstones
+- `4179` — _pazFetchMeta *(P74 1d — solo `collections`)*
+- `4200` — _collectionsUpsert *(P74 — scrittura primaria dei 4 meta-record dal cutover 1d)*
+- `4222` — _collectionsFetch *(P74 1d — lettura unica dei meta-record)*
+- `4245` — _analisiSangueUpsert *(P74 fase 2 — scrittura ombra analisi del sangue, 24/7)*
 
 ---
 
 ### SYNC SUPABASE — push/pull ricette/pazienti, tombstones, conflitti (P69)
-Righe 4390-4775
+Righe 4342-4727
 
-- `4390` — supaHeaders
-- `4404` — pushRicetteSupabase
-- `4429` — pullRicetteSupabase
-- `4451` — delRicetteSupabase
-- `4463` — delPazienteSupabase
-- `4478` — pushToSheets
-- `4522` — pullFromSheets
-- `4601` — syncNow
-- `4614` — sincronizzaTutto
+- `4342` — supaHeaders
+- `4356` — pushRicetteSupabase
+- `4381` — pullRicetteSupabase
+- `4403` — delRicetteSupabase
+- `4415` — delPazienteSupabase
+- `4430` — pushToSheets
+- `4474` — pullFromSheets
+- `4553` — syncNow
+- `4566` — sincronizzaTutto
 - `4360` — stpSet
 - `4365` — stpMsg
-- `4745` — testConnSupabase
-- `4775` — _p68LogSaveAnonimo
+- `4697` — testConnSupabase
+- `4727` — _p68LogSaveAnonimo
 
 ---
 
 ### SYNC SUPABASE — save paziente, piani/cache piano, entrate, eventi
-Righe 4789-5305
+Righe 4741-5257
 
-- `4789` — save
-- `4807` — _pushRigaPerId
-- `4840` — _flushDirtyIds
-- `4923` — _p69LoadBaseline
-- `4926` — _p69StoreBaseline
-- `4929` — _p69SetBaseline
-- `4933` — _p69DropBaseline
-- `4937` — _p69SetBaselineFromRows
-- `4943` — _p69NomePaz
-- `4948` — _p69InList
-- `4956` — _p69RilevaConflitti
-- `4992` — _p69DialogoConflitti
+- `4741` — save
+- `4759` — _pushRigaPerId
+- `4792` — _flushDirtyIds
+- `4875` — _p69LoadBaseline
+- `4878` — _p69StoreBaseline
+- `4881` — _p69SetBaseline
+- `4885` — _p69DropBaseline
+- `4889` — _p69SetBaselineFromRows
+- `4895` — _p69NomePaz
+- `4900` — _p69InList
+- `4908` — _p69RilevaConflitti
+- `4944` — _p69DialogoConflitti
 - `4738` — chiudi
-- `5026` — _p69RisolviRicarica
-- `5055` — _p69EsportaLocali
-- `5068` — _p69RisolviSovrascrivi
-- `5081` — pushPianoSupabase
-- `5103` — pullPianiSupabase
-- `5119` — delPianoSupabase
-- `5135` — delPianiPazienteSupabase
-- `5147` — pushCachePianoSupabase
-- `5164` — caricaCachePianoSupabase
-- `5186` — pushEntrateSupabase
-- `5210` — pullEntrateSupabase
-- `5224` — delEntrataSupabase
-- `5232` — pushEntrataSupabase
-- `5243` — pushEventoSupabase
-- `5256` — pushEventiSupabase
-- `5280` — pullEventiSupabase
-- `5294` — delEventoSupabase
-- `5305` — _pianoCacheKey
+- `4978` — _p69RisolviRicarica
+- `5007` — _p69EsportaLocali
+- `5020` — _p69RisolviSovrascrivi
+- `5033` — pushPianoSupabase
+- `5055` — pullPianiSupabase
+- `5071` — delPianoSupabase
+- `5087` — delPianiPazienteSupabase
+- `5099` — pushCachePianoSupabase
+- `5116` — caricaCachePianoSupabase
+- `5138` — pushEntrateSupabase
+- `5162` — pullEntrateSupabase
+- `5176` — delEntrataSupabase
+- `5184` — pushEntrataSupabase
+- `5195` — pushEventoSupabase
+- `5208` — pushEventiSupabase
+- `5232` — pullEventiSupabase
+- `5246` — delEventoSupabase
+- `5257` — _pianoCacheKey
 
 ---
 
 ### UI GENERALE — config AI key, notifiche, navigazione (goTo/tab/modali)
-Righe 5336-5448
+Righe 5288-5399
 
-- `5336` — _salvaPianoCache
-- `5341` — _caricaPianoCache
-- `5347` — salvaCfg
-- `5348` — testConn
-- `5355` — testaAntKey
-- `5366` — initAntCard
-- `5369` — esporta
-- `5370` — importa
-- `5375` — goTo
-- `5392` — closeM
-- `5400` — ngChiudiModale
-- `5409` — ngChiudiPopupCoppia
-- `5413` — ngAggiungiX
-- `5424` — ngUpgradeModali
-- `5444` — mTab
-- `5445` — aggiornaEta
-- `5446` — toggleOrarioNote
-- `5447` — pdTab
-- `5448` — notif
+- `5288` — _salvaPianoCache
+- `5293` — _caricaPianoCache
+- `5299` — salvaCfg
+- `5300` — testConn
+- `5307` — testaAntKey
+- `5318` — initAntCard
+- `5321` — esporta
+- `5322` — importa
+- `5327` — goTo
+- `5343` — closeM
+- `5351` — ngChiudiModale
+- `5360` — ngChiudiPopupCoppia
+- `5364` — ngAggiungiX
+- `5375` — ngUpgradeModali
+- `5395` — mTab
+- `5396` — aggiornaEta
+- `5397` — toggleOrarioNote
+- `5398` — pdTab
+- `5399` — notif
 
 ---
 
 ### PAZIENTI — registro: lista/card/kanban, apertura, editing, salvataggio, routine
-Righe 5456-8222
+Righe 5407-8173
 
-- `5456` — getPazView
-- `5457` — setPazView
-- `5466` — _pazStatoPiano
-- `5474` — _pazUrgenzaControllo
-- `5481` — _pazStatoTagHtml
-- `5490` — _pazAggiornaFiltroRegimi
-- `5498` — renderPaz
-- `5551` — _renderPazCard
-- `5576` — _renderPazLista
-- `5603` — _renderPazKanban
-- `5641` — openNuovoPaz
-- `5667` — editPaz
-- `5745` — REGOLE_SEMAFORO_ALIMENTI *(15 condizioni cliniche → grigi/celesti; globale dal 26/7 per essere verificabile dal test)*
-- `6192` — _SEM_COLORI_LEGACY / `6105` _SEM_COLORI_AUTO *(F9 — unico vocabolario dei colori automatici)*
-- `6197` — NOMI_CONDIZIONE_SEMAFORO *(etichette delle 15 condizioni, usate anche dal riquadro della scheda)*
-- `6219` — _semaforoCondizioniAttive *(le condizioni spuntate su un paziente)*
-- `6230` — _semaforoMigraPaziente *(F9 — toglie i colori legacy e ricalcola; idempotente)*
-- `6241` — _semaforoMigraTutti *(passata su tutti i pazienti in memoria, con conteggio)*
-- `6252` — applicaRegoloSemaforo *(dal 26/7 pulisce TUTTI e sei i colori automatici, non solo i suoi due)*
-- `6340` — trovaChiaveAlimento *(match esatto sul nome: se non trova, la regola è ignorata in silenzio — vedi test s2-regole-nomi-alimenti)*
-- `6364` — _pazNumOPrec *(F7 — campo assente = valore precedente, non azzeramento)*
-- `6376` — _pazPreservaCampi *(F5 — l'anagrafica non cancella i campi che il form non gestisce)*
-- `6382` — salvaPaz
-- `6458` — openPaz
-- `7909` — renderPdRoutine
+- `5407` — getPazView
+- `5408` — setPazView
+- `5417` — _pazStatoPiano
+- `5425` — _pazUrgenzaControllo
+- `5432` — _pazStatoTagHtml
+- `5441` — _pazAggiornaFiltroRegimi
+- `5449` — renderPaz
+- `5502` — _renderPazCard
+- `5527` — _renderPazLista
+- `5554` — _renderPazKanban
+- `5592` — openNuovoPaz
+- `5618` — editPaz
+- `5696` — REGOLE_SEMAFORO_ALIMENTI *(15 condizioni cliniche → grigi/celesti; globale dal 26/7 per essere verificabile dal test)*
+- `6143` — _SEM_COLORI_LEGACY / `6105` _SEM_COLORI_AUTO *(F9 — unico vocabolario dei colori automatici)*
+- `6148` — NOMI_CONDIZIONE_SEMAFORO *(etichette delle 15 condizioni, usate anche dal riquadro della scheda)*
+- `6170` — _semaforoCondizioniAttive *(le condizioni spuntate su un paziente)*
+- `6181` — _semaforoMigraPaziente *(F9 — toglie i colori legacy e ricalcola; idempotente)*
+- `6192` — _semaforoMigraTutti *(passata su tutti i pazienti in memoria, con conteggio)*
+- `6203` — applicaRegoloSemaforo *(dal 26/7 pulisce TUTTI e sei i colori automatici, non solo i suoi due)*
+- `6291` — trovaChiaveAlimento *(match esatto sul nome: se non trova, la regola è ignorata in silenzio — vedi test s2-regole-nomi-alimenti)*
+- `6315` — _pazNumOPrec *(F7 — campo assente = valore precedente, non azzeramento)*
+- `6327` — _pazPreservaCampi *(F5 — l'anagrafica non cancella i campi che il form non gestisce)*
+- `6333` — salvaPaz
+- `6409` — openPaz
+- `7860` — renderPdRoutine
 - `6723` — cardHTML
-- `8051` — updateRoutineCampo
-- `8059` — suggerisciPastoEQuando
-- `8086` — filtroLibreria
-- `8095` — renderLibreriaGrid
-- `8116` — aggiungiDaLibreriaIdx
-- `8140` — openModalRoutine
-- `8147` — salvaRoutineVoce
-- `8172` — salvaRoutine
-- `8179` — mostraRoutinePopup
-- `8207` — removeRoutineVoce
-- `8222` — _renderAggiustamentiSection
+- `8002` — updateRoutineCampo
+- `8010` — suggerisciPastoEQuando
+- `8037` — filtroLibreria
+- `8046` — renderLibreriaGrid
+- `8067` — aggiungiDaLibreriaIdx
+- `8091` — openModalRoutine
+- `8098` — salvaRoutineVoce
+- `8123` — salvaRoutine
+- `8130` — mostraRoutinePopup
+- `8158` — removeRoutineVoce
+- `8173` — _renderAggiustamentiSection
 
 ---
 
 ### 📈 PERCORSO — timeline di periodizzazione (P115 Tappe 1-5 COMPLETE, 24 lug 2026)
 Righe 6021-6621 (numeri ESATTI al 24/7 notte, dopo la Tappa 5). ⚠️ Questo blocco (~600 righe) fa slittare tutti i numeri delle sezioni SUCCESSIVE a riga ~6020 rispetto all'ultima rigenerazione completa: per quelle sezioni fare grep di conferma. Rigenerazione completa alla prossima modifica strutturale.
 
-- `6503` — _PERCORSO_TIPI (const: tipi fase, colori, pct default)
-- `6510` — _percorsoGet *(normalizza p.percorso, scarta fasi invalide)*
-- `6532` — _percorsoIsoLocal *(data → YYYY-MM-DD LOCALE, mai toISOString/UTC)*
-- `6538` — _percorsoIntervalli *(fasi consecutive → date concrete dal/al)*
-- `6552` — _percorsoFaseAt *(fase attiva a una data; dal incluso, al escluso)*
-- `6561` — _percorsoKcalFase *(pct → kcal indicative via calcolaTDEE)*
-- `6584` — _percorsoProiezione *(Tappa 2 — proiezione ibrida teorica/calibrata, cono, obiettivo a intervallo)*
-- `6642` — _percorsoDataBreve *(ISO → "12 set")*
-- `6659` — _percorsoSerieEnergia *(Tappa 3 — serie introito/TDEE stimato/TDEE osservato per la corsia energia)*
-- `6698` — _percorsoSerieMassaMagra *(Tappa 4 — solo InBody: punti {data,m,pg})*
-- `6717` — _percorsoConsuntivo *(Tappa 5 — legge p.consuntivo scritto da P50: aderenza, extra kcal, ritardo=extra÷7700, settimane perse; oggi sempre ok:false)*
-- `6759` — _PERCORSO_LAYERS_DEFAULT / _percorsoLayersState / _percorsoLayersGet *(Tappa 4 — stato interruttori, SOLO sessione, mai su p)*
-- `6764` — percorsoLayerToggle *(Tappa 4 — inverte un solo strato)*
-- `6770` — percorsoVistaPreset *(Tappa 4 — preset "tecnica"/"paziente")*
-- `6786` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
-- `6842` — _PERCORSO_MODELLI / _PERCORSO_GEN *(P122 T3 — 4 modelli + regole dei cicli)*
-- `6860` — _percorsoGeneraFasi *(P122 T3 — pura: dal traguardo alle fasi, ritmo = quello della proiezione)*
-- `6940` — _percorsoModelloSelectHtml
-- `6949` — percorsoGeneraDaModello *(propone; conferma prima di sostituire fasi esistenti)*
-- `6972` — _percorsoShiftGiorni *(pura: ancora = ultima pesata)*
-- `6982` — percorsoRiallinea *(⏩ trasla il piano, riprende dal giorno-fase dell'interruzione)*
-- `7009` — _TRG_TIPI / `6744` _TRG_COMPORTAMENTI *(P122 T4 — tipi di traguardo e libreria comportamenti)*
-- `7031` — _traguardiGet · `6761` _traguardoValoreAttuale *(valore corrente dai dati esistenti, null se manca)*
-- `7070` — _traguardoVerso *(auto: dedotto dalla partenza)* · `6803` _traguardoValuta · `6824` _traguardiValuta
-- `7111` — traguardoAdd · `6852` traguardoUpd · `6867` traguardoDel · `6873` traguardoSegna
-- `7169` — _COND_TIPI · `6897` _percorsoCondizione *(pura: la fase finisce per soglia — SOLO suggerimento)*
-- `7185` — percorsoSetCondizione · `6927` percorsoChiudiFase *(esito fotografato, riapribile)*
-- `7219` — _traguardiHtml *(blocco 🏁 in fondo alla scheda Percorso)*
-- `7317` — _percorsoVistaPaz / `7049` _percorsoVistaPazAttiva *(P122 T5 — modalità di sessione)*
-- `7324` — _percorsoVittorie *(pura: vittorie dall'inizio del percorso + flag ricomposizione)*
-- `7362` — _percorsoNascondiPeso *(in fase di massa il peso non si mostra al paziente)*
-- `7373` — _traguardoFaseCorrente *(traguardo della fase IN CORSO, non quello lontano)*
-- `7401` — _traguardoTestoPaziente *(righe in italiano semplice, riusate dal messaggio WhatsApp)*
-- `7434` — _vistaPazienteHtml *(i tre riquadri che guarda il paziente)*
-- `7514` — _percorsoChartSvg *(due corsie: peso + massa magra + cono proiezione sopra, striscia aderenza in mezzo (solo con dati P50), energia (kcal) sotto — tutto gated dagli interruttori)*
-- `7703` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, riga Piano vs Realtà (solo con dati), toolbar interruttori, grafico, editor)*
+- `6454` — _PERCORSO_TIPI (const: tipi fase, colori, pct default)
+- `6461` — _percorsoGet *(normalizza p.percorso, scarta fasi invalide)*
+- `6483` — _percorsoIsoLocal *(data → YYYY-MM-DD LOCALE, mai toISOString/UTC)*
+- `6489` — _percorsoIntervalli *(fasi consecutive → date concrete dal/al)*
+- `6503` — _percorsoFaseAt *(fase attiva a una data; dal incluso, al escluso)*
+- `6512` — _percorsoKcalFase *(pct → kcal indicative via calcolaTDEE)*
+- `6535` — _percorsoProiezione *(Tappa 2 — proiezione ibrida teorica/calibrata, cono, obiettivo a intervallo)*
+- `6593` — _percorsoDataBreve *(ISO → "12 set")*
+- `6610` — _percorsoSerieEnergia *(Tappa 3 — serie introito/TDEE stimato/TDEE osservato per la corsia energia)*
+- `6649` — _percorsoSerieMassaMagra *(Tappa 4 — solo InBody: punti {data,m,pg})*
+- `6668` — _percorsoConsuntivo *(Tappa 5 — legge p.consuntivo scritto da P50: aderenza, extra kcal, ritardo=extra÷7700, settimane perse; oggi sempre ok:false)*
+- `6710` — _PERCORSO_LAYERS_DEFAULT / _percorsoLayersState / _percorsoLayersGet *(Tappa 4 — stato interruttori, SOLO sessione, mai su p)*
+- `6715` — percorsoLayerToggle *(Tappa 4 — inverte un solo strato)*
+- `6721` — percorsoVistaPreset *(Tappa 4 — preset "tecnica"/"paziente")*
+- `6737` — _percorsoPaz *(e a seguire i mutatori percorsoInit/SetInizio/AddFase/UpdFase/DelFase/MoveFase)*
+- `6793` — _PERCORSO_MODELLI / _PERCORSO_GEN *(P122 T3 — 4 modelli + regole dei cicli)*
+- `6811` — _percorsoGeneraFasi *(P122 T3 — pura: dal traguardo alle fasi, ritmo = quello della proiezione)*
+- `6891` — _percorsoModelloSelectHtml
+- `6900` — percorsoGeneraDaModello *(propone; conferma prima di sostituire fasi esistenti)*
+- `6923` — _percorsoShiftGiorni *(pura: ancora = ultima pesata)*
+- `6933` — percorsoRiallinea *(⏩ trasla il piano, riprende dal giorno-fase dell'interruzione)*
+- `6960` — _TRG_TIPI / `6744` _TRG_COMPORTAMENTI *(P122 T4 — tipi di traguardo e libreria comportamenti)*
+- `6982` — _traguardiGet · `6761` _traguardoValoreAttuale *(valore corrente dai dati esistenti, null se manca)*
+- `7021` — _traguardoVerso *(auto: dedotto dalla partenza)* · `6803` _traguardoValuta · `6824` _traguardiValuta
+- `7062` — traguardoAdd · `6852` traguardoUpd · `6867` traguardoDel · `6873` traguardoSegna
+- `7120` — _COND_TIPI · `6897` _percorsoCondizione *(pura: la fase finisce per soglia — SOLO suggerimento)*
+- `7136` — percorsoSetCondizione · `6927` percorsoChiudiFase *(esito fotografato, riapribile)*
+- `7170` — _traguardiHtml *(blocco 🏁 in fondo alla scheda Percorso)*
+- `7268` — _percorsoVistaPaz / `7049` _percorsoVistaPazAttiva *(P122 T5 — modalità di sessione)*
+- `7275` — _percorsoVittorie *(pura: vittorie dall'inizio del percorso + flag ricomposizione)*
+- `7313` — _percorsoNascondiPeso *(in fase di massa il peso non si mostra al paziente)*
+- `7324` — _traguardoFaseCorrente *(traguardo della fase IN CORSO, non quello lontano)*
+- `7352` — _traguardoTestoPaziente *(righe in italiano semplice, riusate dal messaggio WhatsApp)*
+- `7385` — _vistaPazienteHtml *(i tre riquadri che guarda il paziente)*
+- `7465` — _percorsoChartSvg *(due corsie: peso + massa magra + cono proiezione sopra, striscia aderenza in mezzo (solo con dati P50), energia (kcal) sotto — tutto gated dagli interruttori)*
+- `7654` — renderPdPercorso *(scheda: badge fase, riga proiezione/obiettivo, riga Piano vs Realtà (solo con dati), toolbar interruttori, grafico, editor)*
 
 *(Tappa 2 tocca anche `calcolaMacros`: box obiettivo con intervallo al posto della data secca.)*
 
 ---
 
 ### PAZIENTI — aggiustamenti terapia, note cliniche, semaforo alimentare (auto+legacy)
-Righe 8307-8478
+Righe 8258-8429
 
-- `8307` — salvaAggiustamento
-- `8340` — eliminaAggiustamento
-- `8349` — renderPdNote
-- `8384` — salvaNotaClinica
-- `8399` — deleteNota
-- `8408` — saveNote
-- `8428` — resetSemaforoAuto *(F9 — pulsante 🔄 Ricalcola: pulisce gli automatici e rifà col sistema valido; il motore LEGACY non esiste più)*
-- `8478` — costruisciContestoPaziente
+- `8258` — salvaAggiustamento
+- `8291` — eliminaAggiustamento
+- `8300` — renderPdNote
+- `8335` — salvaNotaClinica
+- `8350` — deleteNota
+- `8359` — saveNote
+- `8379` — resetSemaforoAuto *(F9 — pulsante 🔄 Ricalcola: pulisce gli automatici e rifà col sistema valido; il motore LEGACY non esiste più)*
+- `8429` — costruisciContestoPaziente
 
 ---
 
 ### AI/FX — contesto paziente per prompt, ragionamento clinico automatico (avviaFX)
-Righe 8704-8902
+Righe 8655-8853
 
-- `8704` — avviaFX
-- `8732` — avviaAnalisi
-- `8749` — _renderFlussoPanel
-- `8793` — _riepEsc
-- `8797` — _riepNum
-- `8803` — _riepDelta
-- `8811` — _riepDataSig
-- `8829` — _riepParseFX
+- `8655` — avviaFX
+- `8683` — avviaAnalisi
+- `8700` — _renderFlussoPanel
+- `8744` — _riepEsc
+- `8748` — _riepNum
+- `8754` — _riepDelta
+- `8762` — _riepDataSig
+- `8780` — _riepParseFX
 - `8087` — clean
-- `8843` — _riepAggiornaFX
-- `8869` — _riepToggleDomandaDefault
-- `8881` — _riepAddDomanda
-- `8894` — _riepRemoveDomanda
-- `8902` — renderPdRiepilogo
+- `8794` — _riepAggiornaFX
+- `8820` — _riepToggleDomandaDefault
+- `8832` — _riepAddDomanda
+- `8845` — _riepRemoveDomanda
+- `8853` — renderPdRiepilogo
 
 ---
 
 ### AI/FX — riepilogo paziente, ragionamento esteso, timeline, anamnesi
-Righe 9114-9341
+Righe 9065-9292
 
 - `8218` — dCol
 - `8336` — card
-- `9114` — renderPdRagionamento
-- `9202` — inviaMessaggioRag
-- `9220` — concludiERiassumi
-- `9234` — salvaRagionamento
-- `9255` — apriGeneratoreDaRag
-- `9263` — nuovaSessioneRag
-- `9269` — cancellaSavedRag
-- `9279` — renderPazTimeline
-- `9311` — renderPdAnamnesi
-- `9341` — renderPdAlimenti
+- `9065` — renderPdRagionamento
+- `9153` — inviaMessaggioRag
+- `9171` — concludiERiassumi
+- `9185` — salvaRagionamento
+- `9206` — apriGeneratoreDaRag
+- `9214` — nuovaSessioneRag
+- `9220` — cancellaSavedRag
+- `9230` — renderPazTimeline
+- `9262` — renderPdAnamnesi
+- `9292` — renderPdAlimenti
 
 ---
 
@@ -418,36 +418,36 @@ Righe 11240-12375
 ### RICHIESTA ANALISI DEL SANGUE — foglio per il medico curante (P116)
 Righe 8602-9176 — catalogo voci, regole di preselezione, modale checklist, PDF, invio.
 
-- `9471` — _richVal
-- `9478` — _richBmi
-- `9483` — _richPat
-- `9489` — _richNum
-- `9534` — _richPreselezione
-- `9550` — richLeggiIntestazione
-- `9554` — richSalvaIntestazione
-- `9563` — apriRichiestaAnalisi
-- `9583` — _richModaleHtml
-- `9659` — _richEsc
-- `9661` — _richMotivoCambia
-- `9667` — _richToggleSez
-- `9673` — _richAggiornaConteggi
-- `9681` — _richMotivoCorrente
-- `9691` — _richSelezione
-- `9706` — _richTxt
-- `9712` — _richCostruisciPDF
+- `9422` — _richVal
+- `9429` — _richBmi
+- `9434` — _richPat
+- `9440` — _richNum
+- `9485` — _richPreselezione
+- `9501` — richLeggiIntestazione
+- `9505` — richSalvaIntestazione
+- `9514` — apriRichiestaAnalisi
+- `9534` — _richModaleHtml
+- `9610` — _richEsc
+- `9612` — _richMotivoCambia
+- `9618` — _richToggleSez
+- `9624` — _richAggiornaConteggi
+- `9632` — _richMotivoCorrente
+- `9642` — _richSelezione
+- `9657` — _richTxt
+- `9663` — _richCostruisciPDF
 - `8969` — nuovaPagina
 - `8970` — spazio
-- `9808` — _richNomeFile
-- `9813` — _richPrepara
-- `9826` — _richRegistra
-- `9831` — _richStato
-- `9833` — richScaricaPDF
-- `9882` — _richUpload
-- `9884` — _richWaUrl
-- `9891` — _richTestoWa
-- `9905` — richInviaWhatsApp
-- `9945` — richCopiaLink
-- `9966` — _richStoricoHtml
+- `9759` — _richNomeFile
+- `9764` — _richPrepara
+- `9777` — _richRegistra
+- `9782` — _richStato
+- `9784` — richScaricaPDF
+- `9833` — _richUpload
+- `9835` — _richWaUrl
+- `9842` — _richTestoWa
+- `9856` — richInviaWhatsApp
+- `9896` — richCopiaLink
+- `9917` — _richStoricoHtml
 
 ---
 ### REFERTI DEL SANGUE DATATI — storico nel tempo (P118 tappa 1)
@@ -1003,7 +1003,7 @@ Righe 26137-26374
 ---
 
 ### CALENDARIO APPUNTAMENTI — viste mese/settimana/giorno, eventi, disponibilità
-Righe 26388-26704
+Righe 26388-26760
 
 - `26388` — setCalView
 - `26389` — calPrev
@@ -1011,98 +1011,98 @@ Righe 26388-26704
 - `26391` — calToday
 - `26393` — renderCal
 - `26407` — renderCalMonth
-- `26431` — renderCalWeek
-- `26449` — renderCalDay
-- `26465` — selGiorno
-- `26479` — setDisp
-- `26484` — openAddEvento
-- `26497` — openAddEventoPaz
-- `26503` — toggleEntrataCheck
-- `26508` — salvaEvento
-- `26531` — openEvDetail
-- `26586` — delEvento
-- `26594` — copyMsg
-- `26601` — aggDateCal
-- `26606` — syncInizio
-- `26607` — syncControllo
-- `26608` — aggiornaPrev
-- `26625` — renderRic
-- `26652` — openNuovaRic
-- `26653` — editRic
-- `26663` — salvaRic
-- `26688` — delRic
-- `26704` — renderEntrate
+- `26437` — renderCalWeek
+- `26470` — renderCalDay
+- `26521` — selGiorno
+- `26535` — setDisp
+- `26540` — openAddEvento
+- `26553` — openAddEventoPaz
+- `26559` — toggleEntrataCheck
+- `26564` — salvaEvento
+- `26587` — openEvDetail
+- `26642` — delEvento
+- `26650` — copyMsg
+- `26657` — aggDateCal
+- `26662` — syncInizio
+- `26663` — syncControllo
+- `26664` — aggiornaPrev
+- `26681` — renderRic
+- `26708` — openNuovaRic
+- `26709` — editRic
+- `26719` — salvaRic
+- `26744` — delRic
+- `26760` — renderEntrate
 
 ---
 
 ### RICETTARIO — CRUD ricette
-Righe 26789-26849
+Righe 26845-26905
 
-- `26789` — aggiungiEntrataPerPaziente
-- `26806` — openNuovaEntrata
-- `26820` — salvaEntrata
-- `26841` — delEntrata
-- `26849` — startVoiceRicetta
+- `26845` — aggiungiEntrataPerPaziente
+- `26862` — openNuovaEntrata
+- `26876` — salvaEntrata
+- `26897` — delEntrata
+- `26905` — startVoiceRicetta
 
 ---
 
 ### RICETTARIO — input vocale, suggerimento AI ricetta; CONCETTI EDUCATIVI — modale allegati
-Righe 26879-27349
+Righe 26935-27405
 
-- `26879` — aiSuggerisciRicetta
-- `26924` — renderConcettiModal
-- `26943` — apriConcettiModal
-- `26970` — salvaConcettiAllegati
-- `26994` — _ibNormalizzaData *(P120 — data del test dal referto → YYYY-MM-DD o null)*
-- `27032` — _ibOrdinaPerData *(P120 — invariante: p.inbody sempre ordinato per data)*
-- `27041` — loadInbodyPDF
-- `27159` — _vitdLabel
-- `27163` — getIntegratori
-- `27167` — getIntegraWant
-- `27171` — setIntegratori
-- `27188` — setIntegraWant
-- `27226` — getPatologieChip
-- `27227` — getAllergieChip
-- `27228` — setPatologieChip
-- `27229` — setAllergieChip
-- `27230` — getPatologie
-- `27231` — getAllergie
-- `27232` — setPatologieFromStr
-- `27239` — setAllergieFromStr
-- `27252` — getSdvChip
-- `27253` — getCspChip
-- `27254` — setSdvChip
-- `27255` — setCspChip
-- `27256` — setSdvFromStr
-- `27257` — setCspFromStr
-- `27261` — getBudget
-- `27262` — setBudget
-- `27267` — renderCalAnno
-- `27298` — comprimeImmagine
-- `27320` — uploadImmagineConcetto
-- `27339` — rimuoviImmagineConcetto
-- `27349` — renderConcettiPage
+- `26935` — aiSuggerisciRicetta
+- `26980` — renderConcettiModal
+- `26999` — apriConcettiModal
+- `27026` — salvaConcettiAllegati
+- `27050` — _ibNormalizzaData *(P120 — data del test dal referto → YYYY-MM-DD o null)*
+- `27088` — _ibOrdinaPerData *(P120 — invariante: p.inbody sempre ordinato per data)*
+- `27097` — loadInbodyPDF
+- `27215` — _vitdLabel
+- `27219` — getIntegratori
+- `27223` — getIntegraWant
+- `27227` — setIntegratori
+- `27244` — setIntegraWant
+- `27282` — getPatologieChip
+- `27283` — getAllergieChip
+- `27284` — setPatologieChip
+- `27285` — setAllergieChip
+- `27286` — getPatologie
+- `27287` — getAllergie
+- `27288` — setPatologieFromStr
+- `27295` — setAllergieFromStr
+- `27308` — getSdvChip
+- `27309` — getCspChip
+- `27310` — setSdvChip
+- `27311` — setCspChip
+- `27312` — setSdvFromStr
+- `27313` — setCspFromStr
+- `27317` — getBudget
+- `27318` — setBudget
+- `27323` — renderCalAnno
+- `27354` — comprimeImmagine
+- `27376` — uploadImmagineConcetto
+- `27395` — rimuoviImmagineConcetto
+- `27405` — renderConcettiPage
 
 ---
 
 ### CONCETTI EDUCATIVI — pagina gestione, riscrittura AI, upload immagini
-Righe 27415-27519
+Righe 27471-27555
 
-- `27415` — entraSelConcetti
-- `27416` — annullaSelConcetti
-- `27417` — toggleConcettoSel
-- `27422` — eliminaConcettiSelezionati
-- `27441` — confermaEliminaConcetti
-- `27456` — aiRiscriviConcetto
-- `27470` — editConcetto
-- `27488` — salvaConcetto
-- `27499` — openNuovoConcetto
+- `27471` — entraSelConcetti
+- `27472` — annullaSelConcetti
+- `27473` — toggleConcettoSel
+- `27478` — eliminaConcettiSelezionati
+- `27497` — confermaEliminaConcetti
+- `27512` — aiRiscriviConcetto
+- `27526` — editConcetto
+- `27544` — salvaConcetto
+- `27555` — openNuovoConcetto
 - `27519` — getAgendaPersonale
 
 ---
 
 ### DASHBOARD — agenda personale, todo, promemoria
-Righe 27520-27683
+Righe 27592-27592
 
 - `27520` — saveAgendaPersonale
 - `27521` — getAgendaTodo
@@ -1117,73 +1117,73 @@ Righe 27520-27683
 - `27574` — toggleTodoFatto
 - `27587` — _catCol
 - `27589` — renderAgendaDx
-- `27683` — renderDashboard
+- `27592` — renderDashboard
 
 ---
 
 ### DASHBOARD — home, scadenze/alert controlli in ritardo
-Righe 27809-28013
+Righe 27718-27922
 
-- `27809` — renderScadenzeAlert
-- `27994` — segnaGestito
-- `28013` — archiviaPaz
+- `27718` — renderScadenzeAlert
+- `27903` — segnaGestito
+- `27922` — archiviaPaz
 
 ---
 
 ### PAZIENTI — archiviazione/ripristino/eliminazione
-Righe 28022-28097
+Righe 27931-28006
 
-- `28022` — ripristinaPaz
-- `28030` — eliminaPaz
-- `28075` — getDove
-- `28079` — setDove
-- `28097` — salvaCredenzialiPersistenti
+- `27931` — ripristinaPaz
+- `27939` — eliminaPaz
+- `27984` — getDove
+- `27988` — setDove
+- `28006` — salvaCredenzialiPersistenti
 
 ---
 
 ### AUTENTICAZIONE — login/signup/recovery, refresh token, sessione Supabase
-Righe 28102-28542
+Righe 28011-28449
 
-- `28102` — getCredenzialiPersistenti
-- `28115` — cancellaCredenzialiPersistenti
-- `28120` — rinnovaSessioneConRefreshToken
-- `28137` — getSessioneSalvata
-- `28156` — salvaSessione
-- `28166` — cancellaSessione
-- `28170` — eseguiLogin
-- `28217` — eseguiLogout
-- `28239` — mostraApp
-- `28244` — verificaSessioneEAvvia
-- `28272` — assicuraTokenValido
-- `28301` — _garantiscoSessionePerSync
-- `28313` — avviaRinnovoTokenPeriodico
-- `28317` — fermaRinnovoTokenPeriodico
-- `28326` — _authReset
-- `28331` — _authMostra
-- `28334` — mostraLogin
-- `28335` — mostraRegistrazione
-- `28336` — mostraRecupero
-- `28337` — mostraNuovaPassword
-- `28340` — eseguiRegistrazione
-- `28378` — eseguiRecuperoPassword
-- `28407` — eseguiNuovaPassword
-- `28441` — _parseHashParams
-- `28448` — _pulisciHash
-- `28452` — gestisciRitornoAuth
-- `28542` — renderPianoBox
+- `28011` — getCredenzialiPersistenti
+- `28024` — cancellaCredenzialiPersistenti
+- `28029` — rinnovaSessioneConRefreshToken
+- `28046` — getSessioneSalvata
+- `28065` — salvaSessione
+- `28075` — cancellaSessione
+- `28079` — eseguiLogin
+- `28126` — eseguiLogout
+- `28148` — mostraApp
+- `28153` — verificaSessioneEAvvia
+- `28181` — assicuraTokenValido
+- `28210` — _garantiscoSessionePerSync
+- `28222` — avviaRinnovoTokenPeriodico
+- `28226` — fermaRinnovoTokenPeriodico
+- `28235` — _authReset
+- `28240` — _authMostra
+- `28243` — mostraLogin
+- `28244` — mostraRegistrazione
+- `28245` — mostraRecupero
+- `28246` — mostraNuovaPassword
+- `28249` — eseguiRegistrazione
+- `28287` — eseguiRecuperoPassword
+- `28316` — eseguiNuovaPassword
+- `28350` — _parseHashParams
+- `28357` — _pulisciHash
+- `28361` — gestisciRitornoAuth
+- `28449` — renderPianoBox
 
 ---
 
 ### GENERATORE PIANI — rendering box piano, pannello scelta ricette, patch piano
-Righe 28614-28737
+Righe 28521-28644
 
-- `28614` — apriPannelloRicette
-- `28643` — chiudiPannelloRicette
-- `28651` — applicaRicettaPasto
-- `28687` — inizializzaP2
-- `28699` — deepClone
-- `28703` — applicaPatch
-- `28737` — _aggiornaLabelSalvaPiano
+- `28521` — apriPannelloRicette
+- `28550` — chiudiPannelloRicette
+- `28558` — applicaRicettaPasto
+- `28594` — inizializzaP2
+- `28606` — deepClone
+- `28610` — applicaPatch
+- `28644` — _aggiornaLabelSalvaPiano
 - `24992` — getHint
 - `24997` — validaInput
 - `25022` — attacca

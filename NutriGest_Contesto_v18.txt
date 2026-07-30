@@ -822,12 +822,56 @@ p.richiesteAnalisi[] — DISMESSO (P87 Tappa 2, 28 lug 2026)
   // server (_pazAssicuraBlob), import backup. Dopo la migrazione il campo viene
   // eliminato (F4). Nessun codice lo scrive né lo legge più.
 
+CALENDARIO — le tre viste e la tripla fonte  // aggiornato 30 lug 2026
+  getEventi() compone gli eventi da TRE fonti: p.visitaData, p.dateCalendario[primo|
+  chiamata|sett2|sett3|controllo] e db.eventi. **Solo db.eventi ha il campo `ora`.**
+  Conseguenze storiche (sintomi riparati il 30 lug, causa radice aperta come P140):
+    - Vista MESE (renderCalMonth): filtra solo su e.data → ha sempre mostrato tutto.
+    - Vista SETTIMANA (renderCalWeek): filtrava (e.ora||'').startsWith(hh); con ora
+      vuota il confronto e' falso per TUTTE le fasce → l'evento spariva, non finiva
+      nel posto sbagliato. Ora esiste una fascia "senza orario" in testa a ogni
+      colonna-giorno.
+    - Vista GIORNO (renderCalDay): era una lista piatta NON ordinata (usciva
+      nell'ordine di produzione di getEventi). Ora e' una timeline a slot di 30'
+      07:30-19:30, con blocco "senza orario" in testa e blocco "fuori fascia" per gli
+      orari esterni alla griglia — rete di sicurezza deliberata, perche' il difetto
+      della vista settimana non si ripeta nel codice nuovo.
+  _calYmd(d) — data locale YYYY-MM-DD. NON usare toISOString() per le date del
+  calendario: converte in UTC e in Italia fra mezzanotte e le 2:00 restituisce ieri
+  (difetto globale ancora aperto, 45 usi nel file: P141).
+
+AGENDA DI DASHBOARD — RIMOSSA il 30 lug 2026
+  Non esiste piu': ne' la colonna in dashboard, ne' le chiavi localStorage
+  'agendaPersonale'/'agendaTodo', ne' AGENDA_CAT/_catCol/renderAgendaDx. Se un backup
+  o un dispositivo vecchio contiene ancora quelle due chiavi, sono inerti (nessun
+  codice le legge). Motivi (dettaglio nel CHANGELOG): salvaAgendaItem/salvaTodoItem
+  scrivevano data:today() cablato e il form non aveva un campo data, quindi creare un
+  promemoria FUTURO era impossibile; pulisciAgendaVecchia() era un corpo vuoto; i dati
+  stavano fuori da db e quindi fuori dal backup JSON; le categorie erano cablate su
+  Fabrizio. Il disegno della timeline e' stato trapiantato in renderCalDay. Il
+  follow-up clinico e' gia' coperto da p.dateCalendario.
+
+DASHBOARD — return anticipato rimosso il 30 lug 2026
+  renderDashboard() leggeva #dash-agenda (id inesistente nel markup, residuo di una
+  dashboard piu' vecchia) e usciva con `if(!agendaEl) return;`. Da allora Sintesi
+  clinica, Pazienti recenti, renderScadenzeAlert() (C8) e Spunti NON sono mai stati
+  eseguiti, pur avendo il markup pronto. Il "Nessuna scadenza urgente" che si vedeva
+  era il testo statico dell'HTML, non un risultato. Ora la funzione arriva in fondo.
+
 p.invii[] = { data, tipo, titolo, url, esito, voci?, n? }  // P87 Tappe 1-2-3, 28 lug 2026
   // DIARIO UNIFICATO di ciò che è stato mandato al paziente. La tab
   // "📨 Comunicazione" della scheda paziente (renderPdComunicazione) è la vista
   // completa: storico con filtri per tipo + template variabilizzati
   // ({nome},{cognome},{appuntamento} dal calendario via _comProssimoApp/getEventi;
-  // 5 di serie in COM_TEMPLATES + personali in localStorage 'ng_com_templates')
+  // 7 di serie in COM_TEMPLATES + personali in localStorage 'ng_com_templates')
+  // Dal 30 lug 2026 fra i template di serie ci sono 'prep_uomo' e 'prep_donna':
+  // preparazione alla prima visita/bioimpedenziometria, differenziate perche' la
+  // versione donna aggiunge la fase del ciclo (ritenzione idrica pre-mestruale =
+  // misura non confrontabile). L'asimmetria e' unilaterale: non esiste un
+  // confonditore specificamente maschile, la versione uomo E' la versione base.
+  // Criterio di redazione: nel messaggio entra SOLO cio' che il paziente deve fare
+  // PRIMA di uscire di casa; il resto (bagno, gioielli, elenco farmaci) si risolve
+  // in studio. Textarea a rows=8: questi testi stanno sugli 800-1000 caratteri.
   // + bottoni wa.me/mailto/copia. `tipo` in uso:
   //   'fodmap'    — elenco FODMAP (bottone in intestazione scheda, pd-fodmap-box)
   //   'analisi'   — richiesta esami (P116; porta anche voci[] e n)

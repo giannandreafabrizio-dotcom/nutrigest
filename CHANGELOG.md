@@ -10,6 +10,135 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+30 LUGLIO 2026 (3ª sessione) — DASHBOARD: RIMOSSO IL RETURN ANTICIPATO CHE UCCIDEVA
+META' FUNZIONE. Commit separato di proposito (scelta di Fabrizio): accende codice mai
+eseguito in produzione, quindi deve poter essere annullato da solo senza travolgere il
+calendario e i template della 2ª sessione.
+
+IL DIFETTO. `renderDashboard()` conteneva, subito dopo i KPI:
+    const agendaEl = document.getElementById('dash-agenda');
+    if(!agendaEl) return;
+Ma `#dash-agenda` NON esiste nel markup, e non esisteva nemmeno prima di questa
+sessione: e' il residuo di una dashboard piu' vecchia, gia' censito in ORFANI_NOTI
+della test-suite (che infatti passava: il test vieta gli orfani NUOVI, non conosce le
+conseguenze di quelli noti). Quel `return` faceva uscire la funzione a meta', quindi
+NON sono MAI stati eseguiti:
+  - Sintesi clinica (#dash-sintesi, #dash-alert-tags)
+  - Pazienti recenti (#dash-pazienti-recenti)
+  - renderScadenzeAlert() — l'INTERA funzione "Scadenze pazienti" (C8)
+  - Spunti per i piani alimentari (#dash-spunti-list)
+Tutti e quattro gli elementi ESISTONO nel markup: erano li' ad aspettare un contenuto
+che non arrivava mai.
+
+PERCHE' NESSUNO SE N'ERA ACCORTO. Le sezioni non apparivano vuote: mostravano il testo
+statico scritto a mano nell'HTML. In particolare "Nessuna scadenza urgente 🎉" non era
+un risultato ma un'etichetta, identica con zero o con trenta controlli scaduti. E' la
+firma della famiglia F6/F7: id letto, elemento inesistente, nessun errore in console —
+la guardia trasforma il guasto in un'uscita silenziosa.
+
+LA CORREZIONE. Rimosso il blocco morto "Agenda di oggi" (25 righe) e con esso il
+return. Rientrava naturalmente nel lavoro della 2ª sessione: quel blocco ERA l'agenda.
+
+COLLAUDO (confronto diretto b9f4b36 vs modificato, stesso markup e stessi dati):
+  paziente con controllo scaduto → PRIMA "Nessuna scadenza urgente 🎉"
+                                   DOPO  "🔴 Urgenti (1)"
+  sintesi clinica  → PRIMA vuota, DOPO "1 allerta clinica da tenere a mente."
+  pazienti recenti → PRIMA vuoto, DOPO popolato
+  spunti           → PRIMA vuoto, DOPO popolato
+  nessun errore a runtime in nessuno dei due stati. Suite 410/410.
+
+LEZIONE. ORFANI_NOTI e' un elenco di deroghe, non di assoluzioni: un id classificato
+come "noto" resta un guasto latente finche' qualcuno non guarda COSA succede quando la
+lettura fallisce. Qui la conseguenza era meta' schermata. Vale la pena rileggere le
+voci di ORFANI_NOTI chiedendosi non "e' censito?" ma "cosa smette di funzionare quando
+l'elemento non c'e'?".
+
+
+30 LUGLIO 2026 (2ª sessione) — TEMPLATE PREPARAZIONE VISITA, VISTE CALENDARIO RIPARATE,
+AGENDA RIMOSSA. Baseline b9f4b36. Sessione nata da una domanda di prodotto (un tasto per
+mandare al paziente le istruzioni pre-bioimpedenziometria) che ha fatto emergere tre
+difetti latenti.
+
+PREMESSA — INCIDENTE SFIORATO. Il piano iniziale prevedeva di costruire `p.invii[]` e il
+motore di invio: esistono dal 28 luglio, P87 e' CHIUSA. L'errore nasceva dal documento di
+progetto `NutriGest_P87_Comunicazione_Analisi.md`, che descrive il PIANO del 28 lug ed e'
+stato letto come stato attuale. E' P62/P77 in una forma nuova. REGOLA ESTESA: l'incrocio
+col CHANGELOG prima di implementare vale anche — e soprattutto — per i documenti di
+ragionamento del progetto Claude, che sono foto piu' vecchie della roadmap e non portano
+una data di stato.
+
+1) TEMPLATE PREPARAZIONE PRIMA VISITA (COM_TEMPLATES). Aggiunti `prep_uomo` e
+`prep_donna`: istruzioni dettagliate per una BIA affidabile (24h prima: niente alcol,
+allenamento intenso, sauna, idratazione invariata; la mattina: digiuno o 4h, niente caffe'
+nelle 3h, niente creme su mani e piedi; portare le analisi). La versione donna aggiunge la
+fase del ciclo: nei giorni delle mestruazioni e nella settimana precedente la ritenzione
+idrica rende la misura non confrontabile con le successive.
+CRITERIO DI REDAZIONE (deciso con Fabrizio): nel messaggio entra SOLO cio' che il paziente
+deve fare PRIMA di uscire di casa. Fuori percio' bagno, gioielli ed elenco farmaci: si
+risolvono in studio in dieci secondi, e un'istruzione ricordata tre giorni prima si perde
+mentre una detta all'accoglienza si esegue. Tolto anche il paragrafo sui farmaci per non
+indurre nessuno a sospenderli di propria iniziativa.
+Armonizzato `precontrollo`, che diceva "digiuno da almeno 3 ore" in contrasto col
+protocollo. Textarea della tab Comunicazione da rows=4 a rows=8 (testi di 800-1000
+caratteri). `{appuntamento}` risolveva gia' data E ora via `_comProssimoApp`/`getEventi`.
+
+2) VISTA SETTIMANA — GLI EVENTI SENZA ORA SPARIVANO. `renderCalWeek` filtrava
+`(e.ora||'').startsWith(hh)`: con `ora` vuota il confronto e' falso per TUTTE le 16 fasce,
+quindi l'evento non finiva nella casella sbagliata — spariva del tutto. E `getEventi()`
+produce eventi senza `ora` da DUE delle tre fonti (`p.visitaData` e `p.dateCalendario`),
+cioe' la quasi totalita' degli appuntamenti reali. La vista Mese filtra solo su `e.data` e
+infatti mostrava tutto: da qui l'asimmetria che Fabrizio vedeva a schermo. Aggiunta una
+fascia "senza orario" in testa a ogni colonna-giorno.
+COLLAUDO: 3 eventi senza ora → PRIMA 0/3 visibili, DOPO 3/3.
+
+3) VISTA GIORNO — LISTA PIATTA NON ORDINATA. `renderCalDay` non perdeva niente ma non
+ordinava: gli eventi uscivano nell'ordine di produzione di `getEventi()` (prima tutte le
+visitaData, poi le dateCalendario, poi db.eventi). Sostituita da una timeline a slot di
+30' 07:30-19:30, con blocco "senza orario" in testa e rete di sicurezza "fuori fascia" per
+gli orari esterni alla griglia — cioe' il difetto del punto 2 deliberatamente non
+riprodotto nel codice nuovo.
+COLLAUDO: eventi inseriti 15:45/18:00/09:00 → PRIMA stampati in quell'ordine, DOPO
+09:00 → 15:45 → 18:00.
+
+4) AGENDA DI DASHBOARD RIMOSSA (~165 righe JS + 47 di markup). Motivi, in ordine di
+gravita':
+  a) `salvaAgendaItem` e `salvaTodoItem` scrivevano `data: today()` cablato e il form non
+     aveva un campo data: inserire un promemoria FUTURO era IMPOSSIBILE. Era esattamente
+     l'uso per cui la funzione esisteva. Navigando a domani e scrivendo, la voce nasceva
+     con la data di oggi e spariva dalla schermata in corso.
+  b) `pulisciAgendaVecchia()` era un corpo vuoto: i todo si accumulavano per sempre.
+  c) I dati vivevano in localStorage, fuori da `db`, quindi FUORI dal backup JSON e non
+     sincronizzati tra dispositivi.
+  d) `AGENDA_CAT` duplicava `EV_TYPES` come sistema di categorie/colori.
+  e) Le categorie erano cablate su Fabrizio ("Vigile del fuoco"): inadatte a un prodotto
+     venduto a terzi.
+Il follow-up clinico che l'agenda sembrava coprire e' gia' gestito meglio da
+`p.dateCalendario` (chiamata sett.1, msg sett.2/3, controllo), automatico dalla data di
+inizio piano. Nessuna capacita' persa.
+SALVATO IL DISEGNO, NON LA FUNZIONE: la timeline a slot e' stata trapiantata in
+`renderCalDay` (punto 3), dove ha dati veri da mostrare. Dashboard portata a colonna
+singola. Zero riferimenti orfani residui (grep + test s1).
+
+DECISIONE DI PRODOTTO (Fabrizio, 30 lug): l'agenda come sezione a se' NON si fa. Non si
+riorganizza la navigazione di uno strumento che non e' ancora in uso — la decisione costa
+zero a rimandarla e rimandandola diventa informata. Il Calendario resta l'unica porta: e'
+quello che serve al flusso di prenotazione (trovare uno slot libero e' una vista mese, non
+una timeline del giorno).
+
+Suite 410/410. INDEX.md rigenerato.
+
+NOTE PER LE PROSSIME SESSIONI:
+- `today()` e' `new Date().toISOString().slice(0,10)`: toISOString converte in UTC, quindi
+  in Italia fra mezzanotte e le 2:00 restituisce IERI. 45 usi di toISOString nel file. Non
+  corretto qui (fuori perimetro): nel codice NUOVO di questa sessione e' stato introdotto
+  `_calYmd()` che usa la data locale, cosi' il difetto non si propaga.
+- TRIPLA FONTE sugli appuntamenti: `p.visitaData`, `p.dateCalendario[...]` e `db.eventi`
+  descrivono lo stesso fatto e solo l'ultima ha il campo `ora`. E' F4, ed e' la causa
+  radice dei punti 2 e 3. Va unificata insieme al flusso di prenotazione.
+- La test-suite richiede `npm install` in `test-suite/` (jsdom, jspdf): senza, fallisce 42
+  test su 46 per moduli mancanti e sembra un guasto del codice.
+
+
 30 LUGLIO 2026 — P139 APERTA: PLICOMETRIA. SESSIONE DI SOLO RAGIONAMENTO, NESSUN
 CODICE TOCCATO. Baseline `4833ca6`. Modificati solo Roadmap e CHANGELOG.
 
