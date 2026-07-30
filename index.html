@@ -27627,31 +27627,16 @@ function renderDashboard(){
   }).reduce((s,e)=>s+(parseFloat(e.importo)||0),0);
   setEl('dash-entrate-mese', '\u20AC '+entrMese.toFixed(0));
 
-  // Agenda di oggi
-  const evOggi = db.eventi.filter(e=>e.data===oggiStr).sort((a,b)=>((a.ora||'00:00')<(b.ora||'00:00')?-1:1));
-  const agendaEl = document.getElementById('dash-agenda');
-  if(!agendaEl)return;
-  setEl('dash-oggi-label', evOggi.length===0?'Nessun appuntamento':evOggi.length+' appuntament'+(evOggi.length===1?'o':'i'));
-  if(evOggi.length===0){
-    agendaEl.innerHTML='<div style="padding:1.2rem;text-align:center;color:var(--text3);font-size:.82rem;font-style:italic">Nessun appuntamento per oggi — giornata libera!</div>';
-  } else {
-    const EV_LABELS={visita:'Prima visita',controllo:'Controllo',chiamata:'Chiamata',sett2:'Follow-up sett.2',sett3:'Follow-up sett.3',meeting:'Meeting',altro:'Altro'};
-    const EV_COLORS={visita:'background:#ede9fe;color:#4c1d95',controllo:'background:#fce7e7;color:#991b1b',chiamata:'background:#dbeafe;color:#1e40af',sett2:'background:#fef3c7;color:#92400e',sett3:'background:#fed7aa;color:#9a3412',meeting:'background:#f0f9ff;color:#0369a1',altro:'background:#f1f5f9;color:#475569'};
-    agendaEl.innerHTML = evOggi.map(e=>{
-      const paz = db.pazienti.find(p=>p.id===e.pazId);
-      const nomePaz = paz ? paz.nome+' '+paz.cognome : (e.note||'—');
-      const ora = e.ora || '—';
-      const durata = e.tipo==='visita'?'45-60 min':e.tipo==='controllo'?'20-30 min':'';
-      const colore = EV_COLORS[e.tipo]||EV_COLORS.altro;
-      return "<div style=\"display:flex;align-items:center;gap:.8rem;padding:.65rem .9rem;border-radius:10px;border:1px solid var(--border);margin-bottom:.4rem;background:var(--s1);\">"
-        +"<div style=\"font-family:'DM Serif Display',serif;font-size:1rem;color:var(--teal);min-width:46px;font-weight:600\">"+ora+"</div>"
-        +"<span style=\"padding:2px 9px;border-radius:20px;font-size:.69rem;font-weight:600;flex-shrink:0;"+colore+"\">"+( EV_LABELS[e.tipo]||e.tipo)+"</span>"
-        +"<div style=\"flex:1;font-size:.82rem;font-weight:600;color:var(--text)\">"+nomePaz+"</div>"
-        +(durata?"<div style=\"font-size:.68rem;color:var(--text3);flex-shrink:0\">"+durata+"</div>":"")
-        +"</div>";
-    }).join('');
-  }
-
+  // ── "Agenda di oggi" RIMOSSA il 30 lug 2026 ─────────────────────────────
+  // Conteneva `const agendaEl=document.getElementById('dash-agenda');
+  // if(!agendaEl)return;` — ma #dash-agenda NON esiste nel markup e non
+  // esisteva nemmeno prima (residuo di una dashboard piu' vecchia, censito in
+  // ORFANI_NOTI). Quel return anticipato uccideva TUTTO il resto della
+  // funzione: Sintesi clinica, Pazienti recenti, renderScadenzeAlert() e gli
+  // Spunti non sono MAI stati popolati, pur avendo il markup pronto ad
+  // accoglierli. Difetto di famiglia F6/F7: id letto, elemento inesistente,
+  // nessun errore in console perche' la guardia lo trasformava in un'uscita
+  // silenziosa. Togliendo il blocco morto le quattro sezioni si accendono.
   // Sintesi clinica
   const alerts = [];
   db.pazienti.forEach(p=>{
