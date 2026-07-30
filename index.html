@@ -26386,8 +26386,17 @@ function getEventi(){
 }
 
 function setCalView(v,btn){calView=v;document.querySelectorAll('.cvt').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderCal();}
-function calPrev(){if(calView==='month')calDate.setMonth(calDate.getMonth()-1);else calDate.setDate(calDate.getDate()-7);renderCal();}
-function calNext(){if(calView==='month')calDate.setMonth(calDate.getMonth()+1);else calDate.setDate(calDate.getDate()+7);renderCal();}
+// Un ramo per vista. Prima l'else metteva insieme settimana/giorno/anno: la
+// freccetta in vista Giorno saltava di 7 giorni (andava di giovedì in giovedì)
+// e in vista Anno di 7 giorni invece che di un anno intero.
+function _calPasso(delta){
+  if(calView==='month')calDate.setMonth(calDate.getMonth()+delta);
+  else if(calView==='week')calDate.setDate(calDate.getDate()+delta*7);
+  else if(calView==='anno')calDate.setFullYear(calDate.getFullYear()+delta);
+  else calDate.setDate(calDate.getDate()+delta); // 'day'
+}
+function calPrev(){_calPasso(-1);renderCal();}
+function calNext(){_calPasso(+1);renderCal();}
 function calToday(){calDate=new Date();renderCal();}
 
 function renderCal(){
@@ -27846,40 +27855,82 @@ function renderScadenzeAlert() {
   badge.style.display = 'inline-block';
   badge.textContent = tot + (tot === 1 ? ' avviso' : ' avvisi');
 
-  // Render cards
-  const renderCard = (item) => {
-    const waBtn = item.telLink
-      ? `<a href="${item.telLink}" target="_blank" class="btn btn-wa btn-sm" style="font-size:.7rem;padding:.2rem .6rem">📲 WhatsApp</a>`
+  // 30 lug 2026 — RAGGRUPPAMENTO PER PAZIENTE. Prima ogni avviso era una riga a
+  // se': un paziente con "sparito" + "controllo saltato" occupava due card
+  // identiche a parte l'etichetta, gonfiando una lista di ~20 persone fino a
+  // 53 righe. Qui si raggruppa per pazId dentro ciascun gruppo (urgenti/
+  // attenzione): una card per paziente, con dentro tutte le etichette che lo
+  // riguardano. Il pulsante "Gestito" resta per-avviso (chiave invariata):
+  // gestire "controllo saltato" non deve nascondere anche "sparito" se il
+  // paziente ha entrambi i problemi.
+  const raggruppa = (lista) => {
+    const perPaz = new Map();
+    lista.forEach(item => {
+      if (!perPaz.has(item.pazId)) perPaz.set(item.pazId, []);
+      perPaz.get(item.pazId).push(item);
+    });
+    // Ordina i pazienti dal problema piu' vecchio (gg piu' alto) al piu' recente
+    return Array.from(perPaz.values()).sort((a,b) =>
+      Math.max(...b.map(x=>x.gg||0)) - Math.max(...a.map(x=>x.gg||0)));
+  };
+
+  const renderGruppo = (items) => {
+    const primo = items[0];
+    const waBtn = primo.telLink
+      ? `<a href="${primo.telLink}" target="_blank" class="btn btn-wa btn-sm" style="font-size:.7rem;padding:.2rem .6rem">📲 WhatsApp</a>`
       : '';
-    const pazBtn = `<button class="btn btn-g btn-sm" style="font-size:.7rem;padding:.2rem .6rem" onclick="openPaz('${item.pazId}')">Apri</button>`;
-    const gestitoBtn = `<button class="btn btn-g btn-sm" style="font-size:.7rem;padding:.2rem .6rem;color:var(--text3)" onclick="segnaGestito('${item.key}')">✓ Gestito</button>`;
+    const pazBtn = `<button class="btn btn-g btn-sm" style="font-size:.7rem;padding:.2rem .6rem" onclick="openPaz('${primo.pazId}')">Apri</button>`;
+    const etichette = items.map(item => `
+      <div style="margin-bottom:.3rem">
+        <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.1rem">
+          <span style="font-size:.68rem;font-weight:700;color:${item.color}">${item.label}</span>
+          <button class="btn btn-g btn-sm" style="font-size:.62rem;padding:.05rem .4rem;color:var(--text3)" onclick="segnaGestito('${item.key}')">✓ Gestito</button>
+        </div>
+        <div style="font-size:.74rem;color:var(--text2)">${item.desc}</div>
+      </div>`).join('');
     return `
-      <div style="display:flex;align-items:center;gap:.7rem;padding:.65rem .85rem;border-radius:10px;border:1px solid ${item.border};background:${item.bg};margin-bottom:.5rem">
+      <div style="display:flex;align-items:flex-start;gap:.7rem;padding:.65rem .85rem;border-radius:10px;border:1px solid ${primo.border};background:${primo.bg};margin-bottom:.5rem">
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem">
-            <span style="font-size:.68rem;font-weight:700;color:${item.color}">${item.label}</span>
-          </div>
-          <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.15rem">${item.nome}</div>
-          <div style="font-size:.74rem;color:var(--text2)">${item.desc}</div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.3rem">${primo.nome}</div>
+          ${etichette}
         </div>
         <div style="display:flex;flex-direction:column;gap:.3rem;flex-shrink:0">
           ${waBtn}
           ${pazBtn}
-          ${gestitoBtn}
         </div>
       </div>`;
   };
 
+  // Mostra al massimo 5 pazienti per gruppo, con "mostra tutti" per il resto.
+  // La lista intera resta nel DOM (display:none) cosi' l'espansione non
+  // ricalcola nulla: solo un cambio di classe sui blocchi gia' pronti.
+  const renderSezione = (gruppi, idSezione) => {
+    const visibili = gruppi.slice(0, 5);
+    const nascosti = gruppi.slice(5);
+    let h = visibili.map(renderGruppo).join('');
+    if (nascosti.length) {
+      h += `<div id="${idSezione}-extra" style="display:none">${nascosti.map(renderGruppo).join('')}</div>`;
+      h += `<button class="btn btn-g btn-sm" style="font-size:.72rem;width:100%;margin-top:.2rem" onclick="
+        document.getElementById('${idSezione}-extra').style.display='block';
+        this.style.display='none';
+      ">Mostra tutti (${nascosti.length} altri)</button>`;
+    }
+    return h;
+  };
+
   let html = '';
 
-  if (urgenti.length) {
-    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:#dc2626;font-weight:700;margin-bottom:.5rem">🔴 Urgenti (${urgenti.length})</div>`;
-    html += urgenti.map(renderCard).join('');
+  const gruppiUrgenti = raggruppa(urgenti);
+  const gruppiAttenzione = raggruppa(attenzione);
+
+  if (gruppiUrgenti.length) {
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:#dc2626;font-weight:700;margin-bottom:.5rem">🔴 Urgenti (${gruppiUrgenti.length} pazient${gruppiUrgenti.length===1?'e':'i'})</div>`;
+    html += renderSezione(gruppiUrgenti, 'dash-scad-urg');
   }
-  if (attenzione.length) {
-    if (urgenti.length) html += `<div style="margin-top:.6rem"></div>`;
-    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:#d97706;font-weight:700;margin-bottom:.5rem">🟠 Da tenere d'occhio (${attenzione.length})</div>`;
-    html += attenzione.map(renderCard).join('');
+  if (gruppiAttenzione.length) {
+    if (gruppiUrgenti.length) html += `<div style="margin-top:.6rem"></div>`;
+    html += `<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:#d97706;font-weight:700;margin-bottom:.5rem">🟠 Da tenere d'occhio (${gruppiAttenzione.length} pazient${gruppiAttenzione.length===1?'e':'i'})</div>`;
+    html += renderSezione(gruppiAttenzione, 'dash-scad-att');
   }
 
   el.innerHTML = html;

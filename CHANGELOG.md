@@ -10,6 +10,53 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+30 LUGLIO 2026 (4ª sessione) — NAVIGAZIONE CALENDARIO CORRETTA PER OGNI VISTA,
+SCADENZE DASHBOARD RAGGRUPPATE PER PAZIENTE. Baseline 5da94f1. Sessione nata dal
+collaudo di Fabrizio sulle due sessioni precedenti: due difetti reali trovati
+guardando l'app coi propri dati, non nei miei test con pazienti finti.
+
+1) NAVIGAZIONE CALENDARIO — LA FRECCIA "GIORNO SUCCESSIVO" SALTAVA DI 7 GIORNI.
+`calNext`/`calPrev` avevano un solo `if`: `month` → ±1 mese, `else` → ±7 giorni per
+TUTTO il resto. Andava bene per la vista Settimana ma sbagliava per Giorno (che
+doveva avanzare di 1 giorno, non di 7 — da qui "va di giovedì in giovedì" osservato
+da Fabrizio) e per Anno (che doveva avanzare di 1 anno, mai testato prima). Introdotta
+`_calPasso(delta)` con un ramo esplicito per ciascuno dei 4 valori reali di `calView`
+('month'/'week'/'day'/'anno', verificati da dove li scrive `setCalView`).
+COLLAUDO (le 4 viste, stessa data di partenza 16/07/2026):
+  mese      → +1 mese  (16/07 → 16/08) ✓
+  settimana → +7 giorni (16/07 → 23/07) ✓ (comportamento invariato, era già giusto)
+  giorno    → +1 giorno (16/07 → 17/07) ✓ (PRIMA sarebbe stato 23/07, il difetto)
+  anno      → +1 anno  (16/07/2026 → 16/07/2027) ✓ (mai stato corretto)
+
+2) SCADENZE DASHBOARD (C8) — RAGGRUPPATE PER PAZIENTE, LISTA TRONCATA A 5+5.
+Fabrizio ha mostrato uno screenshot con 53 avvisi (45 urgenti): ogni AVVISO era una
+riga a sé, quindi un paziente con "sparito" + "controllo saltato" occupava due card
+quasi identiche. `renderScadenzeAlert` ora raggruppa gli item per `pazId` dentro
+ciascuna sezione (urgenti/attenzione): una card per paziente, con dentro tutte le
+etichette che lo riguardano, ordinata dal problema più vecchio (gg più alto) al più
+recente. Il pulsante "✓ Gestito" resta per-singolo-avviso (stessa chiave di prima):
+gestire "controllo saltato" non deve nascondere anche "sparito" sullo stesso
+paziente, sono problemi diversi.
+TRONCAMENTO: ogni sezione mostra al massimo 5 pazienti, con un bottone "Mostra tutti
+(N altri)" che rivela un blocco già pronto nel DOM (solo un cambio di classe, nessun
+ricalcolo). Soglie delle regole (28gg sparito, 14gg controllo saltato, 28gg piano,
+60gg InBody) confermate invariate da Fabrizio — il problema era la presentazione,
+non i giorni.
+COLLAUDO (7 pazienti "sparito" + 1 con doppio problema "sparito"+"controllo
+saltato", tutti con misurazione recente per isolare il caso): sezione Urgenti dice
+"8 pazienti", il paziente col doppio problema compare in UNA sola card con
+ENTRAMBE le etichette dentro, bottone "Mostra tutti (3 altri)" presente e
+corretto (5 visibili + 3 nell'extra = 8, nessun paziente perso o duplicato).
+
+NOTA FUORI PERIMETRO (non toccata qui, per non allargare il giro): il pulsante
+"Gestito" scrive in `localStorage` chiave `scadenze_gestite` — fuori da `db`,
+quindi fuori dal backup JSON e non sincronizzato tra dispositivi. Stessa famiglia
+di difetto dell'agenda rimossa il 30 lug (3ª sessione), ma non è nata in questa
+sessione: segnata per una voce di roadmap a parte.
+
+Suite 410/410. INDEX.md rigenerato.
+
+
 30 LUGLIO 2026 (3ª sessione) — DASHBOARD: RIMOSSO IL RETURN ANTICIPATO CHE UCCIDEVA
 META' FUNZIONE. Commit separato di proposito (scelta di Fabrizio): accende codice mai
 eseguito in produzione, quindi deve poter essere annullato da solo senza travolgere il

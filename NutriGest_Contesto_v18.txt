@@ -858,6 +858,29 @@ DASHBOARD — return anticipato rimosso il 30 lug 2026
   eseguiti, pur avendo il markup pronto. Il "Nessuna scadenza urgente" che si vedeva
   era il testo statico dell'HTML, non un risultato. Ora la funzione arriva in fondo.
 
+CALENDARIO — navigazione corretta per vista (30 lug 2026, 4ª sessione)
+  calPrev/calNext usavano un solo `if(calView==='month')...else...`: bene per la
+  vista Settimana, ma la vista Giorno avanzava di 7 giorni invece di 1 (Fabrizio:
+  "va di giovedi' in giovedi'") e la vista Anno di 7 giorni invece di 1 anno. Ora
+  `_calPasso(delta)` ha un ramo per ciascuno dei 4 valori reali di calView
+  ('month'/'week'/'day'/'anno' — controllare setCalView() per i nomi esatti prima
+  di aggiungere una quinta vista, non sono tutti in italiano).
+
+SCADENZE DASHBOARD — raggruppate per paziente (30 lug 2026, 4ª sessione)
+  renderScadenzeAlert() prima elencava un avviso per riga: un paziente con due
+  problemi (es. "sparito" + "controllo saltato") occupava due card quasi identiche,
+  e con ~20 pazienti problematici la lista arrivava a 53 righe. Ora gli item si
+  raggruppano per pazId dentro ciascuna sezione (urgenti/attenzione): una card per
+  paziente con dentro tutte le etichette, ordinata dal problema piu' vecchio al piu'
+  recente. Il bottone "Gestito" resta per-singolo-avviso (stessa chiave `tipo_pazId`
+  di prima): risolvere un problema non deve nascondere gli altri dello stesso
+  paziente. Ogni sezione mostra al massimo 5 pazienti + bottone "Mostra tutti (N
+  altri)" che rivela un blocco gia' pronto nel DOM (nessun ricalcolo). Soglie invariate
+  (28gg sparito, 14gg controllo saltato, 28gg piano, 60gg InBody): confermate da
+  Fabrizio, il problema era la presentazione non i giorni.
+  DIFETTO NOTO, non toccato qui: il "Gestito" scrive su localStorage
+  ('scadenze_gestite'), fuori da db — vedi P144 in roadmap.
+
 p.invii[] = { data, tipo, titolo, url, esito, voci?, n? }  // P87 Tappe 1-2-3, 28 lug 2026
   // DIARIO UNIFICATO di ciò che è stato mandato al paziente. La tab
   // "📨 Comunicazione" della scheda paziente (renderPdComunicazione) è la vista

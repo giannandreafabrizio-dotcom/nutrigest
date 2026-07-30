@@ -265,6 +265,12 @@
 
 # PRIORITÀ 1 — Bug aperti
 
+### P144 — "Gestito" nelle scadenze dashboard vive in localStorage
+**IL PROBLEMA:** `segnaGestito()` scrive nella chiave `localStorage` `scadenze_gestite`, fuori da `db`. Stessa famiglia di difetto dell'agenda rimossa il 30 lug 2026 (3ª sessione): fuori dal backup JSON, non sincronizzato tra dispositivi. Se Fabrizio segna "gestito" 20 avvisi dal computer dello studio, sul telefono li rivede tutti.
+**LA SOLUZIONE:** spostare in un campo su `db` (es. `p._scadenzeGestite = {chiave: dataGestione}`, o un registro unico simile a `p.invii[]`). L'auto-scadenza a 14 giorni già presente va portata invariata.
+**FOCUS COMPONENTI COINVOLTI:** Struttura dati (additiva) + migrazione da localStorage.
+**SCHEDA:** Stato: Da fare · Priorità: Bassa (il difetto è reale ma non blocca nulla oggi) · C: 1 | I: 2 | R: 1 · Modello: Sonnet 4.6 Medium · Autonomia: L1.
+
 ### P140 — Appuntamenti: tripla fonte di verità, e solo una ha l'orario
 **IL PROBLEMA:** `getEventi()` compone gli eventi da TRE posti che descrivono lo stesso fatto — `p.visitaData`, `p.dateCalendario[primo|chiamata|sett2|sett3|controllo]` e `db.eventi` — ma **solo `db.eventi` ha il campo `ora`**. È F4 (doppia/tripla fonte) allo stato puro, ed è la causa RADICE dei due difetti riparati il 30 lug 2026 nelle viste Settimana e Giorno: quelle correzioni sono medicazioni sul sintomo, non sulla causa.
 **PERCHÉ CONTA ORA:** il flusso di prenotazione che Fabrizio vuole (telefonata → profilo → messaggio di preparazione con data E ora) ha bisogno di un appuntamento con orario. Se l'appuntamento nasce dal campo del profilo, l'orario non esiste e il template `{appuntamento}` esce monco ("il 12/08/2026" senza ora). Il messaggio di preparazione NON è utilizzabile in pieno finché questa voce è aperta.
