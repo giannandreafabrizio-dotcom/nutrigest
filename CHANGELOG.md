@@ -10,6 +10,59 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 — P146: LA RASSEGNA DEI GRAFICI ALLE LARGHEZZE VERE.
+Baseline 6c59b25.
+
+IL METODO, prima del risultato. P145 aveva corretto tre etichette tagliate
+trovate A OCCHIO; P146 nasceva da una quarta trovata allo stesso modo. Guardare
+a occhio non scala: la prima cosa fatta qui e' stato scrivere uno strumento che
+MISURA — `test-suite/grafici-larghezze.js`. Apre i sette grafici in un browser
+vero a 545px (mezza colonna), 397px (iPhone) e 1100px (larghezza piena), e per
+ogni <text> chiede al browser il rettangolo che occupa DAVVERO, poi cerca le
+coppie che si sovrappongono e i testi fuori dal riquadro. Niente stime sulla
+lunghezza delle stringhe: misure vere del motore di rendering.
+DUE TRAPPOLE NELLO STRUMENTO STESSO, entrambe scoperte perche' produceva falsi
+allarmi: (1) `getBBox()` ignora le trasformazioni, quindi su un'etichetta
+RUOTATA (i titoli degli assi Y) restituisce il rettangolo di prima della
+rotazione — si misura con getBoundingClientRect; (2) il rettangolo di un
+<text> comprende tutta la riga tipografica, spazio bianco sopra e sotto
+incluso, e due etichette vicine ma perfettamente leggibili risultavano
+"sovrapposte" — si confronta il 60% centrale. Prima delle correzioni lo
+strumento segnalava 10 problemi, 7 dei quali falsi. **Uno strumento di
+misura va tarato prima di credergli, altrimenti il rumore fa buttare via il
+segnale.**
+
+I TRE DIFETTI VERI.
+1. LA MAPPA DELLA QUALITA' a 545px: il titolo dell'asse X e la didascalia
+   «colore piu' pieno = periodo piu' recente» sulla stessa riga, una sopra
+   l'altra — si leggeva «variazione MASSA GRASSA (kg)olore piu' pieno…». Una
+   regola per mandare la didascalia a capo esisteva GIA', ma scattava sotto i
+   440px: chi l'ha scritta pensava «stretto = telefono» e non ha considerato
+   che anche il computer, con la scheda a meta' schermo (545px), e' stretto.
+   **La correzione non e' stata alzare la soglia ma TOGLIERLA:** la didascalia
+   sta sempre su una riga sua. Una regola che non esiste non puo' avere il
+   numero sbagliato.
+2. «GRASSO VISCERALE» NON SI E' MAI VISTO nella vista larga. Il righello destro
+   stava a `w-46` e _ibRighello scrive il titolo 42px piu' a destra: finiva a
+   `w+9`, fuori dal riquadro. Non dipendeva dalla larghezza — era invisibile
+   SEMPRE, da quando esiste. Nessuno se n'era accorto perche' **un'etichetta
+   che manca non lascia un buco: lascia niente.** Righello spostato a `w-70`.
+3. LA CURVA CANCELLAVA IL SUO PROPRIO LIMITE. «lv.9 — limite superiore InBody»
+   veniva attraversata dalla curva del grasso viscerale. Motivo: le etichette
+   delle soglie erano disegnate PRIMA delle curve, e in un SVG vince chi viene
+   dopo. E succedeva proprio **quando il paziente MIGLIORA** e la curva scende
+   verso il limite: il caso piu' frequente e quello che si mostra al paziente.
+   Le etichette ora si accumulano a parte e si disegnano alla fine, con un
+   alone bianco (`alone:true` in _ibTx, paint-order stroke).
+   NB: questo lo strumento NON l'ha trovato — controlla testo contro testo, non
+   testo contro linee. E' stato trovato guardando. Il limite e' dichiarato in
+   testa allo script perche' non venga scambiato per una garanzia.
+
+COLLAUDO: strumento verde su 18 combinazioni (7 grafici × 3 larghezze), suite
+445/445, node --check, INDEX rigenerato, e i tre punti corretti riguardati a
+video prima e dopo.
+
+
 31 LUGLIO 2026 — P142: IL PAZIENTE NASCE ALLA TELEFONATA. Baseline b37e420.
 
 IL NODO. La storia di un paziente comincia quando ti chiama, non quando entra

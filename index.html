@@ -13008,8 +13008,16 @@ function _ibEs(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function _ibEl(tag,at,kids){let o='<'+tag;
   for(const k in at){if(at[k]===null||at[k]===undefined)continue;o+=' '+k+'="'+_ibEs(at[k])+'"';}
   return o+'>'+(kids||'')+'</'+tag+'>';}
+// P146 — `alone:true` disegna un contorno bianco DIETRO le lettere
+// (paint-order: stroke). Serve alle etichette che stanno dentro l'area del
+// grafico: una linea che ci passa sopra le cancella, e non c'è modo di
+// prevedere dove passerà — quella del grasso viscerale attraversava «lv.9 —
+// limite superiore InBody» esattamente quando il paziente MIGLIORA e la curva
+// scende verso il limite, cioè nel caso più frequente e più bello da mostrare.
 function _ibTx(x,y,t,o){o=o||{};return _ibEl('text',{x:x,y:y,fill:o.fill||_IBC.muted,
   'font-size':o.fs||11,'text-anchor':o.ta||'middle','font-weight':o.fw||400,
+  stroke:o.alone?'#fff':null,'stroke-width':o.alone?3.2:null,
+  'paint-order':o.alone?'stroke':null,'stroke-linejoin':o.alone?'round':null,
   transform:o.tr||null},_ibEs(t));}
 function _ibSvg(w,h,inner){return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" role="img" style="display:block;width:100%;height:auto">'+inner+'</svg>';}
 // barra con testa arrotondata 4px e piede squadrato sulla linea dello zero
@@ -13248,6 +13256,12 @@ function _ibGrAdiposita(S,w,sesso){
   const Yw=function(v){return Tm+ph*(fw2[1]-v)/(fw2[1]-fw2[0]);};
   const Yv=function(v){return Tm+ph*(fv[1]-v)/(fv[1]-fv[0]);};
   let s='';
+  // P146 — le etichette delle soglie si accumulano a parte e si disegnano ALLA
+  // FINE. L'alone bianco da solo non bastava: in un SVG vince chi è disegnato
+  // dopo, e le curve venivano dopo le etichette, quindi ci passavano sopra
+  // cancellandole. E lo facevano proprio quando il paziente MIGLIORA e la curva
+  // scende verso il limite — cioè nel caso più frequente e più bello da mostrare.
+  let sSoglie='';
   if(hasW){const pas=Math.max(_ibPasso(fw2[1]-fw2[0]),0.01);
     for(let v=Math.ceil(fw2[0]/pas)*pas;v<=fw2[1]+1e-9;v+=pas){
       s+=_ibEl('line',{x1:Lm,y1:Yw(v),x2:Lm+pw,y2:Yw(v),stroke:_IBC.grid,'stroke-width':1});
@@ -13259,13 +13273,13 @@ function _ibGrAdiposita(S,w,sesso){
   if(hasW)[[RW.lo,'inferiore'],[RW.hi,'superiore']].forEach(function(o){
     if(o[0]<fw2[0]||o[0]>fw2[1])return;
     s+=_ibEl('line',{x1:Lm,y1:Yw(o[0]),x2:Lm+pw,y2:Yw(o[0]),stroke:'#D03B3B','stroke-width':1.4,'stroke-dasharray':'5 4'});
-    s+=_ibTx(Lm+6,Yw(o[0])-7,_ibN(o[0],2)+(stretto?'':' — limite '+o[1]+' OMS'),{ta:'start',fs:9.5,fill:'#A32D2D',fw:600});});
+    sSoglie+=_ibTx(Lm+6,Yw(o[0])-7,_ibN(o[0],2)+(stretto?'':' — limite '+o[1]+' OMS'),{ta:'start',fs:9.5,fill:'#A32D2D',fw:600,alone:true});});
   if(hasV){
     let fuori=null;
     [[RV.lo,'inferiore'],[RV.hi,'superiore']].forEach(function(o){
       if(o[0]>=fv[0]&&o[0]<=fv[1]){
         s+=_ibEl('line',{x1:Lm,y1:Yv(o[0]),x2:Lm+pw,y2:Yv(o[0]),stroke:_IBC.acqua,'stroke-width':1.4,'stroke-dasharray':'5 4'});
-        s+=_ibTx(Lm+pw-6,Yv(o[0])-7,'lv.'+o[0]+(stretto?'':' — limite '+o[1]+' InBody'),{ta:'end',fs:9.5,fill:_IBC.acqua,fw:600});
+        sSoglie+=_ibTx(Lm+pw-6,Yv(o[0])-7,'lv.'+o[0]+(stretto?'':' — limite '+o[1]+' InBody'),{ta:'end',fs:9.5,fill:_IBC.acqua,fw:600,alone:true});
       }else if(o[0]>fv[1])fuori=o[0];});
     const ultV=vv[vv.length-1];
     if(fuori!==null&&!stretto)
@@ -13283,6 +13297,7 @@ function _ibGrAdiposita(S,w,sesso){
       'data-ibtip':'<b>'+fData(p.data)+'</b>'
         +(p.whr!=null?'<br>Cintura/fianchi <b>'+_ibN(p.whr,2)+'</b>':'')
         +(p.visc!=null?'<br>Grasso viscerale <b>lv. '+_ibN(p.visc)+'</b>':'')});});
+  s+=sSoglie;   // P146 — sopra le curve, non sotto
   // la variazione scritta in numeri: la grandezza del movimento non si affida
   // alla pendenza. I due blocchi si scansano se le curve finiscono vicine —
   // sulle pazienti reali si scrivevano uno sopra l'altro, illeggibili entrambi.
@@ -13307,7 +13322,12 @@ function _ibGrAdiposita(S,w,sesso){
     if(hasW)s+=_ibRighello({x:64,y:gy,h:gh,w:gw,min:0.65,max:1.05,val:vw[vw.length-1],win:fw2,
       lo:RW.lo,hi:RW.hi,col:_IBC.whr,side:'left',dec:true,tit:'cintura / fianchi',
       zone:[{a:0.65,b:RW.lo,fill:'#EFF4F8'},{a:RW.lo,b:RW.hi,fill:'#E6F4EE'},{a:RW.hi,b:1.05,fill:'#FBEEEA'}]});
-    if(hasV)s+=_ibRighello({x:w-46,y:gy,h:gh,w:gw,min:0,max:20,val:vv[vv.length-1],win:fv,
+    // P146 — il righello destro stava a w-46 e il suo titolo, che _ibRighello
+    // scrive 42px più a destra, finiva a w+9: FUORI dal riquadro, quindi
+    // «grasso viscerale» non si è mai visto nella vista larga. Non dipendeva
+    // dalla larghezza — era invisibile sempre, e nessuno se n'era accorto
+    // perché un'etichetta che manca non lascia un buco: lascia niente.
+    if(hasV)s+=_ibRighello({x:w-70,y:gy,h:gh,w:gw,min:0,max:20,val:vv[vv.length-1],win:fv,
       lo:RV.lo,hi:RV.hi,col:_IBC.acqua,side:'right',dec:false,tit:'grasso viscerale',
       zone:[{a:0,b:RV.lo,fill:'#EFF4F8'},{a:RV.lo,b:RV.hi,fill:'#E6F4EE'},{a:RV.hi,b:20,fill:'#FAF3EA'}]});
   }
@@ -13546,10 +13566,15 @@ function _ibGrQualita(P,w){
    fili+=_ibEl('line',{class:'iblead',x1:q.x,y1:q.y,x2:tx,y2:ty,stroke:_IBC.muted,'stroke-width':1});
    dots+=dot(q,tx-q.x,ty-q.y);});
   s+=_ibEl('g',{class:'ibclu'},_ibEl('circle',{class:'ibhit',cx:cx,cy:cy,r:R+rmax+6})+fili+dots);});
- // su schermo stretto la didascalia va a capo: sulla stessa riga finirebbe sopra al titolo dell'asse
- s+= stretto
-   ? _ibTx(Lm+pw/2,Tm+ph+47,'colore più pieno = periodo più recente',{fs:9.5})
-   : _ibTx(Lm+pw-6,Tm+ph+34,'colore più pieno = periodo più recente',{ta:'end',fs:9.5});
+ // P146 (31 lug 2026) — la didascalia sta SEMPRE su una riga sua. Prima ci
+ // andava solo sotto i 440px: a mezza colonna (545px, la larghezza vera del
+ // riquadro sul portatile) restava sulla stessa riga del titolo dell'asse e ci
+ // finiva sopra — si leggeva «variazione MASSA GRASSA (kg)olore più pieno…».
+ // Chi ha scritto quella soglia pensava «stretto = telefono» e non ha
+ // considerato che anche il computer, con la scheda a metà schermo, è stretto.
+ // La correzione non è alzare la soglia ma TOGLIERLA: una riga in più c'è
+ // sempre, e una regola che non esiste non può avere il numero sbagliato.
+ s+=_ibTx(Lm+pw/2,Tm+ph+47,'colore più pieno = periodo più recente',{fs:9.5});
  return _ibSvg(w,h,s);
 }
 

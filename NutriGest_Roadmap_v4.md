@@ -265,12 +265,18 @@
 
 # PRIORITÀ 1 — Bug aperti
 
-### P146 — Testi SVG che si sovrappongono nella Mappa della qualità
-**IL PROBLEMA:** a mezza colonna (~545px) il titolo dell'asse X «variazione MASSA GRASSA (kg)» e la didascalia «colore più pieno = periodo più recente» finiscono uno sopra l'altro e diventano illeggibili entrambi. Trovato guardando il rendering durante P145 (30 lug 2026), non toccato lì per non allargare il giro.
-**LA FAMIGLIA:** è la stessa dei tre difetti corretti in P145 — un `<text>` SVG non va a capo e non si accorcia da solo, quindi qualunque etichetta scritta pensando alla larghezza piena si taglia o si sovrappone a mezza colonna e su iPhone. Vale la pena passare in rassegna TUTTE le etichette di testo dei sei grafici alle due larghezze reali (~545px e ~397px) in un giro solo, invece di correggerle una alla volta quando saltano fuori.
-**LA SOLUZIONE:** o la didascalia esce dall'SVG e diventa HTML sotto il grafico (come è stato fatto per la frase clinica della forma in P145 — è la soluzione che si adatta da sola a ogni larghezza), o le due righe si separano in verticale sotto una soglia di larghezza.
-**FOCUS COMPONENTI COINVOLTI:** Frontend, `_ibGrQualita` e rassegna degli altri cinque grafici.
-**SCHEDA:** Stato: Da fare · Priorità: Bassa (estetico, nessun dato sbagliato) · C: 1 | I: 2 | R: 1 · Modello: Sonnet 4.6 Medium · Autonomia: L1.
+### P146 — Testi SVG che si sovrappongono nella Mappa della qualità ✅ CHIUSA 31 luglio 2026
+**IL PROBLEMA:** a mezza colonna (~545px) il titolo dell'asse X e la didascalia «colore più pieno = periodo più recente» finivano uno sopra l'altro. Trovato guardando il rendering durante P145.
+**LA FAMIGLIA:** un `<text>` SVG non va a capo e non si accorcia da solo, quindi qualunque etichetta scritta pensando alla larghezza piena si taglia o si sovrappone a mezza colonna e su iPhone.
+**IL METODO — prima dello strumento non si correggeva niente.** P145 aveva corretto tre etichette trovate a occhio, P146 nasceva da una quarta trovata allo stesso modo: **guardare a occhio non scala**. Scritto `test-suite/grafici-larghezze.js`, che apre i sette grafici in un browser vero a 545/397/1100px e chiede al browser il rettangolo che ogni `<text>` occupa DAVVERO, poi cerca sovrapposizioni e testi fuori dal riquadro.
+**DUE TRAPPOLE NELLO STRUMENTO**, entrambe scoperte dai suoi falsi allarmi: `getBBox()` ignora le trasformazioni (le etichette RUOTATE degli assi Y risultavano tutte fuori posto) → si misura con `getBoundingClientRect`; e il rettangolo di un `<text>` include tutta la riga tipografica, quindi etichette vicine ma leggibili risultavano sovrapposte → si confronta il 60% centrale. **Prima della taratura segnalava 10 problemi, 7 falsi: uno strumento di misura va tarato prima di credergli, o il rumore fa buttare via il segnale.**
+**I TRE DIFETTI VERI:**
+1. **Mappa della qualità a 545px** — la regola che manda la didascalia a capo esisteva già ma scattava sotto i 440px: chi l'ha scritta pensava «stretto = telefono» e non ha considerato che anche il computer a mezza colonna è stretto. **La correzione non è stata alzare la soglia ma toglierla:** la didascalia sta sempre su una riga sua. *Una regola che non esiste non può avere il numero sbagliato.*
+2. **«grasso viscerale» non si è MAI visto** nella vista larga: il righello destro stava a `w-46` e il suo titolo, scritto 42px più a destra, cadeva a `w+9`. Non dipendeva dalla larghezza — era invisibile da sempre, e **un'etichetta che manca non lascia un buco: lascia niente.** Righello spostato a `w-70`.
+3. **La curva cancellava il suo stesso limite:** «lv.9 — limite superiore InBody» era attraversata dalla curva, perché le etichette delle soglie erano disegnate PRIMA delle curve e in un SVG vince chi viene dopo. E succedeva **proprio quando il paziente migliora** e la curva scende verso il limite. Ora si disegnano alla fine, con alone bianco (`alone:true` in `_ibTx`). **Questo lo strumento non l'ha trovato** — controlla testo contro testo, non testo contro linee: il limite è dichiarato in testa allo script perché non venga scambiato per una garanzia.
+**COLLAUDO:** strumento verde su 18 combinazioni, suite 445/445, i tre punti riguardati a video prima e dopo.
+**FOCUS COMPONENTI COINVOLTI:** Frontend, `_ibGrQualita`, `_ibGrAdiposita`, `_ibTx`.
+**SCHEDA:** Stato: ✅ Chiusa 31 luglio 2026 · Priorità: era Bassa · C: 1 | I: 2 | R: 1 · Modello: Opus High · Autonomia: L1.
 
 ### P144 — "Gestito" nelle scadenze dashboard vive in localStorage
 **IL PROBLEMA:** `segnaGestito()` scrive nella chiave `localStorage` `scadenze_gestite`, fuori da `db`. Stessa famiglia di difetto dell'agenda rimossa il 30 lug 2026 (3ª sessione): fuori dal backup JSON, non sincronizzato tra dispositivi. Se Fabrizio segna "gestito" 20 avvisi dal computer dello studio, sul telefono li rivede tutti.

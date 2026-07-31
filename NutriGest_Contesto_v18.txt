@@ -913,6 +913,23 @@ CALENDARIO — pianificazione e calendario sono due cose diverse  // P140 T1, 30
   Il test s1-date-locali vieta di ricavare un giorno da toISOString: deroga solo con il
   marcatore esplicito /* UTC-VOLUTO: motivo */ sulla riga stessa.
 
+GRAFICI InBody — le etichette e le larghezze  // P146, 31 lug 2026
+  In un <text> SVG il testo e' DISEGNATO: non va a capo e non si rimpicciolisce. Le
+  due larghezze VERE della scheda sono ~545px (riquadro a mezza colonna sul portatile)
+  e ~397px (iPhone); la larghezza piena e' quella per cui le etichette sono scritte e
+  non ha mai trovato niente. Regole in vigore:
+  - le didascalie stanno su una riga PROPRIA sempre, non sotto una soglia di larghezza
+    (la soglia a 440px lasciava scoperta proprio la mezza colonna);
+  - un'etichetta ruotata di un righello ha bisogno di ~50px oltre il righello: il
+    righello destro di _ibGrAdiposita sta a w-70, non piu' a w-46;
+  - le etichette che cadono DENTRO l'area del grafico si disegnano ALLA FINE e con
+    `alone:true` (_ibTx, contorno bianco in paint-order stroke): in un SVG vince chi e'
+    disegnato dopo, e una curva che passa sopra un'etichetta la cancella.
+  STRUMENTO: `test-suite/grafici-larghezze.js` (fuori dalla suite automatica, serve
+  playwright) misura i sette grafici alle tre larghezze in un browser vero e segnala
+  etichette sovrapposte o fuori dal riquadro. Vede solo TESTO CONTRO TESTO: il testo
+  attraversato da una curva resta un controllo a occhio.
+
 AGENDA DI DASHBOARD — RIMOSSA il 30 lug 2026
   Non esiste piu': ne' la colonna in dashboard, ne' le chiavi localStorage
   'agendaPersonale'/'agendaTodo', ne' AGENDA_CAT/_catCol/renderAgendaDx. Se un backup
