@@ -10,6 +10,72 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 (sera) — P63b: I CONTI DEL REFERTO INBODY DEVONO TORNARE.
+Baseline f11063a.
+
+LA PROVA CHE MANCAVA. L'8 luglio P63b ("conferma con diff anche per l'InBody")
+era stata chiusa come DECISA DI NON FARE, con un motivo buono: l'InBody non
+sostituisce un valore attuale, ne aggiunge uno nuovo allo storico, quindi il
+confronto "attuale vs estratto" ha poco senso clinico e il clic in piu' si
+pagherebbe a ogni import. Quel ragionamento pero' poggiava su un presupposto mai
+verificato: che gli errori di lettura fossero rari.
+
+Il 31 luglio Fabrizio ha caricato 25 referti veri. Circa 1 su 2 aveva almeno un
+errore, 1 su 5 un errore grave: 6-7 sbagli sul grasso viscerale e 4-5 numeri
+confusi, il peggiore una MASSA MAGRA DI 45 kg LETTA 88 kg. Un numero plausibile
+a colpo d'occhio, e quindi invisibile.
+
+PERCHE' ERA GRAVE. loadInbodyPDF scrive i valori dell'AI DIRETTAMENTE nei campi:
+nessuno staging, nessuna conferma (le analisi del sangue ce l'hanno da P63/P124,
+l'InBody no). E il cross-check Mifflin di P114 non poteva vederlo: calcolaTDEE
+usa `lastIb.mb`, il metabolismo basale LETTO DAL REFERTO, non ricavato dalla
+massa magra. Quindi una massa magra sbagliata non sposta le calorie — sposta
+tutto cio' che serve a giudicare se la dieta funziona: `_avvisoProteineDeficit`
+(soglia su g/kg FFM), la linea massa magra del Percorso (e quindi anche la massa
+grassa, che e' il divario fra le due linee) e la riga "Massa magra X kg" del
+contesto AI, cioe' ogni parere clinico e ogni piano generato per quel paziente.
+Il danno non e' nel numero: e' nel giudizio, ed e' silenzioso.
+
+LA CORREZIONE — NON QUELLA SCARTATA. Non e' tornata la tabella con le spunte
+(quel no dell'8 luglio resta valido: costa un clic anche quando e' tutto giusto).
+E' entrato il pezzo B di P124 tradotto sull'InBody: controlli deterministici che
+parlano SOLO quando i conti non tornano. Qui pero' sono piu' forti che sul
+sangue, ed e' il punto tecnico della giornata: **i valori del sangue sono
+indipendenti fra loro, quelli dell'InBody no**. "peso = massa grassa + massa
+magra" non e' una stima, e' la definizione con cui la bilancia stampa il foglio.
+L'errore si trova con una sottrazione — senza AI, senza seconda chiamata, senza
+avere il referto sotto mano.
+
+Sei controlli in `_ibControllaCoerenza` (pura, quindi testabile): somma,
+% grassa, BMI, rapporto acqua/massa magra, muscolare ≤ magra, viscerale nel
+livello 1-20. Piu' un avviso fisso sotto il pulsante di import che nomina i tre
+campi che hanno davvero sbagliato sul campo — "ricontrolla i numeri" non dice
+all'occhio dove guardare.
+
+EFFETTO COLLATERALE NON CERCATO: i controlli si sovrappongono, e le
+sovrapposizioni LOCALIZZANO l'errore. Massa magra sbagliata -> salta solo la
+somma. Massa grassa sbagliata -> saltano somma E percentuale. Peso sbagliato ->
+saltano somma, percentuale E BMI. Fissato da un test apposta, perche' e' una
+proprieta' che si perde al primo ritocco delle tolleranze.
+
+TARATURA. Tolleranze larghe di proposito (1 kg o 2% sulla somma, banda 60-85%
+sull'acqua): "un avviso che ha sempre ragione smette di essere letto" e' gia'
+regola di roadmap, e la meta' piu' importante dei 20 test nuovi e' proprio il
+SILENZIO — referto corretto, arrotondamenti, virgola italiana, campi mancanti,
+tutti i 20 livelli viscerali validi. Meglio lasciar passare un errore da mezzo
+chilo che bruciare la credibilita' dell'avviso.
+
+NON BLOCCA il salvataggio, a differenza della data mancante di P120: un referto
+puo' avere numeri strani per motivi legittimi, e la decisione clinica resta a
+Fabrizio. Avvisa, evidenzia, e si zittisce appena il valore viene corretto.
+
+FUORI PERIMETRO, DICHIARATO: i referti gia' in archivio non vengono ricontrollati
+(Fabrizio ha corretto a mano i 25 mentre li caricava). La scansione retroattiva
+dello storico resta disponibile e NON richiede i PDF — legge i numeri gia' in
+cartella — ma non e' stata fatta in questa consegna.
+
+Test 452 -> 472 (`s2-inbody-coerenza.test.js`). INDEX.md rigenerato (767 voci).
+
 31 LUGLIO 2026 — P144: I "GESTITO" DELLE SCADENZE VANNO NEL PAZIENTE.
 Baseline 22b853e.
 

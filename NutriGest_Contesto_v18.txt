@@ -1119,6 +1119,23 @@ p.inbody[] — INVARIANTE DI ORDINAMENTO (P120, 25 lug 2026):
   Anti-doppione: se esiste già una misurazione con quella data, confirm() con scelta
   sostituisci (mantiene l'id originale) / aggiungi — due BIA nello stesso giorno sono
   legittime (digiuno + post-pranzo), quindi non c'è deduplica forzata.
+  CONTROLLO DI COERENZA ARITMETICA (P63b, 31 lug 2026): `_ibControllaCoerenza(v)` —
+  funzione PURA, riceve i valori grezzi del modale e restituisce
+  [{campi:[idInput], testo}] (vuoto = tutto torna). Sei controlli: (1) peso = massa
+  grassa + massa magra, tolleranza max(1 kg, 2%); (2) % grassa = grassa/peso, ±1,5
+  punti; (3) BMI = peso/(altezza/100)², ±0,8; (4) acqua/massa magra dentro 0,60-0,85;
+  (5) massa muscolare ≤ massa magra (impossibilità logica, non una soglia);
+  (6) grasso viscerale entro il livello 1-20 (fuori scala = area in cm² presa per il
+  livello). Lato schermo: `_ibMostraCoerenza()` riempie #ib-coerenza e bordina di
+  rosso i campi; `_ibAgganciaCoerenza()` attacca una volta sola i listener 'input' su
+  `_IB_CAMPI_COERENZA` (correggere un valore rifà i conti subito, come la spunta che
+  si rimette in P124); `_ibResetCoerenza()` pulisce a ogni openInbody.
+  PERCHÉ QUI FUNZIONA E SUL SANGUE NO: i valori InBody sono legati da identità
+  aritmetiche stampate dalla bilancia, quelli del sangue sono indipendenti — qui
+  l'errore si trova con una sottrazione, senza AI e senza il referto.
+  NON BLOCCA il salvataggio (a differenza della data mancante): avvisa e basta.
+  Le tolleranze sono larghe di proposito — cercano gli errori che spostano la clinica,
+  non gli arrotondamenti.
 
 p.pesiIntermedi[] = { data, peso }
   // campo presente nel codice ma C4 SCARTATO (bilance domestiche ≠ bilancia studio, delta inaffidabile)

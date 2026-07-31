@@ -1579,6 +1579,12 @@ main{flex:1;overflow-y:auto;}
         <span id="ib-pdf-name" style="font-size:.73rem;color:var(--teal)"></span>
       </div>
       <input type="file" id="ib-pdf-input" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="loadInbodyPDF(event)">
+      <!-- P63b — avviso permanente: i valori del referto arrivano da una lettura AI, non da un tracciato dati.
+           Nomina i tre campi che hanno davvero sbagliato sul campo (25 referti veri, 31 lug 2026): dire
+           "ricontrolla i numeri" non dice all'occhio dove guardare. -->
+      <div style="font-size:.68rem;line-height:1.35;color:#78716c;margin-top:.35rem">
+        ⚠️ I valori sono letti dall'AI e possono contenere errori. Controllali sul referto prima di salvare — soprattutto <strong>massa magra</strong>, <strong>massa grassa</strong> e <strong>grasso viscerale</strong>.
+      </div>
     </div>
   </div>
   <div class="fr-3">
@@ -1594,6 +1600,8 @@ main{flex:1;overflow-y:auto;}
   <div id="ib-pdf-loading" style="display:none;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.6rem .9rem;font-size:.77rem;color:var(--teal2);margin-bottom:.6rem">
     ⏳ Estrazione dati dal PDF InBody in corso...
   </div>
+  <!-- P63b — parla SOLO quando i conti del referto non tornano (vedi _ibControllaCoerenza) -->
+  <div id="ib-coerenza" style="display:none;border-radius:8px;padding:.6rem .9rem;font-size:.75rem;line-height:1.4;margin-bottom:.6rem"></div>
   <div class="fr-3">
     <div class="fg"><label>Peso totale (kg)</label><input type="number" id="ib-peso" step="0.1"></div>
     <div class="fg"><label>% Massa grassa</label><input type="number" id="ib-pg" step="0.1"></div>
@@ -25697,6 +25705,8 @@ function openInbody(){
   const pdfNameEl=document.getElementById('ib-pdf-name');if(pdfNameEl)pdfNameEl.textContent='';
   const pdfInputEl=document.getElementById('ib-pdf-input');if(pdfInputEl)pdfInputEl.value='';
   const hintEl=document.getElementById('ib-data-hint');if(hintEl){hintEl.style.display='none';hintEl.innerHTML='';} // P120 — esito lettura data: pulito a ogni apertura
+  if(typeof _ibResetCoerenza==='function')_ibResetCoerenza();     // P63b — mai l'allarme del referto precedente
+  if(typeof _ibAgganciaCoerenza==='function')_ibAgganciaCoerenza();// P63b — i conti si rifanno mentre correggi
   document.getElementById('mo-inbody').classList.add('open');
   if(window.b3Attach)setTimeout(window.b3Attach,50);
 }
@@ -27685,6 +27695,140 @@ function _ibOrdinaPerData(p){
   return p.inbody.map(function(x){ return x && x.id; }).join('|') !== prima;
 }
 
+// ═══ P63b — i conti del referto InBody devono tornare (31 lug 2026) ═══════════
+// PERCHÉ ESISTE: loadInbodyPDF scrive i valori letti dall'AI DIRETTAMENTE nei
+// campi, senza conferma — a differenza delle analisi del sangue, dove P63 e
+// P124 mettono staging + finestra di conferma. Sul campo, caricando 25 referti
+// veri (31 lug 2026): circa 1 referto su 2 aveva almeno un errore e 1 su 5 un
+// errore grave. Il caso peggiore: massa magra 45 kg letta 88 kg — un numero
+// plausibile a colpo d'occhio, e quindi invisibile.
+//
+// COSA RENDE POSSIBILE IL CONTROLLO QUI: a differenza dei valori del sangue,
+// che sono indipendenti fra loro, i numeri dell'InBody sono legati da identità
+// aritmetiche. "peso = massa grassa + massa magra" non è una stima: è la
+// definizione con cui la bilancia stampa il referto. L'errore quindi si vede
+// con una sottrazione — senza AI, senza seconda chiamata, senza il referto.
+//
+// EFFETTO COLLATERALE UTILE: i controlli si sovrappongono, e le sovrapposizioni
+// LOCALIZZANO l'errore. Massa magra sbagliata → salta solo la somma. Massa
+// grassa sbagliata → saltano somma E percentuale. Peso sbagliato → saltano
+// somma, percentuale E BMI.
+//
+// TARATURA — tolleranze GENEROSE di proposito: "un avviso che ha sempre ragione
+// smette di essere letto" (regola di roadmap). Meglio lasciar passare un errore
+// da mezzo chilo che bruciare la credibilità dell'avviso con un falso allarme
+// da arrotondamento. Qui si cercano gli errori GROSSI, quelli che spostano la
+// clinica.
+//
+// PURA (nessun DOM) per essere testabile: il lato schermo è _ibMostraCoerenza.
+// Riceve i valori grezzi (stringhe dei campi o numeri), restituisce un array di
+// {campi:[idInput], testo:'...'} — vuoto quando è tutto coerente.
+function _ibControllaCoerenza(v){
+  var out=[];
+  if(!v || typeof v!=='object') return out;
+  var n=function(x){
+    if(x===null||x===undefined||x==='') return null;
+    var f=(typeof x==='number')?x:parseFloat(String(x).replace(',','.'));
+    return isFinite(f)?f:null;
+  };
+  var r1=function(x){ return Math.round(x*10)/10; };
+  var peso=n(v.peso), pg=n(v.pg), g=n(v.g), m=n(v.m), musc=n(v.musc),
+      acqua=n(v.acqua), bmi=n(v.bmi), alt=n(v.altezza), visc=n(v.visc);
+
+  // 1 — peso = massa grassa + massa magra (identità InBody, non una stima).
+  //     Tolleranza: 1 kg oppure 2% del peso, la più larga delle due.
+  if(peso!==null && g!==null && m!==null && peso>0){
+    var somma=g+m, tollS=Math.max(1, peso*0.02);
+    if(Math.abs(somma-peso)>tollS){
+      out.push({campi:['ib-peso','ib-g','ib-m'],
+        testo:'<strong>Massa grassa + massa magra</strong> fa '+r1(somma)+' kg, ma il <strong>peso</strong> è '+r1(peso)+' kg — differenza di '+r1(Math.abs(somma-peso))+' kg. Uno di questi tre numeri è letto male.'});
+    }
+  }
+  // 2 — la % di massa grassa deve tornare con massa grassa e peso.
+  if(pg!==null && g!==null && peso!==null && peso>0){
+    var pgCalc=g/peso*100;
+    if(Math.abs(pgCalc-pg)>1.5){
+      out.push({campi:['ib-pg','ib-g','ib-peso'],
+        testo:'La <strong>% di massa grassa</strong> dice '+r1(pg)+'%, ma da massa grassa e peso risulta '+r1(pgCalc)+'%.'});
+    }
+  }
+  // 3 — il BMI deve tornare con peso e altezza (altezza in cm).
+  if(bmi!==null && peso!==null && alt!==null && alt>0){
+    var bmiCalc=peso/Math.pow(alt/100,2);
+    if(Math.abs(bmiCalc-bmi)>0.8){
+      out.push({campi:['ib-bmi','ib-peso','ib-altezza'],
+        testo:'Il <strong>BMI</strong> dice '+r1(bmi)+', ma da peso '+r1(peso)+' kg e altezza '+r1(alt)+' cm risulta '+r1(bmiCalc)+'.'});
+    }
+  }
+  // 4 — l'acqua corporea è circa il 70-75% della massa magra. Banda 60-85%:
+  //     larghissima apposta, deve prendere solo gli errori grossolani.
+  if(acqua!==null && m!==null && m>0){
+    var rap=acqua/m;
+    if(rap<0.60 || rap>0.85){
+      out.push({campi:['ib-acqua','ib-m'],
+        testo:"L'<strong>acqua totale</strong> è il "+Math.round(rap*100)+'% della massa magra: fuori dal campo normale (circa 70-75%). Controlla acqua totale e massa magra.'});
+    }
+  }
+  // 5 — la massa muscolare è UNA PARTE della massa magra: non può superarla.
+  //     Impossibilità logica, non una soglia: qui i falsi allarmi non esistono.
+  if(musc!==null && m!==null && musc>m+0.1){
+    out.push({campi:['ib-musc','ib-m'],
+      testo:'La <strong>massa muscolare</strong> ('+r1(musc)+' kg) supera la <strong>massa magra</strong> ('+r1(m)+' kg): la muscolare ne è una parte, non può essere più grande.'});
+  }
+  // 6 — sull'InBody 120 il grasso viscerale è un LIVELLO da 1 a 20. Un numero
+  //     fuori scala è quasi sempre l'area in cm² presa al posto del livello.
+  if(visc!==null && (visc<1 || visc>20)){
+    out.push({campi:['ib-visc'],
+      testo:'<strong>Grasso viscerale</strong> '+r1(visc)+': sul referto InBody 120 il livello va da 1 a 20. Se sul foglio c\'è un numero più grande, è l\'area in cm² — non il livello.'});
+  }
+  return out;
+}
+
+// Campi sorvegliati: correggerne uno rifà i conti subito (stesso principio di
+// P124, dove correggere una riga rimette la spunta da sola).
+var _IB_CAMPI_COERENZA=['ib-peso','ib-pg','ib-g','ib-m','ib-musc','ib-acqua','ib-bmi','ib-altezza','ib-visc'];
+
+// Lato schermo di _ibControllaCoerenza: riempie il riquadro #ib-coerenza e
+// bordina di rosso i campi coinvolti. Muto quando i conti tornano.
+function _ibMostraCoerenza(){
+  var box=document.getElementById('ib-coerenza');
+  if(!box) return [];
+  var gv=function(id){ var el=document.getElementById(id); return (el&&el.value!=='')?el.value:null; };
+  var problemi=_ibControllaCoerenza({
+    peso:gv('ib-peso'), pg:gv('ib-pg'), g:gv('ib-g'), m:gv('ib-m'), musc:gv('ib-musc'),
+    acqua:gv('ib-acqua'), bmi:gv('ib-bmi'), altezza:gv('ib-altezza'), visc:gv('ib-visc')
+  });
+  _IB_CAMPI_COERENZA.forEach(function(id){ var el=document.getElementById(id); if(el) el.style.borderColor=''; });
+  if(!problemi.length){ box.style.display='none'; box.innerHTML=''; return problemi; }
+  var lista=problemi.map(function(p){
+    (p.campi||[]).forEach(function(id){ var el=document.getElementById(id); if(el) el.style.borderColor='#dc2626'; });
+    return '<li style="margin:.2rem 0">'+p.testo+'</li>';
+  }).join('');
+  box.style.display='block';
+  box.style.background='#fef2f2'; box.style.border='1px solid #fecaca'; box.style.color='#991b1b';
+  box.innerHTML='<strong>⚠️ I conti del referto non tornano — ricontrolla sul foglio prima di salvare</strong>'
+    +'<ul style="margin:.35rem 0 0;padding-left:1.1rem">'+lista+'</ul>';
+  return problemi;
+}
+
+// Aggancio una-tantum: i conti si rifanno mentre correggi, senza premere nulla.
+function _ibAgganciaCoerenza(){
+  if(window._ibCoerenzaAgganciata) return;
+  var agganciato=false;
+  _IB_CAMPI_COERENZA.forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){ el.addEventListener('input', _ibMostraCoerenza); agganciato=true; }
+  });
+  if(agganciato) window._ibCoerenzaAgganciata=true;
+}
+
+// Riporta il riquadro e i bordi allo stato pulito (a ogni apertura del modale).
+function _ibResetCoerenza(){
+  var box=document.getElementById('ib-coerenza');
+  if(box){ box.style.display='none'; box.innerHTML=''; }
+  _IB_CAMPI_COERENZA.forEach(function(id){ var el=document.getElementById(id); if(el) el.style.borderColor=''; });
+}
+
 async function loadInbodyPDF(e) {
   const file = e.target.files[0]; if(!file) return;
   document.getElementById('ib-pdf-name').textContent = file.name;
@@ -27783,7 +27927,12 @@ async function loadInbodyPDF(e) {
         }
         if(msgExtra.length) notif('✓ Anagrafica aggiornata dal referto: '+msgExtra.join(' e '));
       })();
-      notif('✓ Dati estratti dal PDF InBody!');
+      // P63b — rifà i conti sui valori appena scritti dall'AI. Se non tornano,
+      // il riquadro rosso compare PRIMA che Fabrizio guardi i campi, e la
+      // notifica cambia tono: l'import non è un successo se i numeri litigano.
+      var _ibProb=(typeof _ibMostraCoerenza==='function')?_ibMostraCoerenza():[];
+      if(_ibProb.length) notif('⚠ Dati estratti, ma '+(_ibProb.length===1?'un valore non torna':_ibProb.length+' valori non tornano')+' — controlla il riquadro rosso',5000);
+      else notif('✓ Dati estratti dal PDF InBody!');
     };
     reader.readAsDataURL(file);
   } catch(err) { notif('⚠ Errore estrazione PDF: ' + err.message); }
