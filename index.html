@@ -1226,7 +1226,6 @@ main{flex:1;overflow-y:auto;}
     <button class="mtab" onclick="mTab('clinica',this)">Clinica</button>
     <button class="mtab" onclick="mTab('alim',this)">Alimentazione</button>
     <button class="mtab" onclick="mTab('cibi',this)">Preferenze cibi</button>
-    <button class="mtab" onclick="mTab('cal-paz',this)">Calendario</button>
   </div>
 
   <!-- DATI -->
@@ -1275,11 +1274,24 @@ main{flex:1;overflow-y:auto;}
       <div class="fg"><label>Prezzo prima visita (€)</label><input type="number" id="p-prezzo-visita" step="0.01" placeholder="0.00"></div>
       <div class="fg"><label>Prezzo controllo (€)</label><input type="number" id="p-prezzo-controllo" step="0.01" placeholder="0.00"></div>
     </div>
-    <div class="fr">
-      <div class="fg"><label>Data prima visita</label><input type="date" id="p-visita"></div>
-      <div class="fg"><label>Data inizio alimentazione</label><input type="date" id="p-inizio" oninput="aggDateCal()"></div>
+    <!-- P140 T2 — le date stanno tutte QUI. Prima "Data inizio alimentazione" e
+         "Data prossimo controllo" esistevano anche nella linguetta Calendario,
+         con nomi diversi e del codice il cui unico mestiere era ricopiarle da
+         una parte all'altra: due caselle, un dato. La linguetta è sparita.
+         L'ora NON viene salvata sul paziente: si legge e si scrive
+         sull'appuntamento in db.eventi, l'unico posto dove l'ora esiste. -->
+    <div class="fr-3">
+      <div class="fg"><label>Data prima visita</label><input type="date" id="p-visita" oninput="aggDateCal()"></div>
+      <div class="fg"><label>Ora</label><input type="time" id="p-visita-ora"></div>
+      <div class="fg" style="display:flex;align-items:flex-end"><button type="button" class="btn btn-g" style="width:100%" onclick="apriEventoDaScheda('visita')" title="Prezzo, note, promemoria">… altro</button></div>
     </div>
-    <div class="fg"><label>Data prossimo controllo</label><input type="date" id="p-controllo"></div>
+    <div class="fr-3">
+      <div class="fg"><label>Data prossimo controllo</label><input type="date" id="p-controllo" oninput="aggDateCal()"></div>
+      <div class="fg"><label>Ora</label><input type="time" id="p-controllo-ora"></div>
+      <div class="fg" style="display:flex;align-items:flex-end"><button type="button" class="btn btn-g" style="width:100%" onclick="apriEventoDaScheda('controllo')" title="Prezzo, note, promemoria">… altro</button></div>
+    </div>
+    <div class="fg"><label>Data inizio alimentazione</label><input type="date" id="p-inizio" oninput="aggDateCal()"></div>
+    <div id="cal-prev-box" style="margin-top:.2rem"></div>
     <div style="margin-top:.8rem">
       <button class="btn btn-p btn-sm" onclick="aggiungiEntrataPerPaziente()">💶 Aggiungi entrata per questo paziente</button>
     </div>
@@ -1542,14 +1554,6 @@ main{flex:1;overflow-y:auto;}
   <div class="tab-panel" id="tp-cibi">
     <p style="font-size:.77rem;color:var(--text2);margin-bottom:.9rem">Grigio = Non inserire · <strong style="color:var(--teal)">Verde = Alta frequenza</strong> · <strong style="color:#fb923c">Arancione = Media frequenza</strong> · <strong style="color:var(--red)">Rosso = Bassa frequenza</strong></p>
     <div id="al-editor"></div>
-  </div>
-
-  <!-- CALENDARIO PAZ -->
-  <div class="tab-panel" id="tp-cal-paz">
-    <p style="font-size:.77rem;color:var(--text2);margin-bottom:.8rem">Le date si calcolano automaticamente dall'inizio alimentazione.</p>
-    <div class="fg"><label>📅 Data inizio alimentazione</label><input type="date" id="p-inizio2" oninput="syncInizio()"></div>
-    <div id="cal-prev-box" style="margin-top:.7rem"></div>
-    <div class="fg" style="margin-top:.9rem"><label>📅 Controllo personalizzato</label><input type="date" id="p-controllo2" oninput="syncControllo()"></div>
   </div>
 
   <div class="mf">
@@ -5621,6 +5625,7 @@ function openNuovoPaz(){
 
   // Date: azzerate dal reset generico sopra, poi impostate ai default odierni.
   document.getElementById('p-visita').value=today();
+  ['p-visita-ora','p-controllo-ora'].forEach(function(id){const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-inizio').value=today();
   window._alStato={};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
@@ -5644,6 +5649,8 @@ function editPaz(){
   if(document.getElementById('p-contesto-emotivo')) document.getElementById('p-contesto-emotivo').value = p.contestoEmotivo || '';
   const el_pt=document.getElementById('p-peso-target');if(el_pt)el_pt.value=p.pesoTarget||'';
   s('p-visita',p.visitaData);s('p-inizio',p.inizioAlim);s('p-controllo',p.controlloData);
+  // P140 T2 — le ORE non stanno nel paziente: si leggono dagli appuntamenti.
+  if(typeof _appAggiornaOreScheda==='function') _appAggiornaOreScheda();
   s('p-studio',p.studio||'');
   s('p-fumo',p.fumo);s('p-alcol',p.alcol);s('p-caffe',p.caffe);s('p-acqua',p.acqua);
   s('p-diuresi',p.diuresi);s('p-alvo',p.alvo);s('p-ciclo',p.ciclo);s('p-gravidanza',p.gravidanza);
@@ -6401,13 +6408,10 @@ function salvaPaz(){
     cronotipo:gs('p-cronotipo'),orarioPastoPrincipale:gs('p-orario-pasto'),
     alimenti:window._alStato||{},
     prezzoVisita:gn('p-prezzo-visita'),prezzoControllo:gn('p-prezzo-controllo'),
-    studio:g('p-studio'),
-    // P140 T1 — il controllo NON si inventa più a +28 giorni. Quel valore di
-    // ripiego finiva in calendario come se fosse un appuntamento fissato e la
-    // dashboard ci costruiva sopra l'avviso "controllo saltato", contando i
-    // giorni da una data mai concordata con nessuno. Il controllo si decide col
-    // paziente (14 gg in keto, 25, 32… dipende) e quindi o c'è, o non c'è.
-    dateCalendario:ini?{primo:ini,chiamata:addDays(ini,7),sett2:addDays(ini,14),sett3:addDays(ini,21),controllo:g('p-controllo')||null}:null
+    // P140 T2 — qui c'era `dateCalendario`, cinque date derivate salvate accanto
+    // alla loro sorgente. Non si salvano più: le calcola _appTappe() quando
+    // servono. (T1 aveva già tolto il controllo inventato a +28 giorni.)
+    studio:g('p-studio')
   };
   if(editPazId){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
@@ -6415,15 +6419,31 @@ function salvaPaz(){
   }else{
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.refertiSangue=[];pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
+  // P140 T2 — `_pazPreservaCampi` ricopia da _old ogni chiave che pd non ha
+  // (protezione F7). Ottima regola, ma qui lavora CONTRO di noi: senza questa
+  // riga `dateCalendario` risorgerebbe a ogni salvataggio, e il campo che
+  // abbiamo appena dismesso non morirebbe mai. Una protezione generica va
+  // sempre riletta quando si RIMUOVE un campo, non solo quando se ne aggiunge.
+  delete pd.dateCalendario;
   // P140 T1 — punto di SCRITTURA dell'appuntamento (regola 10: l'invariante si
   // garantisce dove si scrive, non correggendo i lettori uno per uno). Salvare
   // il paziente allinea qui l'evento di calendario: se la data della visita si
   // sposta, si sposta la STESSA riga di db.eventi e l'ora già fissata resta.
-  if(pd.id&&typeof _appSyncPaz==='function'&&_appSyncPaz(pd,true)){
-    ['visita','controllo'].forEach(function(t){
-      const ev=(db.eventi||[]).find(function(e){return e&&e.id===_appIdAnag(pd.id,t);});
-      if(ev&&typeof pushEventoSupabase==='function') pushEventoSupabase(ev);
+  if(pd.id&&typeof _appSyncPaz==='function'){
+    const _mosso=_appSyncPaz(pd,true);
+    // P140 T2 — l'ora scritta nella scheda finisce SULL'APPUNTAMENTO, non sul
+    // paziente. Memorizzarla anche qui vorrebbe dire due copie dello stesso
+    // fatto: esattamente il difetto che questa voce esiste per chiudere.
+    const _tocc=[];
+    [['visita','p-visita-ora',pd.visitaData],['controllo','p-controllo-ora',pd.controlloData]].forEach(function(r){
+      if(!r[2]) return;
+      const el=document.getElementById(r[1]);
+      const ev=(db.eventi||[]).find(function(e){return e&&e.pazId===pd.id&&e.tipo===r[0]&&e.data===r[2];});
+      if(!ev) return;
+      if(el&&(ev.ora||'')!==(el.value||'')){ ev.ora=el.value||''; _tocc.push(ev); }
+      else if(_mosso) _tocc.push(ev);
     });
+    _tocc.forEach(function(ev){ if(typeof pushEventoSupabase==='function') pushEventoSupabase(ev); });
   }
   _obiettivoPazienteDaForm(pd);   // P122 Tappa 2 — scrive SOLO obiettivoPercorso.paziente (clinico/storico già preservati)
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
@@ -9258,12 +9278,17 @@ function renderPazTimeline(p) {
   const el = document.getElementById('pd-timeline');
   if (!el) return;
   const oggi = today();
+  // P140 T2 — le tappe arrivano da _appTappe(): calcolate sull'ultimo
+  // appuntamento avvenuto, non lette da un campo salvato che poteva essere
+  // vecchio quanto la prima visita.
+  const _tap = (typeof _appTappe === 'function') ? _appTappe(p) : [];
+  const _dataTappa = k => (_tap.find(t => t.tipo === k) || {}).data;
   const fasi = [
     { label: 'Prima visita', data: p.visitaData, tipo: null },
     { label: 'Inizio piano', data: p.inizioAlim, tipo: null },
-    { label: 'Chiamata sett. 1', data: p.dateCalendario?.chiamata, tipo: 'chiamata' },
-    { label: 'Messaggio sett. 2', data: p.dateCalendario?.sett2, tipo: 'sett2' },
-    { label: 'Controllo', data: p.dateCalendario?.controllo || p.controlloData, tipo: 'controllo' },
+    { label: 'Chiamata sett. 1', data: _dataTappa('chiamata'), tipo: 'chiamata' },
+    { label: 'Messaggio sett. 2', data: _dataTappa('sett2'), tipo: 'sett2' },
+    { label: 'Controllo', data: p.controlloData, tipo: 'controllo' },
   ].filter(f => f.data);
   if (!fasi.length) { el.innerHTML = ''; return; }
   const iDone = fasi.filter(f => f.data <= oggi).length;
@@ -26550,8 +26575,8 @@ function selCatAl(cat){
 // promemoria per il nutrizionista, derivati dalla data di inizio piano: nessuno
 // si presenta in studio e un orario non gli serve. Gli unici due fatti che sono
 // appuntamenti veri sono la PRIMA VISITA e il CONTROLLO.
-// Quindi: dateCalendario resta la PIANIFICAZIONE, db.eventi diventa il
-// CALENDARIO. I campi p.visitaData / p.controlloData restano come SPECCHIO
+// Quindi: la PIANIFICAZIONE resta separata (e dalla Tappa 2 si calcola, vedi
+// _appTappe) e db.eventi diventa il CALENDARIO. I campi p.visitaData / p.controlloData restano come SPECCHIO
 // leggibile (stesso schema di P118 tappa 1 e di p.pesoTarget), perché una
 // decina di punti li legge già: timeline paziente, scadenze dashboard,
 // "paziente sparito", calcolo inizio piano.
@@ -26607,6 +26632,107 @@ function _appSyncPaz(p,propagaCancellazione){
   return cambiato;
 }
 
+// ── P140 Tappa 2 — lo SPECCHIO INVERSO ──────────────────────────────────────
+// Fino alla Tappa 1 l'anagrafica scriveva nel calendario ma il calendario non
+// scriveva nell'anagrafica: fissando la visita dal calendario restavano due
+// date diverse e la scheda continuava a dire quella vecchia.
+// I due campi NON sono "l'ultima cosa che ho salvato": sono una PROIEZIONE di
+// db.eventi, ricalcolata. «Data prima visita» = la visita più VECCHIA (la prima
+// è la prima); «Data prossimo controllo» = il controllo più IN LÀ nel tempo,
+// che è esattamente ciò che quel campo promette di dire.
+// SI CHIAMA SOLO DA GESTI ESPLICITI (salvaEvento, delEvento), MAI dai percorsi
+// di caricamento: se girasse mentre db.eventi non è ancora stato scaricato,
+// azzererebbe due date vere. È la stessa disciplina di `propagaCancellazione`.
+function _appSpecchioInverso(p){
+  if(!p||!p.id||!Array.isArray(db.eventi)) return false;
+  let cambiato=false;
+  const date=function(t){ return db.eventi.filter(function(e){
+      return e&&e.pazId===p.id&&e.tipo===t&&e.data; }).map(function(e){return e.data;}).sort(); };
+  const visite=date('visita'), controlli=date('controllo');
+  const nuovaVisita=visite.length?visite[0]:'';
+  const nuovoControllo=controlli.length?controlli[controlli.length-1]:'';
+  if((p.visitaData||'')!==nuovaVisita){ p.visitaData=nuovaVisita; cambiato=true; }
+  if((p.controlloData||'')!==nuovoControllo){
+    p.controlloData=nuovoControllo;
+    cambiato=true;
+  }
+  return cambiato;
+}
+
+// Quando per un paziente nasce un appuntamento VERO (creato dal calendario, con
+// l'ora), lo specchio nato dall'anagrafica ha finito il suo lavoro. Due esiti,
+// e nessuno dei due perde un appuntamento:
+//  - STESSO GIORNO → era lo stesso appuntamento visto da due parti: lo specchio
+//    si ritira e resta quello vero, che ha l'ora e le note.
+//  - GIORNO DIVERSO → sono due appuntamenti diversi, e lo specchio viene
+//    PROMOSSO a evento normale (id nuovo, niente più `origin`) invece di essere
+//    cancellato. Cancellarlo sarebbe una perdita silenziosa: quella data
+//    Fabrizio l'aveva scritta davvero. Su dati clinici non si butta via niente
+//    per far tornare un modello.
+function _appRitiraSpecchio(pazId,tipo,dataNuova){
+  if(!pazId||!Array.isArray(db.eventi)) return null;
+  const idSp=_appIdAnag(pazId,tipo);
+  const i=db.eventi.findIndex(function(e){return e&&e.id===idSp;});
+  if(i<0) return null;
+  const sp=db.eventi[i];
+  if(sp.data===dataNuova){
+    db.eventi.splice(i,1);
+    if(typeof delEventoSupabase==='function') delEventoSupabase(idSp);
+    return null;
+  }
+  sp.id=uid(); delete sp.origin;
+  if(typeof delEventoSupabase==='function') delEventoSupabase(idSp);
+  return sp; // il chiamante lo ripubblica col nuovo id
+}
+
+// ── P140 Tappa 2 — le TAPPE si CALCOLANO, non si salvano ────────────────────
+// `p.dateCalendario` memorizzava cinque date tutte ricavabili da altro: `primo`
+// era la COPIA IDENTICA di `inizioAlim`, chiamata/sett2/sett3 erano +7/+14/+21,
+// `controllo` era il gemello di `controlloData`. Cinque valori derivati salvati
+// accanto alla loro sorgente: la famiglia F4/P118/P140, quella che diverge in
+// silenzio. Ora si calcolano quando servono e il campo non esiste più.
+//
+// L'ANCORA non è più la data di inizio piano ma **l'ultimo appuntamento già
+// avvenuto**. È come lavora Fabrizio (31 lug 2026, parole sue): «fanno il
+// controllo il sabato 1 aprile e poi non li chiamo sabato 8» — la chiamata
+// segue la VISITA, non il piano. Con l'ancora vecchia, dopo il primo mese non
+// nasceva più nessun promemoria a meno di riscrivere a mano l'inizio piano, e
+// nessuno se ne accorgeva perché il calendario semplicemente taceva.
+const _APP_TAPPE=[{k:'chiamata',gg:7},{k:'sett2',gg:14},{k:'sett3',gg:21}];
+
+function _appAncoraTappe(p){
+  if(!p) return '';
+  const oggi=(typeof today==='function')?today():'';
+  const cand=[];
+  (db.eventi||[]).forEach(function(e){
+    if(e&&e.pazId===p.id&&(e.tipo==='visita'||e.tipo==='controllo')&&e.data&&e.data<=oggi) cand.push(e.data);
+  });
+  // i due campi della scheda valgono come gli eventi: nel modulo aperto sono
+  // già compilati mentre l'evento corrispondente non è ancora nato
+  if(p.visitaData&&p.visitaData<=oggi) cand.push(p.visitaData);
+  if(p.controlloData&&p.controlloData<=oggi) cand.push(p.controlloData);
+  if(p.inizioAlim) cand.push(p.inizioAlim); // anche futuro: un piano che inizia comanda
+  cand.sort();
+  return cand.length?cand[cand.length-1]:'';
+}
+
+// Le tappe di PIANIFICAZIONE di un paziente. Una tappa FISSATA a mano (evento
+// vero in db.eventi, con giorno e ora concordati col paziente) fa sparire
+// quella proposta: è la stessa regola dello specchio, applicata ai promemoria.
+function _appTappe(p){
+  if(!p||!p.id) return [];
+  const out=[];
+  if(p.inizioAlim) out.push({tipo:'primo',data:p.inizioAlim});
+  const base=_appAncoraTappe(p);
+  if(!base) return out;
+  _APP_TAPPE.forEach(function(t){
+    const fissata=(db.eventi||[]).some(function(e){
+      return e&&e.pazId===p.id&&e.tipo===t.k&&e.data&&e.data>=base; });
+    if(!fissata) out.push({tipo:t.k,data:addDays(base,t.gg),proposta:true});
+  });
+  return out;
+}
+
 // Migrazione idempotente di UN paziente. Oltre a creare l'evento-specchio,
 // porta via il CONTROLLO INVENTATO a +28 giorni: non era un appuntamento, era
 // un valore di ripiego silenzioso su un dato che ordina il tempo (regola 11 del
@@ -26617,9 +26743,10 @@ function _appSyncPaz(p,propagaCancellazione){
 function _appMigraPaziente(p){
   if(!p) return false;
   let c=false;
-  if(p.dateCalendario&&p.dateCalendario.controllo!==(p.controlloData||null)){
-    p.dateCalendario.controllo=p.controlloData||null; c=true;
-  }
+  // Tappa 2 — il campo se ne va del tutto: tutto quello che conteneva è
+  // ricalcolabile. `controllo` era già stato normalizzato a `controlloData`
+  // nella Tappa 1 (il +28 inventato), quindi qui non si perde niente.
+  if(p.dateCalendario!==undefined){ delete p.dateCalendario; c=true; }
   if(_appSyncPaz(p,false)) c=true;
   return c;
 }
@@ -26634,12 +26761,13 @@ function getEventi(){
   const all=[];
   db.pazienti.forEach(p=>{
     // P140 — 'visita' e 'controllo' NON escono più da qui: sono appuntamenti e
-    // vivono in db.eventi (che ha l'ora). Qui resta solo la pianificazione.
-    if(p.dateCalendario){
-      ['primo','chiamata','sett2','sett3'].forEach(t=>{
-        if(p.dateCalendario[t])all.push({data:p.dateCalendario[t],tipo:t,pazId:p.id,pazNome:p.nome+' '+p.cognome,tel:p.tel});
-      });
-    }
+    // vivono in db.eventi (che ha l'ora). Qui resta solo la pianificazione, e
+    // dalla Tappa 2 è CALCOLATA sul momento invece che letta da un campo
+    // salvato che poteva essere vecchio.
+    const _nome=p.nome+' '+p.cognome;
+    _appTappe(p).forEach(function(t){
+      all.push({data:t.data,tipo:t.tipo,pazId:p.id,pazNome:_nome,tel:p.tel,proposta:t.proposta});
+    });
   });
   db.eventi.forEach(e=>all.push(e));
   return all;
@@ -26842,18 +26970,28 @@ function salvaEvento(){
     note:document.getElementById('ev-note').value.trim(),prezzo,
     promemoria:document.getElementById('ev-promemoria').value};
   db.eventi.push(ev);
-  // P140 T1 — se questo evento e' la stessa cosa che l'anagrafica sta gia'
-  // specchiando (stesso paziente, stesso tipo, stesso giorno), lo specchio si fa
-  // da parte SUBITO. Senza questa riga il doppione resta a video fino al
-  // ricaricamento successivo: la migrazione lo toglieva, ma solo al giro dopo.
-  if(paz&&typeof _appSyncPaz==='function') _appSyncPaz(paz,true);
+  // P140 T1+T2 — questo evento è nato dal calendario, quindi è LUI la fonte.
+  // Lo specchio dell'anagrafica si ritira (stesso giorno) o viene promosso a
+  // evento normale (giorno diverso), e poi i campi della scheda si riallineano
+  // a quello che il calendario dice davvero. Senza il primo passo il doppione
+  // resterebbe a video fino al ricaricamento; senza il secondo la scheda
+  // continuerebbe a dire la data vecchia.
+  let _promosso=null;
+  if(paz&&pazId&&(tipo==='visita'||tipo==='controllo')&&typeof _appRitiraSpecchio==='function')
+    _promosso=_appRitiraSpecchio(pazId,tipo,data);
+  if(paz&&typeof _appSpecchioInverso==='function'&&_appSpecchioInverso(paz)&&typeof save==='function') save(paz.id);
   // Aggiungi entrata se richiesto
   const nuovaEntrata = (prezzo>0&&document.getElementById('ev-add-entrata')?.checked)
     ? {id:uid(),data,importo:prezzo,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:tipo==='visita'?'Prima visita':'Controllo',note:'Da evento calendario'}
     : null;
   if(nuovaEntrata) db.entrate.push(nuovaEntrata);
+  // P140 T2 — se la scheda paziente è aperta (porta laterale "… altro"), i suoi
+  // campi devono adottare quello che il calendario dice ADESSO: altrimenti al
+  // "Conferma" della scheda riscriverebbero sopra i valori appena salvati qui.
+  if(typeof _appAggiornaOreScheda==='function') _appAggiornaOreScheda();
   saveLocal();closeM('mo-evento');renderCal();
   pushEventoSupabase(ev);
+  if(_promosso) pushEventoSupabase(_promosso);
   if(nuovaEntrata) pushEntrataSupabase(nuovaEntrata);
   notif('✓ Evento salvato!');
 }
@@ -26925,21 +27063,20 @@ function openEvDetail(pazId,tipo,evId){
 
 async function delEvento(id){
   if(!confirm('Eliminare evento?'))return;
-  // P140 T1 — se l'evento è lo specchio di un campo dell'anagrafica, cancellare
-  // SOLO la riga di db.eventi non basta: alla ricarica successiva la migrazione
-  // lo ricrea dal campo del paziente e l'appuntamento "risorge". Va spento
-  // anche il campo — che è poi il significato del gesto: quella visita non c'è.
+  // P140 T2 — cancellare SOLO la riga di db.eventi non basta: alla ricarica
+  // successiva la migrazione ricrea lo specchio dal campo del paziente e
+  // l'appuntamento "risorge". Il campo va riallineato — che è poi il
+  // significato del gesto: quell'appuntamento non c'è più.
+  // Dalla Tappa 2 la regola è UNA sola per tutti gli eventi, non un caso
+  // speciale per gli specchi: si ricalcola la proiezione. Se restano altri
+  // appuntamenti dello stesso tipo, il campo prende il loro; se non ne resta
+  // nessuno, si svuota.
   const _ev=(db.eventi||[]).find(x=>x&&x.id===id);
-  let _pazDaSalvare=null;
-  if(_ev&&_ev.origin==='anagrafica'&&_ev.pazId){
-    const _p=(db.pazienti||[]).find(x=>x&&x.id===_ev.pazId);
-    if(_p){
-      if(_ev.tipo==='visita') _p.visitaData='';
-      if(_ev.tipo==='controllo'){ _p.controlloData=''; if(_p.dateCalendario) _p.dateCalendario.controllo=null; }
-      _pazDaSalvare=_p;
-    }
-  }
+  const _p=(_ev&&_ev.pazId)?(db.pazienti||[]).find(x=>x&&x.id===_ev.pazId):null;
   db.eventi=db.eventi.filter(x=>x.id!==id);
+  let _pazDaSalvare=null;
+  if(_p&&(_ev.tipo==='visita'||_ev.tipo==='controllo')&&typeof _appSpecchioInverso==='function'
+     &&_appSpecchioInverso(_p)) _pazDaSalvare=_p;
   saveLocal();closeM('mo-ev-detail');renderCal();
   if(_pazDaSalvare&&typeof save==='function') save(_pazDaSalvare.id);
   await delEventoSupabase(id);
@@ -26952,28 +27089,76 @@ function copyMsg(txt){
   });
 }
 
-// Date calendario modal
+// ── P140 T2 — anteprima delle tappe, calcolata come le calcola il calendario ─
+// Prima questa anteprima era altrove (linguetta "Calendario") e leggeva un
+// campo suo: mostrava date che potevano non essere quelle che il calendario
+// disegnava davvero. Ora chiama _appTappe(), la stessa funzione — se un giorno
+// la regola cambia, cambia in un posto solo e l'anteprima non può mentire.
+// syncInizio/syncControllo sono spariti con i campi doppi che tenevano allineati.
 function aggDateCal(){
-  const ini=document.getElementById('p-inizio').value;
-  document.getElementById('p-inizio2').value=ini;
-  aggiornaPrev(ini);
+  const _pazBase = editPazId ? (db.pazienti||[]).find(function(x){return x&&x.id===editPazId;}) : null;
+  aggiornaPrev({
+    id: (_pazBase&&_pazBase.id) || (currentPazId||'__nuovo__'),
+    inizioAlim:   (document.getElementById('p-inizio')||{}).value || '',
+    visitaData:   (document.getElementById('p-visita')||{}).value || '',
+    controlloData:(document.getElementById('p-controllo')||{}).value || ''
+  });
 }
-function syncInizio(){const ini=document.getElementById('p-inizio2').value;document.getElementById('p-inizio').value=ini;aggiornaPrev(ini);}
-function syncControllo(){document.getElementById('p-controllo').value=document.getElementById('p-controllo2').value;}
-function aggiornaPrev(ini){
+
+const _APP_TAPPE_LBL={primo:['G.1','ev-primo','Messaggio inizio'],chiamata:['S.1','ev-chiamata','Chiamata'],
+  sett2:['S.2','ev-sett2','Messaggio'],sett3:['S.3','ev-sett3','Messaggio']};
+
+function aggiornaPrev(p){
   const box=document.getElementById('cal-prev-box');
-  if(!ini){box.innerHTML='';return;}
-  box.innerHTML=`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem">
-    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);font-weight:600;margin-bottom:.5rem">Date automatiche</div>
-    <div style="display:flex;flex-direction:column;gap:.3rem;font-size:.77rem">
-      <div><span class="cal-ev ev-primo" style="padding:1px 5px;border-radius:3px;font-size:.62rem">G.1</span> ${fData(ini)} — Messaggio inizio</div>
-      <div><span class="cal-ev ev-chiamata" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.1</span> ${fData(addDays(ini,7))} — Chiamata</div>
-      <div><span class="cal-ev ev-sett2" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.2</span> ${fData(addDays(ini,14))} — Messaggio</div>
-      <div><span class="cal-ev ev-sett3" style="padding:1px 5px;border-radius:3px;font-size:.62rem">S.3</span> ${fData(addDays(ini,21))} — Messaggio</div>
-    </div>
-    <div style="font-size:.7rem;color:var(--text3);margin-top:.5rem;border-top:1px solid var(--border);padding-top:.5rem">
-      🔴 Il <strong>controllo</strong> non è più proposto in automatico a 28 giorni: si concorda col paziente e si scrive nel campo «Controllo personalizzato» qui sotto (o direttamente in calendario, con l'ora).
-    </div></div>`;
+  if(!box) return;
+  const tappe=(typeof _appTappe==='function')?_appTappe(p):[];
+  if(!tappe.length){ box.innerHTML=''; return; }
+  const base=(typeof _appAncoraTappe==='function')?_appAncoraTappe(p):'';
+  box.innerHTML='<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem">'
+    +'<div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);font-weight:600;margin-bottom:.5rem">Promemoria automatici</div>'
+    +'<div style="display:flex;flex-direction:column;gap:.3rem;font-size:.77rem">'
+    +tappe.map(function(t){
+        const L=_APP_TAPPE_LBL[t.tipo]||['·','ev-altro',t.tipo];
+        return '<div><span class="cal-ev '+L[1]+'" style="padding:1px 5px;border-radius:3px;font-size:.62rem">'+L[0]+'</span> '
+             + fData(t.data)+' — '+L[2]+'</div>'; }).join('')
+    +'</div>'
+    +'<div style="font-size:.7rem;color:var(--text3);margin-top:.5rem;border-top:1px solid var(--border);padding-top:.5rem">'
+    +'Calcolati '+((base&&base===(p.inizioAlim||''))?'dall\'inizio del piano':'dall\'ultimo appuntamento avvenuto')
+    +(base?' ('+fData(base)+')':'')+'. Sono promemoria per te, non appuntamenti: '
+    +'se col paziente concordate un giorno e un\'ora per la <strong>chiamata</strong>, fissala in calendario e questa proposta sparisce.'
+    +'</div></div>';
+}
+
+// P140 T2 — la "porta laterale": la scheda resta pulita (data + ora), e quando
+// serve prezzo, note o promemoria si apre la finestra evento completa, già
+// compilata. Non due strade separate: una strada pulita con una porta di
+// servizio. (Scelta di Fabrizio, 31 lug 2026: «la pulizia di A col controllo di B».)
+function apriEventoDaScheda(tipo){
+  const idPaz = editPazId || currentPazId || '';
+  if(!idPaz){ alert('Salva prima il paziente: l\'appuntamento ha bisogno di sapere di chi è.'); return; }
+  const dataEl = document.getElementById(tipo==='visita'?'p-visita':'p-controllo');
+  const oraEl  = document.getElementById(tipo==='visita'?'p-visita-ora':'p-controllo-ora');
+  openAddEvento((dataEl&&dataEl.value)||today());
+  const t=document.getElementById('ev-tipo'); if(t) t.value=tipo;
+  const o=document.getElementById('ev-ora');  if(o) o.value=(oraEl&&oraEl.value)||'';
+  const sel=document.getElementById('ev-paz'); if(sel) sel.value=idPaz;
+}
+
+// Riporta nel modulo aperto data e ora che il calendario dice adesso. Serve
+// dopo aver salvato un evento dalla porta laterale: senza, il modulo terrebbe
+// i valori vecchi e al "Conferma" li riscriverebbe sopra a quelli nuovi.
+function _appAggiornaOreScheda(){
+  const idPaz = editPazId || currentPazId || '';
+  if(!idPaz || !document.getElementById('p-visita')) return;
+  [['visita','p-visita','p-visita-ora'],['controllo','p-controllo','p-controllo-ora']].forEach(function(r){
+    const date=(db.eventi||[]).filter(function(e){return e&&e.pazId===idPaz&&e.tipo===r[0]&&e.data;})
+      .sort(function(a,b){return a.data<b.data?-1:1;});
+    const ev = date.length ? (r[0]==='visita'?date[0]:date[date.length-1]) : null;
+    const dEl=document.getElementById(r[1]), oEl=document.getElementById(r[2]);
+    if(dEl) dEl.value=ev?ev.data:'';
+    if(oEl) oEl.value=ev?(ev.ora||''):'';
+  });
+  aggDateCal();
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -28107,31 +28292,46 @@ function renderScadenzeAlert() {
       });
     }
 
-    // 4. CONTROLLO SALTATO — controllo previsto passato >14gg senza nuovo evento controllo
-    const dataControllo = p.dateCalendario?.controllo || p.controlloData;
-    const keyControllo = `controllo_${p.id}`;
-    if (dataControllo && dataControllo < oggi && !gestiti[keyControllo]) {
-      const ggControllo = giorniDa(dataControllo);
-      // Verifica se c'è già un evento controllo dopo quella data
-      const controlloFatto = eventiPaz.some(e => e.tipo === 'controllo' && e.data >= dataControllo);
-      if (!controlloFatto && ggControllo > 14) {
-        const msgWa = encodeURIComponent(`Ciao ${nomeBreve}! Ti stavo cercando — volevamo fare il controllo insieme. Come mai sei rimasto/a assente? Fammelo sapere quando puoi 🙏`);
+    // 4. CONTROLLO DA FISSARE (P140 T2, 31 lug 2026) — sostituisce "controllo
+    // saltato". Quello contava i giorni da `dateCalendario.controllo`, che fino
+    // al 30 lug era INVENTATO a inizio+28: un avviso rosso calcolato su una
+    // data mai concordata con nessuno. Ora la domanda è quella vera e
+    // rispondibile: c'è un controllo FISSATO in calendario da qui in avanti?
+    // Il "non si è presentato" non è deducibile dai dati (nessuno registra
+    // l'assenza) ed è già coperto da "paziente sparito" e "InBody da fare":
+    // meglio un avviso su un fatto certo che tre su un'ipotesi.
+    // Chiave NUOVA (`dafissare_`): i "gestito" del vecchio avviso parlavano di
+    // un'altra cosa e non devono zittire questo.
+    const _ctrlPaz = eventiPaz.filter(e => e.tipo === 'controllo' && e.data);
+    const _ctrlFuturo = _ctrlPaz.some(e => e.data >= oggi);
+    const _ctrlPassati = _ctrlPaz.filter(e => e.data < oggi).map(e => e.data).sort();
+    // Da quando si aspetta: l'ultimo controllo fatto, o l'inizio del piano.
+    const _daQuando = _ctrlPassati.length ? _ctrlPassati[_ctrlPassati.length-1] : (p.inizioAlim || null);
+    const keyDaFissare = `dafissare_${p.id}`;
+    if (!_ctrlFuturo && _daQuando && !gestiti[keyDaFissare]) {
+      const ggAttesa = giorniDa(_daQuando);
+      if (ggAttesa !== null && ggAttesa > 30) {
+        const msgWa = encodeURIComponent(`Ciao ${nomeBreve}! È il momento di rivederci per il controllo. Quando ti va bene passare in studio? Dimmi tu i giorni che preferisci 😊`);
         const telLink = p.tel ? `https://wa.me/39${p.tel.replace(/\D/g,'')}?text=${msgWa}` : null;
-        urgenti.push({
-          key: keyControllo,
+        const _tardi = ggAttesa > 45;
+        const _voce = {
+          key: keyDaFissare,
           tipo: 'controllo',
           pazId: p.id,
           nome,
           nomeBreve,
-          gg: ggControllo,
-          label: '🔴 Controllo saltato',
-          desc: `Controllo previsto <strong>${ggControllo} giorni fa</strong> — nessun presentazione`,
-          color: '#dc2626',
-          bg: '#fef2f2',
-          border: '#fca5a5',
+          gg: ggAttesa,
+          label: '📅 Controllo da fissare',
+          desc: _ctrlPassati.length
+            ? `Ultimo controllo <strong>${ggAttesa} giorni fa</strong>, nessuno fissato`
+            : `Piano avviato <strong>${ggAttesa} giorni fa</strong>, nessun controllo fissato`,
+          color: _tardi ? '#dc2626' : '#c2740e',
+          bg:    _tardi ? '#fef2f2' : '#fdf6e3',
+          border:_tardi ? '#fca5a5' : '#f0d080',
           telLink,
           tel: p.tel
-        });
+        };
+        (_tardi ? urgenti : attenzione).push(_voce);
       }
     }
   });

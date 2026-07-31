@@ -853,8 +853,39 @@ CALENDARIO — pianificazione e calendario sono due cose diverse  // P140 T1, 30
   dashboard ci costruiva sopra l'avviso "controllo saltato". Ora e' `|| null`: il
   controllo si concorda col paziente (14 gg in keto, 25, 32... dipende) o non c'e'.
   Regola 11 del CLAUDE.md, terzo caso della famiglia.
-  APERTO (Tappa 2): specchio inverso db.eventi -> p.visitaData; punto d'ingresso
-  dell'ORA in interfaccia (da decidere provando); avviso "controllo DA FISSARE".
+  TAPPA 2 (31 lug 2026) — completata:
+  - LE TAPPE SI CALCOLANO, NON SI SALVANO. p.dateCalendario e' DISMESSO (teneva
+    cinque date tutte derivate; `primo` era la copia identica di inizioAlim).
+    Le calcola _appTappe(p). Migrazione idempotente ai soliti punti d'ingresso.
+    ATTENZIONE: _pazPreservaCampi (protezione F7) ricopia da _old ogni chiave
+    che pd non ha, quindi salvaPaz fa un `delete pd.dateCalendario` esplicito —
+    senza, il campo dismesso risorgerebbe a ogni salvataggio.
+  - ANCORA DELLE TAPPE = l'ultimo appuntamento AVVENUTO (_appAncoraTappe), non
+    la data di inizio piano; se il piano inizia dopo, comanda il piano. Prima
+    erano ancorate all'inizio piano e dopo il primo mese non nasceva piu' nessun
+    promemoria. Una tappa CONCORDATA (evento vero in db.eventi con la sua ora)
+    fa sparire la proposta automatica.
+  - SPECCHIO INVERSO (_appSpecchioInverso): p.visitaData/p.controlloData sono
+    una PROIEZIONE di db.eventi — visita piu' VECCHIA, controllo piu' IN LA'.
+    Si chiama SOLO da gesti espliciti (salvaEvento, delEvento), MAI dai percorsi
+    di caricamento: con db.eventi non ancora scaricato azzererebbe date vere.
+  - _appRitiraSpecchio: alla nascita di un appuntamento vero lo specchio si
+    RITIRA (stesso giorno) o viene PROMOSSO a evento normale con id nuovo
+    (giorno diverso). Mai cancellato: sarebbe una perdita silenziosa.
+  - L'ORA sta SOLO sull'evento. I campi #p-visita-ora / #p-controllo-ora della
+    scheda la leggono e la scrivono li'; nessun campo `ora` sul paziente.
+    _appAggiornaOreScheda() riallinea il modulo aperto dopo un salvataggio fatto
+    dal bottone "… altro" (apriEventoDaScheda), altrimenti al Conferma della
+    scheda i valori vecchi riscriverebbero sopra quelli nuovi.
+  - SCHEDA PAZIENTE: la linguetta "Calendario" (tp-cal-paz) NON ESISTE PIU'.
+    Conteneva p-inizio2/p-controllo2, cioe' gli stessi due campi della linguetta
+    Dati con nomi diversi, piu' syncInizio/syncControllo che li ricopiavano.
+    L'anteprima (aggiornaPrev) e' sotto le date e chiama _appTappe(): la stessa
+    funzione del calendario, quindi non puo' mostrare date diverse.
+  - DASHBOARD: l'avviso "controllo saltato" e' diventato "📅 Controllo da
+    fissare" (chiave `dafissare_<id>`, non `controllo_<id>`): >30 gg dall'ultimo
+    controllo o dall'inizio piano senza nessun controllo fissato -> arancione,
+    >45 gg -> rosso.
 
   Conseguenze storiche (sintomi riparati il 30 lug, causa radice chiusa in P140 T1):
     - Vista MESE (renderCalMonth): filtra solo su e.data → ha sempre mostrato tutto.
@@ -1165,10 +1196,10 @@ getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiam
   24 test JSDOM in P78. Regola permanente: nessun nuovo punto del codice deve ricalcolare
   i target autonomamente — sempre getTargetAttivi.
 
-p.dateCalendario: { primo, chiamata, sett2, sett3, controllo }  // generate da inizioAlim.
-  Dal 30 lug 2026 (P140 T1) e' PIANIFICAZIONE, non calendario: `controllo` non viene
-  piu' inventato a +28 (vale p.controlloData o null) e non esce piu' da getEventi() —
-  prima visita e controllo sono appuntamenti e vivono in db.eventi.
+p.dateCalendario: DISMESSO il 31 lug 2026 (P140 T2). Conteneva cinque date tutte
+  derivate. Le tappe di pianificazione si calcolano con _appTappe(p); prima visita e
+  controllo sono appuntamenti e vivono in db.eventi (l'unico posto con il campo `ora`);
+  p.visitaData/p.controlloData restano come proiezione leggibile.
 p.pesiIntermedi[] = { data, peso }  // futura — sblocca msg WA clinici (C4)
 
 CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0+1): Map id→record che avvolge

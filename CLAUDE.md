@@ -112,7 +112,7 @@ Quando aggiorni CLAUDE.md, CHANGELOG.md, Roadmap o INDEX.md, punta al conciso-ma
 - CSS, JavaScript e HTML sono tutti dentro questo file
 - NON usare file separati — tutto deve rimanere self-contained
 - Il frontend comunica con Supabase (database + Edge Functions)
-- Autenticazione: nessuna (app personale)
+- Autenticazione: schermata di login vera (`eseguiLogin`, Supabase `auth/v1/token` + refresh token). Fino al 31 lug 2026 questa riga diceva «nessuna (app personale)»: era rimasta indietro.
 - Storage locale: localStorage come cache, Supabase come database principale
 
 ## Struttura dati

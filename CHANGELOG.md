@@ -10,6 +10,109 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 — P140 TAPPA 2: L'ORA, LO SPECCHIO INVERSO, E LA FINE DELLE DATE
+DERIVATE SALVATE. Baseline 206864a.
+
+COME E' NATA. La Tappa 2 doveva essere solo "dove si mette l'ora". E' stato
+consegnato un MOCKUP A CONFRONTO (metodo P145: motore vero, _appSyncPaz copiata
+dal file, due colonne da provare a video) e Fabrizio, provandolo, ha risposto
+due cose. La prima: «mi piace la pulizia di A pero' il controllo di B». La
+seconda, molto piu' grossa: «come abbiamo tolto la regola che il controllo era
+dopo 28 giorni precisi, dovremmo togliere anche la regola che dopo una
+settimana chiamo — molte volte i pazienti mi indicano il giorno e anche l'ora.
+Fanno il controllo il sabato 1 aprile e poi non li chiamo sabato 8, mi dicono
+di chiamarli lunedi' 10 alle 18:30 quando finiscono di lavorare». E: «ci sono
+molti campi che fanno le stesse cose, voglio semplificare».
+LEZIONE DI METODO: il mockup non e' servito a far scegliere fra A e B — e'
+servito a far emergere un difetto che nessuna delle due opzioni riguardava.
+Mettere in mano all'utente una cosa che funziona vale piu' di descrivergliela.
+
+1. LE TAPPE NON SI SALVANO PIU': SI CALCOLANO. `p.dateCalendario` memorizzava
+   cinque date tutte ricavabili da altro: `primo` era la COPIA IDENTICA di
+   `inizioAlim`, chiamata/sett2/sett3 erano +7/+14/+21, `controllo` era il
+   gemello di `controlloData`. Cinque valori derivati salvati accanto alla loro
+   sorgente — la famiglia F4/P118/P140, quella che diverge in silenzio. Ora le
+   calcola `_appTappe()` quando servono e il campo e' stato dismesso, con
+   migrazione idempotente ai soliti punti d'ingresso.
+   TRAPPOLA TROVATA: `_pazPreservaCampi` (la protezione F7 che ricopia da _old
+   ogni chiave che pd non ha) faceva RISORGERE `dateCalendario` a ogni
+   salvataggio. Una protezione generica va riletta quando si RIMUOVE un campo,
+   non solo quando se ne aggiunge uno.
+
+2. L'ANCORA DELLE TAPPE E' L'ULTIMO APPUNTAMENTO AVVENUTO, non la data di
+   inizio piano. E' come lavora Fabrizio (parole sue sopra) ed elimina un buco
+   che nessuno aveva mai notato: con l'ancora vecchia, dopo il primo mese non
+   nasceva piu' NESSUN promemoria a meno di riscrivere a mano l'inizio piano, e
+   il calendario semplicemente taceva. Una tappa CONCORDATA (evento vero in
+   db.eventi, con giorno e ora) fa sparire quella proposta.
+   NOTA: non si e' potuto verificare sui dati veri se Fabrizio aggiorni
+   inizioAlim a ogni controllo (il sandbox non raggiunge Supabase). Con questa
+   ancora la domanda non conta piu': funziona in tutti e due i casi.
+
+3. LO SPECCHIO INVERSO (`_appSpecchioInverso`). Fino alla T1 l'anagrafica
+   scriveva nel calendario ma non viceversa. Ora i due campi sono una
+   PROIEZIONE di db.eventi: «prima visita» = la visita piu' vecchia, «prossimo
+   controllo» = il controllo piu' IN LA' nel tempo (che e' cio' che il campo
+   promette). Si chiama SOLO da gesti espliciti (salvaEvento, delEvento), mai
+   dai percorsi di caricamento: se girasse mentre db.eventi non e' ancora
+   scaricato azzererebbe due date vere — stessa disciplina di
+   `propagaCancellazione`.
+
+4. LO SPECCHIO SI RITIRA, O VIENE PROMOSSO (`_appRitiraSpecchio`). Quando nasce
+   un appuntamento vero: stesso giorno -> lo specchio si ritira (era lo stesso
+   fatto visto da due parti); giorno DIVERSO -> lo specchio viene PROMOSSO a
+   evento normale (id nuovo, niente piu' `origin`) invece di essere cancellato.
+   Cancellarlo sarebbe stata una perdita silenziosa: quella data era vera. Su
+   dati clinici non si butta via niente per far tornare un modello.
+
+5. I CAMPI DOPPI SONO SPARITI. La linguetta "Calendario" della scheda paziente
+   conteneva "Data inizio alimentazione" e "Controllo personalizzato": gli
+   STESSI due campi gia' presenti nella linguetta Dati con nomi diversi, piu'
+   `syncInizio`/`syncControllo` il cui unico mestiere era ricopiare l'uno
+   nell'altro. Due caselle, un dato. Linguetta e funzioni rimosse; l'anteprima
+   e' traslocata sotto le date e ora chiama `_appTappe()` — la STESSA funzione
+   del calendario, quindi non puo' piu' mostrare date diverse da quelle che il
+   calendario disegna.
+
+6. L'ORA: LA PULIZIA DI A COL CONTROLLO DI B (scelta di Fabrizio). Accanto a
+   «Data prima visita» e «Data prossimo controllo» un campo ora, piu' un
+   bottone «… altro» che apre la finestra evento completa gia' compilata.
+   L'ora NON viene memorizzata sul paziente: si legge e si scrive
+   sull'appuntamento, l'unico posto dove l'ora esiste — altrimenti avremmo
+   riaperto la doppia fonte che P140 esiste per chiudere.
+   `_appAggiornaOreScheda()` riallinea il modulo aperto dopo un salvataggio
+   fatto dalla porta laterale: senza, al "Conferma" della scheda i valori
+   vecchi avrebbero riscritto sopra quelli nuovi.
+
+7. AVVISO «CONTROLLO DA FISSARE» al posto di «controllo saltato». Il vecchio
+   contava i giorni da `dateCalendario.controllo`, cioe' dal +28 inventato. Il
+   nuovo risponde a una domanda vera e verificabile: c'e' un controllo fissato
+   da qui in avanti? Se no e sono passati >30 gg dall'ultimo controllo (o
+   dall'inizio piano) esce arancione, >45 gg rosso, col messaggio WhatsApp
+   pronto. Chiave NUOVA (`dafissare_`): i "gestito" del vecchio avviso
+   parlavano di un'altra cosa e non devono zittire questo.
+   Il "non si e' presentato" NON e' deducibile dai dati (nessuno registra
+   l'assenza) ed e' gia' coperto da "paziente sparito" e "InBody da fare":
+   meglio un avviso su un fatto certo che tre su un'ipotesi.
+
+COLLAUDO. 12 test nuovi (23 in s2-appuntamenti-fonte-unica), suite 433/433,
+node --check, INDEX rigenerato. E il rendering GUARDATO alle due larghezze
+reali (P145): a 397px `.fr-3` diventa 2 colonne e il bottone «… altro» andava
+a capo lasciando un buco — corretto con align-items:flex-end al posto di una
+label invisibile. La didascalia dell'anteprima dice «dall'inizio del piano» o
+«dall'ultimo appuntamento avvenuto» a seconda di quale delle due e' l'ancora:
+scriverne una sola sarebbe stato falso meta' delle volte.
+
+RESTA APERTO: trascinare l'appuntamento col mouse per spostarlo di giorno
+(chiesto da Fabrizio il 31 lug). Oggi e' finalmente possibile perche' ogni voce
+del calendario e' un evento con un id — prima meta' erano date disegnate, senza
+niente da afferrare. Consegna a parte per non confondere il collaudo.
+
+NOTA FUORI PERIMETRO: CLAUDE.md dichiara «Autenticazione: nessuna (app
+personale)», ma esiste una schermata di login vera (`eseguiLogin`, Supabase
+auth/v1/token, refresh token). La riga e' stata corretta.
+
+
 31 LUGLIO 2026 — P140 T1, DUE DIFETTI TROVATI DAL COLLAUDO IN CHROME.
 Baseline dfd5be1 (il commit di P140 Tappa 1).
 
