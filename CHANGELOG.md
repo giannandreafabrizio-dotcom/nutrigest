@@ -10,6 +10,72 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 — P141: "CHE GIORNO E'" SI CHIEDE ALL'OROLOGIO GIUSTO.
+Baseline 696e994.
+
+IL DIFETTO NOTO. `today()` era `new Date().toISOString().slice(0,10)`.
+toISOString risponde con l'ora di GREENWICH: in Italia (avanti di 1h d'inverno,
+2h d'estate) fra mezzanotte e le 01:00/02:00 locali Greenwich e' ancora al
+giorno prima, quindi today() rispondeva IERI. Verificato eseguendo il codice
+vero con TZ=Europe/Rome: alle 00:30 del 12 agosto rispondeva 11 agosto.
+
+IL SECONDO DIFETTO, CHE LA SCHEDA NON CONOSCEVA. Provando anche `addDays` (la
+funzione dietro tutte le tappe +7/+14/+21 e le date del piano) e' saltato fuori
+che sbagliava di un giorno ogni volta che l'intervallo scavalcava il cambio
+dell'ora legale: addDays('2026-03-25',7) rispondeva 31/03 invece di 01/04.
+Silenzioso e STAGIONALE — ogni anno, per le settimane a cavallo di fine marzo,
+tutte le date automatiche uscivano un giorno prima e nessuno se ne accorgeva.
+Causa: `new Date(s)` legge la stringa come mezzanotte UTC, ma `setDate` fa
+l'aritmetica in ora LOCALE; se in mezzo l'offset cambia, si perde un giorno.
+Ora addDays lavora tutto in UTC (Date.UTC + setUTCDate): aritmetica di
+calendario pura, nessun fuso di mezzo.
+
+LA SCOPERTA CHE HA DATO FORMA ALLA CORREZIONE. Nel file c'erano TRE funzioni
+per la stessa cosa: `today()` (rotta) e due copie CORRETTE scritte da chi aveva
+sbattuto contro il problema nel proprio angolo — `_percorsoIsoLocal` (P118, 22
+usi) e `_calYmd` (30 lug, 5 usi). Ogni volta il rubinetto era rimasto rotto e
+qualcuno aveva messo un secchio sotto il proprio pezzo di codice. E' F4
+applicato a una FUNZIONE invece che a un campo. Le due copie sono state rimosse
+e i loro 27 usi puntano ora all'unica `ymdLoc()`.
+
+LA PRECISAZIONE CHE HA EVITATO UN DANNO. La scheda diceva "45 usi di
+toISOString da sostituire". Contati e classificati: sono 43, e ~23 sono GIUSTI
+COSI'. Sono i marca-tempo (updated_at, creato, timestamp, generatoIl): non
+dicono "che giorno e'" ma "in quale istante preciso", ed e' su quell'istante
+che due dispositivi decidono chi ha salvato per ultimo. Sostituirli avrebbe
+rotto la sincronizzazione. **Una voce di roadmap che conta le occorrenze di un
+pattern non ha ancora fatto il lavoro: il lavoro e' classificarle.**
+
+I PUNTI CORRETTI (una decina, oltre alle due funzioni alla radice): registro
+invii `_inviiRegistra` (una cosa mandata all'una di notte restava datata IERI,
+per sempre — regola 11 pura), log consumi AI `_aiLogUsage`, nome del file PDF
+su storage, filtri e KPI delle entrate (settimana e mese: guardando il
+fatturato all'una di notte del primo del mese si vedeva ancora il mese
+scorso), dashboard (oggi e i confini della settimana).
+
+DUE PUNTI LASCIATI IN UTC DI PROPOSITO, e ora dichiarati sulla riga: il return
+di addDays e il ciclo dei sabati del piano (seme letto come UTC, avanzamento
+con setUTCDate — nessun orologio locale di mezzo).
+
+LA RETE DI SICUREZZA (test s1-date-locali). Il difetto e' gia' riemerso tre
+volte da solo, perche' `new Date().toISOString().slice(0,10)` e' la cosa che
+viene in mente per prima. Il test diventa ROSSO su qualunque riga che ricavi un
+GIORNO da toISOString, a meno che la riga porti il marcatore esplicito
+`/* UTC-VOLUTO: motivo */`. La dichiarazione sta ACCANTO al codice che deroga,
+non in un elenco dentro un file di test: la legge chi modifica quella riga.
+Piu' i test funzionali su ymdLoc (mezzanotte e mezza d'estate e d'inverno) e su
+addDays (cambio ora legale in primavera e in autunno, anno bisestile, a cavallo
+d'anno). Il test fissa anche che la funzione data-locale sia UNA SOLA: la
+quarta copia nasce rossa.
+
+DATI GIA' SALVATI SBAGLIATI: si lasciano (decisione di Fabrizio). Non c'e' modo
+di sapere QUALI record furono scritti fra mezzanotte e le due, e correggerli
+tutti sposterebbe anche quelli giusti. Un dato sbagliato che sai essere
+sbagliato e' meno pericoloso di una correzione che ne sposta cento a caso.
+
+COLLAUDO: 5 test nuovi, suite 438/438, node --check, INDEX rigenerato.
+
+
 31 LUGLIO 2026 — P140 TAPPA 2: L'ORA, LO SPECCHIO INVERSO, E LA FINE DELLE DATE
 DERIVATE SALVATE. Baseline 206864a.
 

@@ -898,9 +898,20 @@ CALENDARIO — pianificazione e calendario sono due cose diverse  // P140 T1, 30
       07:30-19:30, con blocco "senza orario" in testa e blocco "fuori fascia" per gli
       orari esterni alla griglia — rete di sicurezza deliberata, perche' il difetto
       della vista settimana non si ripeta nel codice nuovo.
-  _calYmd(d) — data locale YYYY-MM-DD. NON usare toISOString() per le date del
-  calendario: converte in UTC e in Italia fra mezzanotte e le 2:00 restituisce ieri
-  (difetto globale ancora aperto, 45 usi nel file: P141).
+  ymdLoc(x) — LA funzione per dire "che giorno e'", in ora locale (P141, 31 lug 2026;
+  prima si chiamava _calYmd qui e _percorsoIsoLocal altrove). Accetta Date, timestamp
+  o niente (= adesso); su un valore illeggibile torna ''. today() e' ymdLoc().
+  NON usare toISOString() per ricavare un GIORNO: risponde con l'ora di Greenwich e
+  in Italia fra mezzanotte e le 01:00/02:00 e' ancora ieri. Prima di P141 il file
+  conteneva TRE funzioni per la stessa cosa: le due copie sono state rimosse.
+  addDays(s,n) fa aritmetica di CALENDARIO in UTC (Date.UTC + setUTCDate): la versione
+  vecchia sbagliava di un giorno sugli intervalli che scavalcavano il cambio dell'ora
+  legale (25/03 + 7 dava 31/03 invece di 01/04) — silenzioso e stagionale.
+  RESTANO su toISOString i marca-tempo (updated_at, creato, timestamp): non dicono che
+  giorno e', dicono in quale ISTANTE, ed e' su quello che due dispositivi decidono chi
+  ha salvato per ultimo. Sostituirli romperebbe la sincronizzazione.
+  Il test s1-date-locali vieta di ricavare un giorno da toISOString: deroga solo con il
+  marcatore esplicito /* UTC-VOLUTO: motivo */ sulla riga stessa.
 
 AGENDA DI DASHBOARD — RIMOSSA il 30 lug 2026
   Non esiste piu': ne' la colonna in dashboard, ne' le chiavi localStorage
@@ -1103,7 +1114,7 @@ p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surpl
   // Fasi CONSECUTIVE per costruzione: le date si derivano da inizio + somma durate
   // (_percorsoIntervalli), mai memorizzate per fase → niente buchi/sovrapposizioni.
   // pct = % del TDEE della fase (stessa semantica dello slider regime), limiti -40..+25.
-  // Date SEMPRE in locale via _percorsoIsoLocal (mai toISOString: UTC slitterebbe di 1 giorno).
+  // Date SEMPRE in locale via ymdLoc (mai toISOString: UTC slitterebbe di 1 giorno).
 
 p.obiettivoPercorso = { clinico:{...}, paziente:{...}, storico:[], traguardi:[] }
   // P122 Tappa 1, 25 lug 2026 — l'obiettivo del paziente come struttura, non piu'

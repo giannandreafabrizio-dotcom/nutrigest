@@ -3962,8 +3962,44 @@ function loadLocal(){try{const r=localStorage.getItem(DB_KEY);if(r){db=JSON.pars
   if(typeof _appMigraTutti==='function') _appMigraTutti(db.pazienti); // P140 T1 — prima visita e controllo diventano eventi veri di calendario
   caricaAlimentiCustom();}}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-function today(){return new Date().toISOString().slice(0,10);}
-function addDays(s,d){const dt=new Date(s);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
+// ── P141 (31 lug 2026) — UNA sola funzione per dire "che giorno è" ──────────
+// `toISOString()` risponde con l'orologio di GREENWICH. In Italia (avanti di 1h
+// d'inverno, 2h d'estate) fra mezzanotte e le 01:00/02:00 locali Greenwich è
+// ancora al giorno prima: `today()` rispondeva IERI. Non è un difetto estetico
+// — quelle date finiscono SALVATE (il registro invii, il log consumi AI) e il
+// giorno dopo non si correggono da sole. Stessa famiglia della regola 11.
+//
+// Prima di questa voce nel file c'erano TRE modi di prendere la data: `today()`
+// (rotto) e due copie corrette scritte da chi aveva sbattuto contro il problema
+// nel proprio angolo — `_percorsoIsoLocal` (P118) e `_calYmd` (30 lug). È F4
+// applicato a una FUNZIONE invece che a un campo: il rubinetto restava rotto e
+// ognuno metteva un secchio sotto il proprio pezzo di codice. Ora è una sola.
+//
+// NB: i marca-tempo (`updated_at`, `creato`, `timestamp`) restano su
+// toISOString ed è GIUSTO così — non dicono "che giorno è" ma "in quale istante
+// preciso", ed è su quell'istante che due dispositivi decidono chi ha salvato
+// per ultimo. Sostituirli avrebbe rotto la sincronizzazione.
+function ymdLoc(x){
+  const d=(x==null)?new Date():(x instanceof Date?x:new Date(x));
+  if(isNaN(d.getTime())) return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function today(){return ymdLoc();}
+
+// P141 — aritmetica di CALENDARIO pura, non di orologio. La versione vecchia
+// (`new Date(s)` + `setDate`) sbagliava di un giorno ogni volta che l'intervallo
+// scavalcava il cambio dell'ora legale: addDays('2026-03-25',7) rispondeva
+// 31/03 invece di 01/04. Difetto silenzioso e STAGIONALE — ogni anno, per le
+// settimane a cavallo di fine marzo, tutte le tappe automatiche e le date del
+// piano uscivano un giorno prima. Qui non c'è più nessun fuso di mezzo.
+function addDays(s,d){
+  const p=String(s||'').slice(0,10).split('-');
+  if(p.length!==3) return '';
+  const dt=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+  if(isNaN(dt.getTime())) return '';
+  dt.setUTCDate(dt.getUTCDate()+(+d||0));
+  return dt.toISOString().slice(0,10); /* UTC-VOLUTO: la data nasce e resta in UTC, nessun orologio locale di mezzo */
+}
 function fData(s){if(!s)return'—';return new Date(s).toLocaleDateString('it-IT');}
 function fEur(n){return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n||0);}
 
@@ -6525,12 +6561,8 @@ function _percorsoGet(p){
   return {inizio: pc.inizio, fasi: fasi};
 }
 
-// Data → "YYYY-MM-DD" in ora LOCALE (mai toISOString: è UTC e in Italia
-// sposterebbe la mezzanotte al giorno prima — date delle fasi tutte scalate).
-function _percorsoIsoLocal(t){
-  const d=new Date(t);
-  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-}
+// P141 — qui c'era una SECONDA copia della funzione data-locale (nata con
+// P118). Rimossa: ora ce n'è una sola, in cima al file.
 
 // Fasi → intervalli con date concrete [{tipo,pct,settimane,dal,al}], consecutive da "inizio".
 function _percorsoIntervalli(percorso){
@@ -6539,7 +6571,7 @@ function _percorsoIntervalli(percorso){
   (percorso.fasi||[]).forEach(function(f){
     const dur=(+f.settimane)*7*864e5;
     out.push({tipo:f.tipo, pct:+f.pct, settimane:+f.settimane,
-      dal:_percorsoIsoLocal(t), al:_percorsoIsoLocal(t+dur)});
+      dal:ymdLoc(t), al:ymdLoc(t+dur)});
     t+=dur;
   });
   return out;
@@ -6603,14 +6635,14 @@ function _percorsoProiezione(p){
   let kg=+start.peso, giorno=0;
   const punti=[{data:start.data, kg:+kg.toFixed(2), lo:+kg.toFixed(2), hi:+kg.toFixed(2)}];
   while(d<tFine && giorno<730){                    // guardia: mai oltre 2 anni
-    const fase=_percorsoFaseAt(percorso, _percorsoIsoLocal(d));
+    const fase=_percorsoFaseAt(percorso, ymdLoc(d));
     const pct=fase?fase.pct:0;                     // fuori fase (buco teorico): mantieni
     const intake=tdeeStim*(1+pct/100);
     kg += (intake-tdeeRef)/7700;
     d+=dayMs; giorno++;
     if(giorno%7===0 || d>=tFine){
       const spread=0.25+giorno*spreadDay;
-      punti.push({data:_percorsoIsoLocal(d), kg:+kg.toFixed(2), lo:+(kg-spread).toFixed(2), hi:+(kg+spread).toFixed(2)});
+      punti.push({data:ymdLoc(d), kg:+kg.toFixed(2), lo:+(kg-spread).toFixed(2), hi:+(kg+spread).toFixed(2)});
     }
   }
   // intervallo di raggiungimento obiettivo (se pesoTarget impostato):
@@ -6656,7 +6688,7 @@ function _percorsoDataBreve(iso){
 //    di calcolo [dal..al], null se non calcolabile.
 function _percorsoSerieEnergia(p, t0, t1){
   const out={intake:[], tdee:[], oss:null};
-  const oggiMs=new Date(_percorsoIsoLocal(Date.now())+"T00:00:00").getTime();
+  const oggiMs=new Date(ymdLoc(Date.now())+"T00:00:00").getTime();
   const finePassato=Math.min(oggiMs, t1);
   const ct=calcolaTDEE(p);
   const slot=(p&&p.macrosStorico||[]).filter(function(sl){ return sl && sl.kcal>0 && sl.timestamp; })
@@ -6784,7 +6816,7 @@ function percorsoVistaPreset(pazId, modo){
 function _percorsoPaz(pazId){ return (db.pazienti||[]).find(function(x){return x.id===pazId;}); }
 function percorsoInit(pazId){
   const p=_percorsoPaz(pazId); if(!p) return;
-  const oggi=_percorsoIsoLocal(Date.now());
+  const oggi=ymdLoc(Date.now());
   p.percorso={inizio:oggi, fasi:[{tipo:"deficit", settimane:10, pct:_PERCORSO_TIPI.deficit.pctDefault}]};
   save(p.id); renderPdPercorso(p);
 }
@@ -6954,7 +6986,7 @@ function percorsoGeneraDaModello(pazId){
   if(p.percorso && p.percorso.fasi && p.percorso.fasi.length){
     if(!confirm("Esiste già un percorso con "+p.percorso.fasi.length+" fasi.\n\nLe sostituisco con le "+g.fasi.length+" fasi del modello \""+_PERCORSO_MODELLI[modello].label+"\"?\n(La data di inizio resta invariata. Le fasi attuali andranno perse.)")) return;
   }
-  const inizio=(p.percorso && p.percorso.inizio) ? p.percorso.inizio : _percorsoIsoLocal(Date.now());
+  const inizio=(p.percorso && p.percorso.inizio) ? p.percorso.inizio : ymdLoc(Date.now());
   p.percorso={inizio:inizio, fasi:g.fasi};
   window._percorsoGenNote={pazId:p.id, note:g.note, modello:_PERCORSO_MODELLI[modello].label, stima:g.stima||null};
   save(p.id); renderPdPercorso(p);
@@ -6971,7 +7003,7 @@ function _percorsoShiftGiorni(p){
   const percorso=_percorsoGet(p);
   if(!percorso) return null;
   const serie=_serieePesoOss(p);
-  const oggi=_percorsoIsoLocal(Date.now());
+  const oggi=ymdLoc(Date.now());
   let ancora=percorso.inizio;
   if(serie.length && serie[serie.length-1].data>ancora) ancora=serie[serie.length-1].data;
   if(ancora>=oggi) return 0;
@@ -6985,7 +7017,7 @@ function percorsoRiallinea(pazId){
   const sett=Math.round(g/7*10)/10;
   if(!confirm("Sposto tutto il piano avanti di "+g+" giorni (~"+sett+" settimane)?\n\nLe fasi restano identiche e riprendono da dove il percorso si era fermato (ultima pesata registrata). Nessun dato viene toccato.")) return;
   const t=new Date(p.percorso.inizio+"T00:00:00").getTime()+g*864e5;
-  p.percorso.inizio=_percorsoIsoLocal(t);
+  p.percorso.inizio=ymdLoc(t);
   save(p.id); renderPdPercorso(p);
   notif("⏩ Piano riallineato: le fasi ora partono dal "+p.percorso.inizio);
 }
@@ -7113,7 +7145,7 @@ function traguardoAdd(pazId, tipo, preset){
   const t={id:(typeof uid==="function"?uid():"t"+lista.length+"_"+tipo),
            tipo:tipo, etichetta:meta.label, valore:null, unita:meta.unita,
            entro:"", faseIdx:null, esame:"", partenza:null,
-           stato:"aperto", nota:"", creato:_percorsoIsoLocal(Date.now())};
+           stato:"aperto", nota:"", creato:ymdLoc(Date.now())};
   if(tipo==="comportamento" && preset){
     t.etichetta=preset.etichetta; t.valore=preset.valore; t.unita=preset.unita;
   }
@@ -7152,7 +7184,7 @@ function traguardoSegna(pazId, id, stato){
   t.stato = (t.stato===stato) ? "aperto" : stato;   // ri-cliccare annulla
   if(t.stato!=="aperto"){
     const a=_traguardoValoreAttuale(p,t);
-    t.esito={data:_percorsoIsoLocal(Date.now()), valore:a?a.valore:null};
+    t.esito={data:ymdLoc(Date.now()), valore:a?a.valore:null};
   } else t.esito=null;
   save(p.id); renderPdPercorso(p);
 }
@@ -7206,7 +7238,7 @@ function percorsoChiudiFase(pazId, i){
   const mis=_traguardoMisura(p);
   const serie=_serieePesoOss(p);
   f.stato="chiusa";
-  f.esito={data:_percorsoIsoLocal(Date.now()),
+  f.esito={data:ymdLoc(Date.now()),
            peso: serie.length?+serie[serie.length-1].peso:(mis?mis.peso:null),
            pctGrasso: mis?mis.pg:null,
            massaMagra: mis?mis.m:null};
@@ -7360,7 +7392,7 @@ function _percorsoVittorie(p){
 function _percorsoNascondiPeso(p){
   const percorso=_percorsoGet(p);
   if(!percorso) return false;
-  const f=_percorsoFaseAt(percorso, _percorsoIsoLocal(Date.now()));
+  const f=_percorsoFaseAt(percorso, ymdLoc(Date.now()));
   return !!(f && f.tipo==="surplus");
 }
 
@@ -7371,7 +7403,7 @@ function _percorsoNascondiPeso(p){
 function _traguardoFaseCorrente(p){
   const percorso=_percorsoGet(p);
   if(!percorso||!percorso.fasi.length) return null;
-  const oggi=_percorsoIsoLocal(Date.now());
+  const oggi=ymdLoc(Date.now());
   const f=_percorsoFaseAt(percorso, oggi);
   if(!f) return {fuoriFase:true};
   const ints=_percorsoIntervalli(percorso);
@@ -7520,7 +7552,7 @@ function _percorsoChartSvg(p){
   const projOk=layers.proiezione && !!(proj && proj.ok && proj.punti.length>1);
   const cons = layers.consuntivo ? _percorsoConsuntivo(p) : {ok:false};  // P115 Tappa 5 — oggi quasi sempre ok:false
   const hasConsuntivo = !!(cons && cons.ok);
-  const oggi=_percorsoIsoLocal(Date.now());
+  const oggi=ymdLoc(Date.now());
   // dominio temporale: dal min(inizio percorso, prima pesata) al max(fine percorso, ultima pesata, oggi)
   const dParse=function(iso){ return new Date(iso+"T00:00:00").getTime(); };
   let t0=Infinity, t1=-Infinity;
@@ -7702,7 +7734,7 @@ function renderPdPercorso(p){
   const box=document.getElementById("pd-percorso");
   if(!box) return;
   const percorso=_percorsoGet(p);
-  const oggi=_percorsoIsoLocal(Date.now());
+  const oggi=ymdLoc(Date.now());
   let html='<div class="card"><div class="card-hd"><h3>📈 Percorso — periodizzazione nel tempo</h3></div><div class="card-bd">';
   if(!percorso){
     html+='<div style="font-size:.8rem;color:var(--text2);margin-bottom:.7rem">Qui pianifichi le <strong>fasi</strong> del percorso (deficit → mantenimento → …) e vedi il peso reale muoversi dentro le fasi. Le fasi sono consecutive: decidi la data di inizio e la durata di ciascuna.</div>'
@@ -9858,7 +9890,7 @@ async function _materialeUpload(doc, p, bucket){
   let blob;
   try{ blob=doc.output('blob'); }catch(e){ return {err:'PDF non generato'}; }
   const rnd=(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).slice(0,18);
-  const path=encodeURIComponent(p.id||'paz')+'/'+new Date().toISOString().slice(0,10)+'-'+rnd+'.pdf';
+  const path=encodeURIComponent(p.id||'paz')+'/'+today()+'-'+rnd+'.pdf'; // P141
   let h, autenticato=false;
   try{
     h=Object.assign({}, supaHeaders());
@@ -10014,7 +10046,7 @@ function _inviiRegistra(p, voce){
   if(!p) return null;
   if(!Array.isArray(p.invii)) p.invii=[];
   const v={
-    data:new Date().toISOString().slice(0,10),
+    data:today(), // P141 — un invio fatto all'una di notte restava datato IERI, per sempre
     tipo:voce.tipo||'generico',
     titolo:voce.titolo||'',
     url:voce.url||'',
@@ -10353,7 +10385,7 @@ function _comTemplatesTutti(){
 // calendario (visita, tappe dateCalendario, eventi manuali) via getEventi().
 function _comProssimoApp(p){
   if(!p||typeof getEventi!=='function') return null;
-  const oggi=(typeof today==='function')?today():new Date().toISOString().slice(0,10);
+  const oggi=today(); // P141
   let best=null;
   getEventi().forEach(function(e){
     if(e.pazId!==p.id||!e.data||e.data<oggi) return;
@@ -12692,7 +12724,9 @@ function _sabatiPeriodo(p){
   var fine=new Date((p.controlloData||addDays(p.inizioAlim,28))+'T00:00:00Z');
   while(d.getUTCDay()!==6){ d.setUTCDate(d.getUTCDate()+1); }   // 6 = sabato
   var guard=0;
-  while(d.getTime()<=fine.getTime() && guard<26){ out.push(d.toISOString().slice(0,10)); d.setUTCDate(d.getUTCDate()+7); guard++; }
+  // P141 — qui toISOString è CORRETTO: `d` è nato da una data-stringa letta come
+  // UTC e avanza con setUTCDate, quindi non c'è nessun orologio locale di mezzo.
+  while(d.getTime()<=fine.getTime() && guard<26){ out.push(d.toISOString().slice(0,10)); d.setUTCDate(d.getUTCDate()+7); guard++; } /* UTC-VOLUTO: seme letto come UTC, avanzamento con setUTCDate */
   return out;
 }
 // kcal stimate di una scelta (riusa la tabella KCAL_WEEKEND, match parziale sul nome)
@@ -14898,7 +14932,7 @@ function _traguardoScrivi(p, dati){
   const o=p.obiettivoPercorso;
   if(!Array.isArray(o.storico)) o.storico=[];
   const prec=(o.clinico&&typeof o.clinico==="object")?o.clinico:{};
-  const oggi=(typeof _percorsoIsoLocal==="function")?_percorsoIsoLocal(Date.now()):new Date().toISOString().slice(0,10);
+  const oggi=ymdLoc(); // P141
   const num=function(v){ const n=parseFloat(v); return isNaN(n)?null:n; };
   const nuovo={
     metodo: dati.metodo||"pctGrasso",
@@ -14986,7 +15020,7 @@ function _obiettivoPazienteDaForm(pd){
   const stessa = !!prec && ["categoria","motivo","pesoAtteso","scadenzaPersonale","eventoScadenza","importanza","fiducia"]
     .every(function(k){ return String(prec[k]==null?"":prec[k])===String(nuovo[k]==null?"":nuovo[k]); });
   nuovo.data = (stessa && prec.data) ? prec.data
-    : ((typeof _percorsoIsoLocal==="function")?_percorsoIsoLocal(Date.now()):new Date().toISOString().slice(0,10));
+    : ymdLoc(); // P141
   pd.obiettivoPercorso.paziente = nuovo;
 }
 
@@ -15097,7 +15131,7 @@ function _stradaCalcola(p, r, pct, tdee){
   if(!(kgSett>0)) return null;
   const settimane=+(Math.abs(g.kg)/kgSett).toFixed(1);
   const giorni=Math.round(settimane*7);
-  const arrivo=_percorsoIsoLocal(Date.now()+giorni*864e5);
+  const arrivo=ymdLoc(Date.now()+giorni*864e5);
   const avvisi=[];
   // ritmo: l'1% del peso corporeo a settimana è il tetto abituale
   const pesoAtt=r.misura.peso;
@@ -15117,7 +15151,7 @@ function _stradaCalcola(p, r, pct, tdee){
 // Tappa 2): la % di grasso raggiunta a quella data con quel ritmo.
 function _stradaAllaScadenza(r, strada, scadenzaISO){
   if(!r||!r.ok||!strada||!scadenzaISO) return null;
-  const oggi=new Date(_percorsoIsoLocal(Date.now())+"T00:00:00").getTime();
+  const oggi=new Date(ymdLoc(Date.now())+"T00:00:00").getTime();
   const t=new Date(scadenzaISO+"T00:00:00").getTime();
   if(isNaN(t)||t<=oggi) return null;
   const sett=(t-oggi)/864e5/7;
@@ -15300,7 +15334,7 @@ function _verificaControllo(p, r){
     const g=_traguardoGrassoDaTogliere(rr);
     if(g && g.kg>0.05){
       const sett=+(g.kg/recente.grassoSett).toFixed(1);
-      const arrivo=_percorsoIsoLocal(Date.now()+Math.round(sett*7)*864e5);
+      const arrivo=ymdLoc(Date.now()+Math.round(sett*7)*864e5);
       residuo={kgGrasso:g.kg, settimane:sett, arrivo:arrivo, pctTarget:rr.pctTarget};
       const sc=(p&&p.obiettivoPercorso&&p.obiettivoPercorso.paziente)?p.obiettivoPercorso.paziente:null;
       if(sc && sc.scadenzaPersonale){
@@ -20022,7 +20056,7 @@ function _aiPronto(){
 // Il log non deve MAI rompere la chiamata: tutto in try/catch silenzioso.
 function _aiLogUsage(tipo, model, usage){
   try{
-    const day = new Date().toISOString().slice(0,10);
+    const day = today(); // P141
     const store = JSON.parse(localStorage.getItem('aiUsage')||'{}');
     if(!store[day]) store[day] = {};
     const t = tipo || 'altro';
@@ -26825,11 +26859,8 @@ function renderCalMonth(anno,mese,tutti,giorni){
   document.getElementById('cal-days-names').innerHTML=giorni.map(g=>`<div class="cal-dn">${g}</div>`).join('');
 }
 
-// Data locale in formato YYYY-MM-DD. NON usare toISOString() qui: converte in
-// UTC, e in Italia fra mezzanotte e le 2:00 restituirebbe il giorno prima.
-function _calYmd(d){
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
+// P141 — qui c'era una TERZA copia della stessa funzione (scritta il 30 lug).
+// Rimossa: vedi ymdLoc() in cima al file.
 
 function renderCalWeek(tutti,giorni){
   const d=new Date(calDate);d.setDate(d.getDate()-((d.getDay()+6)%7));
@@ -26843,7 +26874,7 @@ function renderCalWeek(tutti,giorni){
   html+='<div class="wg-time" style="font-size:.58rem;line-height:1.15">senza<br>orario</div>';
   for(let i=0;i<7;i++){
     const dd=new Date(d);dd.setDate(d.getDate()+i);
-    const ds=_calYmd(dd);
+    const ds=ymdLoc(dd);
     const evNo=tutti.filter(e=>e.data===ds&&!e.ora);
     html+=`<div class="wg-cell" style="background:var(--s2)">${evNo.map(e=>`<div class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.58rem" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">${e.pazNome?e.pazNome.split(' ')[0]:e.tipo}</div>`).join('')}</div>`;
   }
@@ -26851,7 +26882,7 @@ function renderCalWeek(tutti,giorni){
     html+=`<div class="wg-time">${h}:00</div>`;
     for(let i=0;i<7;i++){
       const dd=new Date(d);dd.setDate(d.getDate()+i);
-      const ds=_calYmd(dd);
+      const ds=ymdLoc(dd);
       const evH=tutti.filter(e=>e.data===ds&&(e.ora||'').startsWith(String(h).padStart(2,'0')));
       html+=`<div class="wg-cell">${evH.map(e=>`<div class="cal-ev ${EV_TYPES[e.tipo]?.cls||'ev-altro'}" style="font-size:.58rem" onclick="openEvDetail('${e.pazId||''}','${e.tipo}','${e.id||''}')">${e.pazNome?e.pazNome.split(' ')[0]:e.tipo}</div>`).join('')}</div>`;
     }
@@ -26865,8 +26896,8 @@ function renderCalWeek(tutti,giorni){
 // invece dei promemoria personali in localStorage. Prima era una lista piatta
 // nemmeno ordinata per ora: usciva nell'ordine di produzione di getEventi().
 function renderCalDay(tutti){
-  const ds=_calYmd(calDate);
-  const oggiStr=_calYmd(new Date());
+  const ds=ymdLoc(calDate);
+  const oggiStr=ymdLoc(new Date());
   const evD=tutti.filter(e=>e.data===ds);
   const senzaOra=evD.filter(e=>!e.ora);
   const conOra=evD.filter(e=>e.ora).sort((a,b)=>String(a.ora).localeCompare(String(b.ora)));
@@ -27247,17 +27278,18 @@ function renderEntrate(){
   const periodo=document.getElementById('f-entr-periodo').value;
   const oggi=new Date();
   let list=[...db.entrate].sort((a,b)=>b.data.localeCompare(a.data));
-  if(periodo==='settimana'){const d=new Date();d.setDate(d.getDate()-7);list=list.filter(e=>e.data>=d.toISOString().slice(0,10));}
-  else if(periodo==='mese'){const m=oggi.toISOString().slice(0,7);list=list.filter(e=>e.data.startsWith(m));}
+  if(periodo==='settimana'){const lim=addDays(today(),-7);list=list.filter(e=>e.data>=lim);} // P141
+  else if(periodo==='mese'){const m=today().slice(0,7);list=list.filter(e=>e.data.startsWith(m));} // P141
   else if(periodo==='anno'){list=list.filter(e=>e.data.startsWith(String(oggi.getFullYear())));}
   const tot=list.reduce((s,e)=>s+(e.importo||0),0);
-  const settTot=db.entrate.filter(e=>{const d=new Date();d.setDate(d.getDate()-7);return e.data>=d.toISOString().slice(0,10);}).reduce((s,e)=>s+(e.importo||0),0);
-  const mesTot=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))).reduce((s,e)=>s+(e.importo||0),0);
+  const _lim7=addDays(today(),-7), _mese=today().slice(0,7); // P141
+  const settTot=db.entrate.filter(e=>e.data>=_lim7).reduce((s,e)=>s+(e.importo||0),0);
+  const mesTot=db.entrate.filter(e=>e.data.startsWith(_mese)).reduce((s,e)=>s+(e.importo||0),0);
   const annoTot=db.entrate.filter(e=>e.data.startsWith(String(oggi.getFullYear()))).reduce((s,e)=>s+(e.importo||0),0);
 
   // KPI separati per studio
-  const magicMese=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))&&e.studio==='magic').reduce((s,e)=>s+(e.importo||0),0);
-  const curaeMese=db.entrate.filter(e=>e.data.startsWith(oggi.toISOString().slice(0,7))&&e.studio==='curae').reduce((s,e)=>s+(e.importo||0),0);
+  const magicMese=db.entrate.filter(e=>e.data.startsWith(_mese)&&e.studio==='magic').reduce((s,e)=>s+(e.importo||0),0);
+  const curaeMese=db.entrate.filter(e=>e.data.startsWith(_mese)&&e.studio==='curae').reduce((s,e)=>s+(e.importo||0),0);
 
   document.getElementById('entrate-kpi').innerHTML=`
     <div class="pd-stat"><div class="pd-stat-lbl">Settimana</div><div class="pd-stat-val" style="color:var(--teal)">${fEur(settTot)}</div></div>
@@ -28077,11 +28109,11 @@ async function openNuovoConcetto() {
 
 function renderDashboard(){
   const oggi = new Date();
-  const oggiStr = oggi.toISOString().split('T')[0];
+  const oggiStr = ymdLoc(oggi); // P141
   const startSett = new Date(oggi); startSett.setDate(oggi.getDate()-oggi.getDay()+1);
   const endSett = new Date(startSett); endSett.setDate(startSett.getDate()+6);
-  const startSettStr = startSett.toISOString().split('T')[0];
-  const endSettStr = endSett.toISOString().split('T')[0];
+  const startSettStr = ymdLoc(startSett); // P141
+  const endSettStr = ymdLoc(endSett);
   const mese = oggi.getMonth(); const anno = oggi.getFullYear();
 
   const setEl=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
