@@ -10,6 +10,60 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 — P142: IL PAZIENTE NASCE ALLA TELEFONATA. Baseline b37e420.
+
+IL NODO. La storia di un paziente comincia quando ti chiama, non quando entra
+in studio: e' li' che va mandato il messaggio di preparazione alla
+bioimpedenziometria — l'evento zero. Ma creare la scheda subito SPORCAVA
+l'elenco, perche' non tutti quelli che prenotano poi vengono. Fabrizio doveva
+scegliere fra perdere la storia e riempire la lista di nomi mai visti.
+
+COSA C'ERA GIA' (verificato nel codice, non nella scheda): i template
+prep_uomo/prep_donna, il motore d'invio col registro p.invii, e — da ieri —
+l'appuntamento con l'ORA (P140), quindi {appuntamento} esce completo. Mancava
+solo il flusso attorno. Vale la pena ripeterlo: **prima di implementare quello
+che una scheda descrive, si guarda nel codice cosa esiste gia'** (lezione del
+30 lug, ancora valida).
+
+LE TRE REGOLE, e il perche' di ciascuna.
+1. NASCE DA SE'. Un paziente NUOVO con la prima visita in una data FUTURA nasce
+   'prenotato'. Zero campi in piu', zero gesti in piu'. Se la visita e' oggi
+   (il paziente e' gia' davanti) nasce attivo. Scelta di Fabrizio fra tre
+   opzioni: la tendina esplicita e' stata scartata perche' avrebbe rimesso un
+   campo in una scheda appena alleggerita da P140 T2.
+2. SI SPEGNE DA SE'. Alla prima misurazione InBody il paziente torna attivo:
+   averlo misurato E' la prova che e' venuto. **Un cambio di stato che dipende
+   dalla memoria di qualcuno e' un cambio di stato che prima o poi non
+   avviene.** Piu' una via d'uscita manuale ("✓ E' arrivato") per chi viene e
+   non viene misurato — senza, resterebbe in «In arrivo» per sempre, e una
+   vista che accumula scarti smette di essere guardata. In UN SENSO SOLO:
+   nessun bottone per rispedire qualcuno fra i prenotati, perche' un campo che
+   si gira in due sensi e' un campo che prima o poi qualcuno gira per sbaglio.
+3. STANNO FUORI DAI CONTI E DAGLI AVVISI. Elenco normale, KPI "pazienti",
+   scadenze dashboard e menu del generatore di piani: tutti escludono i
+   prenotati. Senza, ogni persona che telefona sarebbe comparsa il giorno dopo
+   come "⚖️ InBody da fare" e come "👻 Paziente sparito". Veri entrambi, inutili
+   entrambi: non e' sparito, deve ancora arrivare. **Un avviso che ha sempre
+   ragione smette di essere letto.**
+
+GLI ESISTENTI NON VENGONO TOCCATI (decisione di Fabrizio). Un paziente vecchio
+senza misurazioni potrebbe essere un no-show o semplicemente uno mai misurato:
+non e' distinguibile, e marcarlo sarebbe inventare un fatto. La regola vale
+solo da adesso in avanti — che e' anche la natura del dato sul no-show: o lo
+registri da quando lo accendi, o quel numero non esiste.
+
+L'ETICHETTA CHE DICE LA COSA UTILE. Un prenotato non ha un piano, ma scrivere
+"Nessun piano" sarebbe vero e inutile: l'etichetta dice «📅 Prenotato · data».
+E se il giorno e' passato ed e' ancora prenotato diventa rossa: «Non
+presentato? 27/07». Quello e' il dato grezzo del tasso di no-show, visibile
+senza costruire nessuna statistica.
+
+COLLAUDO: 7 test nuovi, suite 445/445, node --check, INDEX rigenerato, e le due
+viste dell'elenco GUARDATE a video (P145) con pazienti finti — normale: solo
+chi e' gia' stato in studio; «In arrivo»: i tre prenotati, con quello scaduto
+in rosso. Contatore: "2 pazienti · 3 in arrivo".
+
+
 31 LUGLIO 2026 — P141: "CHE GIORNO E'" SI CHIEDE ALL'OROLOGIO GIUSTO.
 Baseline 696e994.
 

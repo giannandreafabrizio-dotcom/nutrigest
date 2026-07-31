@@ -401,17 +401,19 @@ SMOOTHIE BOWL: da valutare quando si decide di inserirle
 
 # PRIORITÀ 3 — Contenuti e prodotto
 
-### P142 — Flusso di prenotazione: il paziente nasce alla telefonata
+### P142 — Flusso di prenotazione: il paziente nasce alla telefonata ✅ CHIUSA 31 luglio 2026
 **LA RICHIESTA (Fabrizio, 30 lug 2026):** quando un nuovo paziente chiama per fissare la prima visita, creare subito il profilo e poter mandare, nei giorni precedenti, il messaggio con le istruzioni per prepararsi alla bioimpedenziometria.
-**COSA ESISTE GIÀ (verificato, non da rifare):** il motore di invio `inviaMateriale`, il registro `p.invii[]` e la tab "📨 Comunicazione" con i template variabilizzati sono in produzione dal 28 lug (P87 CHIUSA). I due template `prep_uomo` / `prep_donna` sono stati aggiunti il 30 lug. **Il "tasto" chiesto da Fabrizio quindi c'è già:** manca il flusso attorno.
-**COSA MANCA DAVVERO:**
-1. `p.stato = 'prenotato'` — oggi il campo `stato` esiste ma conosce solo `'archiviato'`. Serve per non sporcare l'elenco pazienti con i no-show. Elenco filtrato per default, più una vista "📅 In arrivo".
-2. Il passaggio automatico `prenotato → attivo` alla prima misurazione registrata.
-3. L'appuntamento con ORARIO — **fatto: P140 chiusa il 31 lug 2026.** L'ora si mette dalla scheda (campo accanto alla data) o dalla finestra evento, e `{appuntamento}` esce completo. Questa voce non è più bloccata.
-**BONUS NON BANALE:** dopo qualche mese, `p.stato` dà il tasso di no-show, oggi non misurabile.
-**DECISIONE PRESA:** il profilo si crea alla telefonata, NON si costruisce un generatore di messaggi svincolato dal profilo. Motivo: i dati non si retrofittano, le viste sì — il messaggio di preparazione è l'evento zero della storia del paziente e mandarlo fuori dal sistema lo perde per sempre (stesso principio che ha guidato la P87).
+**IL NODO:** creare la scheda subito **sporcava l'elenco**, perché non tutti quelli che prenotano poi vengono. Bisognava scegliere fra perdere la storia e riempire la lista di nomi mai visti.
+**COSA ESISTEVA GIÀ (verificato nel codice):** template `prep_uomo`/`prep_donna`, motore d'invio con registro `p.invii`, e l'appuntamento con l'ORA da P140 — quindi `{appuntamento}` esce completo. Mancava solo il flusso attorno.
+**LE TRE REGOLE:**
+1. **Nasce da sé.** Paziente NUOVO con la prima visita in una data FUTURA → `stato='prenotato'`. Zero campi in più. Se la visita è oggi (paziente già davanti) nasce attivo. La tendina esplicita è stata scartata: avrebbe rimesso un campo in una scheda appena alleggerita da P140 T2.
+2. **Si spegne da sé** alla prima misurazione InBody: averlo misurato *è* la prova che è venuto. **Un cambio di stato che dipende dalla memoria di qualcuno è un cambio di stato che prima o poi non avviene.** Più una via d'uscita manuale («✓ È arrivato») per chi viene e non viene misurato — senza, resterebbe in «In arrivo» per sempre, e **una vista che accumula scarti smette di essere guardata**. In **un senso solo**: un campo che si gira in due sensi è un campo che prima o poi qualcuno gira per sbaglio.
+3. **Stanno fuori da conti e avvisi** (elenco, KPI, scadenze, menu del generatore). Senza, ogni telefonata sarebbe comparsa il giorno dopo come «InBody da fare» e «Paziente sparito»: veri entrambi, inutili entrambi. **Un avviso che ha sempre ragione smette di essere letto.**
+**GLI ESISTENTI NON SI TOCCANO** (decisione di Fabrizio): un paziente vecchio senza misurazioni potrebbe essere un no-show o uno mai misurato, non è distinguibile, e marcarlo sarebbe inventare un fatto.
+**L'ETICHETTA:** «📅 Prenotato · data», che diventa rossa «Non presentato? gg/mm» quando il giorno è passato. È il dato grezzo del **tasso di no-show** — oggi non misurabile — visibile senza costruire nessuna statistica. E non è retrofittabile: o lo registri da quando lo accendi, o quel numero non esiste.
+**COLLAUDO:** 7 test nuovi, suite 445/445, INDEX rigenerato, e le due viste dell'elenco **guardate a video** (P145).
 **FOCUS COMPONENTI COINVOLTI:** Frontend + campo additivo.
-**SCHEDA:** Stato: Da fare — **sbloccata** (P140 chiusa il 31 lug 2026) · Priorità: Media-Alta · C: 2 | I: 3 | R: 1 · Modello: **Opus High + Thinking ON** (tocca lo stato del paziente) · Autonomia: L1.
+**SCHEDA:** Stato: ✅ Chiusa 31 luglio 2026 · Priorità: era Media-Alta · C: 2 | I: 3 | R: 1 · Modello: Opus High · Autonomia: L1.
 
 ### P143 — Categorie configurabili al posto di quelle cablate
 **IL PROBLEMA:** l'agenda di dashboard aveva `AGENDA_CAT` con tre categorie scritte nel codice — Nutrizionista / Personale / **Vigile del fuoco** — cioè la vita di Fabrizio dentro un prodotto destinato ad altri nutrizionisti. L'agenda è stata rimossa il 30 lug 2026 e con essa il problema immediato, ma il tema resta: `EV_TYPES` (i tipi di evento del calendario) è anch'esso cablato, con etichette e colori fissi.

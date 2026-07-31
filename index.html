@@ -771,7 +771,7 @@ main{flex:1;overflow-y:auto;}
   </div>
   <div class="sbar" style="flex-wrap:wrap;gap:.5rem">
     <input type="text" id="s-paz" placeholder="🔍 Cerca paziente..." oninput="debounceRicerca()" style="flex:2;min-width:180px">
-    <select id="f-paz-stato" onchange="renderPaz()"><option value="">Tutti gli stati</option><option value="nessun-piano">Nessun piano</option><option value="in-corso">In corso</option><option value="completato">Completato</option><option value="archiviati">📦 Archiviati</option></select>
+    <select id="f-paz-stato" onchange="renderPaz()"><option value="">Tutti gli stati</option><option value="nessun-piano">Nessun piano</option><option value="in-corso">In corso</option><option value="completato">Completato</option><option value="in-arrivo">📅 In arrivo</option><option value="archiviati">📦 Archiviati</option></select>
     <select id="f-paz-regime" onchange="renderPaz()"><option value="">Tutti i regimi</option></select>
     <select id="f-paz-controllo" onchange="renderPaz()"><option value="">Qualsiasi controllo</option><option value="scaduto">Controllo scaduto</option><option value="settimana">Questa settimana</option><option value="senza">Senza data</option></select>
     <select id="sort-paz" onchange="renderPaz()"><option value="cognome">Cognome A→Z</option><option value="nome">Nome A→Z</option><option value="recenti">Più recenti</option></select>
@@ -5481,7 +5481,36 @@ function _pazUrgenzaControllo(p){
   if(diff<=7) return 'settimana';
   return 'futuro';
 }
+// ── P142 — la via d'uscita manuale ─────────────────────────────────────────
+// Il passaggio 'prenotato' → attivo di norma avviene da solo alla prima
+// misurazione. Ma un paziente può venire e non essere misurato (una consulenza,
+// una bilancia rotta): senza un modo esplicito di dire "è arrivato" resterebbe
+// in «In arrivo» per sempre, e una vista che accumula scarti smette di essere
+// guardata. Nessun bottone per il verso opposto: uno che è già stato in studio
+// non torna "prenotato", e un campo che si può girare in due sensi è un campo
+// che prima o poi qualcuno gira per sbaglio.
+function _pazBadgePrenotato(p){
+  const d=p.visitaData||'';
+  const tardi=d&&d<today();
+  return '<span class="tag '+(tardi?'tag-red':'tag-blue')+'">📅 '+(tardi?'Prenotato — non presentato?':'Prenotato')
+    +(d?' · '+fData(d):'')+'</span>'
+    +'<button class="btn btn-g btn-sm" style="margin-left:.3rem" onclick="pazSegnaArrivato(\''+p.id+'\')" title="Toglilo da «In arrivo»: da qui in poi è un paziente come gli altri">✓ È arrivato</button>';
+}
+async function pazSegnaArrivato(id){
+  const p=(db.pazienti||[]).find(x=>x&&x.id===id); if(!p) return;
+  p.stato='';
+  save(p.id); renderPaz(); openPaz(id); notif('✓ '+p.nome+' non è più in «In arrivo»');
+}
+
 function _pazStatoTagHtml(p){
+  // P142 — un prenotato non ha ancora un piano: dire "Nessun piano" sarebbe
+  // vero e inutile. Se il giorno è passato ed è ancora prenotato, quello è il
+  // fatto che interessa — ed è il dato grezzo del tasso di no-show.
+  if(p.stato==='prenotato'){
+    const d=p.visitaData||'';
+    if(d && d<today()) return '<span class="tag tag-red">📅 Non presentato? '+fData(d)+'</span>';
+    return '<span class="tag tag-blue">📅 Prenotato'+(d?' '+fData(d):'')+'</span>';
+  }
   const ini=p.inizioAlim;
   if(!ini) return '<span class="tag tag-orange">Nessun piano</span>';
   const diff=Math.round((new Date(today())-new Date(ini))/(864e5));
@@ -5515,15 +5544,20 @@ function renderPaz(){
     return (a.cognome||'').localeCompare(b.cognome||'');
   });
 
+  // P142 — l'elenco normale mostra chi è già stato in studio. I prenotati hanno
+  // la loro vista: così creare la scheda alla telefonata non sporca più la lista
+  // con nomi di persone che potrebbero non presentarsi mai.
   if(fStato==='archiviati') list=list.filter(p=>p.stato==='archiviato');
-  else list=list.filter(p=>p.stato!=='archiviato');
+  else if(fStato==='in-arrivo') list=list.filter(p=>p.stato==='prenotato');
+  else list=list.filter(p=>p.stato!=='archiviato'&&p.stato!=='prenotato');
   if(q) list=list.filter(p=>(p.nome+' '+p.cognome).toLowerCase().includes(q)||(p.tel||'').includes(q));
   if(fStato==='nessun-piano'||fStato==='in-corso'||fStato==='completato') list=list.filter(p=>_pazStatoPiano(p)===fStato);
   if(fRegime) list=list.filter(p=>p.regime===fRegime);
   if(fControllo) list=list.filter(p=>_pazUrgenzaControllo(p)===fControllo);
 
-  const attivi=tutti.filter(p=>p.stato!=='archiviato').length;
-  document.getElementById('paz-count').textContent=attivi+' pazienti';
+  const attivi=tutti.filter(p=>p.stato!=='archiviato'&&p.stato!=='prenotato').length;
+  const inArrivo=tutti.filter(p=>p.stato==='prenotato').length;
+  document.getElementById('paz-count').textContent=attivi+' pazienti'+(inArrivo?' · '+inArrivo+' in arrivo':'');
 
   // Sincronizza i pulsanti vista e la classe del contenitore anche al primo render
   document.querySelectorAll('.paz-view-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
@@ -6453,6 +6487,14 @@ function salvaPaz(){
     const idx=db.pazienti.findIndex(x=>x.id===editPazId);
     if(idx>=0){const _old=db.pazienti[idx];pd.id=editPazId;pd.inbody=_old.inbody||[];pd.note=_old.note||'';pd.noteClinica=_old.noteClinica||[];pd.analisiSangue=_old.analisiSangue||{};if(!pd.integratori||!pd.integratori.length)pd.integratori=_old.integratori||[];if(!pd.integraWant||!pd.integraWant.length)pd.integraWant=_old.integraWant||[];pd.regolePiano=_old.regolePiano||{};pd.macrosTarget=_old.macrosTarget||null;pd.macrosStorico=_old.macrosStorico||[];pd.ragionamentoClinico=_old.ragionamentoClinico||null;pd.rifCalcolo=_old.rifCalcolo||'auto';pd.alimenti=_old.alimenti||{};pd.regolaAttive=_old.regolaAttive||[];pd.routineGiornaliera=_old.routineGiornaliera||[];pd.pesiIntermedi=_old.pesiIntermedi||[];pd.aggiustamentiMacros=_old.aggiustamentiMacros||[];pd.ciclizzazione=_old.ciclizzazione||{attiva:false,kcalON:null,kcalOFF:null};pd.regime=_old.regime||'';pd.regimeOffsetPct=(_old.regimeOffsetPct!=null?_old.regimeOffsetPct:null);pd.regimeOffsetKcal=(_old.regimeOffsetKcal!=null?_old.regimeOffsetKcal:null);pd.strategia=_old.strategia||'standard';if(_old.bia&&!pd.bia)pd.bia=_old.bia;_pazPreservaCampi(pd,_old);db.pazienti[idx]=pd;}
   }else{
+    // ── P142 (31 lug 2026) — un paziente NUOVO con la prima visita in una data
+    // FUTURA non è ancora arrivato: nasce 'prenotato'. Zero campi in più, zero
+    // gesti in più. Se la visita è oggi (il paziente è già davanti) nasce
+    // attivo. La regola vale SOLO alla creazione: i pazienti già in archivio
+    // non vengono riclassificati — non si può sapere se uno senza misurazioni
+    // sia un no-show o semplicemente uno mai misurato, e classificarlo
+    // sarebbe inventare (stessa frase di P118 e della regola 11).
+    if(pd.visitaData && pd.visitaData > today()) pd.stato='prenotato';
     pd.id=uid();pd.inbody=[];pd.note='';pd.noteClinica=[];pd.analisiSangue={};pd.refertiSangue=[];pd.routineGiornaliera=[];pd.pesiIntermedi=[];pd.aggiustamentiMacros=[];pd.creato=today();db.pazienti.push(pd);
   }
   // P140 T2 — `_pazPreservaCampi` ricopia da _old ogni chiave che pd non ha
@@ -6503,7 +6545,8 @@ async function openPaz(id){
     <div style="font-size:.77rem;color:var(--text2)">${eta?eta+' anni · ':''}${(()=>{const ib=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;if(!ib||!ib.bmi)return '';const b=ib.bmi;const col=b<18.5?'#3498db':b<25?'#1D9E75':b<30?'#f39c12':'#e74c3c';return '<span style="font-size:.65rem;font-weight:700;color:#fff;background:'+col+';border-radius:4px;padding:1px 6px;margin-right:4px">BMI '+b+'</span>';})()} ${p.tel||''}${p.obiettivo?' · '+p.obiettivo:''}</div></div>
     <div style="display:flex;gap:.3rem;flex-wrap:wrap">
       ${p.allergie?`<span class="tag tag-red">⚠ ${p.allergie.substring(0,25)}</span>`:''}
-      ${p.inizioAlim?`<span class="tag tag-teal">Inizio: ${fData(p.inizioAlim)}</span>`:'<span class="tag tag-orange">Nessun piano</span>'}
+      ${p.stato==='prenotato'?_pazBadgePrenotato(p):''}
+      ${p.stato==='prenotato'?'':(p.inizioAlim?`<span class="tag tag-teal">Inizio: ${fData(p.inizioAlim)}</span>`:'<span class="tag tag-orange">Nessun piano</span>')}
       ${p.cheto==='si'?'<span class="tag tag-purple">🥑 Chetogenica</span>':''}
     </div></div>
     <div id="pd-fodmap-box" style="display:flex;align-items:center;flex-wrap:wrap;gap:.25rem">${_fodmapBottoneHtml(p)}`;
@@ -18481,7 +18524,7 @@ function apriPickerTemplate(){
 
 // Dalla libreria: scegli il paziente di destinazione, poi applica
 function _pickPaziente(cb){
-  var attivi=(db.pazienti||[]).filter(function(p){return p.stato!=='archiviato';}).slice().sort(function(a,b){return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''));});
+  var attivi=(db.pazienti||[]).filter(function(p){return p.stato!=='archiviato'&&p.stato!=='prenotato';}) // P142.slice().sort(function(a,b){return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''));});
   if(!attivi.length){notif('⚠ Nessun paziente disponibile');return;}
   var modal=document.createElement('div');
   modal.className='overlay open';
@@ -25695,6 +25738,11 @@ function salvaInbody(){
   // referti storici in qualsiasi ordine (anche dopo una BIA recente) non
   // falsa più TDEE, macro, contesto AI e grafici.
   _ibOrdinaPerData(p);
+  // P142 — averlo misurato È la prova che è venuto: il passaggio da 'prenotato'
+  // ad attivo non si chiede all'utente, si deduce dal fatto. Un cambio di stato
+  // che dipende dalla memoria di qualcuno è un cambio di stato che prima o poi
+  // non avviene.
+  if(p.stato==='prenotato'){ p.stato=''; notif('✓ '+p.nome+' è arrivato: non è più in «In arrivo»',3500); }
   save(p.id);closeM('mo-inbody');openPaz(currentPazId);notif(_sostituita?'✓ Misurazione del '+fData(ib.data)+' sostituita':'✓ Misurazione salvata!');
 }
 
@@ -28124,7 +28172,8 @@ function renderDashboard(){
   setEl('dash-date', GIORNI[oggi.getDay()]+', '+oggi.getDate()+' '+MESI[mese]+' '+anno);
 
   // KPI — pazienti attivi
-  const totPaz = db.pazienti.filter(p=>p.stato!=='archiviato').length;
+  // P142 — i prenotati non sono ancora pazienti: né nel conteggio né negli avvisi.
+  const totPaz = db.pazienti.filter(p=>p.stato!=='archiviato'&&p.stato!=='prenotato').length;
   const dtp=document.getElementById('dash-tot-paz');if(!dtp)return;
   dtp.textContent = totPaz;
   setEl('dash-sub-paz', totPaz===1?'paziente nel database':'pazienti nel database');
@@ -28233,7 +28282,11 @@ function renderScadenzeAlert() {
   const urgenti = [];   // rossi
   const attenzione = []; // arancioni/blu
 
-  db.pazienti.filter(p => p.stato !== 'archiviato').forEach(p => {
+  // P142 — i prenotati sono fuori dalle scadenze: senza questo, ogni persona che
+  // ti telefona comparirebbe il giorno dopo come "⚖️ InBody da fare" e come
+  // "👻 Paziente sparito". Veri entrambi, e inutili entrambi: non è sparito, deve
+  // ancora arrivare. Un avviso che ha sempre ragione smette di essere letto.
+  db.pazienti.filter(p => p.stato !== 'archiviato' && p.stato !== 'prenotato').forEach(p => {
     const nome = p.nome + ' ' + p.cognome;
     const nomeBreve = p.nome;
 

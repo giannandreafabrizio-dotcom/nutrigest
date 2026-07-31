@@ -1207,6 +1207,20 @@ getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiam
   24 test JSDOM in P78. Regola permanente: nessun nuovo punto del codice deve ricalcolare
   i target autonomamente — sempre getTargetAttivi.
 
+p.stato: '' (attivo) | 'prenotato' | 'archiviato'   // P142, 31 lug 2026
+  'prenotato' = ha fissato la prima visita ma non e' ancora venuto. NASCE da solo in
+  salvaPaz sul ramo del paziente NUOVO quando p.visitaData e' nel futuro; si SPEGNE da
+  solo in salvaInbody alla prima misurazione (averlo misurato e' la prova che e'
+  venuto), o a mano con pazSegnaArrivato() — in un senso solo, non esiste il ritorno.
+  I prenotati sono ESCLUSI da: elenco pazienti normale (hanno il filtro "📅 In
+  arrivo"), KPI "pazienti" di dashboard, renderScadenzeAlert, menu paziente del
+  generatore di piani. Senza queste esclusioni ogni telefonata diventava subito un
+  avviso "InBody da fare" e "Paziente sparito".
+  NESSUNA MIGRAZIONE: i pazienti gia' esistenti non vengono riclassificati — uno senza
+  misurazioni puo' essere un no-show o uno mai misurato, e non e' distinguibile.
+  _pazStatoTagHtml mostra "📅 Prenotato · data", che diventa rossa "Non presentato?"
+  quando la data e' passata: e' il dato grezzo del tasso di no-show.
+
 p.dateCalendario: DISMESSO il 31 lug 2026 (P140 T2). Conteneva cinque date tutte
   derivate. Le tappe di pianificazione si calcolano con _appTappe(p); prima visita e
   controllo sono appuntamenti e vivono in db.eventi (l'unico posto con il campo `ora`);
