@@ -278,11 +278,15 @@
 **FOCUS COMPONENTI COINVOLTI:** Frontend, `_ibGrQualita`, `_ibGrAdiposita`, `_ibTx`.
 **SCHEDA:** Stato: ✅ Chiusa 31 luglio 2026 · Priorità: era Bassa · C: 1 | I: 2 | R: 1 · Modello: Opus High · Autonomia: L1.
 
-### P144 — "Gestito" nelle scadenze dashboard vive in localStorage
-**IL PROBLEMA:** `segnaGestito()` scrive nella chiave `localStorage` `scadenze_gestite`, fuori da `db`. Stessa famiglia di difetto dell'agenda rimossa il 30 lug 2026 (3ª sessione): fuori dal backup JSON, non sincronizzato tra dispositivi. Se Fabrizio segna "gestito" 20 avvisi dal computer dello studio, sul telefono li rivede tutti.
-**LA SOLUZIONE:** spostare in un campo su `db` (es. `p._scadenzeGestite = {chiave: dataGestione}`, o un registro unico simile a `p.invii[]`). L'auto-scadenza a 14 giorni già presente va portata invariata.
+### P144 — "Gestito" nelle scadenze dashboard vive in localStorage ✅ CHIUSA 31 luglio 2026
+**IL PROBLEMA:** `segnaGestito()` scriveva nella chiave `localStorage` `scadenze_gestite`, fuori da `db`. Fuori dal backup JSON e non sincronizzato: venti avvisi segnati dal computer dello studio si rivedevano tutti sul telefono. Stessa famiglia dell'agenda rimossa il 30 lug — con la differenza che lì era codice morto, qui codice vivo.
+**LA CORREZIONE:** `p._scadenzeGestite = { tipo: 'YYYY-MM-DD' }`. Il "gestito" parla di UN paziente, quindi va dentro quel paziente: da lì viaggia già fra i dispositivi (P74 sincronizza il blob) ed è già nel backup. **Il dato va dove va la cosa di cui parla** — non serve inventargli un contenitore nuovo.
+**LA SCADENZA A 14 GIORNI SI APPLICA IN LETTURA** (`_scadGestiti`), non solo alla potatura in scrittura: se dipendesse dalla pulizia, un "gestito" vecchio sopravvissuto per qualunque motivo continuerebbe a nascondere un avviso vero. La potatura resta come igiene dei dati, non come regola.
+**LA MIGRAZIONE NON BUTTA NIENTE:** su un dispositivo dove la scheda di un paziente non è mai stata aperta (P74, righe leggere fuori da `db.pazienti`) la sua voce non è travasabile — cancellarla vorrebbe dire perdere un "gestito" dato davvero. Resta nel cassetto vecchio e migra al giro in cui la scheda arriva; il cassetto sparisce solo quando è vuoto per davvero. Se la voce esiste già nel paziente con data più recente, vince quella.
+**UN SOLO PUNTO DI CHIAMATA** (`renderScadenzeAlert`), non i tre canonici della regola 12: quelli servono quando i dati ARRIVANO da fuori, qui la sorgente è localStorage, che è del dispositivo e non viaggia. Dichiarato nel commento perché non sembri una dimenticanza.
+**COLLAUDO:** 7 test nuovi, suite 452/452.
 **FOCUS COMPONENTI COINVOLTI:** Struttura dati (additiva) + migrazione da localStorage.
-**SCHEDA:** Stato: Da fare · Priorità: Bassa (il difetto è reale ma non blocca nulla oggi) · C: 1 | I: 2 | R: 1 · Modello: Sonnet 4.6 Medium · Autonomia: L1.
+**SCHEDA:** Stato: ✅ Chiusa 31 luglio 2026 · Priorità: era Bassa · C: 1 | I: 2 | R: 1 · Modello: Opus High · Autonomia: L1.
 
 ### P140 — Appuntamenti: tripla fonte di verità, e solo una ha l'orario ✅ CHIUSA 31 luglio 2026
 **IL PROBLEMA:** `getEventi()` componeva gli eventi da TRE posti che descrivono lo stesso fatto — `p.visitaData`, `p.dateCalendario[primo|chiamata|sett2|sett3|controllo]` e `db.eventi` — ma **solo `db.eventi` ha il campo `ora`**. È F4 (doppia/tripla fonte) allo stato puro, ed è la causa RADICE dei due difetti riparati il 30 lug 2026 nelle viste Settimana e Giorno.

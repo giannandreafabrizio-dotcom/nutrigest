@@ -1135,68 +1135,71 @@ Righe 28183-28183
 ---
 
 ### DASHBOARD — home, scadenze/alert controlli in ritardo
-Righe 28295-28560
+Righe 28295-28620
 
 - `28295` — renderScadenzeAlert
-- `28541` — segnaGestito
-- `28560` — archiviaPaz
+- `28555` — _scadGestiti  (P144)
+- `28565` — _scadPota  (P144)
+- `28580` — _scadMigraDaLocalStorage  (P144)
+- `28603` — segnaGestito
+- `28620` — archiviaPaz
 
 ---
 
 ### PAZIENTI — archiviazione/ripristino/eliminazione
-Righe 28569-28644
+Righe 28629-28704
 
-- `28569` — ripristinaPaz
-- `28577` — eliminaPaz
-- `28622` — getDove
-- `28626` — setDove
-- `28644` — salvaCredenzialiPersistenti
+- `28629` — ripristinaPaz
+- `28637` — eliminaPaz
+- `28682` — getDove
+- `28686` — setDove
+- `28704` — salvaCredenzialiPersistenti
 
 ---
 
 ### AUTENTICAZIONE — login/signup/recovery, refresh token, sessione Supabase
-Righe 28649-29087
+Righe 28709-29147
 
-- `28649` — getCredenzialiPersistenti
-- `28662` — cancellaCredenzialiPersistenti
-- `28667` — rinnovaSessioneConRefreshToken
-- `28684` — getSessioneSalvata
-- `28703` — salvaSessione
-- `28713` — cancellaSessione
-- `28717` — eseguiLogin
-- `28764` — eseguiLogout
-- `28786` — mostraApp
-- `28791` — verificaSessioneEAvvia
-- `28819` — assicuraTokenValido
-- `28848` — _garantiscoSessionePerSync
-- `28860` — avviaRinnovoTokenPeriodico
-- `28864` — fermaRinnovoTokenPeriodico
-- `28873` — _authReset
-- `28878` — _authMostra
-- `28881` — mostraLogin
-- `28882` — mostraRegistrazione
-- `28883` — mostraRecupero
-- `28884` — mostraNuovaPassword
-- `28887` — eseguiRegistrazione
-- `28925` — eseguiRecuperoPassword
-- `28954` — eseguiNuovaPassword
-- `28988` — _parseHashParams
-- `28995` — _pulisciHash
-- `28999` — gestisciRitornoAuth
-- `29087` — renderPianoBox
+- `28709` — getCredenzialiPersistenti
+- `28722` — cancellaCredenzialiPersistenti
+- `28727` — rinnovaSessioneConRefreshToken
+- `28744` — getSessioneSalvata
+- `28763` — salvaSessione
+- `28773` — cancellaSessione
+- `28777` — eseguiLogin
+- `28824` — eseguiLogout
+- `28846` — mostraApp
+- `28851` — verificaSessioneEAvvia
+- `28879` — assicuraTokenValido
+- `28908` — _garantiscoSessionePerSync
+- `28920` — avviaRinnovoTokenPeriodico
+- `28924` — fermaRinnovoTokenPeriodico
+- `28933` — _authReset
+- `28938` — _authMostra
+- `28941` — mostraLogin
+- `28942` — mostraRegistrazione
+- `28943` — mostraRecupero
+- `28944` — mostraNuovaPassword
+- `28947` — eseguiRegistrazione
+- `28985` — eseguiRecuperoPassword
+- `29014` — eseguiNuovaPassword
+- `29048` — _parseHashParams
+- `29055` — _pulisciHash
+- `29059` — gestisciRitornoAuth
+- `29147` — renderPianoBox
 
 ---
 
 ### GENERATORE PIANI — rendering box piano, pannello scelta ricette, patch piano
-Righe 29159-29282
+Righe 29219-29342
 
-- `29159` — apriPannelloRicette
-- `29188` — chiudiPannelloRicette
-- `29196` — applicaRicettaPasto
-- `29232` — inizializzaP2
-- `29244` — deepClone
-- `29248` — applicaPatch
-- `29282` — _aggiornaLabelSalvaPiano
+- `29219` — apriPannelloRicette
+- `29248` — chiudiPannelloRicette
+- `29256` — applicaRicettaPasto
+- `29292` — inizializzaP2
+- `29304` — deepClone
+- `29308` — applicaPatch
+- `29342` — _aggiornaLabelSalvaPiano
 - `24992` — getHint
 - `24997` — validaInput
 - `25022` — attacca

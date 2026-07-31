@@ -1224,6 +1224,18 @@ getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiam
   24 test JSDOM in P78. Regola permanente: nessun nuovo punto del codice deve ricalcolare
   i target autonomamente — sempre getTargetAttivi.
 
+p._scadenzeGestite = { tipo: 'YYYY-MM-DD' }   // P144, 31 lug 2026
+  I "✓ Gestito" degli avvisi di dashboard. `tipo` e' la prima parte della chiave
+  dell'avviso (sparito | piano | inbody | dafissare); la chiave completa e'
+  'tipo_idPaziente' e l'id non contiene mai '_' (uid() = base36 + casuale), quindi
+  il primo '_' separa sempre. Prima stavano in localStorage `scadenze_gestite`:
+  fuori dal backup e non sincronizzati. Migrazione da quel cassetto in
+  _scadMigraDaLocalStorage, chiamata da renderScadenzeAlert (UN punto solo: la
+  sorgente e' locale al dispositivo, non entra da fuori); le voci di pazienti non
+  ancora scaricati restano nel cassetto e migrano quando la scheda arriva.
+  La scadenza a 14 giorni si applica in LETTURA (_scadGestiti), non solo in
+  potatura: un "gestito" vecchio non deve poter nascondere un avviso vero.
+
 p.stato: '' (attivo) | 'prenotato' | 'archiviato'   // P142, 31 lug 2026
   'prenotato' = ha fissato la prima visita ma non e' ancora venuto. NASCE da solo in
   salvaPaz sul ramo del paziente NUOVO quando p.visitaData e' nel futuro; si SPEGNE da

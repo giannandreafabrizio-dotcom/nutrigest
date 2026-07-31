@@ -10,6 +10,44 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 — P144: I "GESTITO" DELLE SCADENZE VANNO NEL PAZIENTE.
+Baseline 22b853e.
+
+IL DIFETTO. Il bottone "✓ Gestito" sotto ogni avviso di dashboard scriveva
+nella chiave localStorage `scadenze_gestite`: la memoria del SINGOLO browser.
+Tre conseguenze: (1) non si sincronizza — venti avvisi sistemati dal PC dello
+studio si rivedevano tutti e venti sul telefono, e viceversa; (2) e' fuori dal
+backup JSON, quindi cambiare computer o svuotare la cache li cancellava tutti
+insieme; (3) e' la stessa famiglia dell'agenda rimossa il 30 lug — dati fuori
+da `db`. La differenza e' che li' era codice morto, qui e' codice vivo.
+
+LA CORREZIONE. `p._scadenzeGestite = { tipo: 'YYYY-MM-DD' }`. Il "gestito"
+parla di UN paziente, quindi va dentro quel paziente: da li' viaggia gia' fra i
+dispositivi (P74 sincronizza il blob paziente) ed e' gia' dentro il backup.
+**Il dato va dove va la cosa di cui parla** — non serve inventargli un
+contenitore nuovo.
+
+DUE DETTAGLI CHE VALEVA LA PENA CURARE.
+1. LA SCADENZA A 14 GIORNI SI APPLICA IN LETTURA (`_scadGestiti`), non solo
+   alla potatura in scrittura. Se dipendesse dalla pulizia, un "gestito" vecchio
+   sopravvissuto per qualunque motivo continuerebbe a nascondere un avviso vero.
+   La potatura in scrittura resta, ma come igiene dei dati, non come regola.
+2. LA MIGRAZIONE NON BUTTA NIENTE. Su un dispositivo dove la scheda di un
+   paziente non e' mai stata aperta (P74: le righe leggere non stanno in
+   db.pazienti), la sua voce non e' travasabile — e cancellarla vorrebbe dire
+   perdere un "gestito" dato davvero. Resta nel cassetto vecchio e migra al giro
+   in cui la scheda arriva; il cassetto sparisce solo quando e' vuoto per
+   davvero. E se la stessa voce esiste gia' nel paziente con una data piu'
+   recente, vince quella recente.
+
+UN SOLO PUNTO DI CHIAMATA per la migrazione (renderScadenzeAlert), non i tre
+canonici della regola 12: quelli servono quando i dati ARRIVANO da fuori,
+mentre qui la sorgente e' localStorage, che e' di questo dispositivo e non
+viaggia. Dichiarato nel commento perche' non sembri una dimenticanza.
+
+COLLAUDO: 7 test nuovi, suite 452/452, node --check, INDEX rigenerato.
+
+
 31 LUGLIO 2026 — P146: LA RASSEGNA DEI GRAFICI ALLE LARGHEZZE VERE.
 Baseline 6c59b25.
 

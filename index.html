@@ -28300,9 +28300,18 @@ function renderScadenzeAlert() {
   const oggi = today();
   const msDay = 86400000;
 
-  // Recupera gestiti (archiviati manualmente dall'utente)
+  // P144 (31 lug 2026) — i "gestito" vivevano in localStorage, cioè nella
+  // memoria del singolo browser: fuori dal backup JSON e non sincronizzati.
+  // Venti avvisi sistemati dal PC dello studio si rivedevano tutti sul
+  // telefono. Ora stanno nel PAZIENTE (p._scadenzeGestite), che è già dentro il
+  // backup e già viaggia fra i dispositivi: il dato va dove va la cosa di cui
+  // parla. Stessa famiglia dell'agenda rimossa il 30 lug.
+  if (typeof _scadMigraDaLocalStorage === 'function') _scadMigraDaLocalStorage(db.pazienti);
   let gestiti = {};
-  try { gestiti = JSON.parse(localStorage.getItem('scadenze_gestite') || '{}'); } catch(e) {}
+  (db.pazienti || []).forEach(function (p) {
+    const g = _scadGestiti(p, oggi);
+    Object.keys(g).forEach(function (t) { gestiti[t + '_' + p.id] = g[t]; });
+  });
 
   const urgenti = [];   // rossi
   const attenzione = []; // arancioni/blu
@@ -28538,18 +28547,69 @@ function renderScadenzeAlert() {
   el.innerHTML = html;
 }
 
-function segnaGestito(key) {
-  let gestiti = {};
-  try { gestiti = JSON.parse(localStorage.getItem('scadenze_gestite') || '{}'); } catch(e) {}
-  gestiti[key] = today();
-  // Auto-scadenza "gestito" dopo 14 giorni
-  const oggi = today();
-  Object.keys(gestiti).forEach(k => {
-    if (gestiti[k] && Math.round((new Date(oggi) - new Date(gestiti[k])) / 86400000) > 14) {
-      delete gestiti[k];
-    }
+// ── P144 — i "gestito" delle scadenze, dentro il paziente ──────────────────
+// p._scadenzeGestite = { tipo: 'YYYY-MM-DD' }. La chiave usata dagli avvisi è
+// 'tipo_idPaziente' e l'id non contiene mai '_' (è uid(): base36 + casuale),
+// quindi il primo '_' separa sempre le due parti.
+const _SCAD_GIORNI = 14;
+function _scadGestiti(p, oggi) {
+  const g = (p && p._scadenzeGestite) || {};
+  const out = {};
+  Object.keys(g).forEach(function (t) {
+    const d = g[t];
+    if (d && Math.round((new Date(oggi) - new Date(d)) / 86400000) <= _SCAD_GIORNI) out[t] = d;
   });
-  localStorage.setItem('scadenze_gestite', JSON.stringify(gestiti));
+  return out;   // la scadenza a 14 giorni si applica in LETTURA: un dato vecchio
+}               // non deve poter riapparire solo perché nessuno l'ha ripulito
+
+function _scadPota(p) {
+  if (!p || !p._scadenzeGestite) return;
+  const oggi = today();
+  Object.keys(p._scadenzeGestite).forEach(function (t) {
+    const d = p._scadenzeGestite[t];
+    if (!d || Math.round((new Date(oggi) - new Date(d)) / 86400000) > _SCAD_GIORNI) delete p._scadenzeGestite[t];
+  });
+}
+
+// Migrazione dal vecchio cassetto del browser. UN SOLO punto di chiamata
+// (renderScadenzeAlert) e non i tre canonici della regola 12: quelli servono
+// quando i dati ARRIVANO da fuori, mentre qui la sorgente è localStorage, che è
+// di questo dispositivo e non viaggia. Le voci di pazienti non ancora scaricati
+// su questa macchina NON si buttano: restano nel cassetto e migrano al giro in
+// cui la scheda arriva.
+function _scadMigraDaLocalStorage(pazienti) {
+  let vecchi = null;
+  try { vecchi = JSON.parse(localStorage.getItem('scadenze_gestite') || 'null'); } catch (e) { vecchi = null; }
+  if (!vecchi || typeof vecchi !== 'object') return false;
+  const chiavi = Object.keys(vecchi);
+  if (!chiavi.length) { localStorage.removeItem('scadenze_gestite'); return false; }
+  const perId = {}; (pazienti || []).forEach(function (p) { if (p && p.id) perId[p.id] = p; });
+  const restanti = {}; let migrati = 0;
+  chiavi.forEach(function (k) {
+    const i = String(k).indexOf('_'); if (i < 0) return;
+    const tipo = k.slice(0, i), p = perId[k.slice(i + 1)];
+    if (!p) { restanti[k] = vecchi[k]; return; }
+    if (!p._scadenzeGestite || typeof p._scadenzeGestite !== 'object') p._scadenzeGestite = {};
+    if (!p._scadenzeGestite[tipo] || p._scadenzeGestite[tipo] < vecchi[k]) p._scadenzeGestite[tipo] = vecchi[k];
+    _scadPota(p); migrati++;
+    if (typeof save === 'function') save(p.id);
+  });
+  if (Object.keys(restanti).length) localStorage.setItem('scadenze_gestite', JSON.stringify(restanti));
+  else localStorage.removeItem('scadenze_gestite');
+  if (migrati) console.log('[P144] migrati', migrati, 'gestito da localStorage al paziente');
+  return migrati > 0;
+}
+
+function segnaGestito(key) {
+  const i = String(key || '').indexOf('_');
+  if (i < 0) return;
+  const tipo = key.slice(0, i), pazId = key.slice(i + 1);
+  const p = (db.pazienti || []).find(function (x) { return x && x.id === pazId; });
+  if (!p) { notif('⚠ Scheda non ancora scaricata su questo dispositivo', 3500); return; }
+  if (!p._scadenzeGestite || typeof p._scadenzeGestite !== 'object') p._scadenzeGestite = {};
+  p._scadenzeGestite[tipo] = today();
+  _scadPota(p);
+  save(p.id);
   renderScadenzeAlert();
   notif('✓ Segnato come gestito — riapparirà tra 14 giorni se non risolto');
 }
