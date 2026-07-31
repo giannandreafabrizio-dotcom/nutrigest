@@ -170,3 +170,40 @@ test('MIGRAZIONE AGGANCIATA A TUTTI I PUNTI D\'INGRESSO (regola 12 + il quarto)'
       assert.ok(/_appMigra(Tutti|Paziente)/.test(corpo), 'migrazione mancante in: ' + firma);
     });
 });
+
+// ── Difetti trovati nel collaudo in Chrome del 31 lug 2026 ───────────────────
+
+test('NIENTE DOPPIONE DI PASSAGGIO — l\'evento con l\'ora fa da parte lo specchio SUBITO', () => {
+  // Prima della correzione: salvando dal calendario un evento "Prima visita"
+  // per lo stesso paziente e lo stesso giorno, a video ne comparivano DUE fino
+  // al ricaricamento successivo (la migrazione lo toglieva, ma solo al giro
+  // dopo). A schermo sembrava che la correzione di P140 non avesse funzionato.
+  const db = setDb([{ id: 'g1', nome: 'Giovanni', cognome: 'D', tel: '333', visitaData: '2026-07-29', controlloData: '' }]);
+  win._appMigraTutti(db.pazienti);
+  win.eval("pushEventoSupabase=function(){};notif=function(){};closeM=function(){};renderCal=function(){};");
+  win.eval("document.body.innerHTML='<input id=\"ev-data\" value=\"2026-07-29\"><input id=\"ev-ora\" value=\"15:30\">'"
+    + "+'<select id=\"ev-tipo\"><option value=\"visita\" selected>v</option></select>'"
+    + "+'<select id=\"ev-paz\"><option value=\"g1\" selected>g</option></select>'"
+    + "+'<input id=\"ev-note\" value=\"\"><input id=\"ev-prezzo\" value=\"\"><div id=\"ev-entrata-box\"></div>'"
+    + "+'<select id=\"ev-promemoria\"><option value=\"no\" selected>no</option></select>'; salvaEvento();");
+  const visite = win.getEventi().filter(e => e.tipo === 'visita');
+  assert.strictEqual(visite.length, 1, 'una sola visita SENZA aspettare il ricaricamento');
+  assert.strictEqual(visite[0].ora, '15:30', 'e resta quella con l\'orario');
+});
+
+test('IL PROMEMORIA NON DICE PIÙ "oggi" A PRESCINDERE', () => {
+  // Aprendo il 31 luglio il controllo del 26 agosto si leggeva "previsto per
+  // oggi": una frase che AFFERMA una data sbagliata. Ora porta la data vera —
+  // e quando la data non c'è resta generica invece di inventarla.
+  const ev = win.eval("({data:'2026-08-26',ora:'17:00'})");
+  assert.strictEqual(win._evTestoPromemoria('Controllo previsto {data}.', ev),
+    'Controllo previsto per il 26/08/2026 alle 17:00.');
+  assert.strictEqual(win._evTestoPromemoria('Controllo previsto {data}.', win.eval("({data:'2026-08-26'})")),
+    'Controllo previsto per il 26/08/2026.');
+  assert.strictEqual(win._evTestoPromemoria('Controllo previsto {data}.', null),
+    'Controllo previsto.', 'senza data la frase resta corretta, solo generica');
+  // NB: si cerca la DEFINIZIONE del messaggio, non la stringa nuda — quella
+  // compare anche nel commento che spiega perché è stata tolta.
+  assert.strictEqual(/testo:\s*'[^']*previsto per oggi/.test(SORGENTE), false, 'il testo fisso non torna');
+  assert.ok(/testo:\s*'Controllo con misurazione InBody previsto \{data\}\.'/.test(SORGENTE));
+});

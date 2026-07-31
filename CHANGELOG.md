@@ -10,6 +10,50 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+31 LUGLIO 2026 — P140 T1, DUE DIFETTI TROVATI DAL COLLAUDO IN CHROME.
+Baseline dfd5be1 (il commit di P140 Tappa 1).
+
+IL COLLAUDO HA FATTO IL SUO MESTIERE. Fabrizio ha provato P140 T1 su un paziente
+nuovo (prima visita 29/7, inizio piano 3/8, controllo scritto a mano il 26/8) e
+il comportamento atteso c'era tutto: i quattro promemoria di pianificazione al
+loro posto, il controllo del 26/8 diventato un evento vero (nel dettaglio
+compare "Elimina evento", che prima non c'era), nessun controllo fantasma al
+31/8 (03/08 + 28). Ma provando il passo successivo — fissare l'appuntamento con
+l'ORA dal calendario — sono usciti due difetti.
+
+1. IL DOPPIONE DI PASSAGGIO. salvaEvento() non avvisava lo specchio: creando
+   l'evento "Prima visita" per lo stesso paziente e lo stesso giorno, a video ne
+   comparivano DUE fino al ricaricamento successivo. La migrazione lo toglieva,
+   ma solo al giro dopo — e nel frattempo sembrava che P140 non avesse
+   funzionato. Corretto: salvaEvento chiama _appSyncPaz(paz,true), lo stesso
+   allineamento che salvaPaz fa gia'.
+   LEZIONE: quando si introduce uno specchio, non basta agganciarlo ai punti
+   d'ingresso DATI (load, blob, import) — va agganciato anche a ogni punto in
+   cui l'utente scrive dall'ALTRO lato dello specchio. La migrazione ripara, ma
+   ripara tardi, e "tardi" su uno schermo vuol dire "rotto".
+
+2. IL PROMEMORIA CHE DICEVA "oggi" A PRESCINDERE. MESSAGGI.controllo era il
+   testo fisso 'Controllo con misurazione InBody previsto per oggi.': aprendo il
+   31 luglio il controllo del 26 agosto si leggeva "previsto per oggi". Difetto
+   preesistente, non introdotto da P140 — ma reso visibile da P140, perche'
+   prima quel dettaglio si apriva di rado. Ora il testo porta {data}, sostituito
+   da _evTestoPromemoria() con la data VERA dell'evento e l'ora se c'e'. Quando
+   la data non e' disponibile (le tappe di pianificazione non hanno id, quindi
+   l'evento e' null) il segnaposto sparisce e la frase resta generica invece che
+   sbagliata: e' la stessa regola di P118 e della regola 11 applicata al TESTO —
+   una data inventata e' peggio di una data mancante.
+
+COLLAUDO: 2 test nuovi (13 in tutto in s2-appuntamenti-fonte-unica), suite
+423/423 verde, node --check OK, INDEX rigenerato.
+
+RESTA APERTO E VA IN TAPPA 2 (terzo difetto trovato nello stesso giro, non
+corretto qui perche' e' lavoro vero): se l'evento viene creato su un giorno
+DIVERSO da quello scritto in anagrafica, le due visite restano entrambe e il
+campo del paziente continua a dire la data vecchia. E' lo SPECCHIO INVERSO che
+manca — oggi l'anagrafica scrive nel calendario, il calendario non scrive
+nell'anagrafica.
+
+
 30 LUGLIO 2026 (6a sessione) — P140 TAPPA 1: L'APPUNTAMENTO NASCE IN UN POSTO
 SOLO. Baseline 8996053.
 

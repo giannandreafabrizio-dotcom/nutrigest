@@ -3217,8 +3217,12 @@ const MESSAGGI = {
   sett2:[{tipo:'testo',testo:"Siamo già alla seconda settimana, il tempo vola! Come ti stai trovando con l'alimentazione? Sono qui per qualsiasi cosa 😊"}],
   sett3:[{tipo:'testo',testo:"Eccoci alla terza settimana insieme! Ormai stai costruendo nuove abitudini — questo è il momento più importante. Come stai andando? 🌱"}],
   chiamata:[{tipo:'promemoria',testo:'Chiama il paziente per vedere come sta andando la prima settimana di alimentazione.'}],
-  controllo:[{tipo:'promemoria',testo:'Controllo con misurazione InBody previsto per oggi.'}],
-  visita:[{tipo:'promemoria',testo:'Prima visita prevista oggi.'}],
+  // {data} viene sostituito da _evTestoPromemoria() con la data VERA dell'evento
+  // (e l'ora, se c'e'). Prima qui c'era scritto "oggi" fisso: aprendo il 31/7 il
+  // controllo del 26/8 si leggeva "previsto per oggi". In uno strumento clinico
+  // una frase che afferma una data sbagliata e' peggio di una frase generica.
+  controllo:[{tipo:'promemoria',testo:'Controllo con misurazione InBody previsto {data}.'}],
+  visita:[{tipo:'promemoria',testo:'Prima visita prevista {data}.'}],
   promemoria_visita:'Ciao! Ti ricordo che domani abbiamo il tuo appuntamento allo studio. A domani! 😊',
   promemoria_controllo:'Ciao! Ti ricordo che domani hai il tuo controllo allo studio. A domani! 😊'
 };
@@ -26838,6 +26842,11 @@ function salvaEvento(){
     note:document.getElementById('ev-note').value.trim(),prezzo,
     promemoria:document.getElementById('ev-promemoria').value};
   db.eventi.push(ev);
+  // P140 T1 — se questo evento e' la stessa cosa che l'anagrafica sta gia'
+  // specchiando (stesso paziente, stesso tipo, stesso giorno), lo specchio si fa
+  // da parte SUBITO. Senza questa riga il doppione resta a video fino al
+  // ricaricamento successivo: la migrazione lo toglieva, ma solo al giro dopo.
+  if(paz&&typeof _appSyncPaz==='function') _appSyncPaz(paz,true);
   // Aggiungi entrata se richiesto
   const nuovaEntrata = (prezzo>0&&document.getElementById('ev-add-entrata')?.checked)
     ? {id:uid(),data,importo:prezzo,pazId,pazNome:paz?paz.nome+' '+paz.cognome:'',tipo:tipo==='visita'?'Prima visita':'Controllo',note:'Da evento calendario'}
@@ -26847,6 +26856,16 @@ function salvaEvento(){
   pushEventoSupabase(ev);
   if(nuovaEntrata) pushEntrataSupabase(nuovaEntrata);
   notif('✓ Evento salvato!');
+}
+
+// P140 T1 — riempie {data} col giorno (e l'ora) VERI dell'evento. Se l'evento
+// non ha una data — le tappe di pianificazione non hanno un id, quindi qui `ev`
+// e' null — la frase resta corretta al prezzo di essere generica: meglio
+// generica che sbagliata.
+function _evTestoPromemoria(testo,ev){
+  const t=String(testo||'');
+  if(!ev||!ev.data) return t.replace(/\s*\{data\}/g,'');
+  return t.replace(/\{data\}/g,'per il '+fData(ev.data)+(ev.ora?' alle '+ev.ora:''));
 }
 
 function openEvDetail(pazId,tipo,evId){
@@ -26881,7 +26900,7 @@ function openEvDetail(pazId,tipo,evId){
         if(p?.tel)html+=`<a href="https://wa.me/39${(p.tel||'').replace(/\s/g,'')}?text=${encodeURIComponent(m.testo)}" target="_blank" class="btn btn-wa btn-sm" style="margin-top:.4rem">📲 Apri in WhatsApp</a>`;
         html+='</div>';
       }else if(m.tipo==='promemoria'){
-        html+=`<div style="background:var(--yellow-bg);border:1px solid #f0d080;border-radius:8px;padding:.7rem 1rem;font-size:.79rem">⏰ ${m.testo}</div>`;
+        html+=`<div style="background:var(--yellow-bg);border:1px solid #f0d080;border-radius:8px;padding:.7rem 1rem;font-size:.79rem">⏰ ${_evTestoPromemoria(m.testo,ev)}</div>`;
       }else{
         html+=`<div class="msg-opt"><p>${m.testo}</p><button class="copy-btn" onclick="copyMsg('${m.testo.replace(/'/g,"\\'")}')">Copia</button>`;
         if(p?.tel)html+=`<a href="https://wa.me/39${(p.tel||'').replace(/\s/g,'')}?text=${encodeURIComponent(m.testo)}" target="_blank" class="btn btn-wa btn-sm" style="margin-top:.4rem">📲 Apri in WhatsApp</a>`;
