@@ -187,3 +187,51 @@ test('CATALOGO — nessun nome duplicato e ogni voce ha categoria, MET e codice'
       'alias rotto: ' + vecchio + ' → ' + ALIAS[vecchio]);
   });
 });
+
+// ── P147b — voci scelte da Fabrizio sul Compendium 2024 (3 ago 2026) ──
+// Le 20 voci nuove arrivano da una selezione fatta a mano sul catalogo completo:
+// il rischio non è il codice sbagliato, è che una voce entri con un MET che non sta
+// in nessuna tabella, o che finisca in una categoria che spezza gli optgroup del
+// menu a tendina (il render apre un gruppo nuovo ogni volta che cambia `c`).
+test('CATALOGO P147b — le voci aggiunte hanno codice e MET del Compendium 2024', () => {
+  const attese = {
+    '17355':3.8, '17358':4.8, '12150':8.0,              // corsa e camminata
+    '02032':6.0, '15551':11.8, '02060':5.5, '02064':3.8, // palestra
+    '02105':2.8, '02155':3.0, '02004':7.8, '02108':4.5,  // corpo-mente
+    '01016':7.0, '01017':9.0,                            // bici
+    '18300':6.0,                                         // nuoto
+    '15195':7.8, '15652':7.3, '15110':5.8, '15300':3.8, '15370':5.5, '15470':4.0 // sport
+  };
+  Object.keys(attese).forEach(function(k){
+    const voce = CATALOGO.filter(function(a){ return a.k === k; });
+    assert.ok(voce.length >= 1, 'codice assente dal catalogo: ' + k);
+    assert.ok(voce.some(function(v){ return v.m === attese[k]; }),
+      'MET diverso dal Compendium per ' + k + ': trovato ' + voce.map(function(v){return v.m;}).join('/') +
+      ', atteso ' + attese[k]);
+  });
+});
+
+test('CATALOGO P147b — "Pallamano" usa il codice della pallamano a squadre, non dell\'handball americano', () => {
+  // 15320 "Handball, general" (12.0 MET) è il gioco americano contro il muro.
+  // La pallamano a squadre è 15330 "Handball, team" a 8.0 MET. Con il codice
+  // sbagliato un paziente che gioca a pallamano si vedeva attribuire il 50% di
+  // dispendio in più su ogni seduta.
+  const pm = CATALOGO.filter(function(a){ return a.n === 'Pallamano'; });
+  assert.strictEqual(pm.length, 1, 'la voce Pallamano deve esistere una volta sola');
+  assert.strictEqual(pm[0].k, '15330');
+  assert.strictEqual(pm[0].m, 8.0);
+  assert.ok(!CATALOGO.some(function(a){ return a.k === '15320'; }),
+    'il codice 15320 (handball al muro) non deve più comparire');
+});
+
+test('CATALOGO P147b — le categorie restano in blocchi consecutivi (optgroup del menu)', () => {
+  const viste = [];
+  let corrente = null;
+  CATALOGO.forEach(function(a){
+    if (a.c !== corrente) {
+      assert.ok(viste.indexOf(a.c) === -1,
+        'categoria spezzata in due blocchi, il menu a tendina la mostrerebbe due volte: ' + a.c);
+      viste.push(a.c); corrente = a.c;
+    }
+  });
+});

@@ -10,6 +10,50 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+3 AGOSTO 2026 — P147b: 20 ATTIVITA' IN PIU' NEL CATALOGO, SCELTE A MANO.
+Baseline 77649f0.
+
+DA DOVE NASCE. Chiusa la parte 1, Fabrizio chiede di poter LEGGERE il Compendium
+e decidere lui cosa aggiungere, non di ricevere una lista gia' filtrata. Prima
+verifica: il 2024 e' davvero l'ultima versione, non ne esiste una piu' recente.
+Poi gli sono state estratte le 585 voci delle otto categorie che riguardano
+l'allenamento (conditioning, sport, corsa, cammino, bici, acqua, invernali,
+danza), TRADOTTE in italiano con le velocita' convertite in km/h e i pesi in kg
+— il catalogo originale e' in miglia orarie e libbre, illeggibile in ambulatorio.
+Su 71 voci selezionate, 48 erano gia' dentro: il catalogo copriva meglio di
+quanto sembrasse.
+
+LE 20 NUOVE. Corsa e camminata: tapis roulant 5 e 6 km/h (17355, 17358) e
+"Corsa, ritmo non noto" (12150, 8.0) per il paziente che non sa dire il passo.
+Palestra: circuit training a corpo libero (02032), salto con la corda a ritmo
+(15551), "Palestra, seduta generica" (02060) e "Allenamento a casa" (02064) —
+queste due servono a chi dice solo "vado in palestra" e prima finiva su una voce
+di ripiego. Corpo-mente: Pilates generico (02105), hot yoga (02155), corso di
+step completo (02004), pole dance (02108). Bici: ritmo libero moderato e intenso
+(01016, 01017). Nuoto: acque libere (18300). Sport: calcio a 5 (15195),
+squash amatoriale (15652), boxe al sacco leggero (15110), ginnastica artistica
+(15300), equitazione (15370), motocross/enduro (15470). Catalogo: 97 -> 117.
+
+DUE VOCI SCARTATE, NON DIMENTICATE. 02120 "water aerobics" a 5.3 MET e 02175
+"yoga general" a 2.3 sono lo stesso esercizio di 18355 (acquagym, 5.5) e 02150
+(yoga hatha, 2.3), che erano gia' in catalogo. Metterle avrebbe prodotto due
+righe quasi identiche nello stesso menu a tendina: il nutrizionista si ferma a
+chiedersi quale sia quella giusta e la differenza e' 0.2 MET, cioe' nulla.
+
+IL BUG CHE E' SALTATO FUORI DAL CONFRONTO — "PALLAMANO" ERA L'ALTRO HANDBALL.
+La voce puntava a 15320 "Handball, general", 12.0 MET: nel Compendium quello e'
+il gioco AMERICANO contro il muro, non la pallamano a squadre. Quella e' 15330
+"Handball, team" a 8.0. Chi giocava a pallamano si vedeva attribuire il 50% di
+dispendio in piu' su ogni seduta. Corretto lasciando il NOME identico, cosi' le
+righe gia' salvate sui pazienti continuano a risolvere e prendono il MET giusto
+al primo ricalcolo — rinominare avrebbe orfanato i dati.
+
+TEST. Tre nuovi test in s2-tdee-attivita-multiple: i 20 codici con il loro MET
+esatto; la pallamano che deve puntare a 15330 e mai piu' a 15320; le categorie
+che devono restare in blocchi consecutivi, perche' il menu a tendina apre un
+optgroup nuovo ogni volta che cambia la categoria e una categoria spezzata
+comparirebbe due volte. 486 test verdi.
+
 3 AGOSTO 2026 — P147: LA SEZIONE TDEE, PRIMA PARTE (ATTIVITA FISICA -> LAF).
 Baseline ec6b52c.
 
