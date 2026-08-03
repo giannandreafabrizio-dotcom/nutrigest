@@ -14296,16 +14296,16 @@ function renderPdMacros(p){
   <div style="font-size:.7rem;color:var(--text3);margin:-.35rem 0 .7rem;line-height:1.4">Due voci diverse del calcolo: il <b>movimento quotidiano</b> (i passi) fa il NEAT, l'<b>allenamento</b> fa l'EAT. Il primo blocco vale per tutti, anche per chi non si allena.</div>
 
   <div class="fr3">
-    <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0"></div>
+    <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0" oninput="_aggiornaPannelloTdeeLive()"></div>
     <div class="fg"><label>Fonte passi</label>
-      <select id="p-fonte-passi">
+      <select id="p-fonte-passi" onchange="_aggiornaPannelloTdeeLive()">
         <option value="">— Non specificata —</option>
         <option value="misurati">Misurati (smartwatch/telefono)</option>
         <option value="stimati">Stimati a occhio</option>
       </select>
     </div>
     <div class="fg"><label>Tipo di lavoro</label>
-      <select id="p-lavoro">
+      <select id="p-lavoro" onchange="_aggiornaPannelloTdeeLive()">
         <option value="">— Non specificato —</option>
         <option value="sedentario">Sedentario (scrivania)</option>
         <option value="in-piedi">In piedi / in movimento</option>
@@ -14330,9 +14330,9 @@ function renderPdMacros(p){
     <div id="all-pane-rapida" style="display:none;margin-top:.65rem">
       <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem;line-height:1.4">Stima approssimata: ore dichiarate × un MET medio ricavato da tipo e intensità. Va bene quando il paziente non sa dirti i minuti effettivi.</div>
       <div class="fr3">
-        <div class="fg" style="margin:0"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 3-5 ore" min="0" step="0.5"></div>
+        <div class="fg" style="margin:0"><label>Ore allenamento/settimana</label><input type="number" id="p-ore-all" placeholder="es. 3-5 ore" min="0" step="0.5" oninput="_aggiornaPannelloTdeeLive()"></div>
         <div class="fg" style="margin:0"><label>Tipo allenamento</label>
-          <select id="p-tipo-all">
+          <select id="p-tipo-all" onchange="_aggiornaPannelloTdeeLive()">
             <option value="">— Non specificato —</option>
             <option value="Forza">Forza</option>
             <option value="Cardio">Cardio</option>
@@ -14340,7 +14340,7 @@ function renderPdMacros(p){
           </select>
         </div>
         <div class="fg" style="margin:0"><label>Intensità allenamento</label>
-          <select id="p-intens-all">
+          <select id="p-intens-all" onchange="_aggiornaPannelloTdeeLive()">
             <option value="">— Non specificata —</option>
             <option value="Bassa">Bassa</option>
             <option value="Media">Media</option>
@@ -17240,7 +17240,9 @@ function _attRigheTotale(){
   const el=document.getElementById('att-righe-tot');
   if(!el) return;
   const righe=_righeAttivita({attivita:_attRighe});
-  if(!righe.length){ el.innerHTML=''; return; }
+  // Anche il passaggio a ZERO righe deve ridisegnare il riquadro: togliere
+  // l'ultima attività è proprio il gesto che lasciava a schermo un EAT fantasma.
+  if(!righe.length){ el.innerHTML=''; _aggiornaPannelloTdeeLive(); return; }
   const p=_macrosPaziente;
   const lastIb=p&&p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   const peso=lastIb?lastIb.peso:(p&&p.peso?p.peso:null);
@@ -17248,6 +17250,7 @@ function _attRigheTotale(){
   righe.forEach(function(r){ oreSett+=r.oreSett; sedute+=r.sedute; if(peso) eat+=Math.round((r.met-1)*peso*(r.sedute*r.minuti/60)/7); });
   el.innerHTML = sedute+' sedute/settimana · '+String(+oreSett.toFixed(2)).replace('.',',')+' ore effettive'
     + (peso ? ' → EAT <strong>'+eat+' kcal/giorno</strong>' : ' <span style="font-weight:400;color:var(--text3)">— peso mancante, EAT non calcolabile</span>');
+  _aggiornaPannelloTdeeLive();
 }
 
 function _setModalitaAllenamento(m){
@@ -17260,6 +17263,7 @@ function _setModalitaAllenamento(m){
   const r=document.querySelector('input[name="p-modalita-all"][value="'+m+'"]');
   if(r) r.checked=true;
   if(m==='precisa'){ if(!_attRighe.length) _attRigaAdd(); else _attRigheRender(); }
+  else _aggiornaPannelloTdeeLive();   // in 'precisa' ci pensa già _attRigheTotale
 }
 
 // Modalità scelta nel form. null = pannello non aperto → chi legge NON deve toccare nulla.
@@ -17290,6 +17294,43 @@ function _scriviAllenamentoSuPaziente(p){
     p.attivita=[];
     if(m==='nessuno'){ p.seduteSettimana=null; p.minutiSeduta=null; p.attivitaSpecifica=''; p.oreAllenamento=null; }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P147c — IL RIQUADRO LAF ERA UNA FOTOGRAFIA (3 ago 2026)
+// Il pannello "Fattore attività (LAF)" si ridisegnava in tre soli momenti:
+// apertura della scheda, "Ricalcola LAF", salvataggio. In mezzo si poteva
+// cambiare modalità o togliere una riga e continuare a leggere i numeri di
+// prima. Il caso visto dal vivo: il modulo diceva "Nessuna attività inserita" e
+// il riquadro sotto dichiarava "EAT 60 (6 MET medio)" — quel 60 veniva da un
+// oreAllenamento legacy letto all'apertura, prima che l'utente toccasse i campi.
+// Il piano salvato era comunque corretto (salvaCalcoloMacros ricalcola): il
+// danno era di lettura, cioè decisioni cliniche prese su un numero scaduto.
+//
+// Qui il ricalcolo gira su una COPIA del paziente: niente scritture sul db,
+// niente notifica, niente riancoraggio dello slider regime. Quelli restano
+// azioni esplicite di "Ricalcola LAF" e del salvataggio; questo aggiorna solo
+// ciò che l'occhio legge.
+// ═══════════════════════════════════════════════════════════════════════════
+function _aggiornaPannelloTdeeLive(){
+  const lafEl=document.getElementById('laf-display');
+  if(!lafEl) return;                 // pannello macros non aperto: niente da ridisegnare
+  const p=_macrosPaziente;
+  if(!p) return;
+  const gn=function(id){ const el=document.getElementById(id); return el&&el.value!==''?parseFloat(el.value):null; };
+  const gs=function(id){ const el=document.getElementById(id); return el?el.value:''; };
+  // Copia superficiale: `inbody` resta condiviso ma viene solo LETTO, e
+  // _scriviAllenamentoSuPaziente assegna a .attivita un array nuovo, quindi il
+  // paziente vero non viene toccato in nessun punto.
+  const q=Object.assign({}, p);
+  q.passiGiornalieri=gn('p-passi');
+  q.oreAllenamento=gn('p-ore-all');
+  q.intensitaAllenamento=gs('p-intens-all');
+  q.tipoAllenamento=gs('p-tipo-all');
+  q.fontePassi=gs('p-fonte-passi');
+  q.tipoLavoro=gs('p-lavoro');
+  _scriviAllenamentoSuPaziente(q);
+  lafEl.innerHTML=_tdeePannelloHtml(calcolaTDEE(q), q);
 }
 
 // Paziente → form, all'apertura del pannello.
@@ -17398,7 +17439,11 @@ function _tdeePannelloHtml(ct, p){
   const metodoTxt = ct.modalita==='precisa'&&nAtt
       ? `calcolo preciso su ${nAtt} ${nAtt===1?'attività':'attività'} · ${ct.seduteTot} sedute/settimana`
       : (ct.modalita==='rapida' ? 'stima rapida (ore/settimana × MET medio da tipo e intensità)'
-      : 'nessun allenamento strutturato — solo metabolismo basale, passi e lavoro');
+      // "Calcolo preciso" senza nemmeno una riga valida NON è "non si allena": è un
+      // modulo lasciato a metà. Dirlo, invece di far leggere lo stesso testo dei due
+      // casi, evita che un EAT a zero passi per una scelta clinica.
+      : (ct.modalita==='precisa' ? 'calcolo preciso selezionato, ma nessuna attività inserita — EAT a zero'
+      : 'nessun allenamento strutturato — solo metabolismo basale, passi e lavoro'));
   let righeHtml='';
   if(nAtt){
     righeHtml = '<div style="font-size:.71rem;color:var(--text3);margin-top:.3rem;line-height:1.5">'

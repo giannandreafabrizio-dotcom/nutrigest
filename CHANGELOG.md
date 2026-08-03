@@ -10,6 +10,42 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+3 AGOSTO 2026 — P147c: IL RIQUADRO LAF ERA UNA FOTOGRAFIA, NON UN CALCOLO.
+Baseline 468c0b3.
+
+DA DOVE NASCE. Nello screenshot mandato per approvare la nuova schermata c'era
+una contraddizione che nessuno cercava: il modulo diceva "Nessuna attivita'
+inserita" e il riquadro sotto dichiarava "EAT 60 (6 MET medio)". Non era un
+errore di formula. Il pannello si ridisegnava in TRE soli momenti — apertura
+della scheda, "Ricalcola LAF", salvataggio — e in mezzo restava fermo. Quel 60
+veniva da un oreAllenamento=1 legacy del paziente, letto all'apertura: poi
+l'utente aveva scelto "calcolo preciso" e il riquadro non se n'era accorto.
+
+PERCHE' CONTAVA, VISTO CHE IL PIANO SALVATO ERA GIUSTO. salvaCalcoloMacros
+ricalcola, quindi nessuna dieta in giro era sbagliata. Il danno era di LETTURA:
+si guarda il TDEE a schermo, ci si fa un'idea del paziente e si decide il
+regime — su un numero scaduto. Un numero visibile che non corrisponde ai campi
+visibili sopra di esso e' peggio di un numero assente.
+
+LA CORREZIONE. Nuova _aggiornaPannelloTdeeLive(), agganciata a passi, fonte
+passi, tipo di lavoro, radio della modalita' e ai tre campi della stima rapida,
+piu' a _attRigheTotale (quindi copre aggiungi/togli/modifica riga, compreso il
+passaggio a ZERO righe, che era il caso dello screenshot). Il ricalcolo gira su
+una COPIA del paziente: nessuna scrittura sul db, nessuna notifica, nessun
+riancoraggio dello slider regime. Scrivere resta un gesto esplicito, di
+"Ricalcola LAF" e del salvataggio; questo aggiorna solo cio' che l'occhio legge.
+
+DICITURA CHIARITA. "Calcolo preciso" con zero righe mostrava lo stesso testo di
+"non si allena" ("nessun allenamento strutturato"). Sono due cose diverse: un
+modulo lasciato a meta' e un paziente sedentario. Ora il primo caso dice
+"calcolo preciso selezionato, ma nessuna attivita' inserita — EAT a zero".
+
+TEST. Nuovo file s2-laf-pannello-vivo: l'EAT fantasma non deve sopravvivere al
+cambio di modalita'; aggiungere una riga muove il TDEE senza premere Ricalcola;
+l'anteprima non deve scrivere sul paziente (ore legacy, attivita' e modalita'
+restano intatte finche' non si salva); a pannello chiuso la funzione non esplode.
+492 test verdi.
+
 3 AGOSTO 2026 — P147b: 20 ATTIVITA' IN PIU' NEL CATALOGO, SCELTE A MANO.
 Baseline 77649f0.
 
