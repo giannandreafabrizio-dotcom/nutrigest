@@ -10,6 +10,116 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+3 AGOSTO 2026 — P147: LA SEZIONE TDEE, PRIMA PARTE (ATTIVITA FISICA -> LAF).
+Baseline ec6b52c.
+
+DA DOVE NASCE. Fabrizio manda lo screenshot del pannello e dice che non ci
+capisce piu' nulla, pur avendolo scritto lui. Quattro domande precise: perche'
+si chiama "P7"; perche' i due flussi (generico e preciso) si vedono insieme se
+poi se ne usa uno solo; si possono aggiungere altre attivita', tutte
+certificate; e come si fa col paziente che fa DUE volte pesi, DUE volte
+CrossFit e UNA volta corsa.
+
+IL MOTORE NON ERA IL PROBLEMA — L'INTERFACCIA NON DICEVA MAI COSA STAVA
+FACENDO. calcolaTDEE aveva gia' dentro una priorita' precisa e invisibile:
+sedute+minuti battono le ore; l'attivita' specifica batte tipo+intensita'. I due
+flussi ESISTEVANO gia', semplicemente nessuno li dichiarava. Nello screenshot si
+vede il caso limite: Tipo e Intensita' NON specificati, e il calcolo gira lo
+stesso a 8 MET perche' a decidere e' stata l'attivita' specifica. Il pannello in
+fondo non lo spiegava. Lezione: quando l'utente dice "non ci capisco nulla" su
+una cosa che ha progettato lui, di solito il difetto non e' nella formula ma in
+cio' che la formula NON racconta di se'.
+
+"P7" ERA IL NUMERO DELLA PRATICA. Etichetta di roadmap interna finita in
+interfaccia. Tolta. Nei commenti del codice resta (li' serve), nell'interfaccia
+si scrive cosa fa il campo.
+
+IL DIFETTO VERO: UN SOLO ALLENAMENTO PER PAZIENTE. Il modello dati era una
+attivita', N sedute, M minuti. Col paziente 2 pesi + 2 CrossFit + 1 corsa
+QUALUNQUE scelta e' sbagliata: sullo stesso monte ore (5x45 min, peso 77.8) la
+realta' fa 261 kcal/giorno, "tutto pesi" 208, "tutto corsa" 346. **85 kcal al
+giorno di errore, e nella direzione peggiore** — piu' cibo di quanto abbia
+bruciato. Su un ipocalorico da -500 e' oltre un sesto del deficit, e il paziente
+multi-attivita' non e' raro: e' la norma fra i 25 e i 45 anni.
+LA CORREZIONE: l'allenamento e' una LISTA di righe {nome, sedute, minuti} e
+l'EAT e' la somma. La formula non cambia — e' lo stesso (MET-1)xpesoxore dentro
+un ciclo. Il MET esposto diventa la media pesata SULLE ORE (con una riga sola si
+espone il MET della riga: ricavarlo dall'EAT gia' arrotondato dava 7.52 al posto
+di 7.5, un numero che non sta in nessuna tabella).
+
+I VALORI MET ERANO FERMI AL COMPENDIUM 2011, COL COMMENTO CHE DICEVA 2024.
+Verificati uno per uno sulla fonte primaria (pacompendium.com). Fuori posto:
+Pilates 3.5 -> 1.8 · Spinning 7.0 -> 9.0 · Circuit training 8.0 -> 7.5 ·
+HIIT 8.0 -> 7.0 moderato / 11.0 vigoroso · Yoga 3.0 -> 2.3 · Corsa 10 km/h
+10.0 -> 9.3 · Camminata in salita 6.0 -> 7.0 · e altri minori.
+**LEZIONE PERMANENTE (regola 20): un commento che cita una fonte non e' una
+verifica che i numeri vengano da quella fonte.** Il commento diceva "Compendium
+2024" ed era stato creduto per un mese.
+Catalogo passato da 30 a 97 voci (88 attivita reali + 9 voci di ripiego «non in elenco»), ognuna col CODICE ufficiale del Compendium
+(`k`) accanto al MET: l'etichetta italiana e' una traduzione nostra, il codice
+no — e' quello che permette di ritrovare la voce sulla fonte senza fidarsi del
+nome.
+
+IL CROSSFIT NON ESISTE NEL COMPENDIUM. Cercato: non c'e' "CrossFit" ne'
+"functional training", e non e' una dimenticanza — non e' un'attivita' a
+intensita' costante, quindi non si misura come la corsa a 10 km/h. La
+letteratura misura i WOD: ~12.9 MET (uomini) sul WOD "Karen", ma su 8-12 minuti
+di lavoro. **Il motore moltiplica per i MINUTI EFFETTIVI: mettere 12 MET su 60
+minuti sovrastima di ~250 kcal a seduta.** Scelta: voce "CrossFit / functional
+training (seduta intera)" = 7.5 MET, proxy 02040 (circuit training con
+kettlebell, recuperi minimi, vigoroso), MARCATA COME STIMA nel catalogo, nel
+pannello e nel contesto AI; piu' una voce separata "HIIT / WOD vigoroso (solo
+tempo di lavoro)" = 11.0 (02214) per chi dichiara i minuti del solo WOD.
+
+"NON SI ALLENA" ORA E' UNA COSA CHE SI PUO' DIRE. Prima campi vuoti significavano
+insieme "non si allena" e "non gliel'ho chiesto", e il calcolo li trattava
+uguali. Ora la modalita' e' esplicita (Non si allena / Stima rapida / Calcolo
+preciso) e l'indice di affidabilita' distingue i due casi: il TDEE non cambia,
+cambia quanto ci fidiamo. Attenzione al dettaglio che poteva romperlo:
+`_modalitaAllenamento` ripiega su 'nessuno' anche per DEDUZIONE su un paziente
+storico senza campi — quindi il bonus di affidabilita' scatta solo se
+`p.modalitaAllenamento === 'nessuno'` e' scritto davvero.
+
+BUG SILENZIOSO TROVATO STRADA FACENDO (quarta occorrenza della famiglia
+pesoTarget). Il salvataggio dell'ANAGRAFICA leggeva i campi attivita' con
+`gn('p-passi')`, `gn('p-sedute')`... ma quei campi NON stanno in quella
+anagrafica: vivono nel pannello TDEE. Due danni, entrambi muti: col pannello
+chiuso AZZERAVA passi/sedute/minuti/attivita' del paziente; col pannello aperto
+su un ALTRO paziente gli COPIAVA ADDOSSO i dati di quello. La guardia era gia'
+scritta dieci righe sopra per `pesoTarget` (`_stessoPaz`) — non era stata estesa
+al resto. Ora i campi attivita' passano dalla stessa guardia e, quando il
+pannello non e' quello giusto, si conservano i valori precedenti.
+
+MIGRAZIONE. Le etichette storiche ("Pilates", "Circuit training", "Spinning"...)
+risolvono via `_MET_ALIAS` sulle voci nuove: **rinominare una voce di catalogo e'
+una migrazione di dati, non un ritocco di testo** — senza alias il MET sarebbe
+diventato null, la riga scartata e l'EAT crollato a zero SENZA errori a video. Un
+test percorre tutte e 28 le etichette storiche per bloccarlo. I pazienti storici
+coi tre campi singoli diventano una riga sola in lettura (non si toccano i dati);
+la scrittura definitiva avviene al primo salvataggio.
+
+ALTRO IN QUESTO GIRO: "Orario allenamento" spostato accanto a Cronotipo e Orario
+pasto principale — non entra in nessuna formula del TDEE, serve a distribuire i
+pasti; stava fra i campi di dispendio solo per abitudine. Il pannello TDEE ora ha
+UNA sola funzione che lo disegna (`_tdeePannelloHtml`), usata dai tre punti che
+prima avevano tre HTML quasi uguali. Aggiunta la riga "Metodo allenamento", che
+dice sempre quale strada ha usato il motore.
+
+COLLAUDO: suite 472 -> 483 (11 test nuovi in `s2-tdee-attivita-multiple.test.js`);
+4 test di `s2-contesto-attivita` aggiornati al contratto nuovo mantenendone
+l'intento (cio' che e' usato e cio' che e' scartato dev'essere dichiarato);
+`node --check` sul blocco script; smoke JSDOM del pannello (radio, pannelli che
+si alternano, righe, totale vivo, salvataggio). INDEX.md rigenerato.
+Sul paziente dello screenshot il TDEE passa da 2280 a 2265 kcal (Circuit training
+8.0 -> 7.5): -15 kcal, dentro il rumore.
+
+RESTA DA FARE — la SECONDA parte, dall'obiettivo peso in giu': giorni di carico,
+ciclizzazione carboidrati, cronotipo e orario pasto principale. Fabrizio ha detto
+che neanche li' ci capisce piu' nulla. Nota nata qui: le righe attivita' sanno
+quante sedute fa il paziente, quindi la coerenza fra sedute dichiarate e giorni
+ON spuntati a mano diventa verificabile.
+
+
 31 LUGLIO 2026 (sera) — P63b: I CONTI DEL REFERTO INBODY DEVONO TORNARE.
 Baseline f11063a.
 

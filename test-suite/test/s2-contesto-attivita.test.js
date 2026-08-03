@@ -23,7 +23,9 @@ function paz(extra){
   }, extra||{});
 }
 
-test('CONTESTO — con sedute×minuti e attività specifica, ore/tipo/intensità sono dichiarati SCARTATI', () => {
+test('CONTESTO — con righe attività, ore/tipo/intensità sono dichiarati SCARTATI', () => {
+  // Paziente STORICO (tre campi singoli, nessun p.attivita): il motore lo legge come
+  // riga unica. Il contratto non cambia — cambia la forma con cui il contesto lo dice.
   const p = inWin(paz({
     passiGiornalieri:6000, fontePassi:'stimati',
     seduteSettimana:3, minutiSeduta:36, attivitaSpecifica:'Circuit training',
@@ -31,8 +33,9 @@ test('CONTESTO — con sedute×minuti e attività specifica, ore/tipo/intensità
   }));
   const ctx = win.costruisciContestoPaziente(p);
   assert.ok(/ore EFFETTIVE\/settimana/.test(ctx), 'dice le ore effettive');
-  assert.ok(/3 sedute × 36 minuti = 1,8 ore EFFETTIVE/.test(ctx), 'e il conto da cui vengono');
-  assert.ok(/8 MET \(valore dell attivita specifica selezionata\)/.test(ctx), 'e il MET dell\'attività specifica');
+  assert.ok(/3 sedute × 36 minuti effettivi = 1,8 ore\/settimana/.test(ctx), 'e il conto da cui vengono');
+  // "Circuit training" è un'etichetta storica: l'alias la porta sulla voce 2024 a 7.5 MET.
+  assert.ok(/Circuit training, sforzo vigoroso → 7\.5 MET/.test(ctx), 'e il MET dell\'attività, aggiornato al Compendium 2024');
   const scartati = /Dichiarato ma NON usato dal calcolo: ([^\n]+)/.exec(ctx);
   assert.ok(scartati, 'la riga degli scartati esiste');
   assert.ok(/3 ore\/settimana/.test(scartati[1]), 'le ore generiche sono fra gli scartati');
@@ -48,7 +51,7 @@ test('CONTESTO — i numeri scritti coincidono con calcolaTDEE (nessuna aritmeti
   const ctx = win.costruisciContestoPaziente(p);
   assert.ok(ctx.indexOf('MB '+ct.mb+' + NEAT '+ct.neat+' + EAT '+ct.eat+' + TEF '+ct.tef+' = TDEE '+ct.tdee) > -1,
     'la somma nel contesto è quella del motore');
-  assert.strictEqual(ct.fonteOre, 'sedute-minuti');
+  assert.strictEqual(ct.fonteOre, 'righe-attivita');
   assert.strictEqual(ct.fonteMet, 'attivita-specifica');
   assert.ok(Math.abs(ct.oreEffSett - 1.8) < 0.01, 'ore effettive esposte dal motore: ' + ct.oreEffSett);
   assert.ok(/bonus lavoro in-piedi/.test(ctx), 'il bonus lavoro entra nel racconto del NEAT');
@@ -62,7 +65,7 @@ test('CONTESTO — senza attività specifica, tipo e intensità SONO i dati usat
   const ct = win.calcolaTDEE(p);
   const ctx = win.costruisciContestoPaziente(p);
   assert.strictEqual(ct.fonteMet, 'tipo-intensita');
-  assert.ok(/Forza a intensita Alta → 6 MET/.test(ctx), 'il MET viene dalla griglia tipo × intensità');
+  assert.ok(/Non in elenco — Forza, intensità alta → 6 MET/.test(ctx), 'il MET viene dalla griglia tipo × intensità');
   const scartati = /Dichiarato ma NON usato dal calcolo: ([^\n]+)/.exec(ctx);
   assert.ok(!scartati || !/tipo "Forza"/.test(scartati[1]), 'il tipo NON è fra gli scartati quando è quello che decide');
 });
@@ -71,8 +74,8 @@ test('CONTESTO — solo ore generiche: sono loro a fare il calcolo, e non risult
   const p = inWin(paz({ passiGiornalieri:5000, oreAllenamento:4, tipoAllenamento:'Cardio', intensitaAllenamento:'Media' }));
   const ct = win.calcolaTDEE(p);
   const ctx = win.costruisciContestoPaziente(p);
-  assert.strictEqual(ct.fonteOre, 'ore-legacy');
-  assert.ok(/campo ore generico/.test(ctx));
+  assert.strictEqual(ct.fonteOre, 'ore-settimana');
+  assert.ok(/stima rapida, non calcolo preciso/.test(ctx));
   const scartati = /Dichiarato ma NON usato dal calcolo: ([^\n]+)/.exec(ctx);
   assert.ok(!scartati, 'niente da dichiarare scartato: tutto quello che c\'è è entrato nel calcolo');
 });

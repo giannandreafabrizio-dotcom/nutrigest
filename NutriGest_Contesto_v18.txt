@@ -2222,19 +2222,50 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
     Passi null/NaN → 15%. (Prima: 4 fasce a scalino <4000→15% | <7500→25% |
     <10000→35% | ≥10000→50%, con salti fino a +150 kcal per 1 passo al bordo.)
   EAT: richiede peso e ore effettive di allenamento/giorno (settimanali/7).
-    Ore effettive da due possibili fonti:
-    - Sedute/settimana + Minuti effettivi/seduta (NUOVO, priorità se compilati) —
-      minuti di lavoro REALE, esclusi i recuperi lunghi (risolve la sovrastima
-      della forza: una seduta da 75min con pause può avere 35-40min effettivi).
-    - Ore allenamento/settimana (legacy, fallback se sedute/minuti non compilati).
-    MET da: Attività specifica (opzionale, tabella `_MET_ATTIVITA` dal
-      Compendium — ha priorità) oppure griglia tipo×intensità `_MET_GRIGLIA`:
-        Forza:  bassa 3.5 | media 5.0 | alta 6.0
-        Cardio: bassa 6.0 | media 8.0 | alta 10.0
-        Misto:  bassa 4.5 | media 6.0 | alta 7.5
-      (valori validati contro 3 tabelle MET fornite da Fabrizio; 2 valori di
-      una fonte scartati perché incoerenti col Compendium — corsa 8km/h e
-      nuoto lento erano invertiti/errati nella tabella originale)
+  MODALITA' DI ALLENAMENTO (P147, 3 ago 2026) — `p.modalitaAllenamento`, tre
+    valori espliciti, scelti in interfaccia; l'interfaccia mostra SOLO i campi
+    della modalità scelta (prima i due flussi convivevano a schermo):
+    - 'nessuno'  → EAT 0. Dichiararlo è un DATO: distingue il paziente che non
+      si allena da quello a cui non è stato chiesto, e l'indice di affidabilità
+      lo tratta diversamente (il TDEE non cambia, cambia la fiducia).
+    - 'rapida'   → Ore allenamento/settimana × MET dalla griglia tipo×intensità
+      `_MET_GRIGLIA`:  Forza bassa 3.5 | media 5.0 | alta 6.0 · Cardio 6.0 |
+      8.0 | 10.0 · Misto 4.5 | 6.0 | 7.5.  `fonteOre='ore-settimana'`.
+    - 'precisa'  → RIGHE ATTIVITA' `p.attivita = [{nome, met, sedute, minuti}]`.
+      L'EAT è la SOMMA dei contributi: ogni riga porta il suo MET, quindi
+      2 sedute di pesi e 2 di CrossFit non vengono più appiattite su un valore
+      solo (col modello a singolo allenamento l'errore arrivava a ~85 kcal/g).
+      Minuti = lavoro REALE, esclusi i recuperi lunghi. `fonteOre='righe-attivita'`.
+      `metUsato` = MET della riga se una sola, altrimenti media pesata sulle ore.
+    Su un paziente senza `modalitaAllenamento` la modalità si DEDUCE dai campi
+    compilati (`_modalitaAllenamento`), con la stessa priorità che il motore già
+    applicava in silenzio prima di P147.
+  CATALOGO ATTIVITA' `_MET_CATALOGO` (P147) — 97 voci con {categoria, nome, MET,
+    codice Compendium, flag stima}, valori del **2024** Adult Compendium of
+    Physical Activities (pacompendium.com). Da qui derivano `_MET_ATTIVITA`
+    (nome→MET) e `_MET_INFO` (nome→voce). Il CODICE serve a ritrovare la voce
+    sulla fonte senza fidarsi dell'etichetta italiana, che è una traduzione
+    nostra. Categorie: Corsa e camminata · Palestra e funzionale · Corpo-mente e
+    gruppo · Bici · Nuoto e acqua · Sport · Non in elenco (stima).
+    - «Non in elenco (stima)» = la griglia tipo×intensità messa a catalogo: è la
+      via di fuga quando l'attività del paziente non c'è, al posto della vecchia
+      via d'uscita silenziosa (campo vuoto → ripiego implicito su tipo/intensità).
+    - CROSSFIT: nel Compendium NON esiste, né come «CrossFit» né come «functional
+      training» — non è un'attività a intensità costante. Voce «CrossFit /
+      functional training (seduta intera)» = 7.5 MET, proxy 02040, MARCATA COME
+      STIMA ovunque (catalogo, pannello, contesto AI). Separata la voce «HIIT /
+      WOD vigoroso (solo tempo di lavoro)» = 11.0 (02214) per chi dichiara i
+      minuti del solo WOD: i ~12.9 MET misurati in letteratura valgono su 8-12
+      minuti di lavoro, non su un'ora di palestra (60 min a 12 MET = +250 kcal
+      di sovrastima a seduta).
+    - `_MET_ALIAS` mappa le 28 etichette storiche sulle voci nuove. Serve perché
+      rinominare una voce è una MIGRAZIONE DI DATI: senza alias il MET sarebbe
+      null, la riga scartata, l'EAT zero — senza errori a video.
+    - Valori corretti in P147 perché fermi al Compendium 2011 sotto un commento
+      che diceva 2024: Pilates 3.5→1.8 · Spinning 7.0→9.0 · Circuit training
+      8.0→7.5 · HIIT 8.0→7.0/11.0 · Yoga 3.0→2.3 · Corsa 10 km/h 10.0→9.3 ·
+      Camminata in salita 6.0→7.0 (più minori su tennis, basket, calcio,
+      canottaggio, pattinaggio, ciclismo).
   TEF: 10% di (MB+NEAT+EAT).
   MODIFICATORE LAVORO nel NEAT (P114 passo 2, 22 lug 2026): campi `fontePassi`
     (Misurati/Stimati) e `tipoLavoro` (Sedentario/In piedi/Pesante). Un lavoro
@@ -2243,6 +2274,12 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
     conteggio: il bonus scatta SOLO se `fontePassi ≠ 'misurati'` (con passi da
     smartwatch lo stare in piedi è già dentro il conteggio). Un lavoro attivo
     basta ad attivare il metodo MET anche senza passi.
+  PANNELLO TDEE — `_tdeePannelloHtml(ct, p)` (P147): UNA sola funzione disegna il
+    riquadro LAF/TDEE, usata dai tre punti che prima avevano tre HTML quasi
+    uguali (render iniziale, `ricalcolaLAF`, salvataggio). Mostra la
+    scomposizione MB+NEAT+EAT+TEF, la riga «Metodo allenamento» (quale delle tre
+    strade ha usato il motore — prima non veniva detto mai), il dettaglio riga
+    per riga delle attività, il confronto LARN e il semaforo di affidabilità.
   INDICE DI AFFIDABILITÀ + INTERVALLO (P114 passo 5, 22 lug 2026):
     `_affidabilitaTDEE` classifica la stima 🟢 alta / 🟡 media / 🔴 bassa a
     punti (passi misurati vs stimati vs mancanti · allenamento in minuti vs
