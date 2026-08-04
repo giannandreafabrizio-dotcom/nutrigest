@@ -10,6 +10,54 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — AUDIT A1/A2/A3: TRE DIFETTI TROVATI CONFRONTANDO I DOCUMENTI.
+Baseline 0f9fd36.
+
+DA DOVE NASCONO. Non da un collaudo: dall'audit di coerenza fra documentazione e
+codice. In tutti e tre i casi il documento diceva una cosa e il codice un'altra, e
+aveva torto il CODICE. Nessuno dei tre era visibile usando il programma.
+
+A1 — IL COUS COUS ERA SCHEDATO FRA I CEREALI SENZA GLUTINE. Stava in 'Cereali senza
+Glutine' con gl:false, quindi l'interfaccia gli stampava accanto l'etichetta [SG].
+Il cous cous e' semola di grano duro. La rete di sicurezza teneva — 'cous cous' e
+'couscous' sono nella lista allergeni Glutine/Celiachia, quindi su un paziente
+segnalato come celiaco validaPiano bloccava comunque — ma la scritta letta dal
+nutrizionista e dal paziente era falsa. Spostato fra i cereali CON glutine, gl:true.
+La roadmap (P130) lo liquidava come "nota cosmetica, non un bug": non lo era.
+Nessun dato paziente toccato: p.alimenti e' indicizzato per NOME, non per categoria.
+
+A2 — UN COMMENTO A FINE RIGA AVEVA SPENTO L'ORDINAMENTO ALFABETICO. In
+_pickPaziente: `.filter(...) // P142.slice().sort(...)`. Tutto quello che segue un
+`//` e' spento, e a schermo non si vede nulla di strano: la tendina "Applica
+template a..." elencava i pazienti in ordine di creazione. Ripristinato, col
+commento su una riga sua.
+
+A3 — LE 1100 KCAL DELLA PIZZA CONDITA NON ERANO RAGGIUNGIBILI. getKcalWeekend e
+_kcalScelta cercavano "la prima chiave che combacia", e 'Pizza con condimenti'
+incontra 'Pizza' prima di se' stessa: tornava sempre 900. Ogni sabato con la pizza
+condita il conto settimanale perdeva 200 kcal in silenzio. Ora vince la chiave PIU'
+LUNGA fra quelle che combaciano, cioe' la piu' specifica — regola che tiene anche
+per le voci che si aggiungeranno in futuro, senza dover badare all'ordine della
+tabella. Le due funzioni ora condividono lo stesso match: prima erano due copie
+della stessa logica, ed e' cosi' che il piano e il diario possono divergere.
+
+IL TEST CHE PROTEGGEVA IL DIFETTO. Applicando A2 e' fallito il test 232 di
+s2-paziente-prenotato: verificava la riga di sorgente parola per parola, COMMENTO
+COMPRESO (`...'prenotato';}) // P142`). Cioe' congelava la riga difettosa e avrebbe
+segnalato come rottura qualunque correzione. Riscritto sul COMPORTAMENTO: che nel
+blocco di _pickPaziente ci sia il filtro, senza pretendere una forma esatta.
+Lezione generale: un test che confronta testo di sorgente invece di comportamento
+non protegge il programma, protegge il difetto.
+
+TEST. Nuovo file s2-audit-a123: il cous cous sta fra i cereali con glutine ed e'
+gl:true; nessun derivato del grano e' rimasto fra i senza glutine; le due grafie
+restano nella lista allergeni; la pizza condita vale 1100 e la pizza semplice 900;
+piano e diario danno lo stesso numero; e — il test che avrebbe trovato il difetto —
+OGNI voce di KCAL_WEEKEND deve restituire il proprio valore, cosi' una chiave che
+ne intercetta un'altra viene scoperta subito. Piu' un controllo che vieta a
+qualunque `.sort(` di finire dentro un commento a fine riga in quel blocco.
+510 test verdi.
+
 4 AGOSTO 2026 — P147e: VIA "RICALCOLA LAF", IL PANNELLO ANCORA IL REGIME DA SE'.
 Baseline bc79ada.
 

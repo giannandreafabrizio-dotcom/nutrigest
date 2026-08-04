@@ -85,8 +85,16 @@ test('FUORI DAI CONTI E DAGLI AVVISI — un prenotato non è ancora un paziente'
   const scad = SORGENTE.slice(SORGENTE.indexOf('function renderScadenzeAlert'));
   assert.ok(/stato !== 'archiviato' && p\.stato !== 'prenotato'/.test(scad),
     'e le scadenze li saltano: senza, ogni telefonata diventa un avviso "InBody da fare"');
-  // e il generatore di piani non propone chi non è ancora venuto
-  assert.ok(/stato!=='archiviato'&&p\.stato!=='prenotato';\}\) \/\/ P142/.test(SORGENTE));
+  // e il generatore di piani non propone chi non è ancora venuto.
+  // ATTENZIONE alla forma di questo controllo: prima verificava la riga di sorgente
+  // parola per parola, COMMENTO COMPRESO — `...'prenotato';}) // P142`. Quel commento
+  // a fine riga si era mangiato l'ordinamento alfabetico che seguiva, e il test,
+  // controllando il testo invece del comportamento, ha protetto il difetto per giorni
+  // invece di segnalarlo. Ora si verifica che nel blocco della funzione ci sia il
+  // filtro, senza pretendere che la riga sia scritta in un modo preciso.
+  const pick = SORGENTE.slice(SORGENTE.indexOf('function _pickPaziente'), SORGENTE.indexOf('function _pickPaziente') + 900);
+  assert.ok(/stato\s*!==\s*['"]archiviato['"]/.test(pick) && /stato\s*!==\s*['"]prenotato['"]/.test(pick),
+    'il generatore deve saltare archiviati e prenotati');
 });
 
 test('GLI ESISTENTI NON VENGONO RICLASSIFICATI', () => {

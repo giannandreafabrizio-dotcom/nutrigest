@@ -1958,6 +1958,7 @@ main{flex:1;overflow-y:auto;}
 const ALIMENTI = {
   'Cereali con Glutine': {items:[
     {n:'Pasta',g:80,gl:true},{n:'Pasta integrale',g:80,gl:true},{n:'Pane comune',g:100,gl:true},{n:'Pane integrale',g:100,gl:true},
+    {n:'Cous cous',g:80,gl:true},
     {n:'Pane di segale',g:100,gl:true},{n:'Farro',g:80,gl:true},{n:'Orzo',g:80,gl:true},{n:'Frisella',g:60,gl:true},{n:'Tarallini',g:30,gl:true},
     {n:'Grissini',g:30,gl:true},{n:'Crackers',g:25,gl:true},{n:'Panbauletto integrale',g:60,gl:true},
     {n:'Wasa (contiene glutine)',g:30,gl:true},{n:'Spaghetti Shirataki Konjac',g:150,gl:false},
@@ -1970,7 +1971,7 @@ const ALIMENTI = {
     {n:'Patate dolci',g:280,gl:false},{n:'Gnocchi di patate',g:160,gl:false},
     {n:'Gallette di riso',g:20,gl:false},{n:'Popcorn',g:30,gl:false},
     {n:'Cornflakes',g:30,gl:false},
-    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false},{n:'Cous cous',g:80,gl:false},
+    {n:'Pasta di mais',g:80,gl:false},{n:'Grano saraceno',g:80,gl:false},{n:"Fiocchi d'avena",g:40,gl:false},
     {n:'Pasta di riso',g:80,gl:false}
   ]},
   'Carne Bianca': {items:[
@@ -2505,14 +2506,27 @@ const KCAL_WEEKEND = {
   'Carne rossa al ristorante':750,
   'Libero (non specificato)':800
 };
+// La ricerca era "la prima chiave che combacia", e 'Pizza con condimenti' incontrava
+// 'Pizza' prima di sé stessa: le 1100 kcal non erano raggiungibili da nessuna scelta,
+// e ogni sabato con la pizza condita il conto settimanale perdeva 200 kcal in silenzio.
+// Ora vince la chiave PIÙ LUNGA fra quelle che combaciano, cioè la più specifica.
+// È una regola che regge anche in futuro: qualunque voce nuova che contenga il nome
+// di un'altra si comporta bene senza dover badare all'ordine della tabella.
+function _kcalWeekendMatch(scelta){
+  if(!scelta) return null;
+  var s=String(scelta).toLowerCase(), val=null, lung=-1;
+  for(var k in KCAL_WEEKEND){
+    var kl=k.toLowerCase();
+    if(s.indexOf(kl)>=0 && kl.length>lung){ val=KCAL_WEEKEND[k]; lung=kl.length; }
+  }
+  return val;
+}
 // Restituisce la stima kcal per il weekend del paziente corrente
 function getKcalWeekend(paziente){
   if(!paziente||!paziente.regolePiano||paziente.regolePiano.sabatolibero===false)return 0;
   const scelta=paziente.weekend||'';
-  // Match parziale sul nome
-  for(const [key,val] of Object.entries(KCAL_WEEKEND)){
-    if(scelta&&scelta.toLowerCase().includes(key.toLowerCase()))return val;
-  }
+  const v=_kcalWeekendMatch(scelta);
+  if(v!=null) return v;
   return scelta?800:0; // default 800 se scelta non riconosciuta
 }
 // P93: opzioni del pasto libero del sabato = principale (p.weekend) + alternative (p.weekendAltre), dedup, senza vuoti
@@ -12848,8 +12862,8 @@ function _sabatiPeriodo(p){
 function _kcalScelta(scelta){
   if(!scelta) return 0;
   if(scelta==='Non fatto (saltato)') return 0;
-  for(var k in KCAL_WEEKEND){ if(scelta.toLowerCase().indexOf(k.toLowerCase())>=0) return KCAL_WEEKEND[k]; }
-  return 800;
+  var v=_kcalWeekendMatch(scelta);   // stessa regola del piano: vince la voce più specifica
+  return v!=null ? v : 800;
 }
 // trova/crea il record del sabato in p.diarioSabato
 function _diarioSabatoRec(p, data){
@@ -19143,7 +19157,12 @@ function apriPickerTemplate(){
 
 // Dalla libreria: scegli il paziente di destinazione, poi applica
 function _pickPaziente(cb){
-  var attivi=(db.pazienti||[]).filter(function(p){return p.stato!=='archiviato'&&p.stato!=='prenotato';}) // P142.slice().sort(function(a,b){return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''));});
+  // P142 — fuori archiviati e prenotati. L'ordinamento alfabetico che segue era
+  // finito DENTRO il commento "// P142" scritto a fine riga: da quel momento la
+  // tendina elencava i pazienti in ordine di creazione. Un commento a fine riga
+  // spegne tutto quello che viene dopo, e non si vede.
+  var attivi=(db.pazienti||[]).filter(function(p){ return p.stato!=='archiviato' && p.stato!=='prenotato'; })
+    .slice().sort(function(a,b){ return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||'')); });
   if(!attivi.length){notif('⚠ Nessun paziente disponibile');return;}
   var modal=document.createElement('div');
   modal.className='overlay open';
