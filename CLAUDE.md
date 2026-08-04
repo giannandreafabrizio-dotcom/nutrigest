@@ -63,6 +63,67 @@ perche' quelle sezioni mostravano il testo statico dell'HTML.
 smette di funzionare quando l'elemento non c'e'?"**. Un orfano dentro una guardia che fa
 `return` e' un pezzo di programma spento in silenzio.
 
+## I documenti del progetto Claude — stato verificato al 4 agosto 2026
+
+I file `claude/NutriGest_*.md` del progetto Claude sono **fotografie datate di un
+ragionamento**, non lo stato del software. Nessuno li aggiorna quando il codice avanza.
+Il 30 luglio 2026 una sessione ha letto `NutriGest_P87_Comunicazione_Analisi.md` come stato
+attuale e stava per ricostruire da zero `p.invii[]` e il motore di invio, esistenti da due
+giorni. Quella non è stata una disattenzione isolata: **l'audit del 4 agosto 2026 ha trovato
+la stessa trappola in 10 documenti su 20.**
+
+**La regola, prima della tabella:** un documento di progetto non autorizza a implementare
+niente. Prima di scrivere una riga di codice ispirata a uno di questi file → `grep` sul nome
+delle funzioni proposte in `index.html` **e** incrocio col `CHANGELOG.md`. Il CHANGELOG è
+la fonte di verità sullo stato; questi file sono la fonte di verità sul *perché*.
+
+| Documento | Stato al 4 ago 2026 |
+|---|---|
+| `_STATO_DOCUMENTI.md` | Copia di questa tabella, visibile dentro claude.ai. |
+| `NutriGest_P9_Timeline_Ragionamento.md` | ✅ **Modello da imitare**: dichiara in testa cosa è implementato, con i commit. |
+| `NutriGest_Plicometria_Ragionamento.md` | ✅ Dice il vero: P139 è davvero da fare, nessun codice plicometrico esiste. |
+| `NutriGest_P124_Import_Referti.md` | ✅ Dichiara già «chiusa e collaudata». |
+| `NutriGest_Testi_Cosa_Entra_Nelle_AI.md` | ✅ Descrive lo stato dopo la modifica, con i marcatori di data. |
+| `NutriGest_Chetogenica_Ragionamento.md` | ✅ Marcatori [fatto]/[non fatto] espliciti; i 4 punti aperti sono veri. |
+| `NutriGest_Ricette_Caricamento_Massivo.md` | ✅ Il limite risolto è marcato; la fase 2 è davvero aperta. |
+| `NutriGest_TDEE_Parte1b_Catalogo_e_LAF.md` | ✅ Scritto al passato coi commit. Solo il §4 è superato: il collaudo a video **è** avvenuto e ha prodotto P147d. |
+| `NutriGest_Roadmap_Semplice.md` | ⚠️ Foto al 31 luglio: **non conosce P147/b/c/d**. Va rigenerata, non letta come attuale. |
+| `NutriGest_TDEE_Parte1_Ragionamento.md` | ⚠️ In testa dice «Nessuna modifica al codice è stata fatta»: **falso**, P147 è chiusa (`77649f0`). Il catalogo del §6 propone 78 voci, **oggi sono 117**. |
+| `NutriGest_P87_Comunicazione_Analisi.md` | 🗄️ **È il documento dell'incidente.** P87 è CHIUSA dal 28 luglio in tre tappe: `p.invii[]`, motore di invio e tab Comunicazione **esistono già**. |
+| `NutriGest_P122_Collaudo_e_Correzioni.md` | 🗄️ «Nessuna correzione è ancora stata scritta nel codice» è **falso**: tutte e 5 scritte lo stesso giorno, P122 chiusa e collaudata il 26 luglio. |
+| `NutriGest_Obiettivo_Ragionamento.md` | ⚠️ La tabella del §10 segna ✅ solo la tappa 1 e dà stime orarie alle altre: **P122 è completa dal 26 luglio**, tutte e 5 le tappe. |
+| `NutriGest_Grafici_InBody_Ragionamento.md` | ⚠️ «Codice: non ancora toccato» è **falso**: P99 chiusa 28/7, `_IB_MIN_GG=21` è in codice, i due punti «Aperto» sono P131 e P132, entrambe chiuse. |
+| `NutriGest_Grammature_Regole.md` | ⚠️ «Le due regole si contraddicono e va deciso quale vince»: **già deciso e implementato** in P121 — gruppi diversi usano la porzione standard. |
+| `NutriGest_Pazienti_Storici_Metodo.md` | ⚠️ Il flusso descritto **ignora P142** (stato «prenotato») **e P63b** (controlli di coerenza sull'import InBody), entrambe del 31 luglio. |
+| `NutriGest_FODMAP_Confronto_Fonti.md` | ⚠️ Le tre proposte A/B/C del §7 sono **tutte già fatte** il 28 luglio. Resta aperta solo P130. |
+| `NutriGest_Grafici_Decisioni_Aperte.md` | ⛔ **Il più pericoloso.** «Da qui in poi è tutto ancora da implementare» quando è tutto fatto (P131, P132). E i **pulsanti di periodo** furono implementati il 29 luglio e **RIMOSSI lo stesso giorno su richiesta esplicita di Fabrizio** (P134a): reimplementarli non rifà un lavoro, **disfa una sua decisione**. |
+| `NutriGest_Grammature_Analisi.md` | ⛔ Contiene **due proposte RESPINTE da Fabrizio**: la banda di plausibilità (§5.3) e l'arrotondamento con guardia al 25% (§5.4). Implementarle rimetterebbe in circolo i troncamenti silenziosi che P121 ha eliminato: **danno clinico**. |
+| `NutriGest_FODMAP_Verifica_Perplexity.md` | ⛔ **Non è una fonte di dati.** Le tabelle vengono da fonti secondarie, non dall'app Monash. **Nessun valore di quel file va in un documento consegnato a un paziente finché P130 non è chiusa** — comprese le voci marcate «✓ Confermati». |
+| `CLAUDE.md` (copia nel progetto) | Era una copia del 25 luglio **divergente** dal repo — negava perfino il login esistente dal 31 luglio. Riallineata al repo il 4 agosto 2026. |
+
+**Trovati nella stessa passata, dentro la fonte di verità** (da correggere quando si tocca
+quella zona): in `NutriGest_Roadmap_v4.md` il titolo della scheda P122 dice ancora «Tappa 1
+chiusa, tappe 2-5 aperte» mentre trentotto righe più sotto lo stesso file scrive «P122
+COMPLETA»; e la riga su P124b dice «COLLAUDO DA FARE» mentre il CHANGELOG lo dà superato dal
+26 luglio. **Un file che si contraddice da solo è peggio di due file che si contraddicono
+fra loro**: chi legge non ha modo di accorgersene.
+
+### Regola 23 — un documento nuovo nasce già datato, e muore con la voce che l'ha generato
+
+1. **Ogni documento di progetto nuovo nasce con un'intestazione di stato**: data, commit di
+   riferimento, cosa è già implementato, cosa resta davvero aperto. Senza, è una trappola
+   dal giorno dopo.
+2. **Non si crea un documento se il contenuto sta già nel CHANGELOG.** La domanda da farsi è
+   «questo ragionamento serve fra tre mesi *e* non entra nel CHANGELOG?». Se la risposta non
+   è sì a entrambe, non si scrive un file: si scrive una voce di CHANGELOG.
+3. **Quando una voce di roadmap si chiude, il documento che l'ha progettata va marcato nello
+   stesso giro di consegna** — è parte della checklist di chiusura, non un lavoro separato.
+   Il costo di marcarlo è un minuto; il costo di non farlo è una sessione intera rifatta.
+4. **La tabella qui sopra si riverifica quando si tocca un documento**, e la data in cima
+   («verificato al …») si sposta solo se la verifica è stata fatta davvero. Una data di
+   verifica falsa è lo stesso difetto dell'intestazione di INDEX.md che dichiarava un
+   riallineo mai avvenuto (26 luglio): **le dichiarazioni non si credono, si controllano**.
+
 ## Checklist documentazione — OBBLIGATORIA dopo ogni modifica
 Nata da un incidente reale (16 lug 2026): P62/P77 erano state implementate il 7 lug ma la Roadmap era rimasta "Da fare" — una sessione successiva stava per rifarle da zero; salvata solo dall'incrocio col CHANGELOG. La documentazione NON si aggiorna "dopo, con calma": si aggiorna nello stesso giro di consegna della modifica, e i file documentali entrano nello STESSO blocco commit del codice.
 

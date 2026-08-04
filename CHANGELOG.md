@@ -10,7 +10,69 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-3 AGOSTO 2026 — P147d: LO STORICO SALVAVA IL RISULTATO, NON IL MOTIVO.
+4 AGOSTO 2026 — AUDIT DEI DOCUMENTI DI PROGETTO: 10 TRAPPOLE SU 20.
+Baseline 033ca88.
+
+DA DOVE NASCE. Fabrizio chiede perche' negli ultimi giorni nascano tanti file e se
+sia un bene o un problema nel lungo periodo. Domanda giusta al momento giusto:
+nella cartella nutrigest non era stato aggiunto nulla (solo i 4 file del repo,
+aggiornati), ma i documenti del progetto Claude erano saliti a venti.
+
+COSA E' VENUTO FUORI. Riletti tutti e venti incrociandoli col CHANGELOG e col
+codice: DIECI contengono frasi che, lette oggi, farebbero credere che qualcosa sia
+ancora da fare quando e' gia' in produzione. Non e' il caso limite del 30 luglio:
+e' meta' della biblioteca.
+
+I TRE CASI CHE NON SONO SOLO "DOCUMENTAZIONE VECCHIA":
+- Grafici_Decisioni_Aperte dice "da qui in poi e' tutto ancora da implementare" e
+  propone i pulsanti di periodo. Quei pulsanti sono stati fatti il 29 luglio e
+  RIMOSSI lo stesso giorno perche' a Fabrizio non piacevano. Chi legge quel file e
+  li rifa' non ripete un lavoro: DISFA una decisione presa guardando la funzione in uso.
+- Grammature_Analisi propone la banda di plausibilita' e la guardia al 25%, due
+  cose RESPINTE: implementarle rimetterebbe in circolo i troncamenti silenziosi che
+  P121 aveva eliminato. Danno clinico, non estetico.
+- FODMAP_Verifica_Perplexity contiene tabelle di porzioni marcate "confermate" che
+  vengono da fonti secondarie, non dall'app Monash. P130 le rimette tutte in
+  verifica. Un valore di quel file copiato in un PDF consegnato al paziente e' la
+  regola 14 violata alla lettera.
+
+IL PEGGIO ERA ALTROVE. La copia di CLAUDE.md dentro il progetto era ferma al 25
+luglio: senza le lezioni del 30 luglio, senza le regole 12-22, senza la regola su
+cmd.exe, e con scritto "Autenticazione: nessuna (app personale)" mentre il login
+vero esiste dal 31 luglio. Due versioni divergenti delle REGOLE OPERATIVE — cioe'
+il file che decide come lavorano tutte le sessioni. Riallineata al repo.
+
+PERCHE' LA CORREZIONE STA IN CLAUDE.MD E NON DENTRO I DIECI DOCUMENTI. Mettere
+un'intestazione di stato in ognuno sarebbe stato piu' ordinato ma meno efficace:
+un documento lo si legge solo se lo si apre, mentre CLAUDE.md e' caricato SEMPRE,
+all'inizio di ogni sessione, prima di qualunque scelta. La tabella di stato dei
+venti documenti sta li'; una copia sta nel progetto come _STATO_DOCUMENTI.md,
+perche' e' dentro claude.ai che quei file si aprono per primi.
+
+REGOLA 23. (a) Ogni documento nuovo nasce con intestazione di stato: data, commit,
+cosa e' gia' fatto, cosa resta aperto. (b) Non si crea un documento se il contenuto
+sta gia' nel CHANGELOG — la domanda e' "serve fra tre mesi E non entra nel
+CHANGELOG?", e servono due si'. (c) Quando una voce si chiude, il documento che
+l'ha progettata si marca NELLO STESSO GIRO di consegna: un minuto contro una
+sessione rifatta. (d) La data di verifica si sposta solo se la verifica c'e' stata
+davvero — e' lo stesso difetto dell'intestazione di INDEX.md che dichiarava un
+riallineo mai avvenuto.
+
+DUE CONTRADDIZIONI TROVATE DENTRO LA FONTE DI VERITA'. In Roadmap_v4 il titolo
+della scheda P122 dice "Tappa 1 chiusa, tappe 2-5 aperte" e trentotto righe piu'
+sotto lo stesso file dice "P122 COMPLETA"; e P124b risulta "COLLAUDO DA FARE"
+mentre il CHANGELOG lo da' superato dal 26 luglio. Un file che si contraddice da
+solo e' peggio di due file che si contraddicono fra loro: chi legge non ha modo di
+accorgersene. Annotate in CLAUDE.md, da correggere quando si tocca quella zona.
+
+CORRETTA ANCHE UNA DATA MIA: la voce P147d qui sotto diceva 3 agosto, ma il commit
+033ca88 e' del 4 agosto alle 13:47 UTC. Segnalato da Fabrizio, che da tre giorni e'
+a New York col PC rimasto su ora di Roma. Nota utile per il futuro: con quel
+disallineamento, dalle 18:00 di New York in poi il PC e' gia' al giorno dopo, e
+tutto cio' che l'app data da sola (prima visita, inizio percorso, creazione
+paziente, data del referto precompilata) prende la data di domani.
+
+4 AGOSTO 2026 — P147d: LO STORICO SALVAVA IL RISULTATO, NON IL MOTIVO.
 Baseline d803f72.
 
 DA DOVE NASCE. Fabrizio, collaudando il pannello dal vivo: "il tasto salva
