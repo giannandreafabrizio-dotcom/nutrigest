@@ -10,6 +10,44 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — P147e: VIA "RICALCOLA LAF", IL PANNELLO ANCORA IL REGIME DA SE'.
+Baseline bc79ada.
+
+DA DOVE NASCE. Fabrizio, dopo tre giri di domande sullo stesso tasto: "non capisco,
+quel foglietto non lo scrive quando premo salva TDEE?". Aveva ragione, e la
+spiegazione data prima era incompleta. Il valore window._tdeeRegime — che TUTTO il
+resto del programma legge (slider del regime, preset keto, ritaratura, uscita dalla
+chetogenica, calcolaMacros) — veniva scritto in TRE momenti: apertura della scheda,
+"Ricalcola LAF", salvataggio.
+
+QUINDI A COSA SERVIVA IL TASTO. A un lavoro solo: riscrivere quel valore SENZA
+salvare. Serviva perche' fra l'apertura e il salvataggio si poteva cambiare
+l'allenamento, vedere il TDEE muoversi nel pannello (automatico da P147c) e poi
+impostare un deficit del 16% calcolato sul TDEE VECCHIO. Il tasto era il rimedio
+manuale a un disallineamento che non doveva esistere.
+
+LA CORREZIONE. _aggiornaPannelloTdeeLive scrive anche window._tdeeRegime e
+window._mbRegime, e ri-ancora lo slider mantenendo la percentuale scelta: se il TDEE
+sale, il −16% resta −16% e le kcal seguono. Il valore assoluto non si tocca mai da
+li': quello lo decide l'utente. Cosi' l'unico lavoro rimasto al tasto sparisce, e il
+tasto con lui. Resta un solo pulsante nella scheda: "Salva dati TDEE".
+
+RIMOSSA ANCHE LA FUNZIONE, non solo il pulsante. Una `ricalcolaLAF()` orfana sarebbe
+sembrata una strada praticabile a chi legge il codice fra sei mesi. Al suo posto un
+commento che dice cosa faceva e dove sono finiti i suoi tre lavori. Nota: uno dei
+tre — riversare i campi del form sul paziente in memoria — NON e' stato spostato
+nell'aggiornamento dal vivo. E' una scrittura, e le scritture restano un gesto
+esplicito: "Salva dati TDEE".
+
+TRE AVVISI RISCRITTI. "TDEE non disponibile — clicca prima Ricalcola LAF" mandava
+l'utente a premere un tasto che non esiste piu'. Ora dicono la causa vera: serve il
+metabolismo basale da un referto InBody.
+
+TEST. Tre nuovi in s2-laf-pannello-vivo: il valore ancorato deve coincidere con
+quello scritto nel pannello (se divergono siamo punto e daccapo); cambiare
+allenamento lo sposta subito senza premere niente; e un test che vieta il ritorno
+del tasto — funzione assente, nessun onclick, nessun avviso che lo citi. 502 verdi.
+
 4 AGOSTO 2026 — AUDIT DEI DOCUMENTI DI PROGETTO: 10 TRAPPOLE SU 20.
 Baseline 033ca88.
 

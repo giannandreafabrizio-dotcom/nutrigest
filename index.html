@@ -14431,10 +14431,6 @@ function renderPdMacros(p){
       <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">${_tdeePannelloHtml(_ct0, p)}
       </div>
     </div>
-    <div class="fg" style="flex:1">
-      <label>&nbsp;</label>
-      <button class="btn btn-p" style="width:100%" onclick="ricalcolaLAF()">&#8635; Ricalcola LAF</button>
-    </div>
   </div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}" oninput="_aggiornaRifPesoTarget()"></div>
@@ -15594,7 +15590,7 @@ function _vcRitara(kcalTarget){
   const kcalEl=document.getElementById("mac-off-kcal");
   const tdee=window._tdeeRegime;
   if(!kcalEl){ notif("⚠ Apri la scheda Macros per applicare la ritaratura"); return; }
-  if(!tdee){ notif("⚠ TDEE non disponibile — clicca prima Ricalcola LAF"); return; }
+  if(!tdee){ notif("⚠ TDEE non disponibile — serve il metabolismo basale da un referto InBody"); return; }
   kcalEl.value=Math.round(kcalTarget-tdee);
   _aggiornaRegimeSlider("kcal");
   notif("🔎 Target portato a "+Math.round(kcalTarget)+" kcal — controlla e poi 💾 Salva dati");
@@ -16097,7 +16093,7 @@ function _presetKetoKcal(kcalAssolute){
   var kcalEl=document.getElementById('mac-off-kcal');
   var tdee=window._tdeeRegime;
   if(!kcalEl) return;
-  if(!tdee){ notif('⚠ TDEE non disponibile — clicca prima Ricalcola LAF'); return; }
+  if(!tdee){ notif('⚠ TDEE non disponibile — serve il metabolismo basale da un referto InBody'); return; }
   kcalEl.value=Math.round(kcalAssolute-tdee);
   _aggiornaRegimeSlider('kcal');
 }
@@ -16402,7 +16398,7 @@ function _kuRefProteine(){
 function _apriModaleUscitaKeto(){
   var p=_macrosPaziente;
   if(!p){ notif('⚠ Nessun paziente aperto'); return; }
-  if(!window._tdeeRegime){ notif('⚠ TDEE non disponibile — clicca prima Ricalcola LAF'); return; }
+  if(!window._tdeeRegime){ notif('⚠ TDEE non disponibile — serve il metabolismo basale da un referto InBody'); return; }
   if(document.getElementById('ku-overlay')) return;
   var f=_kuFattoreScala();
   var ku=p.ketoUscita&&p.ketoUscita.attiva?p.ketoUscita:null;
@@ -16630,29 +16626,11 @@ function _initRegimeSliderDaPaziente(p, tdee, mb){
   _renderSuggerimentoKeto(false); // P-KETO-SUGG: box automatico col protocollo consigliato
 }
 
-function ricalcolaLAF(){
-  const p=db.pazienti.find(x=>x.id===currentPazId);if(!p)return;
-  const gn=id=>{const el=document.getElementById(id);return el&&el.value!==''?parseFloat(el.value):null;};
-  const gs=id=>document.getElementById(id)?.value||'';
-  // Legge i valori attuali dal form prima di ricalcolare
-  p.passiGiornalieri=gn('p-passi');
-  p.oreAllenamento=gn('p-ore-all');
-  p.intensitaAllenamento=gs('p-intens-all');
-  p.tipoAllenamento=gs('p-tipo-all');
-  p.fontePassi=gs('p-fonte-passi');
-  p.tipoLavoro=gs('p-lavoro');
-  _scriviAllenamentoSuPaziente(p);
-  const ct=calcolaTDEE(p);
-  // FIX-REGIME: sincronizza _macrosPaziente con l'oggetto db aggiornato,
-  // così calcolaMacros legge gli stessi dati attività usati per ancorare lo slider
-  _macrosPaziente=p;
-  // P-REGIME SLIDER — ri-ancora il target al nuovo TDEE mantenendo la % impostata
-  window._tdeeRegime=ct.tdee||null; window._mbRegime=ct.mb||null;
-  _aggiornaRegimeSlider('pct');
-  const lafEl=document.getElementById('laf-display');
-  if(lafEl) lafEl.innerHTML=_tdeePannelloHtml(ct, p);
-  notif('LAF aggiornato');
-}
+// P147e — `ricalcolaLAF()` è stata rimossa insieme al suo pulsante il 4 agosto 2026.
+// Faceva tre cose: ridisegnare il pannello (ora automatico, P147c), riversare i
+// campi del form sul paziente in memoria, e ancorare window._tdeeRegime. La prima
+// e la terza le fa _aggiornaPannelloTdeeLive(); la seconda è una SCRITTURA e deve
+// restare un gesto esplicito, cioè "Salva dati TDEE".
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P114 passo 4 — TDEE OSSERVATO (prima release: SOLO INFORMATIVO, 19 lug 2026)
@@ -17310,7 +17288,7 @@ function _attRigaAdd(){ _attRighe.push({nome:'',sedute:null,minuti:null}); _attR
 function _attRigaDel(i){ _attRighe.splice(i,1); _attRigheRender(); }
 
 // Totale vivo sotto le righe: sedute, ore effettive e EAT. Serve a vedere subito l'effetto
-// di una riga senza premere "Ricalcola LAF".
+// di una riga: dal 4 agosto 2026 non esiste piu' nessun tasto da premere.
 function _attRigheTotale(){
   const el=document.getElementById('att-righe-tot');
   if(!el) return;
@@ -17374,7 +17352,8 @@ function _scriviAllenamentoSuPaziente(p){
 // ═══════════════════════════════════════════════════════════════════════════
 // P147c — IL RIQUADRO LAF ERA UNA FOTOGRAFIA (3 ago 2026)
 // Il pannello "Fattore attività (LAF)" si ridisegnava in tre soli momenti:
-// apertura della scheda, "Ricalcola LAF", salvataggio. In mezzo si poteva
+// apertura della scheda, il vecchio tasto "Ricalcola LAF" (rimosso il 4 agosto
+// 2026) e il salvataggio. In mezzo si poteva
 // cambiare modalità o togliere una riga e continuare a leggere i numeri di
 // prima. Il caso visto dal vivo: il modulo diceva "Nessuna attività inserita" e
 // il riquadro sotto dichiarava "EAT 60 (6 MET medio)" — quel 60 veniva da un
@@ -17384,7 +17363,7 @@ function _scriviAllenamentoSuPaziente(p){
 //
 // Qui il ricalcolo gira su una COPIA del paziente: niente scritture sul db,
 // niente notifica, niente riancoraggio dello slider regime. Quelli restano
-// azioni esplicite di "Ricalcola LAF" e del salvataggio; questo aggiorna solo
+// azione esplicita del salvataggio; questo aggiorna solo
 // ciò che l'occhio legge.
 // ═══════════════════════════════════════════════════════════════════════════
 function _aggiornaPannelloTdeeLive(){
@@ -17405,7 +17384,21 @@ function _aggiornaPannelloTdeeLive(){
   q.fontePassi=gs('p-fonte-passi');
   q.tipoLavoro=gs('p-lavoro');
   _scriviAllenamentoSuPaziente(q);
-  lafEl.innerHTML=_tdeePannelloHtml(calcolaTDEE(q), q);
+  const ct=calcolaTDEE(q);
+  lafEl.innerHTML=_tdeePannelloHtml(ct, q);
+  // P147e — qui finiva il lavoro di "Ricalcola LAF", che è stato tolto.
+  // window._tdeeRegime è il valore che TUTTO il resto del programma legge: slider
+  // del regime, preset keto, ritaratura, uscita dalla chetogenica, calcolaMacros.
+  // Prima lo scrivevano solo l'apertura della scheda, quel tasto e il salvataggio:
+  // fra un'apertura e un salvataggio si poteva cambiare l'allenamento, vedere il
+  // TDEE muoversi nel pannello e calcolare i macro su quello VECCHIO. Il tasto
+  // esisteva per rimediare a mano a un disallineamento che non doveva esistere.
+  window._tdeeRegime=ct.tdee||null;
+  window._mbRegime=ct.mb||null;
+  // Ri-ancora il target mantenendo la percentuale scelta: se il TDEE sale, il
+  // deficit del −16% resta −16% e le kcal seguono. Il valore assoluto non si tocca
+  // mai da qui — quello lo decide l'utente.
+  if(typeof _aggiornaRegimeSlider==='function' && document.getElementById('mac-off-pct')) _aggiornaRegimeSlider('pct');
 }
 
 // Paziente → form, all'apertura del pannello.
@@ -17498,7 +17491,7 @@ function _affidabilitaHtml(ct){
 }
 
 // Pannello TDEE: una sola funzione, usata sia al caricamento del paziente sia dopo
-// "Ricalcola LAF". Prima erano due blocchi di HTML quasi uguali in due punti diversi,
+// dall'aggiornamento dal vivo. Prima erano due blocchi di HTML quasi uguali in due punti,
 // che è il modo classico per farne divergere uno senza accorgersene.
 // La riga "Metodo" è nuova: prima il pannello non diceva MAI quale delle due strade
 // aveva usato il motore, e con l'attività specifica selezionata tipo e intensità

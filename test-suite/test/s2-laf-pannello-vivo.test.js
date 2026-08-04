@@ -101,3 +101,38 @@ test('LAF VIVO — a pannello chiuso la funzione non esplode e non fa nulla', ()
   assert.doesNotThrow(() => win.eval('_aggiornaPannelloTdeeLive()'));
   d.body.appendChild(salvato);
 });
+
+// ── P147e — il pannello ancora anche il regime, il tasto non serve più ──
+// «Ricalcola LAF» faceva tre lavori: ridisegnare il pannello, riversare il form
+// sul paziente, e scrivere window._tdeeRegime — il valore che TUTTO il resto legge
+// (slider del regime, preset keto, ritaratura, uscita dalla chetogenica,
+// calcolaMacros). Il primo è automatico dal 3 agosto; il secondo è una scrittura e
+// resta al salvataggio; il terzo passa qui. Senza, si poteva cambiare l'allenamento,
+// vedere il TDEE muoversi a schermo e calcolare i macro su quello vecchio.
+test('REGIME — l\'aggiornamento dal vivo ancora anche il TDEE che legge il resto del programma', () => {
+  win.eval('window._tdeeRegime = null; window._mbRegime = null');
+  const testo = scenario('precisa', [{ nome:'Corsa 10 km/h', sedute:3, minuti:45 }]);
+  const ancorato = win.eval('window._tdeeRegime');
+  const kcal = +(/TDEE: (\d+) kcal/.exec(testo) || [])[1];
+  assert.strictEqual(ancorato, kcal,
+    'il valore ancorato deve essere lo stesso che si legge nel pannello: ' + ancorato + ' vs ' + kcal);
+  assert.strictEqual(win.eval('window._mbRegime'), 1554, 'anche il MB va ancorato');
+});
+
+test('REGIME — cambiare allenamento sposta subito il valore ancorato, senza premere niente', () => {
+  scenario('precisa', [{ nome:'Corsa 10 km/h', sedute:1, minuti:30 }]);
+  const poco = win.eval('window._tdeeRegime');
+  scenario('precisa', [{ nome:'Corsa 10 km/h', sedute:5, minuti:60 }]);
+  const tanto = win.eval('window._tdeeRegime');
+  assert.ok(tanto > poco,
+    'cinque ore di corsa devono ancorare un TDEE più alto di mezz\'ora: ' + poco + ' → ' + tanto);
+});
+
+test('REGIME — il tasto "Ricalcola LAF" non esiste più, né come funzione né come pulsante', () => {
+  assert.strictEqual(win.eval('typeof ricalcolaLAF'), 'undefined',
+    'la funzione va rimossa, non lasciata come codice morto');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'index.html'), 'utf8');
+  assert.ok(!/onclick="ricalcolaLAF\(\)"/.test(html), 'nessun pulsante deve chiamarla');
+  assert.ok(!/clicca prima Ricalcola LAF/.test(html),
+    'nessun avviso deve mandare l\'utente a premere un tasto che non c\'è più');
+});
