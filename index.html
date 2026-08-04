@@ -2984,7 +2984,7 @@ const CALCOLI_CLINICI = [
    formula:(v)=>v['_cintFianchi'],
    unit:'',
    soglie:[
-     {sesso:'M',max:0.90,sem:'verde'},{sesso:'M',max:1.00,sem:'giallo'},{sesso:'M',sem:'rosso'},
+     {sesso:'M',max:0.85,sem:'verde'},{sesso:'M',max:0.90,sem:'giallo'},{sesso:'M',sem:'rosso'},
      {sesso:'F',max:0.80,sem:'verde'},{sesso:'F',max:0.85,sem:'giallo'},{sesso:'F',sem:'rosso'},
      {sem:'info'}
    ],
@@ -3173,9 +3173,29 @@ const RANGE_RIF = {
   },
   'Colesterolo totale': {
     livello:'B', unita:'mg/dL', fonte:'ESC/EAS 2019',
-    nota:'Da solo poco informativo: il dato rilevante è LDL / non-HDL.',
-    interpreta:(v)=> v<190 ? {sem:'info',et:'desiderabile'}
-                   :         {sem:'info',et:'sopra desiderabile'}
+    nota:'Da solo non è un buon predittore: due persone con lo stesso totale possono avere rischi cardiovascolari molto diversi. Quello che conta è LDL / non-HDL, letti insieme a HDL, trigliceridi e rischio CV globale.',
+    // Decisione clinica di Fabrizio, 4 ago 2026. Prima c'era una soglia secca a 190:
+    // un 195 risultava «sopra desiderabile» qui e «dentro il riferimento» nella tabella
+    // di laboratorio (che si ferma a 200) — due messaggi opposti sullo stesso esame,
+    // nella stessa schermata. I due numeri però NON sono in contraddizione: 200 è
+    // l'intervallo di riferimento del laboratorio, 190 il target prudenziale. Restano
+    // entrambi; a cambiare è la fascia in mezzo, che da sola non dice niente e ora si
+    // evidenzia SOLO se il resto del profilo lipidico non è a posto.
+    interpreta:(v,p)=> {
+      if(v < 190) return {sem:'info', et:'desiderabile'};
+      if(v >= 200) return {sem:'info', et:'sopra il riferimento di laboratorio'};
+      const hdl = (typeof _richVal==='function') ? _richVal(p,'HDL') : null;
+      const ldl = (typeof _richVal==='function') ? _richVal(p,'LDL') : null;
+      // Senza HDL e LDL non si può dire: dirlo, invece di inventare un giudizio.
+      if(hdl==null && ldl==null) return {sem:'info', et:'190-200 — servono HDL e LDL per interpretarlo'};
+      const hdlBasso = (hdl!=null) && hdl < ((p && p.sesso==='F') ? 50 : 40);
+      const ldlAlto  = (ldl!=null) && ldl >= 116;   // <116 = target rischio basso, ESC/EAS 2019
+      if(hdlBasso || ldlAlto){
+        const perche = [hdlBasso?'HDL basso':null, ldlAlto?'LDL ≥116':null].filter(Boolean).join(' + ');
+        return {sem:'giallo', et:'190-200 con '+perche};
+      }
+      return {sem:'info', et:'190-200, ma HDL e LDL nella norma'};
+    }
   },
   'Vitamina D (25-OH)': {
     livello:'C', unita:'ng/mL', fonte:'Soglie classiche Endocrine Society 2011',
@@ -3635,10 +3655,22 @@ function calcolaGrammaturaEquivalente(alimentoBase, grBase, alimentoAlt, criteri
 // Due alimenti si equivalgono SOLO se appartengono allo stesso gruppo; il macro su
 // cui si calcola dipende dal gruppo. Alimenti di gruppi diversi (es. un legume come
 // alternativa alla pasta) NON si calcolano: prendono la loro porzione standard.
-//   carbo/frutta/legumi → carboidrati · proteine → proteine · olio+grasso → GRASSI
+//   carbo/frutta/legumi → carboidrati · proteine → proteine · olio+grasso → KCAL
 //   verdura → nessun calcolo, stessa grammatura del principale (criterio null)
-// Perche' i grassi e non le kcal: l'olio e' 100% lipidi, sulle kcal l'equivalenza
-// faceva entrare anche carboidrati e proteine dell'alternativa (avocado, frutta secca).
+//
+// IL GRUPPO GRASSI E' PASSATO DA 'grassi' A 'kcal' IL 4 AGOSTO 2026 — decisione di
+// Fabrizio, e ROVESCIA la scelta presa qui il 25 luglio. La motivazione di allora era
+// buona: l'olio e' 100% lipidi, e pareggiando le kcal entrano anche i carboidrati e le
+// proteine dell'alternativa. Il problema e' che vale anche il contrario, e pesa di piu':
+// i semi e la frutta secca NON sono grasso puro, quindi pareggiare i grassi porta dentro
+// le calorie di fibra e proteine senza contarle. Il caso che ha deciso: 10 g di olio
+// (90 kcal) diventavano 33 g di semi di chia, che di grasso ne hanno il 31% e valgono
+// 158 kcal — quasi il doppio, e una porzione che Fabrizio non vuole consigliare.
+// A pari kcal la chia torna a 18 g, cioe' i 20 g che il foglietto «I grassi buoni»
+// dichiara da sempre: motore e testo al paziente ora dicono la stessa cosa.
+// Il compromesso accettato: sul singolo pasto il target dei GRASSI resta un po' sotto
+// quando si sostituisce con semi o frutta secca. Si e' scelto di sbagliare sul macro
+// invece che sull'energia.
 // Perche' i legumi sui carboidrati e non sulle proteine: nello schema di Fabrizio il
 // legume in barattolo sta nella cella glucidica; tra legumi diversi conta il carboidrato.
 // NESSUN tetto di plausibilita': 80g di pasta valgono davvero 354g di patate e 150g di
@@ -3648,8 +3680,8 @@ var _GRUPPI_EQUIV = {
   frutta:     {gruppo:'frutta',     criterio:'carbo'},
   legumi:     {gruppo:'legumi',     criterio:'carbo'},
   proteine:   {gruppo:'proteine',   criterio:'proteine'},
-  olio:       {gruppo:'grassi',     criterio:'grassi'},
-  grasso:     {gruppo:'grassi',     criterio:'grassi'},
+  olio:       {gruppo:'grassi',     criterio:'kcal'},
+  grasso:     {gruppo:'grassi',     criterio:'kcal'},
   verdura:    {gruppo:'verdura',    criterio:null},
   fit:        {gruppo:'fit',        criterio:'kcal'},
   condimento: {gruppo:'condimento', criterio:'kcal'}

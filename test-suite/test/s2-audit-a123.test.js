@@ -105,3 +105,89 @@ test('A2 — la scelta del paziente nel generatore è ordinata per cognome e nom
     }
   });
 });
+
+// ══ A4 — vita/fianchi: le due scale seguivano regole diverse fra i sessi ══════
+// Soglia OMS (Waist Circumference and Waist-Hip Ratio, Expert Consultation 2008,
+// pubblicata 2011): obesità centrale da 0,90 nell'uomo e da 0,85 nella donna.
+// La scala femminile era già così — rosso sopra 0,85, giallo nei cinque centesimi
+// sotto. Quella maschile dava verde fino a 0,90 e rosso solo sopra 1,00: un uomo a
+// 0,95, per l'OMS già in obesità centrale, compariva GIALLO.
+function semWhr(sesso, valore) {
+  const def = JSON.parse(win.eval("JSON.stringify(CALCOLI_CLINICI.find(function(x){return x.id==='whr';}).soglie)"));
+  for (let i = 0; i < def.length; i++) {
+    const s = def[i];
+    if (s.sesso && s.sesso !== sesso) continue;
+    if (s.max == null || valore <= s.max) return s.sem;
+  }
+  return null;
+}
+
+test('A4 — la soglia OMS vale per entrambi i sessi: 0,90 uomo e 0,85 donna', () => {
+  assert.strictEqual(semWhr('M', 0.95), 'rosso', 'un uomo a 0,95 è oltre la soglia OMS, non può essere giallo');
+  assert.strictEqual(semWhr('M', 0.92), 'rosso');
+  assert.strictEqual(semWhr('F', 0.87), 'rosso', 'una donna a 0,87 è oltre la soglia OMS');
+});
+
+test('A4 — la fascia gialla è simmetrica: i cinque centesimi sotto la soglia', () => {
+  assert.strictEqual(semWhr('M', 0.88), 'giallo', 'uomo fra 0,85 e 0,90');
+  assert.strictEqual(semWhr('M', 0.84), 'verde');
+  assert.strictEqual(semWhr('F', 0.83), 'giallo', 'donna fra 0,80 e 0,85');
+  assert.strictEqual(semWhr('F', 0.78), 'verde');
+});
+
+test('A4 — la banda del grafico InBody usa le stesse due soglie del semaforo', () => {
+  const rif = JSON.parse(win.eval('JSON.stringify(_IB_RIF.whr)'));
+  assert.strictEqual(rif.M.hi, 0.90, 'il tetto della banda maschile è la soglia OMS');
+  assert.strictEqual(rif.F.hi, 0.85, 'e quello femminile pure');
+  // Con questo, grafico e scheda non possono più dire cose opposte sullo stesso numero:
+  // sopra la banda è sopra la soglia OMS, ed è rosso anche nel semaforo.
+  assert.strictEqual(semWhr('M', rif.M.hi + 0.01), 'rosso');
+  assert.strictEqual(semWhr('F', rif.F.hi + 0.01), 'rosso');
+});
+
+// ══ A5 — il colesterolo totale da solo non decide ════════════════════════════
+// Prima c'era una soglia secca a 190: un 195 risultava «sopra desiderabile» qui e
+// «dentro il riferimento» nella tabella di laboratorio (che si ferma a 200). I due
+// numeri non sono in contraddizione — 200 è l'intervallo del laboratorio, 190 il
+// target prudenziale — ma la fascia in mezzo da sola non dice niente.
+// Decisione di Fabrizio (4 ago 2026): si evidenzia SOLO se HDL o LDL non sono a posto.
+function paz(sesso, hdl, ldl) {
+  const a = {};
+  if (hdl != null) a['HDL_val'] = hdl;
+  if (ldl != null) a['LDL_val'] = ldl;
+  return { sesso: sesso, analisiSangue: a };
+}
+function interpTot(v, p) {
+  return JSON.parse(win.eval('JSON.stringify(interpretaAnalisi("Colesterolo totale", ' + v + ', ' + JSON.stringify(p) + '))'));
+}
+
+test('A5 — sotto 190 e sopra 200 il giudizio non dipende dal resto del profilo', () => {
+  assert.strictEqual(interpTot(185, paz('M', 30, 150)).et, 'desiderabile');
+  assert.strictEqual(interpTot(210, paz('M', 60, 90)).et, 'sopra il riferimento di laboratorio');
+});
+
+test('A5 — fra 190 e 200 si evidenzia solo se HDL o LDL non sono a posto', () => {
+  const conHdlBasso = interpTot(195, paz('M', 35, 100));
+  assert.strictEqual(conHdlBasso.sem, 'giallo');
+  assert.ok(/HDL basso/.test(conHdlBasso.et), conHdlBasso.et);
+
+  const conLdlAlto = interpTot(195, paz('M', 55, 130));
+  assert.strictEqual(conLdlAlto.sem, 'giallo');
+  assert.ok(/LDL/.test(conLdlAlto.et), conLdlAlto.et);
+
+  const profiloBuono = interpTot(195, paz('M', 55, 100));
+  assert.strictEqual(profiloBuono.sem, 'info', 'con HDL e LDL a posto non si allarma per il totale');
+  assert.ok(/nella norma/.test(profiloBuono.et), profiloBuono.et);
+});
+
+test('A5 — la soglia HDL segue il sesso, come nella voce HDL', () => {
+  // Donna a 45: sotto la soglia femminile (50) ma sopra quella maschile (40).
+  assert.strictEqual(interpTot(195, paz('F', 45, 100)).sem, 'giallo');
+  assert.strictEqual(interpTot(195, paz('M', 45, 100)).sem, 'info');
+});
+
+test('A5 — senza HDL e LDL non si inventa un giudizio, si dice che mancano', () => {
+  const senza = interpTot(195, paz('M', null, null));
+  assert.strictEqual(senza.sem, 'info');
+  assert.ok(/servono HDL e LDL/.test(senza.et), senza.et);
+});

@@ -61,7 +61,7 @@ la ricerca si ferma alla prima voce che combacia. `'Pizza con condimenti'` conti
 **Cosa ti succede:** ogni sabato in cui il paziente sceglie la pizza condita, il bilancio
 settimanale sottostima di 200 kcal. Il paziente sembra più aderente di quanto sia.
 
-### A4. Lo stesso rapporto cintura/fianchi riceve due giudizi opposti
+### ~~A4. Lo stesso rapporto cintura/fianchi riceve due giudizi opposti~~ ✅ CORRETTA 4 ago
 
 Il grafico InBody usa per le donne una fascia normale fino a **0,85**; la scheda Analisi
 usa **0,80** per il verde e considera 0,80-0,85 giallo.
@@ -72,7 +72,7 @@ usa **0,80** per il verde e considera 0,80-0,85 giallo.
 **Cosa ti succede:** una paziente a 0,83 risulta «nella norma» in una schermata e «a rischio»
 nell'altra, nella stessa visita.
 
-### A5. Il colesterolo totale ha due limiti diversi nella stessa scheda
+### ~~A5. Il colesterolo totale ha due limiti diversi nella stessa scheda~~ ✅ CORRETTA 4 ago
 
 L'interpretazione clinica usa **190** mg/dL («desiderabile», criterio ESC/EAS 2019); la tabella
 dei range di riferimento usa **200**.
@@ -83,7 +83,7 @@ dei range di riferimento usa **200**.
 **Cosa ti succede:** un valore di 195 risulta contemporaneamente «dentro il riferimento» e
 «sopra il desiderabile». Due messaggi opposti sullo stesso esame.
 
-### A6. Il foglietto sui grassi buoni contraddice le grammature del piano
+### ~~A6. Il foglietto sui grassi buoni contraddice le grammature del piano~~ ✅ CORRETTA 4 ago
 
 Il concetto educativo *«I grassi buoni e come usarli»* dice che 10 g di olio equivalgono a
 20 g di semi di chia. Il motore delle equivalenze, che ragiona sui **grassi** e non sulle
@@ -179,8 +179,9 @@ numero scritto nel Contesto (C16).
 1. ~~**A1, A2, A3**~~ ✅ **fatte il 4 agosto 2026** — vedi CHANGELOG. Applicandole è emerso che il
    test 232 di `s2-paziente-prenotato` verificava la riga di sorgente parola per parola,
    commento compreso: **proteggeva il difetto invece del comportamento.** Riscritto.
-2. **A4, A5, A6** — tre contraddizioni cliniche: richiedono una tua decisione su quale valore
-   vince, non un lavoro tecnico.
+2. ~~**A4, A5, A6**~~ ✅ **fatte il 4 agosto 2026** — decise da Fabrizio, vedi CHANGELOG.
+   A6 rovescia la scelta di P121 sul criterio di equivalenza dei grassi: motivazione nel codice e nei test.
+   **Residuo:** il foglietto dice «frutta secca mista 20 g», il motore calcola 13-15 g.
 3. **B1-B10** — una passata sola sulla Roadmap: sono tutte correzioni di stato.
 4. **D1** — decidere se la tabella d'apertura si tiene allineata o si elimina. Finché resta
    com'è, continuerà a generare voci come B1 e B6.

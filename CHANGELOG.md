@@ -10,6 +10,68 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — AUDIT A4/A5/A6: LE TRE CONTRADDIZIONI CLINICHE.
+Baseline d4b3f92.
+
+Le tre che l'audit non poteva chiudere da solo, perche' la domanda non era tecnica ma
+"quale valore e' quello giusto". Decise da Fabrizio.
+
+A4 — NON ERANO DUE SOGLIE DIVERSE: ERA LA SCALA MASCHILE A NON SEGUIRE L'OMS.
+Verificata la fonte (WHO, Waist Circumference and Waist-Hip Ratio: Report of a WHO
+Expert Consultation 2008, pubbl. 2011): obesita' centrale da 0,90 nell'uomo e 0,85
+nella donna. La banda del grafico InBody usava gia' quelle due. Il semaforo della
+scheda Analisi per le donne pure — rosso sopra 0,85, giallo nei cinque centesimi
+sotto. Quello maschile invece dava verde fino a 0,90 e rosso solo sopra 1,00: un uomo
+a 0,95, per l'OMS gia' in obesita' centrale, compariva GIALLO. Allineato alla stessa
+regola: verde fino a 0,85, giallo 0,85-0,90, rosso sopra 0,90. Il caso della donna a
+0,83 non era invece un errore: la banda dice "sotto la soglia OMS" (vero) e il
+semaforo "sopra l'ottimale" (vero).
+
+A5 — IL TOTALE DA SOLO NON DECIDE. C'era una soglia secca a 190: un 195 risultava
+"sopra desiderabile" nell'interpretazione e "dentro il riferimento" nella tabella di
+laboratorio, che si ferma a 200. I due numeri NON sono in contraddizione — 200 e'
+l'intervallo del laboratorio, quello stampato sul referto che il paziente ha in mano;
+190 e' il target prudenziale ESC/EAS. Cambiarne uno avrebbe perso un'informazione
+vera. Decisione di Fabrizio: il colesterolo totale non e' un buon predittore da solo,
+persone con lo stesso totale hanno rischi molto diversi; la fascia 190-200 si
+evidenzia SOLO se HDL o LDL non sono ottimali. Implementato: sotto 190 desiderabile,
+sopra 200 sopra il riferimento, in mezzo si guardano HDL (soglia per sesso, 40 M /
+50 F) e LDL (116, target rischio basso ESC/EAS 2019). Se HDL e LDL mancano si dice
+che mancano, invece di inventare un giudizio.
+
+A6 — LE ALTERNATIVE AI GRASSI PASSANO A PARI KCAL, E QUESTO ROVESCIA P121.
+Il foglietto "I grassi buoni" dichiara di andare a pari calorie; il motore pareggiava
+i GRASSI. Nello stesso PDF il piano scriveva 33 g di semi di chia e il foglietto ne
+consigliava 20. Ricalcolato tutto: la chia e' il caso limite perche' di grasso ne ha
+il 31%, quindi a pari grassi servono 33 g che valgono 158 kcal invece di 90 — quasi
+il doppio. Fabrizio: "35 grammi di semi di chia sono eccessivi, lascia 20".
+
+Il rovesciamento va detto per intero, perche' la scelta del 25 luglio era motivata:
+l'olio e' 100% lipidi, e sulle kcal entrano anche carboidrati e proteine
+dell'alternativa. Vero — ma vale anche al contrario e pesa di piu': semi e frutta
+secca NON sono grasso puro, quindi pareggiare i grassi porta dentro le calorie di
+fibra e proteine senza contarle. Il compromesso accettato: sul singolo pasto il
+target dei GRASSI resta un po' sotto quando si sostituisce con semi o frutta secca.
+Si e' scelto di sbagliare sul macro invece che sull'energia.
+
+L'esito e' che motore e testo al paziente ora coincidono: avocado 40 g, chia 20 g,
+lino 15 g, olive verdi 60 g, olive nere 30 g, burro di arachidi 15 g — esattamente i
+numeri che il foglietto porta da sempre. Unico residuo: il foglietto dice "frutta
+secca mista 20 g" mentre il motore calcola 13-15 g (noci 13, mandorle 15).
+
+DUE TEST CHE CONGELAVANO LA DECISIONE VECCHIA. s2-grammature-alternative aveva
+"P121 olio e grassi — equivalenza sui GRASSI, non piu' sulle kcal" e il controllo
+"Avocado 45g" nella riga del prompt AI. Riscritti sulla decisione nuova, con dentro
+il perche' del rovesciamento: se un domani si tornasse indietro, il posto da guardare
+e' il test, non il codice. Aggiunto un test che confronta il motore col TESTO del
+concetto "I grassi buoni": fallisce se qualcuno cambia il criterio senza riscrivere
+il foglietto al paziente — che e' esattamente il modo in cui i due sono divergiti.
+
+TEST. Sette nuovi in s2-audit-a123 (soglie OMS per entrambi i sessi, fascia gialla
+simmetrica, banda del grafico allineata al semaforo, colesterolo nelle cinque
+combinazioni HDL/LDL comprese quelle mancanti) e tre in s2-grammature-alternative.
+519 test verdi.
+
 4 AGOSTO 2026 — AUDIT A1/A2/A3: TRE DIFETTI TROVATI CONFRONTANDO I DOCUMENTI.
 Baseline 0f9fd36.
 
