@@ -1,9 +1,10 @@
 # NutriGest — Audit di coerenza documenti ↔ codice
 
-> ⚠️ **STATO — 4 agosto 2026, baseline `0f9fd36`.** Questa è una **lista di lavoro**, non un
-> documento di ragionamento. Ogni riga è una segnalazione verificata contro il codice.
-> **Nessuna correzione è stata applicata**: si decide voce per voce.
-> Quando una voce viene chiusa, va barrata qui e registrata nel `CHANGELOG.md`.
+> ✅ **CHIUSA — 4 agosto 2026.** Tutti e quattro i blocchi (A, B, C, D) sono stati lavorati
+> nella stessa giornata, baseline iniziale `0f9fd36`. Questa è una **lista di lavoro**, non un
+> documento di ragionamento: si conserva per la storia — cosa era rotto, come è stato
+> verificato, cosa è stato scartato — non come elenco di cose da fare.
+> **Per lo stato di oggi: `CHANGELOG.md` nel repo, non questo file.**
 
 **Metodo.** Otto verifiche in parallelo su `NutriGest_Roadmap_v4.md` (111 voci),
 `NutriGest_Contesto_v18.txt`, `CHANGELOG.md` e il codice. L'arbitro è sempre stato
@@ -105,7 +106,7 @@ quelli veri.
 
 ---
 
-## B. Documenti che ti farebbero rifare un lavoro già fatto
+## B. Documenti che ti farebbero rifare un lavoro già fatto — ✅ **BLOCCO CHIUSO 4 ago 2026**
 
 Categoria «perdi una sessione». Tutte verificate: la cosa **esiste già nel codice**.
 
@@ -124,7 +125,7 @@ Categoria «perdi una sessione». Tutte verificate: la cosa **esiste già nel co
 
 ---
 
-## C. Documenti che descrivono male il programma
+## C. Documenti che descrivono male il programma — ✅ **BLOCCO CHIUSO 4 ago 2026**
 
 Categoria «cerchi una cosa che non c'è, o non usi una cosa che hai».
 
@@ -151,7 +152,7 @@ Categoria «cerchi una cosa che non c'è, o non usi una cosa che hai».
 
 ---
 
-## D. Difetti strutturali della Roadmap
+## D. Difetti strutturali della Roadmap — ✅ **BLOCCO CHIUSO 4 ago 2026**
 
 Non singole voci, ma il modo in cui il file è fatto.
 
@@ -186,8 +187,24 @@ numero scritto nel Contesto (C16).
    correzione giusta); il foglietto è stato allineato al motore — grammature, premessa «stessi
    grassi» invece di «stesse calorie», e la spiegazione del perché la chia non c'è.
    Un test lega ora testo e motore: non possono più divergere in silenzio.
-3. **B1-B10** — una passata sola sulla Roadmap: sono tutte correzioni di stato.
-4. **D1** — decidere se la tabella d'apertura si tiene allineata o si elimina. Finché resta
-   com'è, continuerà a generare voci come B1 e B6.
-5. **C1-C18** — una passata sul Contesto. Nessuna urgenza tranne **C1**, che riguarda la
-   perdita di dati.
+3. ~~**B1-B10**~~ ✅ fatte. **Due erano PARZIALI e sono state scritte come tali**, non chiuse:
+   P40 (il campo passi decide già le calorie, manca lo storico) e P35 (la card c'è, manca
+   `offsetBilancia`, quindi il Δ mostrato può essere differenza fra bilance).
+4. ~~**D1**~~ ✅ la tabella resta (serve a dire quale modello usare) ma ora dichiara in testa
+   di NON essere una fonte di stato. Anche D2 e D3 chiuse.
+5. ~~**C1-C18**~~ ✅ fatte, 17 su 19. **Due segnalazioni non hanno retto alla verifica e sono
+   state scartate**: il «piano fino a 31 giorni» (il Contesto diceva già 1-14, coerente col
+   codice) e la pizza condita (riportava già 1100). Una segnalazione che non regge non si
+   corregge lo stesso per chiudere la riga.
+
+---
+
+## Stato finale — 4 agosto 2026
+
+**Tutti e quattro i blocchi sono chiusi.** Sei difetti del programma corretti (blocco A, con
+test), ventotto correzioni alle due fonti di verità (blocchi B, C, D). Due segnalazioni
+scartate perché non confermate dal codice.
+
+Quello che resta aperto è **lavoro vero, non documentazione sbagliata**: `offsetBilancia` per
+il peso casalingo (P35), lo storico dei passi (P40), P130 per i valori FODMAP, e la decisione
+GitHub-a-pagamento contro Vercel (P65).

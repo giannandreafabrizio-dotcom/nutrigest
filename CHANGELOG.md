@@ -10,6 +10,70 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — AUDIT BLOCCHI B e C: 28 CORREZIONI ALLE DUE FONTI DI VERITA'.
+Baseline c9fffac. Nessuna riga di codice toccata: solo Roadmap_v4 e Contesto_v18.
+
+IL BLOCCO B — dieci voci di roadmap che avrebbero fatto rifare lavoro gia' fatto.
+La piu' grave: **P61**, il validatore clinico che blocca allergeni e alimenti vietati
+nei piani, era marcato "Da fare · Priorita' Alta (CRITICA)" ed e' chiuso dal 7 luglio
+(commit ed1e3e9, validaPiano + validaGateExport + 14 test). Il file si contraddiceva
+da solo: a riga 78 la elencava gia' fra le chiuse. Poi **P4** (girovita e WHtR
+"DA NON PERDERE", esistono da fine giugno — rifarli avrebbe creato un SECONDO campo
+girovita divergente dal primo), **P37** (titolo "ESCLUSO 14 luglio", scheda "Da fare"),
+**P122** (titolo "tappe 2-5 aperte", corpo "COMPLETA"), **P124b** (collaudo "DA FARE"
+due righe sotto due "SUPERATO"), **P73** e **P66c** (chiuse ma ancora nella tabella di
+pianificazione), **P65** (scan dei 460 commit gia' fatto il 13 luglio).
+
+DUE VOCI ERANO PARZIALI, E QUELLO E' IL CASO PIU' DELICATO. Marcarle CHIUSA sarebbe
+stato l'errore peggiore di quello che stavamo correggendo — dichiarare fatto cio' che
+non c'e' e' un buco che nessuno sorveglia. **P40 passi:** il campo esiste e DECIDE GIA'
+LE CALORIE (entra nella curva NEAT di calcolaTDEE); manca lo storico nel tempo, quindi
+un numero dichiarato a gennaio calcola le kcal ad agosto senza che nulla dica che e'
+vecchio. **P35 peso casalingo:** la card e' in produzione, ma `offsetBilancia` non
+esiste (0 occorrenze) — il delta mostrato e' sul kg grezzo, quindi **puo' essere in
+parte differenza fra la bilancia di casa e quella dello studio, non variazione del
+paziente**. Entrambe riscritte come PARZIALI con dentro cosa c'e' e cosa manca.
+
+I TRE DIFETTI STRUTTURALI DELLA ROADMAP. (D1) Il file dichiarava "non contiene piu'
+riepiloghi di stato duplicati" e subito sotto aveva una tabella di ~50 righe che di
+fatto lo era — ed e' da li' che sono nate le divergenze su P61 e P73. La tabella serve
+(dice quale modello usare), quindi resta, ma ora dichiara in testa di NON essere una
+fonte di stato. (D2) "Ultimo allineamento 18 lug" aggiornato al 4 agosto **dichiarando
+che e' PARZIALE**: riverificate solo le undici voci di questa passata, il resto del
+file resta al 18 luglio. Una data di verifica che copre piu' di quanto e' stato
+verificato e' esattamente il difetto che stiamo togliendo. (D3) La sigla **F5** era
+usata per due difetti diversi: la seconda serie diventa `F5-salvaPaz`.
+
+IL BLOCCO C — diciassette correzioni al Contesto, che dichiara di descrivere il
+presente. La piu' importante: **eliminaPaz**. Il file diceva che cancellando un
+paziente piani ed entrate NON vengono rimossi e restano nelle tabelle. E' il contrario:
+la cancellazione e' a cascata su db.piani, db.entrate, db.eventi, e parte anche su
+Supabase — **le entrate contabili spariscono dal cloud e non sono piu' recuperabili da
+nessun dispositivo**. Un errore su cosa si perde cancellando e' il tipo di errore che
+si scopre quando e' tardi.
+
+Le altre: peso casalingo dato per "scartato, nessuna interfaccia" quando la card c'e';
+`PORZIONI_DISCRETE` che non esiste piu' da P121 (sostituita da `_PESI_UNITARI`, 14
+voci, fetta biscottata 10 g e non 6, latticini a multipli di 5 g); grafici InBody dati
+per "visibili solo con ≥2 misurazioni" quando da P145 quattro si disegnano con un solo
+referto; soglia degli avvisi "14 giorni" che non esiste (arancione oltre 30, rosso oltre
+45); catalogo MET 97 → **117**; alias MET 28 → **18** (con la verifica esplicita che
+nessuno e' rotto, cosi' il numero corretto non allarma); indici clinici 18 → **22**
+(mancavano LDL stimato, calcio corretto, albumina/globuline, indice androgeni); slider
+regime "−40/+20" → **−40/+25**, e **−75%** in chetogenica; token dell'analisi AI 1400 →
+**2000**; modelli di rotazione cercati nella tabella sbagliata; `inizioPiano` che non
+esiste (e' `inizioAlim`); i nomi di `fonteOre`; il filtro "Fast" dato per fatto quando
+`tempoPrep` non filtra nulla; l'etichetta SSN dichiarata sul foglio richiesta e mai
+stampata; le scadenze "✓ Gestito" date per fuori backup quando P144 le ha spostate sul
+paziente.
+
+DUE SEGNALAZIONI NON CONFERMATE, E NON CORRETTE. Il "piano fino a 31 giorni" non esiste
+nel Contesto: diceva gia' 1-14, coerente col codice. E la tabella della cena libera
+riportava gia' 1100 per la pizza condita. Una segnalazione che non regge alla verifica
+non si corregge lo stesso per chiudere la riga: si scarta e si dice perche'.
+
+522 test verdi, invariati: nessuna riga di codice e' stata toccata.
+
 4 AGOSTO 2026 — A6 CHIUSA: IL FOGLIETTO AL PAZIENTE PARLA LA STESSA LINGUA DEL MOTORE.
 Baseline e22a714.
 

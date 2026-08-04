@@ -547,9 +547,20 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
     righe i dati locali NON vengono toccati (ora esplicita anche nel pull inline di
     sincronizzaTutto). Il client non invia
     mai user_id nei payload: la valorizzazione avviene lato Supabase (setup P29/P30,
-    vedi STORICO). eliminaPaz(id): rimuove paziente + eventi collegati (locale e
-    Supabase); i PIANI e le ENTRATE collegati al paziente NON vengono rimossi
-    (comportamento attuale: le righe restano nelle tabelle piani/entrate).
+    vedi STORICO). eliminaPaz(id): CANCELLAZIONE A CASCATA (P64) — rimuove il
+    paziente E TUTTO il fascicolo collegato: db.piani, db.entrate, db.eventi
+    (verificato 4 ago 2026). La rimozione NON e' solo locale: subito dopo
+    partono delPazienteSupabase(id), delPianiPazienteSupabase(id) (piani reali
+    + cache AI, colonna pazienteId condivisa), delEntrataSupabase(e.id) per ogni
+    entrata collegata e delEventoSupabase(e.id) per ogni evento.
+    ATTENZIONE — la cancellazione e' DEFINITIVA anche sul CLOUD: le ENTRATE
+    CONTABILI del paziente spariscono da Supabase e non sono piu' recuperabili
+    da nessun dispositivo. L'unica copia che resta e' il backup JSON del
+    fascicolo (_export:'fascicolo-paziente') scaricato automaticamente PRIMA
+    dell'eliminazione; se quel download fallisce l'app lo segnala e chiede una
+    seconda conferma esplicita. Viene inoltre registrato un tombstone
+    (_registraTombstone) che impedisce la "resurrezione" del profilo dal pull di
+    un altro dispositivo.
 
 Dispositivi: Windows 10 Chrome (Lenovo Yoga 510) + iPhone 15 Pro Max Safari
 
@@ -965,11 +976,19 @@ SCADENZE DASHBOARD — raggruppate per paziente (30 lug 2026, 4ª sessione)
   recente. Il bottone "Gestito" resta per-singolo-avviso (stessa chiave `tipo_pazId`
   di prima): risolvere un problema non deve nascondere gli altri dello stesso
   paziente. Ogni sezione mostra al massimo 5 pazienti + bottone "Mostra tutti (N
-  altri)" che rivela un blocco gia' pronto nel DOM (nessun ricalcolo). Soglie invariate
-  (28gg sparito, 14gg controllo saltato, 28gg piano, 60gg InBody): confermate da
-  Fabrizio, il problema era la presentazione non i giorni.
-  DIFETTO NOTO, non toccato qui: il "Gestito" scrive su localStorage
-  ('scadenze_gestite'), fuori da db — vedi P144 in roadmap.
+  altri)" che rivela un blocco gia' pronto nel DOM (nessun ricalcolo). Il problema era
+  la presentazione, non i giorni.
+  SOGLIE REALI in renderScadenzeAlert (riverificate nel codice il 4 ago 2026):
+    · 👻 Paziente sparito — nessun evento/contatto da >28 gg (rosso, urgenti). OK.
+    · 📋 Piano da aggiornare — ultimo piano da >28 gg (arancione). OK.
+    · ⚖️ InBody da fare — ultima misurazione da >60 gg, oppure nessuna (azzurro). OK.
+    · 📅 Controllo da fissare — NON esiste nessuna soglia a 14 giorni: la vecchia
+      riga "14gg controllo saltato" era sbagliata. L'avviso e' a DUE livelli sullo
+      stesso conteggio (giorni dall'ultimo controllo fatto, o da p.inizioAlim se non
+      ce n'e' mai stato uno) e scatta solo se NON c'e' gia' un controllo fissato da
+      oggi in avanti: compare oltre i 30 gg in ARANCIONE (#c2740e, gruppo
+      "attenzione") e diventa ROSSO (#dc2626, gruppo "urgenti") oltre i 45 gg.
+  Il "Gestito" ora vive sul PAZIENTE (P144, implementata): vedi p._scadenzeGestite.
 
 p.invii[] = { data, tipo, titolo, url, esito, voci?, n? }  // P87 Tappe 1-2-3, 28 lug 2026
   // DIARIO UNIFICATO di ciò che è stato mandato al paziente. La tab
@@ -1021,8 +1040,13 @@ RICHIESTA ANALISI PER IL MEDICO CURANTE (P116, 24 lug 2026)
     (scelta clinica esplicita). La preselezione è solo un punto di partenza: la modale
     consente di spuntare e togliere qualsiasi voce, comprese quelle di base.
   · _richCostruisciPDF — foglio A4 (jsPDF vendorizzato), intestato al paziente, con
-    motivo, casella da spuntare per voce, etichetta SSN/PRIVATO e disclaimer non
-    prescrittivo. Richiesta tipica = una pagina. _richTxt() sostituisce i caratteri
+    motivo, casella da spuntare per voce e disclaimer non prescrittivo. NESSUNA
+    etichetta SSN/PRIVATO viene stampata (verificato 4 ago 2026): coerente con la
+    riga qui sopra, il campo `ssn` del catalogo non viene letto da nessuna parte —
+    `grep 'SSN\|PRIVATO' index.html` trova solo le definizioni `ssn:true/false`
+    dentro RICH_CATALOGO e il commento che le spiega, e dentro _richCostruisciPDF
+    non c'e' una sola riga che disegni quelle stringhe. Il campo resta quindi dato
+    storico inerte. Richiesta tipica = una pagina. _richTxt() sostituisce i caratteri
     fuori da Latin-1 (γ, μ, — , “ ”, …): le accentate italiane invece jsPDF 2.5.1 le
     stampa correttamente e vanno lasciate.
   · Invio — richInviaWhatsApp() prova in ordine: (1) `navigator.share` col file, che
@@ -1060,6 +1084,12 @@ r.attributi = { stagioni:[], tempoPrep:'', profilo:[] }  // BLOCCO 17, 5 lug 202
   // stagioni: sottoinsieme di ['primavera','estate','autunno','inverno'] — array
   //   VUOTO = esplicitamente "valida tutto l'anno" (resta candidata a ogni filtro).
   // tempoPrep: '' | '0-5' | '5-10' | '10-20' | 'gt20' (radio, uno solo).
+  //   ATTENZIONE (verificato 4 ago 2026): il campo ESISTE ma NON FILTRA NULLA.
+  //   `grep tempoPrep index.html` trova 3 sole occorrenze, tutte nell'editor
+  //   ricetta: due per rileggere/scrivere il radio selezionato e una per salvarlo
+  //   dentro r.attributi. Nessuna funzione di filtro o selezione lo interroga e
+  //   non entra nel prompt del generatore di piani: un protocollo tipo "Fast"
+  //   (solo ricette veloci) NON e' quindi gia' coperto — il filtro va ancora scritto.
   // profilo: sottoinsieme di ['vegetariano','vegano','low-carb','senza-glutine'].
   // Campo SEPARATO da r.tags: r.tags resta libero/legacy (e fa da fallback per lo
   // slot pasto nel generatore, vedi P1); r.attributi è strutturato per categoria.
@@ -1138,9 +1168,21 @@ p.inbody[] — INVARIANTE DI ORDINAMENTO (P120, 25 lug 2026):
   non gli arrotondamenti.
 
 p.pesiIntermedi[] = { data, peso }
-  // campo presente nel codice ma C4 SCARTATO (bilance domestiche ≠ bilancia studio, delta inaffidabile)
-  // il campo resta in struttura per non rompere migrazione, ma nessuna UI attiva (da rimuovere)
+  // ATTIVO E CON INTERFACCIA COMPLETA (verificato 4 ago 2026). La vecchia nota
+  // "C4 scartato / nessuna UI attiva / da rimuovere" era sbagliata: esiste la card
+  // "⚖️ Peso casalingo" costruita da _renderPesiIntermediSection(p) e inserita da
+  // renderPdInbody(p) in cima alla scheda InBody. Contiene: campo data (default oggi),
+  // campo peso (kg, 30-300, step 0.1), pulsante "+ Aggiungi" (aggiungiPesoIntermedio,
+  // sovrascrive se la data esiste già), elenco delle pesate in ordine dal più recente
+  // con "N gg fa" e delta colorato rispetto al primo peso InBody, riga "Ultima
+  // settimana: ±X kg in N giorni" quando ci sono ≥2 pesate, e "✕ Elimina" per riga
+  // (eliminaPesoIntermedio). Ogni operazione fa save(p.id) e ridisegna la scheda.
   // NB: dal 19 lug (P114 passo 4) e dal 24 lug (P115) la serie peso li LEGGE se presenti (_serieePesoOss)
+  // MANCA ANCORA: `offsetBilancia`, cioè la normalizzazione fra bilancia di casa e
+  // bilancia dello studio. Verificato il 4 ago 2026: `grep offsetBilancia index.html`
+  // non trova NULLA — il campo non esiste. Il dubbio originario di C4 (bilance
+  // domestiche ≠ bilancia studio) resta quindi non risolto: i pesi casalinghi si
+  // registrano grezzi e i delta misti casa/studio portano dentro l'errore di taratura.
 
 p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surplus", settimane, pct,
     opz. condizioneUscita:{tipo,op,valore}, stato:"chiusa", esito:{data,peso,pctGrasso,massaMagra} }] }
@@ -1222,7 +1264,12 @@ MODELLI_ROTAZIONE: let (modificabile runtime) — sistema: naruto, hinata; + cus
     'Pesce (Cena)','Pesce (Pranzo)','Uova','Insaccati & Salumi','LIBERO'
   Quando modello attivo: frequenze auto-derivate (read-only), legumi135+rotazione disabilitate
   Griglie: 6 giorni (lun→sab) o 7 giorni (lun→dom) — configurabile per modello
-  Sync: riga __modelli_rotazione in tabella pazienti Supabase (A1 — zero modifiche schema)
+  Sync: riga __modelli_rotazione nella tabella `collections` di Supabase, NON in
+    `pazienti` (verificato 4 ago 2026). L'appoggio storico sulla tabella pazienti
+    (A1 — zero modifiche schema) è finito col cutover P74 1d del 24 lug 2026:
+    pushModelliSupabase costruisce l'oggetto {modelli:{...}} (solo custom +
+    sistema-modificati) e lo scrive con `_collectionsUpsert(_MODELLI_META_KEY, ...)`;
+    se l'upsert fallisce logga '[MODELLI] push ERRORE' e restituisce false.
   LocalStorage: chiave 'modelliRotazione' — salva solo custom + sistema-modificati
   UI: dropdown dinamico + 4 azioni: 👁 Vedi · ✏️ Modifica · 📋 Duplica · ➕ Nuovo
     Modifica sistema: conferma → modifica diretta → badge "(modificato)" → 🔄 Ripristina
@@ -1241,8 +1288,11 @@ getTargetAttivi(p) (P55, 9 lug 2026): SORGENTE UNICA dei target macros — chiam
   24 test JSDOM in P78. Regola permanente: nessun nuovo punto del codice deve ricalcolare
   i target autonomamente — sempre getTargetAttivi.
 
-p._scadenzeGestite = { tipo: 'YYYY-MM-DD' }   // P144, 31 lug 2026
-  I "✓ Gestito" degli avvisi di dashboard. `tipo` e' la prima parte della chiave
+p._scadenzeGestite = { tipo: 'YYYY-MM-DD' }   // P144, 31 lug 2026 — IMPLEMENTATA
+  I "✓ Gestito" degli avvisi di dashboard. NON stanno piu' in localStorage: viaggiano
+  col paziente, quindi sono dentro il backup JSON e si sincronizzano fra dispositivi
+  (verificato 4 ago 2026: renderScadenzeAlert legge p._scadenzeGestite via _scadGestiti
+  e chiama _scadMigraDaLocalStorage per svuotare il vecchio cassetto). `tipo` e' la prima parte della chiave
   dell'avviso (sparito | piano | inbody | dafissare); la chiave completa e'
   'tipo_idPaziente' e l'id non contiene mai '_' (uid() = base36 + casuale), quindi
   il primo '_' separa sempre. Prima stavano in localStorage `scadenze_gestite`:
@@ -1271,7 +1321,10 @@ p.dateCalendario: DISMESSO il 31 lug 2026 (P140 T2). Conteneva cinque date tutte
   derivate. Le tappe di pianificazione si calcolano con _appTappe(p); prima visita e
   controllo sono appuntamenti e vivono in db.eventi (l'unico posto con il campo `ora`);
   p.visitaData/p.controlloData restano come proiezione leggibile.
-p.pesiIntermedi[] = { data, peso }  // futura — sblocca msg WA clinici (C4)
+p.pesiIntermedi[] = { data, peso }  // ATTIVA, non futura: card "⚖️ Peso casalingo"
+  // (_renderPesiIntermediSection, chiamata da renderPdInbody) con data, peso,
+  // "+ Aggiungi" e "✕ Elimina" per riga — verificato 4 ago 2026. Manca solo
+  // `offsetBilancia` (taratura casa/studio): assente dal codice.
 
 CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0+1): Map id→record che avvolge
   ALIMENTI+CREA_ALIMENTI SENZA sostituirli — entrambe restano popolate e
@@ -1527,7 +1580,7 @@ FUNZIONALITÀ IMPLEMENTATE (sintesi)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 RAGIONAMENTO CLINICO (FX — unificato dal 25 giu 2026, P16, commit 84e776a):
-  FX "🧠 Analisi clinica" (avviaFX, sonnet-4-5, 1400 tok): UNA sola chiamata che
+  FX "🧠 Analisi clinica" (avviaFX, sonnet-4-5, 2000 tok di output): UNA sola chiamata che
     produce due sezioni nel medesimo output:
     📊 Sezione 1 (ex-F1): MB/LAF/TDEE/macros + composizione corporea + acqua
        corporea totale + parere clinico
@@ -1554,14 +1607,25 @@ RAGIONAMENTO CLINICO (FX — unificato dal 25 giu 2026, P16, commit 84e776a):
   ELIMINATI: F2 (Scelta Alimenti) e F4 (Integratori) — non utili in studio
 
 CALCOLI CLINICI (P17/P18, 25 giu 2026, commit ec1a313→70b2c2a — 4 fasi):
-  Sezione "📐 Calcoli automatici" in cima alla scheda Analisi del sangue. 18 indici
-    derivati, ognuno con: formula, semaforo verde/giallo/rosso/info, glossario ℹ️
-    (cosa misura · range · nota clinica), toggle 📤 "includi in FX" (default ON).
+  Sezione "📐 Calcoli automatici" in cima alla scheda Analisi del sangue. 22 indici
+    derivati (contati in CALCOLI_CLINICI il 4 ago 2026 — erano 18, l'elenco qui sotto
+    ne ometteva quattro), ognuno con: formula, semaforo verde/giallo/rosso/info,
+    glossario ℹ️ (cosa misura · range · nota clinica), toggle 📤 "includi in FX"
+    (default ON).
   Indici: Tot/HDL, LDL/HDL, TG/HDL, non-HDL, HOMA-IR, TyG, BUN/Creatinina, Fabbisogno
     idrico, FT3/FT4, AST/ALT (De Ritis), NLR (Neutrofili/Linfociti), Ferritina/Transferrina
     (rapporto numerico: infiammazione vs sovraccarico vs carenza), T/E2 (solo maschi),
     ACR (microalbuminuria), WHR (sesso-specifico, da InBody.cintFianchi), WHtR (girovita/
     altezza), PA media, ApoB/ApoA1 (predittore INTERHEART).
+  I QUATTRO CHE MANCAVANO DALL'ELENCO (presenti nel codice, id fra parentesi):
+    · LDL stimato con Friedewald (`ldl_fw`) — da Colesterolo totale, HDL e Trigliceridi;
+      dichiarato "non applicabile" se i trigliceridi superano 400 mg/dL.
+    · Calcio corretto per albumina (`ca_corr`) — formula di Payne
+      Ca + 0.8 × (4 − Albumina); verde 8.5–10.5 mg/dL.
+    · A/G, Albumina/Globuline (`ag_ratio`) — Albumina / (Proteine totali − Albumina);
+      verde 1.1–2.2.
+    · FAI, Indice androgeno libero (`fai`) — (Testosterone totale / SHBG) × 100,
+      semaforo 'info' perché i cutoff variano per metodica e per sesso.
   Campi nuovi aggiunti per supportarli: Neutrofili, Linfociti, Transferrina, Testosterone
     totale, Estradiolo, Albumina urinaria, Creatinina urinaria, ApoA1 (in ANALISI);
     Girovita cm, Pressione SIST./DIAST. (in InBody, persistiti come girovita/paSbp/paDbp).
@@ -1862,7 +1926,10 @@ PDF: + nome + frase motivazionale casuale (4 frasi)
 
 CALENDARIO + TIMELINE:
   Fasi: Prima visita → Inizio piano → Chiamata sett.1 → Msg sett.2 → Controllo
-  Date automatiche da inizioPiano | colori done(verde)/today(teal)/warn(arancio se ≤14gg)/future(grigio)
+  Date automatiche da `p.inizioAlim` | colori done(verde)/today(teal)/warn(arancio se ≤14gg)/future(grigio)
+    NB (verificato 4 ago 2026): il campo si chiama `inizioAlim`, NON `inizioPiano` —
+    `grep inizioPiano index.html` dà 0 risultati, `inizioAlim` ne dà 21. Lo stesso
+    nome corretto è già usato altrove in questo file.
   Calendario mensile con mini-vista anno | agenda giorno nella dashboard
   WhatsApp: messaggi preimpostati per ogni evento (Copia + 📲 Apri in WhatsApp)
     Link WA: https://wa.me/39{tel}?text={encodeURIComponent}
@@ -1968,11 +2035,23 @@ SEMAFORO (15 condizioni validate):
     Click neutro → verde → arancio → rosso → neutro (manuale)
   Badge contatore visibile anche in stato manuale
 
-GRAFICI INBODY (visibili solo con ≥2 misurazioni):
-  G1 composizione+traiettoria ideale (peso+grasso+muscolo) | KPI sopra: peso/Δgrasso/Δmuscolo
-  G2 adiposità centrale (cintura/fianchi+viscerale, soglia 0.85F/0.90M)
-  G3 ritmo per periodo (grasso vs muscolo, zone verde/giallo)
-  G4 composizione barre impilate (grasso/muscolo/acqua)
+GRAFICI INBODY — NON servono più ≥2 misurazioni per tutti (P145, verificato 4 ago 2026):
+  la vecchia riga "visibili solo con ≥2 misurazioni" era vera prima di P145. Ora la
+  guardia `if(hasMulti)` (sorted.length>=2) si CHIUDE PRIMA e copre solo i riquadri
+  che raccontano un percorso. Dettaglio completo più sotto, in "P145 — QUALI RIQUADRI
+  SERVONO DUE MISURAZIONI E QUALI NO". In sintesi:
+  RICHIEDONO ≥2 misurazioni (dentro if(hasMulti), lavorano sui PERIODI):
+    G1 composizione+traiettoria nel tempo | KPI sopra: peso/Δgrasso/Δmuscolo
+    G3 ritmo per periodo (grasso vs muscolo, zone verde/giallo)
+    Qualità del ritmo
+    la CURVA dell'adiposità centrale (cintura/fianchi + viscerale)
+  SI DISEGNANO ANCHE CON UN SOLO REFERTO (fuori dalla guardia, sono la FOTOGRAFIA):
+    G4 composizione a barre impilate (ramo `uno`: barra larga e centrata, nomi e kg
+      di fianco alle fette; testata con la scritta "prima misurazione")
+    G5 Peso · Muscolo · Grasso (_ibGrForme riceve ultimoIb, non la serie)
+    adiposità centrale, che con un punto solo mostra _ibGrRighelliOggi — i righelli
+      clinici — AL POSTO della curva, nella stessa card e nella stessa posizione
+    silhouette segmentale (_ibSilhouetteSegmentale(last), riceve l'ultimo referto)
 
 MODALE INBODY + SILHOUETTE SEGMENTALE (26 mag 2026):
   Modale orizzontale (classe .modal-lg 880px): campi numerici in 3 colonne (.fr-3),
@@ -2197,9 +2276,25 @@ DASHBOARD: KPI pazienti attivi | appuntamenti settimana (visite+controlli sep) |
 
 ENTRATE: tracciamento incassi data+importo | KPI entrate mese corrente
 STORICO PIANI: ricerca/filtro per paziente, eliminazione singola/totale
-PORZIONI DISCRETE: 18+ alimenti con porzioni commerciali reali
-  Tonno 60g/120g, wasa 10/20/30g, yogurt 125/150/200/250g, uova 50/100/150g,
-  tofu 125/200/250g, seitan 180/250g, piadina 70/100/140g, fette biscottate 6g/cad
+PESI UNITARI (`_PESI_UNITARI`, P121): 14 alimenti che si contano A PEZZI
+  ATTENZIONE: la vecchia voce "PORZIONI DISCRETE — 18+ alimenti con porzioni
+  commerciali reali" e' SUPERATA. La costante PORZIONI_DISCRETE NON ESISTE PIU'
+  (verificato 4 ago 2026: nel codice compare solo dentro il commento che ne spiega
+  la rimozione). Era una lista CHIUSA di totali ammessi e prendeva sempre il valore
+  piu' vicino senza limite di distanza, quindi troncava in silenzio: 102g di fette
+  biscottate finivano a 36g, 282g di uovo a 150g.
+  Il modello attuale e' `_PESI_UNITARI` = peso di UN PEZZO, e si arrotonda al numero
+  intero di pezzi. NESSUN TETTO: minimo 1 pezzo, massimo libero. Le 14 voci contate
+  nel codice sono: Uovo intero 55g, Albumi 33g, Tuorlo 18g, Fette biscottate
+  integrali 10g (NON 6g), Gallette di riso 10g, Wasa 10g, Crackers 25g, Frisella
+  40g, Piadina 70g, Tonno al naturale 60g, Tonno sottolio sgocciolato 60g, Sgombro
+  al naturale 90g, Tofu 125g, Seitan 180g.
+  I LATTICINI SONO ESCLUSI DI PROPOSITO (decisione 25 lug 2026): yogurt, mozzarella
+  e ricotta NON hanno peso unitario e seguono il passo standard a MULTIPLI DI 5g
+  (minimo 5g), cosi' restano liberi di salire a 150g o 200g per chi compra la
+  confezione grande invece di essere incastrati sul vasetto. Le vecchie liste
+  "yogurt 125/150/200/250g" e "tonno 60/120g" non descrivono piu' il codice.
+  Unico punto di arrotondamento: arrotondaGrammatura(nomeAlimento, grammiCalcolati).
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2240,9 +2335,11 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
     Su un paziente senza `modalitaAllenamento` la modalità si DEDUCE dai campi
     compilati (`_modalitaAllenamento`), con la stessa priorità che il motore già
     applicava in silenzio prima di P147.
-  CATALOGO ATTIVITA' `_MET_CATALOGO` (P147) — 97 voci con {categoria, nome, MET,
+  CATALOGO ATTIVITA' `_MET_CATALOGO` (P147) — 117 voci con {categoria, nome, MET,
     codice Compendium, flag stima}, valori del **2024** Adult Compendium of
-    Physical Activities (pacompendium.com). Da qui derivano `_MET_ATTIVITA`
+    Physical Activities (pacompendium.com). Erano 97: le 20 in piu' le ha aggiunte
+    P147b il 3 ago 2026 (conteggio riverificato voce per voce nel codice il 4 ago
+    2026: 117 righe, 117 nomi distinti, nessun duplicato). Da qui derivano `_MET_ATTIVITA`
     (nome→MET) e `_MET_INFO` (nome→voce). Il CODICE serve a ritrovare la voce
     sulla fonte senza fidarsi dell'etichetta italiana, che è una traduzione
     nostra. Categorie: Corsa e camminata · Palestra e funzionale · Corpo-mente e
@@ -2258,9 +2355,17 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
       minuti del solo WOD: i ~12.9 MET misurati in letteratura valgono su 8-12
       minuti di lavoro, non su un'ora di palestra (60 min a 12 MET = +250 kcal
       di sovrastima a seduta).
-    - `_MET_ALIAS` mappa le 28 etichette storiche sulle voci nuove. Serve perché
-      rinominare una voce è una MIGRAZIONE DI DATI: senza alias il MET sarebbe
-      null, la riga scartata, l'EAT zero — senza errori a video.
+    - `_MET_ALIAS` mappa 18 etichette storiche sulle voci nuove (non 28: contate
+      nel codice il 4 ago 2026). Serve perché rinominare una voce è una MIGRAZIONE
+      DI DATI: senza alias il MET sarebbe null, la riga scartata, l'EAT zero —
+      senza errori a video. IL NUMERO PIU' BASSO NON E' UNA PERDITA: controllo del
+      4 ago 2026 — tutti e 18 gli alias puntano a una voce ESISTENTE del catalogo,
+      NESSUN ALIAS ROTTO. Le 18 etichette coperte sono Camminata in salita,
+      Ciclismo moderato, Ciclismo intenso (>22 km/h), Spinning, Nuoto lento, Nuoto
+      veloce (stile libero), Body building / pesi vigorosi, Pesi leggeri / corpo
+      libero, Circuit training, HIIT / esercizi intensi, Pilates, Yoga, Calcio,
+      Basket, Tennis, Arti marziali, Canottaggio, Pattinaggio. La risoluzione passa
+      da `_attivitaVoce(nome)`: prima cerca il nome in `_MET_INFO`, poi l'alias.
     - Valori corretti in P147 perché fermi al Compendium 2011 sotto un commento
       che diceva 2024: Pilates 3.5→1.8 · Spinning 7.0→9.0 · Circuit training
       8.0→7.5 · HIIT 8.0→7.0/11.0 · Yoga 3.0→2.3 · Corsa 10 km/h 10.0→9.3 ·
@@ -2310,10 +2415,18 @@ TDEE — motore MET additivo (Compendium of Physical Activities 2024):
 REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e357527):
   Il vecchio menu a tendina a 8 regimi fissi (sotto, sezione storica) è
   sostituito da uno slider in percentuale del TDEE, sincronizzato in tempo
-  reale con un campo kcal assolute (muovi uno, l'altro si aggiorna). Range
-  −40%/+20%, preset rapidi −10/−15/−20/−25%/mantenimento/+10%. Più corretto
-  clinicamente di un offset fisso uguale per tutti (−500 kcal è leggero su un
-  TDEE 2800, pesante su un TDEE 1600).
+  reale con un campo kcal assolute (muovi uno, l'altro si aggiorna). RANGE REALE
+  (verificato 4 ago 2026, l'indicazione "−40%/+20%" era sbagliata e contraddetta
+  poche righe più sotto da questo stesso file): l'input `mac-off-slider` è
+  `min="-40" max="25"`, quindi in modalità STANDARD va da −40% a +25%. In
+  CHETOGENICA scende fino a −75%: `_minPct = _isKetoSl ? -75 : -40`, e il clamp è
+  `Math.max(_minPct, Math.min(25, pct))` — l'estremo BASSO cambia col protocollo,
+  quello alto resta +25% sempre. L'etichetta sotto lo slider (`mac-slider-min-lbl`)
+  si riscrive di conseguenza.
+  I PRESET RAPIDI SONO DIECI, non sei: −25% · −20% · −15% · −10% · −5% ·
+  Mantenimento · +10% · +15% · +20% · +25% (bottoni `_presetRegime(n)` in
+  `mac-preset-row`). Più corretto clinicamente di un offset fisso uguale per tutti
+  (−500 kcal è leggero su un TDEE 2800, pesante su un TDEE 1600).
   Soglia di sicurezza: il metabolismo basale del paziente (non più un limite
   fisso) — avviso se il target scende sotto l'MB misurato.
   Guardrail (P114 passo 3, 19 lug 2026) — priorità: sotto-MB > surplus >
@@ -2992,14 +3105,21 @@ PASTO LIBERO SABATO CONFIGURABILE (P93, 17 lug 2026 · commit 4d50d15):
     l'istruzione di non commentarlo come carico reale ma di segnalarlo se contraddice i
     dati usati. Senza dati di attività si dichiara il fallback LAF manuale. I numeri NON
     vengono ricalcolati qui: calcolaTDEE espone oreEffSett, oreEffGiorno, fonteOre
-    ('sedute-minuti'|'ore-legacy'), fonteMet ('attivita-specifica'|'tipo-intensita') e
-    passiUsati, e il contesto li legge — una seconda aritmetica sarebbe divergenza in
+    ('righe-attivita'|'ore-settimana'), fonteMet ('attivita-specifica'|'tipo-intensita'|
+    'righe-multiple') e passiUsati (nomi RIVERIFICATI nel codice il 4 ago 2026: i valori
+    'sedute-minuti' e 'ore-legacy' scritti qui prima NON esistono; 'righe-multiple' è il
+    terzo valore di fonteMet, quello che scatta quando le righe attività calcolate sono
+    più di una), e il contesto li legge — una seconda aritmetica sarebbe divergenza in
     attesa. Cronotipo, giorni ON e orario del pasto principale restano ma sotto l'etichetta
     "Ritmi (non entrano nel TDEE)". La riga LAF/MB/TDEE in testa cita ora il metodo.
 
 STIMA KCAL CENA LIBERA SABATO (per badge macros reali; usa p.weekend = opzione principale):
   Pizza margherita 900 | Pizza condita 1100 | Panino 650 | Sushi/poke 750
   Pesce+verdure fuori 600 | Carne rossa fuori 750
+  Le chiavi vere sono 'Pizza':900 e 'Pizza con condimenti':1100 (valori confermati nel
+  codice il 4 ago 2026). Le 1100 kcal ora si raggiungono davvero: fino al 4 ago 2026 la
+  ricerca era "la prima chiave che combacia" e 'Pizza con condimenti' incontrava 'Pizza'
+  prima di sé stessa, quindi restituiva sempre 900 — difetto corretto.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3203,7 +3323,9 @@ SICUREZZA / P29 + P30 — RLS, TOKEN E MULTI-TENANCY (completati 1 lug 2026):
 
   P30 — Blindatura meta-record (1 lug 2026):
   Le 4 righe con id fissi (__alimenti_custom, __concetti_educativi,
-  __modelli_rotazione, meta_collections) condividono la tabella pazienti. Con la
+  __modelli_rotazione, meta_collections) condividevano allora la tabella pazienti
+  (dal cutover P74 1d del 24 lug 2026 stanno in `collections` — verificato 4 ago
+  2026; il resto di questo paragrafo descrive la situazione al 1 lug). Con la
   vecchia PK (id), un secondo utente non poteva salvare i suoi meta record (collisione
   chiave). Fix: PK cambiata da (id) a (id, user_id) → ogni utente ha i suoi meta
   record indipendenti. Nessun cambio al codice JS (l'isolamento è a livello DB).
