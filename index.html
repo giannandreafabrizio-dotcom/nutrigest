@@ -3655,22 +3655,22 @@ function calcolaGrammaturaEquivalente(alimentoBase, grBase, alimentoAlt, criteri
 // Due alimenti si equivalgono SOLO se appartengono allo stesso gruppo; il macro su
 // cui si calcola dipende dal gruppo. Alimenti di gruppi diversi (es. un legume come
 // alternativa alla pasta) NON si calcolano: prendono la loro porzione standard.
-//   carbo/frutta/legumi → carboidrati · proteine → proteine · olio+grasso → KCAL
+//   carbo/frutta/legumi → carboidrati · proteine → proteine · olio+grasso → GRASSI
 //   verdura → nessun calcolo, stessa grammatura del principale (criterio null)
+// Perche' i grassi e non le kcal: l'olio e' 100% lipidi, sulle kcal l'equivalenza
+// faceva entrare anche carboidrati e proteine dell'alternativa (avocado, frutta secca).
 //
-// IL GRUPPO GRASSI E' PASSATO DA 'grassi' A 'kcal' IL 4 AGOSTO 2026 — decisione di
-// Fabrizio, e ROVESCIA la scelta presa qui il 25 luglio. La motivazione di allora era
-// buona: l'olio e' 100% lipidi, e pareggiando le kcal entrano anche i carboidrati e le
-// proteine dell'alternativa. Il problema e' che vale anche il contrario, e pesa di piu':
-// i semi e la frutta secca NON sono grasso puro, quindi pareggiare i grassi porta dentro
-// le calorie di fibra e proteine senza contarle. Il caso che ha deciso: 10 g di olio
-// (90 kcal) diventavano 33 g di semi di chia, che di grasso ne hanno il 31% e valgono
-// 158 kcal — quasi il doppio, e una porzione che Fabrizio non vuole consigliare.
-// A pari kcal la chia torna a 18 g, cioe' i 20 g che il foglietto «I grassi buoni»
-// dichiara da sempre: motore e testo al paziente ora dicono la stessa cosa.
-// Il compromesso accettato: sul singolo pasto il target dei GRASSI resta un po' sotto
-// quando si sostituisce con semi o frutta secca. Si e' scelto di sbagliare sul macro
-// invece che sull'energia.
+// PROVATO A ROVESCIARLO IL 4 AGOSTO 2026, E RIMESSO A POSTO LO STESSO GIORNO.
+// L'audit di coerenza aveva trovato che il motore calcolava 33 g di semi di chia dove
+// il foglietto al paziente ne consigliava 20. Fabrizio ha obiettato sui 33 g — che
+// sono davvero una porzione spropositata — e la correzione applicata era stata
+// cambiare il CRITERIO di tutto il gruppo grassi. Sbagliato: l'obiezione era su UN
+// alimento, non sulla regola. La chia e' un caso limite perche' di grasso ne ha solo
+// il 31%, quindi qualunque equivalenza sui lipidi la fa esplodere. La risposta giusta
+// e' toglierla dalle alternative all'olio (vedi _ALT_GRASSI_PROMPT), non cambiare il
+// modo in cui si calcolano tutte le altre.
+// LEZIONE: un'obiezione su un valore non e' un mandato a cambiare la regola che lo
+// produce. Prima si guarda se e' il valore a essere fuori posto.
 // Perche' i legumi sui carboidrati e non sulle proteine: nello schema di Fabrizio il
 // legume in barattolo sta nella cella glucidica; tra legumi diversi conta il carboidrato.
 // NESSUN tetto di plausibilita': 80g di pasta valgono davvero 354g di patate e 150g di
@@ -3680,8 +3680,8 @@ var _GRUPPI_EQUIV = {
   frutta:     {gruppo:'frutta',     criterio:'carbo'},
   legumi:     {gruppo:'legumi',     criterio:'carbo'},
   proteine:   {gruppo:'proteine',   criterio:'proteine'},
-  olio:       {gruppo:'grassi',     criterio:'kcal'},
-  grasso:     {gruppo:'grassi',     criterio:'kcal'},
+  olio:       {gruppo:'grassi',     criterio:'grassi'},
+  grasso:     {gruppo:'grassi',     criterio:'grassi'},
   verdura:    {gruppo:'verdura',    criterio:null},
   fit:        {gruppo:'fit',        criterio:'kcal'},
   condimento: {gruppo:'condimento', criterio:'kcal'}
@@ -3747,7 +3747,12 @@ function _etichettaCriterio(criterio) {
 // P121 — la riga di prompt con le alternative alla cella olio/grassi era scritta a mano
 // e non coincideva col motore (diceva "Frutta secca mista 20g per 10g di olio", il valore
 // vero sui grassi e' 11g). Ora e' generata dal motore stesso: app e AI dicono lo stesso numero.
-var _ALT_GRASSI_PROMPT = ['Avocado','Frutta secca mista','Semi di chia','Semi di lino',
+// I semi di chia NON sono un'alternativa all'olio (decisione di Fabrizio, 4 ago 2026):
+// hanno solo il 31% di grassi, quindi per pareggiare i lipidi di un cucchiaio d'olio ne
+// servirebbero 33 g — una porzione che non si consiglia. Gli ALTRI semi vanno benissimo:
+// il lino ne ha il 42%, e resta su grammature sensate. La chia resta un alimento del
+// database e del piano, semplicemente non viene proposta per la cella dell'olio.
+var _ALT_GRASSI_PROMPT = ['Avocado','Frutta secca mista','Semi di lino',
                           'Olive verdi','Olive nere','Burro arachidi','Burro mandorle'];
 function _promptAlternativeGrassi(olioG) {
   var base = parseFloat(olioG) || 10;

@@ -53,40 +53,44 @@ test('P121 proteine — equivalenza sulle proteine', () => {
   assert.strictEqual(uovo.gr, 275, '5 uova, non piu\' troncato a 150g dalla vecchia lista chiusa');
 });
 
-// ROVESCIATO IL 4 AGOSTO 2026 — questo test diceva l'opposto, ed era giusto allora.
-// Il 25 luglio (P121) si era scelto di pareggiare i GRASSI: l'olio è 100% lipidi, e
-// sulle kcal entrano anche carboidrati e proteine dell'alternativa. Vero, ma vale anche
-// al contrario e pesa di più: semi e frutta secca NON sono grasso puro, quindi
-// pareggiare i grassi porta dentro le calorie di fibra e proteine senza contarle.
-// Il caso che ha deciso: 10 g di olio (90 kcal) diventavano 33 g di semi di chia, che
-// valgono 158 kcal — quasi il doppio, e una porzione che Fabrizio non vuole consigliare.
-// Il compromesso accettato: sul singolo pasto il target dei GRASSI resta un po' sotto
-// quando si sostituisce con semi o frutta secca. Si sbaglia sul macro, non sull'energia.
-// Se un domani si tornasse indietro, il test da guardare è questo, non il codice.
-test('P121+ olio e grassi — equivalenza sulle KCAL (rovesciata il 4 ago 2026)', () => {
+// NOTA STORICA — il 4 agosto 2026 questo criterio e' stato cambiato in 'kcal' e
+// rimesso a posto lo stesso giorno. L'audit aveva trovato che il motore calcolava 33 g
+// di semi di chia dove il foglietto al paziente ne consigliava 20; Fabrizio ha
+// obiettato sulla porzione, e la correzione applicata era stata cambiare il CRITERIO
+// dell'intero gruppo grassi. Sbagliato: l'obiezione era su UN alimento, non sulla
+// regola. La chia ha solo il 31% di grassi, quindi qualunque equivalenza sui lipidi la
+// fa esplodere; la risposta giusta e' stata toglierla dalle alternative all'olio.
+// Un'obiezione su un valore non e' un mandato a cambiare la regola che lo produce.
+test('P121 olio e grassi — equivalenza sui GRASSI, non sulle kcal', () => {
   const avocado = win.suggerisciGrEquivalente('Olio EVO', 10, 'Avocado');
-  assert.strictEqual(avocado.criterio, 'kcal');
-  assert.strictEqual(avocado.gr, 40); // 10 × 899 ÷ 231 = 38,9 → 40 (sui grassi sarebbe stato 45)
+  assert.strictEqual(avocado.criterio, 'grassi');
+  assert.strictEqual(avocado.gr, 45); // 10 × 99,9 ÷ 23,0 = 43,4 → 45 (sulle kcal sarebbe stato 40)
 });
 
-test('P121+ i semi non superano piu\' la porzione consigliata', () => {
-  // È il motivo della decisione: sui grassi la chia usciva a 33 g (158 kcal).
-  const chia = win.suggerisciGrEquivalente('Olio EVO', 10, 'Semi di chia');
-  assert.strictEqual(chia.gr, 20, 'sui grassi sarebbero stati 33 g, quasi il doppio delle calorie');
-  const lino = win.suggerisciGrEquivalente('Olio EVO', 10, 'Semi di lino');
-  assert.strictEqual(lino.gr, 15, 'sui grassi sarebbero stati 24 g');
+test('P121 i semi di chia NON sono fra le alternative all\'olio', () => {
+  // Decisione di Fabrizio, 4 ago 2026: con il 31% di grassi servirebbero 33 g per
+  // pareggiare un cucchiaio d'olio, ed e' una porzione che non si consiglia. Gli altri
+  // semi restano: il lino ha il 42% di grassi e sta su grammature sensate.
+  const lista = JSON.parse(win.eval('JSON.stringify(_ALT_GRASSI_PROMPT)'));
+  assert.ok(lista.indexOf('Semi di chia') === -1, 'la chia non va proposta per la cella dell\'olio');
+  assert.ok(lista.indexOf('Semi di lino') >= 0, 'gli altri semi invece si');
+  const riga = win._promptAlternativeGrassi(10);
+  assert.ok(!/chia/i.test(riga), 'nemmeno la riga che va all\'AI deve nominarla: ' + riga);
 });
 
-test('P121+ motore e foglietto al paziente dicono lo stesso numero', () => {
-  // La contraddizione trovata dall'audit: il concetto «I grassi buoni» diceva 20 g di
-  // chia e il piano ne stampava 33, nello stesso PDF. Ora coincidono. Questo test
-  // fallisce se qualcuno cambia il criterio senza riscrivere il testo al paziente.
-  const testo = win.eval("(CONCETTI_EDUCATIVI_SEED||[]).find(function(c){return c.id==='grassi-buoni';}).testo");
-  [['Avocado', 40], ['Semi di chia', 20], ['Semi di lino', 15], ['Olive nere', 30]].forEach(function(par){
-    const gr = win.suggerisciGrEquivalente('Olio EVO', 10, par[0]).gr;
-    assert.strictEqual(gr, par[1], par[0] + ': il motore dice ' + gr + ' g');
-    assert.ok(testo.indexOf(par[1] + 'g') >= 0,
-      'il foglietto non contiene «' + par[1] + 'g» per ' + par[0] + ': testo e motore sono divergenti');
+test('P121 nessuna alternativa all\'olio supera una porzione sensata', () => {
+  // Il controllo che avrebbe fermato il caso della chia prima che arrivasse al paziente:
+  // ogni alternativa proposta deve restare sotto il doppio delle calorie del riferimento.
+  const CREA = JSON.parse(win.eval('JSON.stringify(CREA_ALIMENTI)'));
+  const kcalRif = CREA['Olio EVO'].kcal * 0.10;   // 10 g di olio = 90 kcal
+  JSON.parse(win.eval('JSON.stringify(_ALT_GRASSI_PROMPT)')).forEach(function (nome) {
+    const r = win.suggerisciGrEquivalente('Olio EVO', 10, nome);
+    const a = CREA[nome];
+    if (!r || !a) return;
+    const kcal = a.kcal * r.gr / 100;
+    assert.ok(kcal < kcalRif * 2,
+      nome + ': ' + r.gr + ' g valgono ' + Math.round(kcal) + ' kcal contro le ' + kcalRif +
+      ' del cucchiaio d\'olio — porzione fuori scala, va tolta dalle alternative');
   });
 });
 
@@ -177,6 +181,6 @@ test('P121 _normalizzaPianoNuovo — le grammature delle alternative dell\'AI ve
 
 test('P121 prompt AI — la riga delle alternative ai grassi e\' generata dal motore', () => {
   const riga = win._promptAlternativeGrassi(10);
-  assert.match(riga, /Avocado 40g/, 'lo stesso numero che l\'app calcolerebbe');
+  assert.match(riga, /Avocado 45g/, 'lo stesso numero che l\'app calcolerebbe');
   assert.ok(riga.split(',').length >= 6, 'tutte le alternative previste sono elencate');
 });

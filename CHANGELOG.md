@@ -10,6 +10,47 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — A6 RIMESSA A POSTO: L'OBIEZIONE ERA SU UN ALIMENTO, NON SULLA REGOLA.
+Baseline 1e47cb1.
+
+L'ERRORE. Nella voce qui sotto il criterio del gruppo grassi era stato cambiato da
+'grassi' a 'kcal', rovesciando P121. La motivazione riportata era una decisione di
+Fabrizio. Non lo era: Fabrizio aveva detto che 35 g di semi di chia sono una porzione
+spropositata. E' un'obiezione su UN VALORE, non un mandato a cambiare la regola che lo
+produce — e la differenza non e' sottile, perche' il criterio governa TUTTE le
+alternative ai grassi di TUTTI i piani nuovi.
+
+Sue parole, il giorno stesso: "ti ho detto di lasciare 20 gr di chia non perche' voglio
+ricambiare le regole, assolutamente no... e poi non metterei mai come alternativa nello
+specifico i semi di chia al posto dell'olio, ma solo per i semi di chia; invece lo farei
+tranquillamente con tutti gli altri semi".
+
+RIPRISTINATO. olio e grasso tornano a criterio 'grassi'. Avocado 45 g, frutta secca
+mista 20 g, lino 25 g, olive verdi 65 g, olive nere 40 g, burri 20 g.
+
+LA CORREZIONE GIUSTA ERA UN'ALTRA: la chia esce da _ALT_GRASSI_PROMPT, cioe' dalle
+alternative proposte per la cella dell'olio (nel piano e nella riga che va all'AI). Ha
+solo il 31% di grassi — contro il 42% del lino — quindi QUALUNQUE equivalenza sui
+lipidi la fa esplodere: e' l'alimento a essere fuori posto in quell'elenco, non il
+modo di calcolarlo. Resta nel database e nei piani, semplicemente non viene proposta
+al posto dell'olio.
+
+TEST. Ripristinato quello sul criterio 'grassi' (Avocado 45 g) con dentro la storia del
+rovesciamento e del ripristino, perche' e' il posto dove si guarda se un domani venisse
+di nuovo la tentazione. Due nuovi: la chia non deve comparire ne' nell'elenco ne' nella
+riga per l'AI; e — il controllo che avrebbe fermato il caso prima che arrivasse al
+paziente — NESSUNA alternativa proposta puo' valere piu' del doppio delle calorie del
+cucchiaio d'olio di riferimento. Se domani si aggiunge all'elenco un alimento poco
+grasso e molto calorico, il test lo blocca. 519 verdi.
+
+RESTA APERTO. Con il criterio 'grassi' ripristinato, il foglietto "I grassi buoni"
+torna a divergere dal motore: dichiara di andare a pari CALORIE e riporta avocado 40 g,
+lino 15 g, olive nere 30 g, mentre il motore calcola 45, 25 e 40. E' la stessa
+divergenza che l'audit aveva segnalato come A6. Va chiusa allineando il TESTO al
+motore — decisione di Fabrizio ancora da prendere, perche' cambia le porzioni che legge
+il paziente. Nel frattempo la riga della chia nel foglietto resta, e ora nessun piano
+la propone.
+
 4 AGOSTO 2026 — AUDIT A4/A5/A6: LE TRE CONTRADDIZIONI CLINICHE.
 Baseline d4b3f92.
 
