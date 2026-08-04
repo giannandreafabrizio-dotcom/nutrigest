@@ -184,3 +184,35 @@ test('P121 prompt AI — la riga delle alternative ai grassi e\' generata dal mo
   assert.match(riga, /Avocado 45g/, 'lo stesso numero che l\'app calcolerebbe');
   assert.ok(riga.split(',').length >= 6, 'tutte le alternative previste sono elencate');
 });
+
+// ── A6 — il foglietto al paziente e il motore devono dire lo stesso numero ──
+// La divergenza trovata dall'audit: il concetto «I grassi buoni» diceva 20 g di semi
+// di chia e il piano ne stampava 33, nello STESSO PDF. Nasceva dal fatto che il testo
+// era scritto a mano su una regola (le calorie) e il motore ne applicava un'altra (i
+// grassi). Questo test lega le due cose: se qualcuno cambia il criterio senza
+// riscrivere il foglietto, o aggiorna il foglietto senza guardare il motore, fallisce.
+test('A6 — le grammature del foglietto sono quelle che calcola il motore', () => {
+  const testo = win.eval("(CONCETTI_EDUCATIVI_SEED||[]).find(function(c){return c.id==='grassi-buoni';}).testo");
+  assert.ok(testo, 'concetto «I grassi buoni» non trovato');
+  [['Avocado', 45], ['Semi di lino', 25], ['Olive verdi', 65], ['Olive nere', 40]].forEach(function (par) {
+    const gr = win.suggerisciGrEquivalente('Olio EVO', 10, par[0]).gr;
+    assert.strictEqual(gr, par[1], par[0] + ': il motore calcola ' + gr + ' g, il test si aspetta ' + par[1]);
+    assert.ok(new RegExp(par[0] + '[^\\n]*' + par[1] + 'g').test(testo),
+      'il foglietto non riporta «' + par[1] + 'g» accanto a ' + par[0] + ': testo e motore sono divergenti');
+  });
+});
+
+test('A6 — il foglietto dichiara la regola giusta, non quella sbagliata', () => {
+  const testo = win.eval("(CONCETTI_EDUCATIVI_SEED||[]).find(function(c){return c.id==='grassi-buoni';}).testo");
+  assert.ok(/stessa quantita' di GRASSI/.test(testo),
+    'la premessa deve dire che l\'equivalenza è sui grassi');
+  assert.ok(!/stesse calorie di 10g/.test(testo),
+    'la vecchia premessa «stesse calorie» era falsa e non deve tornare');
+});
+
+test('A6 — la chia non è fra le alternative, e il foglietto spiega perché', () => {
+  const testo = win.eval("(CONCETTI_EDUCATIVI_SEED||[]).find(function(c){return c.id==='grassi-buoni';}).testo");
+  assert.ok(!/^- Semi di chia:/m.test(testo), 'la chia non va nell\'elenco delle alternative');
+  assert.ok(/NON SONO NELL'ELENCO/.test(testo),
+    'ma la sua assenza va spiegata: un paziente che la cerca deve trovare il motivo, non un buco');
+});

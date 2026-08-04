@@ -16,7 +16,7 @@ contraddice, fa il suo mestiere.
 
 ---
 
-## A. NON sono errori di documentazione: sono difetti del programma
+## A. NON sono errori di documentazione: sono difetti del programma — ✅ **BLOCCO CHIUSO 4 ago 2026**
 
 Sono emersi cercando le contraddizioni. Il documento diceva una cosa, il codice un'altra, e
 in questi casi **aveva torto il codice**.
@@ -83,7 +83,7 @@ dei range di riferimento usa **200**.
 **Cosa ti succede:** un valore di 195 risulta contemporaneamente «dentro il riferimento» e
 «sopra il desiderabile». Due messaggi opposti sullo stesso esame.
 
-### A6. Il foglietto sui grassi buoni contraddice le grammature del piano — ⚠️ APERTA
+### ~~A6. Il foglietto sui grassi buoni contraddice le grammature del piano~~ ✅ CHIUSA 4 ago
 
 Il concetto educativo *«I grassi buoni e come usarli»* dice che 10 g di olio equivalgono a
 20 g di semi di chia. Il motore delle equivalenze, che ragiona sui **grassi** e non sulle
@@ -181,11 +181,11 @@ numero scritto nel Contesto (C16).
    commento compreso: **proteggeva il difetto invece del comportamento.** Riscritto.
 2. ~~**A4, A5, A6**~~ ✅ **fatte il 4 agosto 2026** — decise da Fabrizio, vedi CHANGELOG.
    A6 rovescia la scelta di P121 sul criterio di equivalenza dei grassi: motivazione nel codice e nei test.
-   **A6 resta APERTA:** il criterio del motore era stato cambiato per errore e il 4 ago è stato
-   ripristinato a P121 ('grassi'). La chia è uscita dalle alternative all'olio — quella era la
-   correzione giusta. Ma il foglietto continua a dichiarare «pari calorie» e a riportare avocado
-   40 g, lino 15 g, olive nere 30 g, mentre il motore calcola 45, 25 e 40. **Serve la decisione
-   di Fabrizio sul testo al paziente.**
+   **A6 chiusa il 4 ago in tre mosse:** il criterio del motore era stato cambiato per errore ed è
+   stato ripristinato a P121 ('grassi'); la chia è uscita dalle alternative all'olio (era quella la
+   correzione giusta); il foglietto è stato allineato al motore — grammature, premessa «stessi
+   grassi» invece di «stesse calorie», e la spiegazione del perché la chia non c'è.
+   Un test lega ora testo e motore: non possono più divergere in silenzio.
 3. **B1-B10** — una passata sola sulla Roadmap: sono tutte correzioni di stato.
 4. **D1** — decidere se la tabella d'apertura si tiene allineata o si elimina. Finché resta
    com'è, continuerà a generare voci come B1 e B6.

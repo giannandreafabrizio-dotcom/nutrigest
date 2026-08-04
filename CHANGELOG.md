@@ -10,6 +10,45 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — A6 CHIUSA: IL FOGLIETTO AL PAZIENTE PARLA LA STESSA LINGUA DEL MOTORE.
+Baseline e22a714.
+
+Ultimo pezzo dell'audit. Ripristinata la regola (voce qui sotto), restava il testo:
+il concetto "I grassi buoni" dichiarava di andare a pari CALORIE e riportava numeri
+scritti a mano che non tornavano con nessuna delle due regole — avocado 40 g contro i
+45 del motore, lino 15 contro 25, olive nere 30 contro 40.
+
+COSA CAMBIA NEL TESTO CHE LEGGE IL PAZIENTE.
+(a) La premessa: da "circa le stesse calorie di 10g di Olio EVO" a "la stessa quantita'
+    di GRASSI". Era falsa anche prima: 20 g di noci sono 130 kcal, non 90.
+(b) Le sei grammature, prese dal motore: avocado 45, frutta secca mista 20 (l'unica che
+    gia' tornava), lino 25, olive verdi 65, olive nere 40, burri 20.
+(c) La chiusa: "mantenendo lo stesso spazio calorico" diventa "lo stesso apporto di
+    GRASSI", piu' una precisazione che prima non c'era — a parita' di grassi queste
+    alternative costano da +4 kcal (olive verdi) a +44 (lino), perche' a differenza
+    dell'olio portano anche fibra e proteine. Su una sostituzione ogni tanto non cambia
+    nulla; a chi alterna ogni giorno va detto.
+(d) I semi di chia escono dall'elenco ma NON spariscono in silenzio: sono citati poco
+    sotto come fonte di omega-3, e un paziente che li cercasse fra le alternative
+    troverebbe un buco. Un paragrafo nuovo spiega che di grasso ne hanno circa un terzo
+    (il lino quasi la meta'), che per pareggiare un cucchiaio d'olio ne servirebbero
+    oltre 30 g, e che vanno usati come AGGIUNTA e non al posto della cella grasso.
+    Un'assenza spiegata insegna qualcosa; un'assenza muta sembra una dimenticanza.
+
+IL TEST CHE LEGA TESTO E MOTORE. Il difetto non nasceva da un numero sbagliato ma dal
+fatto che due cose che devono coincidere vivevano separate: un testo scritto a mano e
+un motore che calcola. Ora un test confronta le grammature del CONCETTO con quelle
+calcolate: fallisce sia se qualcuno cambia il criterio senza riscrivere il foglietto,
+sia se aggiorna il foglietto senza guardare il motore. Piu' due controlli: la premessa
+deve dichiarare la regola giusta (e la vecchia frase "stesse calorie" non deve tornare),
+e la chia non deve rientrare nell'elenco senza che la sua assenza resti spiegata.
+522 test verdi.
+
+CON QUESTA L'AUDIT DI COERENZA CHIUDE IL BLOCCO A: sei difetti trovati confrontando
+documentazione e codice, sei chiusi. Restano il blocco B (dieci voci di roadmap che
+farebbero rifare lavoro gia' fatto) e il blocco C (diciotto punti in cui il Contesto
+descrive male il programma), elencati in NutriGest_Audit_Coerenza.md.
+
 4 AGOSTO 2026 — A6 RIMESSA A POSTO: L'OBIEZIONE ERA SU UN ALIMENTO, NON SULLA REGOLA.
 Baseline 1e47cb1.
 
