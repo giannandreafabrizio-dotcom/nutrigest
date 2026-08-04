@@ -550,14 +550,106 @@ Verifica: `node --check`, test logico del motore, prove browser con DB reale + P
 
 # PRIORITÀ 4 — UX, pulizia, strutturali residui
 
-### P35 — Peso intermedio casalingo ⚠️ **PARZIALE — la card è in produzione, manca la normalizzazione fra bilance**
-**⚠️ NON È «DA FARE»: la funzione esiste e la usa già (verificato 4 ago 2026).** Questa voce diceva «Stato: Da fare (trigger uso reale)» come se non ci fosse nulla. In realtà la card **⚖️ Peso casalingo** è in produzione: `grep -n "pesiIntermedi\|_renderPesiIntermediSection\|Peso casalingo" index.html` → struttura dati `p.pesiIntermedi[] = [{data:'YYYY-MM-DD', peso:XX.X}]`, funzione `_renderPesiIntermediSection(p)` che disegna la card (titolo «⚖️ Peso casalingo»), `aggiungiPesoIntermedio` / `eliminaPesoIntermedio`, e la chiamata `const piHtml = _renderPesiIntermediSection(p);` **dentro `renderPdInbody(p)`**. Ci sono già la lista delle pesate con i giorni trascorsi, il Δ contro il peso di riferimento e la riga «Ultima settimana: ±X kg in N giorni». Le pesate casalinghe sono inoltre usate come **fallback del peso intermedio** nella logica del percorso.
+### P35 — Peso casalingo: strumento SEPARATO, non un secondo peso ⚠️ **PARZIALE — la card c'è, ma oggi le due bilance sono fuse**
 
-**QUELLO CHE MANCA DAVVERO — ed è il cuore clinico della voce: `offsetBilancia` non esiste.** `grep -c "offsetBilancia" index.html` → **0 occorrenze**. Non c'è nessuna normalizzazione fra la bilancia di casa e quella dello studio. Oggi la card mostra **il kg grezzo** della bilancia di casa e calcola il delta contro il **peso InBody** (`pesoBase` = peso del primo referto InBody, o `p.peso`). Conseguenza da tenere presente leggendo quel numero: **il delta mostrato può essere in parte differenza fra bilance, non variazione del paziente** — se la bilancia di casa legge sistematicamente 1,2 kg in più di quella dello studio, quel 1,2 kg entra nel Δ come se fosse grasso preso. È esattamente il rumore che la critica del CTO qui sotto diceva di eliminare, e non è stato eliminato.
-**LA CRITICA DEL CTO (resta valida e non evasa):** il problema clinico è UNO: il valore assoluto della bilancia di casa è rumore. Tutto il resto è decorazione.
-**LA SOLUZIONE OTTIMIZZATA (residuo da fare):** alla prima pesata casalinga post-visita si calcola e salva `offsetBilancia` (peso casa − peso studio); da lì la sezione mostra SOLO trend normalizzato (sparkline + Δ settimanale), mai il valore grezzo in evidenza. Grafico = sparkline inline, non un nuovo Chart. WhatsApp-intake rimandato a P85 (P87 e' stata chiusa il 28 lug 2026 con la tab Comunicazione: l'intake-da-paziente non ne faceva parte). **Nota aggiunta il 4 ago 2026:** l'offset va ricalcolato/riverificato a ogni nuova visita in studio (le bilance derivano) e va dichiarato in UI quando è applicato, altrimenti si crea un secondo numero che nessuno sa spiegare.
-**FOCUS COMPONENTI COINVOLTI:** Frontend + campo additivo.
-**SCHEDA:** Stato: ⚠️ **PARZIALE — card «⚖️ Peso casalingo» in produzione (`p.pesiIntermedi[]`, `_renderPesiIntermediSection` da `renderPdInbody`); manca `offsetBilancia`, quindi il Δ mostrato è ancora sul kg grezzo** (trigger uso reale) · Priorità: Bassa · C: 2 | I: 2 | R: 1 · Modello: Sonnet (Bassa) · Autonomia: L1.
+**IL DISEGNO, dettato da Fabrizio il 4 agosto 2026.** Questa voce era nata come «raffinare la
+sezione pesate»; non è quello. Il peso casalingo è **un secondo strumento**, con un mestiere suo:
+
+1. **I pazienti lontani.** Fabrizio segue pazienti in Svizzera e negli Stati Uniti: un controllo
+   periodico con la sua bilancia è impossibile. Per loro il peso casalingo non è un di più, è
+   l'unico monitoraggio disponibile fra una visita e l'altra.
+2. **L'aggancio alla futura app del paziente.** È il dato che il paziente potrà inserire da solo,
+   proprio perché non tocca nulla di clinico. Qualunque scelta si faccia qui va pensata sapendo
+   che un domani a scrivere sarà il paziente e non il nutrizionista.
+3. **Il paziente che ha bisogno di riferire.** Chi è molto fissato e vuole comunicare il peso ogni
+   giorno, ogni tre giorni, ogni settimana. Serve a lui per sentirsi seguito e a Fabrizio per
+   vedere l'andamento senza che quel numero entri nei conti clinici.
+
+**LA REGOLA CHE GOVERNA TUTTO:** la bilancia dello studio e quella di casa sono **due strumenti
+diversi**, non lo stesso numero misurato due volte. Dall'InBody nascono i grafici della sezione
+composizione corporea e i numeri clinici. Il peso casalingo vive **in una serie sua**, con un suo
+grafico. **Non si fondono mai.**
+
+---
+
+**⚠️ IL DIFETTO DA CHIUDERE — oggi si fondono, e in silenzio (verificato 4 ago 2026).**
+`_serieePesoOss(p)` unisce `p.inbody[]` e `p.pesiIntermedi[]` in un'unica serie, e quella serie
+alimenta **tre punti clinici**:
+
+| Dove | Cosa succede |
+|---|---|
+| `_traguardoValoreAttuale` (fonte `peso`) | prende l'ultimo valore della serie fusa: se l'ultima registrazione è casalinga, **il traguardo di peso viene valutato sulla bilancia del paziente** |
+| proiezione del percorso | `start = serie[serie.length-1]` — la proiezione può partire da un peso di casa |
+| `calcolaTDEEOsservato` | il calo reale che calibra il TDEE può essere misurato su due bilance diverse |
+
+Conseguenza: se la bilancia di casa legge sistematicamente 1,2 kg in più, quel 1,2 entra come se
+fosse grasso preso — nel traguardo, nella proiezione e nella calibrazione. **È la famiglia di
+difetti di P118 e P120: due fonti per lo stesso dato che non si dichiarano** (regola 12 di
+CLAUDE.md — il danno non è dove si scrive, è in chi legge).
+
+**Cosa NON è un problema:** il confronto **fra due pesate casalinghe**. Stessa bilancia, l'errore
+sistematico c'è in entrambe e si annulla nella differenza. −0,6 kg in cinque giorni sono −0,6 kg
+veri. È il confronto casa↔studio a essere inquinato, non il trend di casa.
+
+---
+
+**IL COMPROMESSO, E COME SI CHIUDE.** Separando le serie, il **TDEE osservato** resta con molti
+meno dati: gli InBody sono rari e quel calcolo ha bisogno di pesate frequenti. Decisione di
+Fabrizio (4 ago 2026): **non è un problema da risolvere in software, è un argomento clinico e
+commerciale** — è un motivo in più per proporre al paziente, all'inizio del percorso, una
+misurazione con la bilancia professionale **ogni due o tre settimane**. Meglio per la qualità del
+dato e con un ritorno economico maggiore. Il TDEE osservato torna quindi a poggiare su misurazioni
+omogenee, che è come dovrebbe essere.
+
+---
+
+**LE TAPPE**
+
+**1. Separare le serie.** `_serieePesoOss` smette di unire: traguardi, proiezione e TDEE osservato
+usano SOLO `p.inbody[]`. Il peso casalingo resta in `p.pesiIntermedi[]` e non entra in nessun
+calcolo clinico. Da dichiarare in UI: la card deve dire che quei numeri non entrano nei conti.
+
+**2. Il grafico dell'andamento del peso casalingo** — è la tappa che Fabrizio vuole di sicuro.
+Non un doppione del grafico InBody: una serie fitta e rumorosa si legge in un altro modo.
+- **Punti grezzi sottili + media mobile a 7 giorni in evidenza.** Il peso di un singolo giorno è
+  rumore (idratazione, glicogeno, intestino, ora della pesata); il segnale è la media. Mostrarli
+  insieme *insegna* al paziente fissato che il +0,8 kg di stamattina non è grasso — è la stessa
+  cosa che fa la banda d'errore dei grafici InBody, applicata a un dato quotidiano.
+- **Nessun Δ contro il peso InBody**, mai: è il confronto fra strumenti diversi.
+
+**3. Velocità di variazione, calcolata sulla media mobile e non su due punti grezzi.** Con la
+fascia di ritmo già esistente in casa: `_ibFasciaRitmo(peso)` di P132 (0,3-0,7% del peso a
+settimana), stessa regola e stessi colori dei grafici InBody — e con la stessa disciplina decisa
+allora: **si colora solo il lato pericoloso, andare più piano non si colora**.
+
+**4. Aderenza al monitoraggio.** Una striscia che mostra in quali giorni il paziente si è pesato.
+Per il paziente lontano è l'informazione che manca di più: prima di una videochiamata dice a
+colpo d'occhio se il dato è denso o pieno di buchi. Costa poco ed è quello che nessun concorrente
+mostra.
+
+**5. Confronto casa↔studio — bassa priorità, e solo in una forma che non possa ingannare.**
+Fabrizio lo giudica «la cosa meno interessante, può essere molto fuorviante», e ha ragione. Se si
+fa, si fa **disegnando le due serie sullo stesso asse dei tempi senza fonderle**: lo scarto
+verticale costante fra le due linee *è* l'offset, si vede a occhio e non produce nessun numero
+derivato. Nessun `offsetBilancia` salvato, nessuna correzione automatica applicata ai dati —
+altrimenti si crea un terzo numero che nessuno sa spiegare.
+
+*(Nota storica: la vecchia versione di questa scheda proponeva proprio di calcolare e salvare
+`offsetBilancia` per normalizzare i pesi di casa su quelli di studio. È stato superato dal disegno
+del 4 agosto: le due serie non si normalizzano perché non si confrontano.)*
+
+**PICCOLA COSA DA SISTEMARE NELLA TAPPA 2:** la riga di sintesi della card dice «Ultima settimana:
+±X kg in N giorni» ma calcola fra le ultime due pesate, quali che siano — se sono distanti un mese
+scrive «Ultima settimana … in 30 giorni». Il numero è giusto, l'etichetta no.
+
+**FOCUS COMPONENTI COINVOLTI:** Frontend (card + grafici) + un intervento chirurgico su
+`_serieePesoOss`. Nessuna migrazione dati: `p.pesiIntermedi[]` resta com'è.
+**SCHEDA:** Stato: ⚠️ **PARZIALE** — card «⚖️ Peso casalingo» in produzione (`p.pesiIntermedi[]`,
+`_renderPesiIntermediSection` chiamata da `renderPdInbody`); **da fare: tappa 1 (separazione, è
+anche una correzione di difetto) e tappa 2 (grafico andamento)**; tappe 3-5 opzionali · Priorità:
+**Media** — alzata dal 4 ago 2026: la tappa 1 corregge un difetto clinico silenzioso, non è più
+solo un miglioramento · C: 3 | I: 4 | R: 2 · Modello: Opus (tocca dati clinici e un calcolo
+esistente) · Autonomia: L0 sulla tappa 1, L1 sui grafici.
 
 ### P43 — Piccoli interventi "quando capita"
 **L'APPROCCIO ORIGINARIO:** pulizia prompt | sidebar <1130px | backup settimanale JSON | DB equivalenze.

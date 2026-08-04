@@ -10,6 +10,67 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+4 AGOSTO 2026 — P35 RISCRITTA: IL PESO CASALINGO E' UNO STRUMENTO SEPARATO.
+Baseline d4d5a67. Nessuna riga di codice toccata: solo la scheda di roadmap.
+
+DA DOVE NASCE. Fabrizio apre la scheda InBody di un paziente, vede la card "Peso
+casalingo" e chiede cos'e'. Da li' detta il disegno vero della voce, che non era
+quello scritto in roadmap.
+
+IL DISEGNO. Il peso casalingo non e' un secondo peso: e' un secondo STRUMENTO, con
+tre mestieri suoi. (1) I pazienti lontani — Fabrizio ne segue in Svizzera e negli
+Stati Uniti, per loro un controllo con la bilancia dello studio e' impossibile e il
+peso casalingo e' l'unico monitoraggio disponibile. (2) L'aggancio alla futura app
+del paziente: e' il dato che il paziente potra' inserire da solo, proprio perche' non
+tocca nulla di clinico. (3) Il paziente molto attento che ha bisogno di riferire il
+peso ogni giorno o ogni settimana. La regola che governa tutto: dall'InBody nascono i
+grafici e i numeri clinici, il peso casalingo vive in una serie sua con un suo
+grafico, e NON SI FONDONO MAI.
+
+IL DIFETTO CHE E' VENUTO FUORI CERCANDO DI DESCRIVERLO. Oggi si fondono, e in
+silenzio. `_serieePesoOss` unisce p.inbody[] e p.pesiIntermedi[], e quella serie
+alimenta tre punti clinici: il valore attuale di un traguardo di peso (prende
+l'ULTIMO della serie, quindi se l'ultima registrazione e' casalinga il traguardo
+viene valutato sulla bilancia del paziente), il punto di partenza della proiezione
+del percorso, e calcolaTDEEOsservato. Se la bilancia di casa legge sistematicamente
+1,2 kg in piu', quel 1,2 entra come se fosse grasso preso in tutti e tre. E' la
+famiglia di P118 e P120 — due fonti per lo stesso dato che non si dichiarano.
+
+NON e' invece un problema il confronto FRA due pesate casalinghe: stessa bilancia,
+l'errore sistematico si annulla nella differenza. E' il confronto casa-studio a
+essere inquinato, non il trend di casa. La distinzione decide tutto il disegno.
+
+IL COMPROMESSO, RISOLTO FUORI DAL SOFTWARE. Separando le serie il TDEE osservato
+resta con molti meno dati, perche' gli InBody sono rari. Decisione di Fabrizio: non
+si risolve in codice, e' un argomento clinico e commerciale — un motivo in piu' per
+proporre al paziente una misurazione con la bilancia professionale ogni due o tre
+settimane, meglio per la qualita' del dato e con un ritorno economico maggiore.
+
+LE TAPPE. (1) Separare le serie — e' anche una correzione di difetto, quindi la
+priorita' della voce sale da Bassa a Media. (2) Il grafico dell'andamento casalingo,
+quello che Fabrizio vuole di sicuro: punti grezzi sottili piu' MEDIA MOBILE A 7
+GIORNI in evidenza, perche' il peso di un singolo giorno e' rumore e mostrarli
+insieme insegna al paziente fissato che il +0,8 kg di stamattina non e' grasso.
+(3) Velocita' calcolata sulla media mobile, con la fascia di ritmo gia' in casa
+(_ibFasciaRitmo, P132) e la stessa disciplina: si colora solo il lato pericoloso.
+(4) Striscia di aderenza al monitoraggio — per il paziente lontano dice a colpo
+d'occhio, prima di una videochiamata, se il dato e' denso o pieno di buchi.
+(5) Confronto casa-studio a bassa priorita' e solo disegnando le due serie sullo
+stesso asse SENZA fonderle: lo scarto verticale fra le linee E' l'offset, si vede a
+occhio e non produce nessun numero derivato.
+
+SUPERATO IL VECCHIO PIANO. La scheda proponeva di calcolare e salvare
+`offsetBilancia` per normalizzare i pesi di casa su quelli di studio. Non si fa piu':
+le due serie non si normalizzano perche' non si confrontano. Segnato come nota
+storica dentro la scheda, non cancellato.
+
+UNA COSA CHE VALE PER TUTTO IL PROGETTO, detta da Fabrizio nella stessa sessione: nei
+primi tempi qualche modifica puo' non essere finita nel CHANGELOG. Se e' successo,
+allora nell'app ci sono funzioni che nessun documento nomina — ed e' esattamente
+quello che l'audit ha trovato. Vale la pena, un giorno, una passata AL CONTRARIO:
+partire dalle funzioni che esistono nel codice e cercare quelle di cui nessun
+documento parla. Il peso casalingo e' il primo caso trovato per caso.
+
 4 AGOSTO 2026 — AUDIT BLOCCHI B e C: 28 CORREZIONI ALLE DUE FONTI DI VERITA'.
 Baseline c9fffac. Nessuna riga di codice toccata: solo Roadmap_v4 e Contesto_v18.
 
