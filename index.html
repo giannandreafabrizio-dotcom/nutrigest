@@ -16746,6 +16746,46 @@ function _renderTDEEOsservatoHtml(p){
     +'</div>';
 }
 
+// P147d — una riga sola che dice cosa faceva il paziente in quel salvataggio.
+// Deve stare su una riga: se diventa un secondo pannello lo storico smette di
+// essere scorribile a colpo d'occhio, che è tutto il suo valore.
+function _riassuntoAttivitaSlot(a){
+  if(!a) return '';
+  const parti=[];
+  if(a.passi!=null) parti.push(String(a.passi).replace(/\B(?=(\d{3})+(?!\d))/g,'.')+' passi');
+  const _lav={'in-piedi':'lavoro in piedi','pesante':'lavoro pesante'};
+  if(_lav[a.tipoLavoro]) parti.push(_lav[a.tipoLavoro]);
+  if(a.modalita==='precisa' && a.righe && a.righe.length){
+    parti.push(a.righe.map(function(r){ return r.sedute+'× '+r.nome; }).join(' · '));
+  } else if(a.modalita==='rapida' && a.ore){
+    parti.push(String(a.ore).replace('.',',')+' h/sett'+(a.tipo?' '+a.tipo.toLowerCase():'')+(a.intensita?', intensità '+a.intensita.toLowerCase():''));
+  } else if(a.modalita==='nessuno'){
+    parti.push('non si allena');
+  }
+  if(a.giorni && a.giorni.length) parti.push('carico: '+a.giorni.join(' '));
+  return parti.join(' · ');
+}
+
+// Riporta l'attività di uno slot DENTRO IL MODULO. Non scrive sul paziente:
+// tocca a "Salva dati TDEE" renderla corrente. È la stessa regola del pannello
+// dal vivo — guardare non scrive — e serve a poter confrontare il ciclo di
+// allenamento di tre mesi fa con quello di oggi senza ridigitare nulla.
+// Ritorna true se ha trovato la fotografia, false se lo slot è anteriore a P147d.
+function _riportaAttivitaNelModulo(a){
+  if(!a) return false;
+  const sv=function(id,v){ const el=document.getElementById(id); if(el) el.value=(v==null?'':v); };
+  sv('p-passi',a.passi); sv('p-fonte-passi',a.fontePassi); sv('p-lavoro',a.tipoLavoro);
+  sv('p-ore-all',a.ore); sv('p-tipo-all',a.tipo); sv('p-intens-all',a.intensita);
+  _attRighe=(a.righe||[]).map(function(r){ return {nome:r.nome, sedute:r.sedute, minuti:r.minuti}; });
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(function(d){
+    const el=document.getElementById('gall-'+d);
+    if(el) el.checked=(a.giorni||[]).some(function(g){ return String(g).toLowerCase().slice(0,3)===d; });
+  });
+  _setModalitaAllenamento(a.modalita||'nessuno');
+  _aggiornaPannelloTdeeLive();
+  return true;
+}
+
 function renderStoricoTDEE(p){
   const box=document.getElementById('mac-storico-box');if(!box)return;
   const storico=(p.macrosStorico||[]).slice().reverse(); // più recente prima
@@ -16766,6 +16806,13 @@ function renderStoricoTDEE(p){
       ?`<span style="font-size:.68rem;color:#0F6E56;font-weight:700">&#10003; Attivo</span>`
       :`<button class="btn btn-g btn-sm" style="font-size:.68rem;padding:.15rem .5rem" onclick="attivaSlotTDEE(${slot.timestamp})">Usa questo</button>`;
     const btnElimina=`<button class="btn btn-sm" style="font-size:.65rem;padding:.1rem .4rem;border:1px solid var(--border);color:var(--text3);background:transparent" onclick="eliminaSlotTDEE(${slot.timestamp})">&#128465;</button>`;
+    // P147d — riga attività: c'è solo se lo slot la porta con sé (quelli salvati
+    // prima di questa modifica non ce l'hanno, e mentire su cosa faceva il
+    // paziente sarebbe peggio che non dirlo).
+    const _riass=_riassuntoAttivitaSlot(slot.attivita);
+    const rigaAttivita=_riass
+      ? `<div style="flex-basis:100%;font-size:.68rem;color:var(--text2);line-height:1.35;margin-top:.15rem;padding-top:.35rem;border-top:1px dashed ${border}">${_riass}</div>`
+      : '';
     html+=`<div style="border:1.5px solid ${border};border-radius:8px;padding:.55rem .8rem;background:${bg};display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
       <div style="font-size:.7rem;color:var(--text3);min-width:60px">${fmt(slot.timestamp)}</div>
       <div style="flex:1;font-size:.78rem;font-weight:600;color:var(--text1)">${slot.kcal} kcal &nbsp;·&nbsp; P${slot.protG}g C${slot.carbG}g G${slot.grassiG}g</div>
@@ -16773,6 +16820,7 @@ function renderStoricoTDEE(p){
       ${badgeRegime}
       ${btnAttiva}
       ${btnElimina}
+      ${rigaAttivita}
     </div>`;
   });
   html+='</div>';
@@ -16785,7 +16833,16 @@ function attivaSlotTDEE(ts){
   const slot=(p.macrosStorico||[]).find(s=>s.timestamp===ts);if(!slot)return;
   p.macrosTarget={...slot};
   save(p.id);renderStoricoTDEE(p);
-  notif('✓ Slot attivato come riferimento per il generatore');
+  // P147d bis — tornare a un percorso passato significa tornare a TUTTO quel
+  // percorso, allenamento compreso: era la cosa che non tornava indietro e che
+  // costringeva a ricordarsi a memoria cosa faceva il paziente in quel periodo.
+  // L'attività va nel MODULO, non sul paziente: diventa corrente solo con
+  // "Salva dati TDEE", così riattivare un vecchio target per il generatore non
+  // riscrive di nascosto l'allenamento di oggi.
+  const _rip=_riportaAttivitaNelModulo(slot.attivita);
+  notif(_rip
+    ? '✓ Percorso riattivato — attività riportate nel modulo, salva per renderle correnti'
+    : '✓ Slot attivato come riferimento per il generatore');
 }
 
 function eliminaSlotTDEE(ts){
@@ -16894,7 +16951,25 @@ function salvaCalcoloMacros(){
       _grasSv=Math.round(_grassiGkg*_refSv);
       _carbSv=Math.max(0,Math.round((_kcalSv-_protSv*4-_grasSv*9)/4));
     }
-    const _nuovoSlot={kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:(_ketoSv?+(_refSv?(_grasSv/_refSv):0).toFixed(2):_grassiGkg),ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,strategia:_stratSv,timestamp:Date.now(),source:'tdee'};
+    // P147d — la fotografia dell'ATTIVITA' dentro lo slot.
+    // Prima lo storico salvava solo il risultato (kcal, macro, TDEE, LAF): tornare
+    // su un salvataggio di tre mesi fa diceva quanto mangiava il paziente ma non
+    // cosa stava facendo per meritarselo. Con due cicli di allenamento diversi
+    // (2 corsa + 2 pesi → poi 2 calcio + 2 pilates) i due slot erano
+    // indistinguibili sul motivo, e il motivo è l'unica cosa che spiega lo scarto.
+    const _attSv={
+      passi:(p.passiGiornalieri!=null?p.passiGiornalieri:null),
+      fontePassi:p.fontePassi||'', tipoLavoro:p.tipoLavoro||'',
+      modalita:_ctSv.modalita||'',
+      righe:(_ctSv.righe||[]).map(function(r){ return {nome:r.nome, met:r.met, sedute:r.sedute, minuti:r.minuti}; }),
+      ore:(p.oreAllenamento!=null?p.oreAllenamento:null),
+      tipo:p.tipoAllenamento||'', intensita:p.intensitaAllenamento||'',
+      neat:_ctSv.neat||0, eat:_ctSv.eat||0, metUsato:(_ctSv.metUsato!=null?_ctSv.metUsato:null),
+      seduteTot:(_ctSv.seduteTot!=null?_ctSv.seduteTot:null),
+      oreSett:(_ctSv.oreEffSett!=null?_ctSv.oreEffSett:null),
+      giorni:(p.giorniAllenamento||[]).slice()
+    };
+    const _nuovoSlot={attivita:_attSv,kcal:_kcalSv,protG:_protSv,carbG:_carbSv,grassiG:_grasSv,protGkg:_protGkg,grassiGkg:(_ketoSv?+(_refSv?(_grasSv/_refSv):0).toFixed(2):_grassiGkg),ref:_useFFMSv?'ffm':'peso',refValue:_refSv,tdee:_ctSv.tdee,laf:_ctSv.laf,regime:p.regime||'',offset:_offsetSv,strategia:_stratSv,timestamp:Date.now(),source:'tdee'};
     // Storico TDEE: aggiungi slot, mantieni max 20, aggiorna target attivo
     if(!p.macrosStorico)p.macrosStorico=[];
     p.macrosStorico.push(_nuovoSlot);

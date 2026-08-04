@@ -10,6 +10,65 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+3 AGOSTO 2026 — P147d: LO STORICO SALVAVA IL RISULTATO, NON IL MOTIVO.
+Baseline d803f72.
+
+DA DOVE NASCE. Fabrizio, collaudando il pannello dal vivo: "il tasto salva
+esiste, lo so, ma salva solo i valori finali e non tutta la storia del paziente".
+L'esempio suo: un paziente che corre 2 volte e fa pesi 2 volte, salvato; poi
+cambia e fa calcio 2 volte e Pilates 2 volte, salvato. Tornando sul primo
+salvataggio le attivita' non tornano quelle di allora — restano le ultime.
+
+IL PUNTO. macrosStorico teneva kcal, macro, TDEE, LAF, regime, timestamp: cioe'
+il RISULTATO. Due slot con TDEE diversi non dicevano PERCHE' fossero diversi, e
+il perche' e' l'unica cosa che serve per decidere il ciclo successivo. Uno
+storico che dice quanto mangiava il paziente ma non cosa faceva e' meta' dato.
+
+UNO O DUE TASTI DI SALVATAGGIO? Domanda esplicita di Fabrizio. Risposta: UNO. Il
+LAF non e' una cosa separata da salvare, e' DERIVATO dagli stessi campi (passi,
+lavoro, attivita'): due tasti significherebbero salvare lo stesso dato due volte
+sotto due nomi, e soprattutto due momenti diversi in cui scattare la foto —
+quindi slot in cui le attivita' dicono una cosa e le kcal un'altra. E' la stessa
+classe di difetto appena chiusa con P147c (un numero visibile che contraddice i
+campi visibili). Non serviva un secondo tasto: serviva che il tasto esistente
+fotografasse tutto.
+
+COSA ENTRA NELLO SLOT. passi, fonte passi, tipo di lavoro, modalita', righe
+complete (nome + MET CONGELATO + sedute + minuti), ore/tipo/intensita' se in
+stima rapida, NEAT, EAT, MET medio, sedute totali, ore effettive, giorni di
+carico. Il MET congelato e' voluto: se domani una voce di catalogo cambia valore
+(e' appena successo con la pallamano) lo slot deve restare la foto di quel
+giorno, non seguire il catalogo di oggi.
+
+COME SI LEGGE. Una riga sola sotto ogni slot: "5.000 passi · lavoro in piedi ·
+3× Corsa 8 km/h · 1× Circuit training · carico: Lun Mar Gio Ven". Deve stare su
+una riga: se diventa un secondo pannello lo storico smette di essere scorribile
+a colpo d'occhio, che e' tutto il suo valore. Il lavoro sedentario non si scrive
+(e' il caso di default e occuperebbe spazio per dire "niente").
+
+"USA QUESTO" RIPORTA ANCHE L'ALLENAMENTO. Prima riattivare uno slot cambiava
+solo il target del generatore: il TDEE tornava indietro, l'attivita' no. Il
+collaudo di Fabrizio l'ha mostrato in due mosse — surplus con 3 HIIT + 1 corsa
+in salita a 8.000 passi, poi deficit con 3 pesi + 1 allenamento a casa a 10.000
+passi; riattivando il primo percorso restava a schermo l'allenamento del
+secondo. Tornare a un percorso passato significa tornare a TUTTO quel percorso.
+Ora "Usa questo" riporta passi, lavoro, modalita', righe e giorni di carico.
+
+DOVE FINISCONO QUEI DATI: nel MODULO, non sul paziente. Diventano correnti solo
+con "Salva dati TDEE". Cosi' riattivare un vecchio target per il generatore non
+riscrive di nascosto l'allenamento di oggi — stessa regola del pannello dal vivo.
+Il tasto "Riprendi" separato e' stato tolto: due pulsanti per la stessa idea
+erano il modo per non capire piu' quale premere.
+
+SLOT VECCHI. Quelli salvati prima di oggi non hanno la foto e NON se la
+inventano: nessuna riga attivita', nessun "Riprendi". Ricostruire cosa facesse
+il paziente dai dati attuali sarebbe mentire su un dato clinico.
+
+TEST. Nuovo file s2-storico-attivita: il riassunto con passi, sedute per
+attivita' e giorni; il lavoro sedentario che non occupa spazio; la stima rapida
+che non si confonde con le righe; lo slot vecchio che resta muto; il MET
+congelato che non segue il catalogo. 497 test verdi.
+
 3 AGOSTO 2026 — P147c: IL RIQUADRO LAF ERA UNA FOTOGRAFIA, NON UN CALCOLO.
 Baseline 468c0b3.
 
