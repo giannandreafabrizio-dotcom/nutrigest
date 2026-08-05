@@ -28,6 +28,7 @@
 
 Mappa funzioni → righe di `index.html`, organizzata per area funzionale.
 **Numeri di riga riallineati il 26 luglio 2026** (P122 + P123 + F5/F6/F7): ricalcolate **719 voci su 730** con lo script qui sopra, insieme ai range "Righe A-B" di ogni sezione. Righe totali file: 26883.
+**Ultimo rigenero automatico: 5 agosto 2026** (correzione di `selCatAl`, audit al contrario) — lo script ha corretto **163 voci** spostate dalle modifiche; i range "Righe A-B" di sezione NON sono stati ricalcolati in questa passata (restano quelli del 26 lug, indicativi). Righe totali file: 30341.
 
 > ⚠️ **Nota storica, da tenere presente.** L'intestazione precedente dichiarava un riallineo completo il 25 luglio, ma un controllo automatico su quel commit (`924414b`) ha trovato **657 voci sbagliate su 687**, con scarto mediano di +117 righe: la dichiarazione non corrispondeva al file. Prima ancora, la rigenerazione integrale del 14 luglio. Morale: **il riallineo va verificato, non dichiarato** — lo script sopra stampa quante voci corregge, e quel numero va guardato.
 
@@ -956,160 +957,160 @@ Righe 26605-27074
 
 - `26605` — buildSemLegenda
 - `26619` — renderAlEditor
-- `26680` — _alimNomeRegex
-- `26688` — _alimGiorniDaPiano
-- `26696` — _scanGiorniPerNome
-- `26711` — scanRiferimentiAlimento
-- `26740` — _alimRefsRighe
-- `26746` — rinominaAlimentoCustom
+- `26694` — _alimNomeRegex
+- `26702` — _alimGiorniDaPiano
+- `26710` — _scanGiorniPerNome
+- `26725` — scanRiferimentiAlimento
+- `26754` — _alimRefsRighe
+- `26760` — rinominaAlimentoCustom
 - `21991` — _renameInGiorni
 - `22010` — _renameInPianoRecord
-- `26834` — modificaAlimentoCustom
-- `26854` — ripristinaValoriPrecedentiAlimento
-- `26866` — _resetAlimModal
-- `26877` — apriNuovoAlimentoCustom
-- `26883` — salvaAlimentoCustom
-- `26950` — eliminaAlimentoCustom
-- `26981` — _alimFonteBadge
-- `26986` — renderAlimentiPage
+- `26848` — modificaAlimentoCustom
+- `26868` — ripristinaValoriPrecedentiAlimento
+- `26880` — _resetAlimModal
+- `26891` — apriNuovoAlimentoCustom
+- `26897` — salvaAlimentoCustom
+- `26964` — eliminaAlimentoCustom
+- `26995` — _alimFonteBadge
+- `27000` — renderAlimentiPage
 - `22217` — E
-- `27056` — archiviaAlimentoCustom
-- `27074` — ripristinaAlimentoCustom
+- `27070` — archiviaAlimentoCustom
+- `27088` — ripristinaAlimentoCustom
 
 ---
 
 ### SCANNER BARCODE — P110 (Open Food Facts) — camera nativa/ZXing, fetch OFF, precompilazione form, dedup
 Righe 27101-27528
 
-- `27101` — _bcSetStatus
-- `27103` — apriScannerBarcode
-- `27111` — chiudiScannerBarcode
-- `27116` — _bcStopCamera
-- `27124` — _bcModaleAperto
-- `27126` — _bcAvviaCamera
-- `27137` — _bcAvviaNativo
-- `27157` — _bcAvviaZXing
-- `27166` — _bcZXStart
-- `27177` — _bcErroreCamera
-- `27185` — cercaBarcodeManuale
-- `27191` — _barcodeTrovato
-- `27207` — cercaBarcodeOFF
-- `27225` — _bcProdottoNonTrovato
-- `27239` — _bcPrecompilaForm
+- `27115` — _bcSetStatus
+- `27117` — apriScannerBarcode
+- `27125` — chiudiScannerBarcode
+- `27130` — _bcStopCamera
+- `27138` — _bcModaleAperto
+- `27140` — _bcAvviaCamera
+- `27151` — _bcAvviaNativo
+- `27171` — _bcAvviaZXing
+- `27180` — _bcZXStart
+- `27191` — _bcErroreCamera
+- `27199` — cercaBarcodeManuale
+- `27205` — _barcodeTrovato
+- `27221` — cercaBarcodeOFF
+- `27239` — _bcProdottoNonTrovato
+- `27253` — _bcPrecompilaForm
 - `22477` — num
-- `27263` — togAl
-- `27316` — selCatAl
+- `27277` — togAl
+- `27330` — selCatAl
 - `25402` — selTuttiAl
-- `27360` — _appIdAnag  (P140 T1)
-- `27370` — _appSyncPaz  (P140 T1)
-- `27414` — _appSpecchioInverso  (P140 T2)
-- `27440` — _appRitiraSpecchio  (P140 T2)
-- `27471` — _appAncoraTappe  (P140 T2)
-- `27490` — _appTappe  (P140 T2)
-- `27511` — _appMigraPaziente  (P140 T1)
-- `27521` — _appMigraTutti  (P140 T1)
-- `27528` — getEventi
+- `27395` — _appIdAnag  (P140 T1)
+- `27405` — _appSyncPaz  (P140 T1)
+- `27449` — _appSpecchioInverso  (P140 T2)
+- `27475` — _appRitiraSpecchio  (P140 T2)
+- `27506` — _appAncoraTappe  (P140 T2)
+- `27525` — _appTappe  (P140 T2)
+- `27546` — _appMigraPaziente  (P140 T1)
+- `27556` — _appMigraTutti  (P140 T1)
+- `27563` — getEventi
 
 ---
 
 ### CALENDARIO APPUNTAMENTI — viste mese/settimana/giorno, eventi, disponibilità
 Righe 27544-28011
 
-- `27544` — setCalView
-- `27554` — calPrev
-- `27555` — calNext
-- `27556` — calToday
-- `27558` — renderCal
-- `27572` — renderCalMonth
-- `27599` — renderCalWeek
-- `27632` — renderCalDay
-- `27683` — selGiorno
-- `27697` — setDisp
-- `27702` — openAddEvento
-- `27715` — openAddEventoPaz
-- `27721` — toggleEntrataCheck
-- `27726` — salvaEvento
-- `27768` — _evTestoPromemoria  (P140 T1)
-- `27774` — openEvDetail
-- `27829` — delEvento
-- `27851` — copyMsg
-- `27863` — aggDateCal
+- `27579` — setCalView
+- `27589` — calPrev
+- `27590` — calNext
+- `27591` — calToday
+- `27593` — renderCal
+- `27607` — renderCalMonth
+- `27634` — renderCalWeek
+- `27667` — renderCalDay
+- `27718` — selGiorno
+- `27732` — setDisp
+- `27737` — openAddEvento
+- `27750` — openAddEventoPaz
+- `27756` — toggleEntrataCheck
+- `27761` — salvaEvento
+- `27803` — _evTestoPromemoria  (P140 T1)
+- `27809` — openEvDetail
+- `27864` — delEvento
+- `27886` — copyMsg
+- `27898` — aggDateCal
 - `27020` — syncInizio
 - `27021` — syncControllo
-- `27876` — aggiornaPrev
-- `27901` — apriEventoDaScheda  (P140 T2)
-- `27915` — _appAggiornaOreScheda  (P140 T2)
-- `27932` — renderRic
-- `27959` — openNuovaRic
-- `27960` — editRic
-- `27970` — salvaRic
-- `27995` — delRic
-- `28011` — renderEntrate
+- `27911` — aggiornaPrev
+- `27936` — apriEventoDaScheda  (P140 T2)
+- `27950` — _appAggiornaOreScheda  (P140 T2)
+- `27967` — renderRic
+- `27994` — openNuovaRic
+- `27995` — editRic
+- `28005` — salvaRic
+- `28030` — delRic
+- `28046` — renderEntrate
 
 ---
 
 ### RICETTARIO — CRUD ricette
 Righe 28097-28157
 
-- `28097` — aggiungiEntrataPerPaziente
-- `28114` — openNuovaEntrata
-- `28128` — salvaEntrata
-- `28149` — delEntrata
-- `28157` — startVoiceRicetta
+- `28132` — aggiungiEntrataPerPaziente
+- `28149` — openNuovaEntrata
+- `28163` — salvaEntrata
+- `28184` — delEntrata
+- `28192` — startVoiceRicetta
 
 ---
 
 ### RICETTARIO — input vocale, suggerimento AI ricetta; CONCETTI EDUCATIVI — modale allegati
 Righe 28187-28796
 
-- `28187` — aiSuggerisciRicetta
-- `28232` — renderConcettiModal
-- `28251` — apriConcettiModal
-- `28278` — salvaConcettiAllegati
-- `28302` — _ibNormalizzaData *(P120 — data del test dal referto → YYYY-MM-DD o null)*
-- `28340` — _ibOrdinaPerData *(P120 — invariante: p.inbody sempre ordinato per data)*
-- `28483` — loadInbodyPDF
-- `28606` — _vitdLabel
-- `28610` — getIntegratori
-- `28614` — getIntegraWant
-- `28618` — setIntegratori
-- `28635` — setIntegraWant
-- `28673` — getPatologieChip
-- `28674` — getAllergieChip
-- `28675` — setPatologieChip
-- `28676` — setAllergieChip
-- `28677` — getPatologie
-- `28678` — getAllergie
-- `28679` — setPatologieFromStr
-- `28686` — setAllergieFromStr
-- `28699` — getSdvChip
-- `28700` — getCspChip
-- `28701` — setSdvChip
-- `28702` — setCspChip
-- `28703` — setSdvFromStr
-- `28704` — setCspFromStr
-- `28708` — getBudget
-- `28709` — setBudget
-- `28714` — renderCalAnno
-- `28745` — comprimeImmagine
-- `28767` — uploadImmagineConcetto
-- `28786` — rimuoviImmagineConcetto
-- `28796` — renderConcettiPage
+- `28222` — aiSuggerisciRicetta
+- `28267` — renderConcettiModal
+- `28286` — apriConcettiModal
+- `28313` — salvaConcettiAllegati
+- `28337` — _ibNormalizzaData *(P120 — data del test dal referto → YYYY-MM-DD o null)*
+- `28375` — _ibOrdinaPerData *(P120 — invariante: p.inbody sempre ordinato per data)*
+- `28518` — loadInbodyPDF
+- `28641` — _vitdLabel
+- `28645` — getIntegratori
+- `28649` — getIntegraWant
+- `28653` — setIntegratori
+- `28670` — setIntegraWant
+- `28708` — getPatologieChip
+- `28709` — getAllergieChip
+- `28710` — setPatologieChip
+- `28711` — setAllergieChip
+- `28712` — getPatologie
+- `28713` — getAllergie
+- `28714` — setPatologieFromStr
+- `28721` — setAllergieFromStr
+- `28734` — getSdvChip
+- `28735` — getCspChip
+- `28736` — setSdvChip
+- `28737` — setCspChip
+- `28738` — setSdvFromStr
+- `28739` — setCspFromStr
+- `28743` — getBudget
+- `28744` — setBudget
+- `28749` — renderCalAnno
+- `28780` — comprimeImmagine
+- `28802` — uploadImmagineConcetto
+- `28821` — rimuoviImmagineConcetto
+- `28831` — renderConcettiPage
 
 ---
 
 ### CONCETTI EDUCATIVI — pagina gestione, riscrittura AI, upload immagini
 Righe 28862-28946
 
-- `28862` — entraSelConcetti
-- `28863` — annullaSelConcetti
-- `28864` — toggleConcettoSel
-- `28869` — eliminaConcettiSelezionati
-- `28888` — confermaEliminaConcetti
-- `28903` — aiRiscriviConcetto
-- `28917` — editConcetto
-- `28935` — salvaConcetto
-- `28946` — openNuovoConcetto
+- `28897` — entraSelConcetti
+- `28898` — annullaSelConcetti
+- `28899` — toggleConcettoSel
+- `28904` — eliminaConcettiSelezionati
+- `28923` — confermaEliminaConcetti
+- `28938` — aiRiscriviConcetto
+- `28952` — editConcetto
+- `28970` — salvaConcetto
+- `28981` — openNuovoConcetto
 - `27519` — getAgendaPersonale
 
 ---
@@ -1130,76 +1131,76 @@ Righe 28983-28983
 - `27574` — toggleTodoFatto
 - `27587` — _catCol
 - `27589` — renderAgendaDx
-- `28983` — renderDashboard
+- `29018` — renderDashboard
 
 ---
 
 ### DASHBOARD — home, scadenze/alert controlli in ritardo
 Righe 29095-29420
 
-- `29095` — renderScadenzeAlert
-- `29355` — _scadGestiti  (P144)
-- `29365` — _scadPota  (P144)
-- `29380` — _scadMigraDaLocalStorage  (P144)
-- `29403` — segnaGestito
-- `29420` — archiviaPaz
+- `29130` — renderScadenzeAlert
+- `29390` — _scadGestiti  (P144)
+- `29400` — _scadPota  (P144)
+- `29415` — _scadMigraDaLocalStorage  (P144)
+- `29438` — segnaGestito
+- `29455` — archiviaPaz
 
 ---
 
 ### PAZIENTI — archiviazione/ripristino/eliminazione
 Righe 29429-29504
 
-- `29429` — ripristinaPaz
-- `29437` — eliminaPaz
-- `29482` — getDove
-- `29486` — setDove
-- `29504` — salvaCredenzialiPersistenti
+- `29464` — ripristinaPaz
+- `29472` — eliminaPaz
+- `29517` — getDove
+- `29521` — setDove
+- `29539` — salvaCredenzialiPersistenti
 
 ---
 
 ### AUTENTICAZIONE — login/signup/recovery, refresh token, sessione Supabase
 Righe 29509-29947
 
-- `29509` — getCredenzialiPersistenti
-- `29522` — cancellaCredenzialiPersistenti
-- `29527` — rinnovaSessioneConRefreshToken
-- `29544` — getSessioneSalvata
-- `29563` — salvaSessione
-- `29573` — cancellaSessione
-- `29577` — eseguiLogin
-- `29624` — eseguiLogout
-- `29646` — mostraApp
-- `29651` — verificaSessioneEAvvia
-- `29679` — assicuraTokenValido
-- `29708` — _garantiscoSessionePerSync
-- `29720` — avviaRinnovoTokenPeriodico
-- `29724` — fermaRinnovoTokenPeriodico
-- `29733` — _authReset
-- `29738` — _authMostra
-- `29741` — mostraLogin
-- `29742` — mostraRegistrazione
-- `29743` — mostraRecupero
-- `29744` — mostraNuovaPassword
-- `29747` — eseguiRegistrazione
-- `29785` — eseguiRecuperoPassword
-- `29814` — eseguiNuovaPassword
-- `29848` — _parseHashParams
-- `29855` — _pulisciHash
-- `29859` — gestisciRitornoAuth
-- `29947` — renderPianoBox
+- `29544` — getCredenzialiPersistenti
+- `29557` — cancellaCredenzialiPersistenti
+- `29562` — rinnovaSessioneConRefreshToken
+- `29579` — getSessioneSalvata
+- `29598` — salvaSessione
+- `29608` — cancellaSessione
+- `29612` — eseguiLogin
+- `29659` — eseguiLogout
+- `29681` — mostraApp
+- `29686` — verificaSessioneEAvvia
+- `29714` — assicuraTokenValido
+- `29743` — _garantiscoSessionePerSync
+- `29755` — avviaRinnovoTokenPeriodico
+- `29759` — fermaRinnovoTokenPeriodico
+- `29768` — _authReset
+- `29773` — _authMostra
+- `29776` — mostraLogin
+- `29777` — mostraRegistrazione
+- `29778` — mostraRecupero
+- `29779` — mostraNuovaPassword
+- `29782` — eseguiRegistrazione
+- `29820` — eseguiRecuperoPassword
+- `29849` — eseguiNuovaPassword
+- `29883` — _parseHashParams
+- `29890` — _pulisciHash
+- `29894` — gestisciRitornoAuth
+- `29982` — renderPianoBox
 
 ---
 
 ### GENERATORE PIANI — rendering box piano, pannello scelta ricette, patch piano
 Righe 30019-30142
 
-- `30019` — apriPannelloRicette
-- `30048` — chiudiPannelloRicette
-- `30056` — applicaRicettaPasto
-- `30092` — inizializzaP2
-- `30104` — deepClone
-- `30108` — applicaPatch
-- `30142` — _aggiornaLabelSalvaPiano
+- `30054` — apriPannelloRicette
+- `30083` — chiudiPannelloRicette
+- `30091` — applicaRicettaPasto
+- `30127` — inizializzaP2
+- `30139` — deepClone
+- `30143` — applicaPatch
+- `30177` — _aggiornaLabelSalvaPiano
 - `24992` — getHint
 - `24997` — validaInput
 - `25022` — attacca

@@ -26643,6 +26643,13 @@ function renderAlEditor(){
       var _m=(_motAll&&_motAll[key])||{};
       var _conflitto=_m.conflitto;
       var _isAuto=coloriAuto.includes(s)||_conflitto;
+      // 5 ago 2026 — richiesta di Fabrizio dopo l'audit al contrario: "Tutti" (selCatAl)
+      // può sovrascrivere in blocco un colore automatico (celeste/grigio scuro), ma
+      // l'informazione clinica di origine non deve sparire. selCatAl registra l'origine
+      // in window._alOrigineAuto esattamente come fa togAl per il click singolo: qui la
+      // leggiamo per mostrare comunque il badge, con un marcatore che segnala che è una
+      // scelta manuale sovrapposta a un avviso automatico.
+      var _origineManuale=!_isAuto ? (window._alOrigineAuto||{})[key] : null;
       var _badgeHtml='';
       if(_isAuto){
         if(_conflitto){
@@ -26652,6 +26659,13 @@ function renderAlEditor(){
           _badgeHtml=buildSemBadges(_m.grigi||[],'grigio');
         } else {
           _badgeHtml=buildSemBadges(_m.luci||[],'celeste');
+        }
+      } else if(_origineManuale){
+        var _condOrigine=(_origineManuale==='grigioScuro'||_origineManuale==='grigio_scuro_1'||_origineManuale==='grigio_scuro_2')
+          ? (_m.grigi||[]) : (_m.luci||[]);
+        _badgeHtml=buildSemBadges(_condOrigine, _origineManuale==='celeste'?'celeste':'grigio');
+        if(_condOrigine.length>0){
+          _badgeHtml+='<span class="sem-override" title="Scelta manuale: era segnalato automaticamente per '+_condOrigine.join(', ')+'" style="font-size:.6rem;margin-left:3px;opacity:.7;vertical-align:middle">✏️</span>';
         }
       }
       var _cls=s;
@@ -27320,10 +27334,31 @@ function selCatAl(cat){
   const cur=g[cat]||'';
   const next=cur===''?'si':cur==='si'?'arancione':cur==='arancione'?'rosso':'';
   g[cat]=next;
+  // 5 ago 2026 — segnalazione dell'audit al contrario, corretta su richiesta di Fabrizio:
+  // prima "Tutti" scriveva lo stesso colore su ogni alimento della categoria senza
+  // guardare se era celeste/grigio scuro automatico (allergia/patologia), e quel colore
+  // clinico spariva per sempre senza conferma. Ora si comporta come togAl sul singolo
+  // alimento: ricorda l'origine prima di sovrascrivere, e la restituisce quando il ciclo
+  // torna al neutro — l'origine resta visibile nel frattempo (vedi renderAlEditor).
+  const coloriCeleste=['celeste','celeste_1','celeste_2'];
+  const coloriGrigio=['grigioScuro','grigio_scuro_1','grigio_scuro_2'];
+  const origineAuto=window._alOrigineAuto=window._alOrigineAuto||{};
   items.forEach(i=>{
     const key=cat+'__'+i.n;
-    if(next==='')delete window._alStato[key];
-    else window._alStato[key]=next;
+    const s=window._alStato[key]||'';
+    if(next===''){
+      if(origineAuto[key]){
+        // Il ciclo torna al neutro: se l'alimento era automatico in origine, ci torna
+        // — "Tutti" può ancora scegliere, ma non può far perdere per sempre l'avviso.
+        window._alStato[key]=origineAuto[key];
+        delete origineAuto[key];
+      } else {
+        delete window._alStato[key];
+      }
+    } else {
+      if((coloriCeleste.includes(s)||coloriGrigio.includes(s))&&!origineAuto[key]) origineAuto[key]=s;
+      window._alStato[key]=next;
+    }
   });
   renderAlEditor();
 }

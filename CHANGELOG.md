@@ -10,6 +10,60 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 — AUDIT AL CONTRARIO: DAL CODICE AI DOCUMENTI, E LA CORREZIONE DI "TUTTI".
+Baseline b413f08.
+
+L'IDEA. Fino ad ora l'audit aveva sempre controllato una direzione sola: "i documenti
+dicono il vero sul codice?". Fabrizio ha chiesto il verso opposto — partire dalle 877
+funzioni mappate in INDEX.md e trovare quelle di cui NESSUN documento parla affatto,
+nemmeno per nome. Un controllo meccanico (ricerca del nome, confini di parola) ha
+trovato 401 funzioni su 877 senza alcuna menzione in CHANGELOG/Roadmap/Contesto/
+CLAUDE.md. Lette una per una (9 letture indipendenti in parallelo, poi verifica diretta
+sul codice di ogni segnalazione sopravvissuta): 394 erano getter/setter banali o
+comportamenti già raccontati sotto un numero di roadmap anche senza il nome esatto
+della funzione. 7 erano buchi veri. Report completo: NutriGest_Audit_Al_Contrario.md.
+
+LA CORREZIONE FATTA SUBITO (le altre 6 restano segnalazioni aperte, da decidere).
+`selCatAl` — il bottone "Tutti" accanto a ogni categoria dell'editor alimenti —
+scriveva lo stesso colore manuale su OGNI alimento della categoria in blocco, senza
+controllare se qualcuno era colorato automaticamente (celeste/grigio scuro) per un
+motivo clinico: allergia, patologia. A differenza del click singolo (`togAl`), non
+c'era alcuna protezione — un clic su "Tutti → sì" poteva marcare "consigliato"
+un'intera categoria che conteneva un alimento sconsigliato per glutine o lattosio,
+senza avviso, e la sovrascrittura restava per sempre (`applicaRegoloSemaforo` non
+tocca mai i colori manuali).
+
+Decisione di Fabrizio: "'tutti' si deve comportare come 'singolo'... un nutrizionista
+può anche scegliere di selezionare un alimento ma deve restare visibile che
+quell'alimento era o celeste o grigio scuro". Non si toglie la possibilità di
+selezionare in blocco — si toglie la possibilità di farlo SENZA SAPERLO.
+
+LA CORREZIONE. `selCatAl` ora registra l'origine automatica in
+`window._alOrigineAuto` per ogni alimento che sovrascrive, esattamente come fa
+`togAl` sul singolo. `renderAlEditor` mostra il badge della condizione clinica anche
+quando lo stato è ormai manuale, purché l'origine sia registrata, con un piccolo
+marcatore ✏️ che distingue "scelta manuale sopra un avviso automatico" da un
+automatico ancora attivo. Quando il ciclo di "Tutti" torna al neutro, l'alimento che
+era automatico ci ritorna (non sparisce): prima di questa correzione un giro completo
+di "Tutti" cancellava il colore clinico per sempre.
+
+Test nuovi: `s2-selcatal-preserva-origine.test.js` (6 test — origine registrata,
+badge visibile col marcatore, ciclo completo che ritorna all'origine, nessuna
+regressione sugli alimenti mai automatici, nessuna doppia scrittura dell'origine).
+Suite 522 → 528. INDEX.md rigenerato (163 voci corrette dallo spostamento righe).
+
+LE ALTRE 6 SEGNALAZIONI (nessuna corretta in questa consegna, elenco in
+NutriGest_Audit_Al_Contrario.md — Fabrizio decide voce per voce):
+`suggerisciPastoEQuando` (due voci della libreria integratori si autoclassificano nel
+pasto sbagliato per un bug d'ordine nei regex), `verificaRegola_75_20_5` (il badge si
+chiama 75/20/5 ma il codice controlla 70/25/10 — da decidere quale dei due correggere),
+`delRic` su ricetta di sistema (torna dopo un sync nonostante il messaggio "Eliminata"),
+il modulo "B3 — Validazione input numerici" (26 soglie di plausibilità clinica/
+economica mai documentate), `ascoltaProgresso` (l'AI scrive e legge ad alta voce un
+commento motivazionale al paziente, testo mai rivisto prima della lettura),
+`applicaPatch` (funzione morta, mai chiamata — Fabrizio valuta di toglierla, nessuna
+fretta).
+
 4 AGOSTO 2026 — P35 RISCRITTA: IL PESO CASALINGO E' UNO STRUMENTO SEPARATO.
 Baseline d4d5a67. Nessuna riga di codice toccata: solo la scheda di roadmap.
 
