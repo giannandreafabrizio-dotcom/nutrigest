@@ -1707,6 +1707,7 @@ main{flex:1;overflow-y:auto;}
   <div class="fg"><label>Allergeni / intolleranze <span style="color:var(--text3);font-weight:400">(separati da virgola, opzionale)</span></label><input type="text" id="ac-allergeni" placeholder="es. lattosio, glutine, frutta a guscio"></div>
   <div id="ac-barcode-box" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;margin-bottom:.8rem;font-size:.7rem;color:var(--text2);line-height:1.45">
     📷 Barcode <strong id="ac-barcode-val">—</strong> · dati precompilati da <strong>Open Food Facts</strong> (crowdsourced): <strong>verifica nome, categoria e valori con l'etichetta</strong> prima di confermare. Il salvataggio avviene solo nel database di NutriGest.
+    <div id="ac-barcode-riep"></div>
   </div>
   <div id="ac-prev-box" style="display:none;margin-bottom:.8rem"><button class="btn btn-g btn-sm" style="width:100%" onclick="ripristinaValoriPrecedentiAlimento()">↺ Ripristina valori precedenti</button></div>
   <div class="mf">
@@ -21131,6 +21132,9 @@ function _migraRecordCustom(a){
   if(!a.tags) a.tags=[];
   if(!a.allergeni) a.allergeni=[];
   if(a.barcode===undefined) a.barcode=null;
+  // P128 tappa 1: i dati d'etichetta viaggiano col record. undefined -> null, mai {}:
+  // un oggetto vuoto direbbe "letta e non c'era niente", che non e' la stessa cosa.
+  if(a.etichetta===undefined) a.etichetta=null;
   if(a.fonte==null) a.fonte='custom';
   if(a.attivo==null) a.attivo=true;
   _syncAliasLegacy(a);
@@ -27940,6 +27944,7 @@ function _resetAlimModal(){
   window._alimEditNome=null;
   window._alimBarcodePrefill=null; // P110
   var _bb=document.getElementById('ac-barcode-box'); if(_bb)_bb.style.display='none';
+  var _br=document.getElementById('ac-barcode-riep'); if(_br)_br.innerHTML='';
   document.getElementById('ac-titolo').textContent='➕ Nuovo alimento';
   var inp=document.getElementById('ac-nome');inp.disabled=false;inp.value='';
   ['ac-g','ac-kcal','ac-prot','ac-carb','ac-gras','ac-allergeni'].forEach(function(id){document.getElementById(id).value='';});
@@ -28000,7 +28005,8 @@ function salvaAlimentoCustom(){
   // P108: il record nasce nel formato unificato, con id stabile; _migraRecordCustom completa i campi e gli alias legacy
   // P110: se il form arriva dallo scanner, il record porta barcode e fonte 'off'
   const _bc=window._alimBarcodePrefill||null;
-  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,allergeni:allergeni,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null),barcode:(_bc?_bc.barcode:null),fonte:(_bc?'off':'custom')});
+  const alim=_migraRecordCustom({nome:nome,categoriaSem:cat,gDefault:g,allergeni:allergeni,per100g:(kcal!=null?{kcal:kcal,p:p,c:c,g:g100}:null),barcode:(_bc?_bc.barcode:null),fonte:(_bc?'off':'custom'),
+    etichetta:(_bc&&_bc.etichetta?_bc.etichetta:null)});
   db.alimentiCustom.push(alim);
   _catalogoIndicizza(alim);
   // Aggiorna ALIMENTI (vista legacy)
@@ -28277,8 +28283,132 @@ function _barcodeTrovato(code){
   cercaBarcodeOFF(code);
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// P128 TAPPA 1 — I DATI DELL'ETICHETTA (5 ago 2026)
+//
+// Fino a oggi dello scontrino di Open Food Facts tenevamo quattro numeri (kcal,
+// proteine, carboidrati, grassi) e buttavamo tutto il resto — cioè proprio i
+// campi su cui le regole del semaforo dovranno ragionare quando il database
+// crescerà: sodio, zuccheri, saturi, fibra, allergeni dichiarati.
+//
+// REGOLA CHE GOVERNA TUTTO IL BLOCCO: **assente non è zero.** Un campo che Open
+// Food Facts non ha vale null e si dichiara mancante. Se diventasse 0, un
+// prodotto di cui non conosciamo il sodio sembrerebbe un prodotto senza sodio —
+// ed è esattamente il difetto che questa voce esiste per non commettere.
+//
+// Qui NON si colora e non si decide niente: si raccoglie e basta. Le soglie
+// cliniche sono una decisione di Fabrizio (P128 tappa 3).
+// ══════════════════════════════════════════════════════════════════════════
+
+const _OFF_APP_VER='1.0';
+
+// Numero dell'etichetta: null se assente, mai 0 di ripiego.
+// NIENTE parseFloat nudo: `parseFloat("12,5")` vale 12, cioè un dato sbagliato e
+// muto. E' lo stesso difetto trovato in P35 poche ore prima, sulla stessa
+// famiglia (regola 11: un ripiego silenzioso su un dato e' un bug in attesa).
+// Qui il valore con la virgola si SCARTA invece di convertirlo: da una fonte
+// esterna non si sa se la virgola separa i decimali o le migliaia, e un campo
+// scartato compare come "non dichiarato" — che e' vero e verificabile a mano.
+function _offNum(v){
+  if(v==null||v==='') return null;
+  if(typeof v!=='number'){
+    const s=String(v).trim();
+    if(!/^-?\d+(\.\d+)?$/.test(s)) return null;
+    v=parseFloat(s);
+  }
+  if(typeof v!=='number'||isNaN(v)||!isFinite(v)||v<0) return null;
+  return Math.round(v*1000)/1000;
+}
+// I tag di Open Food Facts arrivano come 'en:gluten' / 'it:latte': si tiene la parte utile.
+function _offTag(t){
+  if(t==null) return null;
+  const s=String(t).trim();
+  if(!s) return null;
+  const i=s.indexOf(':');
+  return (i>=0?s.slice(i+1):s).replace(/-/g,' ').trim().toLowerCase()||null;
+}
+function _offTags(arr){
+  if(!Array.isArray(arr)) return [];
+  const out=[],visti={};
+  arr.forEach(function(t){ const v=_offTag(t); if(v&&!visti[v]){visti[v]=true;out.push(v);} });
+  return out;
+}
+
+// Estrae la scheda d'etichetta da un prodotto Open Food Facts. PURA: nessun DOM,
+// nessuna scrittura. Restituisce sempre un oggetto con la stessa forma, così chi
+// legge non deve mai indovinare se una chiave esiste.
+function _offEstraiEtichetta(prod, barcode, dataLettura){
+  const p=prod||{}, n=p.nutriments||{};
+  // kcal: se manca il valore diretto si converte dai kJ (4,184 kJ = 1 kcal)
+  let kcal=_offNum(n['energy-kcal_100g']);
+  if(kcal==null){ const kj=_offNum(n['energy_100g']); if(kj!=null) kcal=Math.round(kj/4.184*10)/10; }
+  // sale e sodio: Open Food Facts a volte ha l'uno e non l'altro (sale = sodio x 2,5)
+  let sale=_offNum(n['salt_100g']), sodio=_offNum(n['sodium_100g']);
+  if(sale==null&&sodio!=null) sale=Math.round(sodio*2.5*1000)/1000;
+  if(sodio==null&&sale!=null) sodio=Math.round(sale/2.5*1000)/1000;
+  const senza=_offTags(p.labels_tags).filter(function(t){
+    return t.indexOf('free')>=0||t.indexOf('senza')>=0||t.indexOf('sans')>=0;
+  });
+  return {
+    fonte:'off',
+    barcode:(barcode!=null?String(barcode):null),
+    letto:(dataLettura||null),
+    per100g:{
+      kcal:kcal,
+      proteine:_offNum(n['proteins_100g']),
+      carboidrati:_offNum(n['carbohydrates_100g']),
+      zuccheri:_offNum(n['sugars_100g']),
+      grassi:_offNum(n['fat_100g']),
+      saturi:_offNum(n['saturated-fat_100g']),
+      fibra:_offNum(n['fiber_100g']),
+      sale:sale,
+      sodio:sodio,
+      potassio:_offNum(n['potassium_100g']),
+      fosforo:_offNum(n['phosphorus_100g'])
+    },
+    allergeni:_offTags(p.allergens_tags),
+    tracce:_offTags(p.traces_tags),
+    senza:senza,
+    ingredienti:((p.ingredients_text_it||p.ingredients_text||'').trim()||null),
+    ingredientiTag:_offTags(p.ingredients_tags),
+    categorieOff:_offTags(p.categories_tags),
+    additivi:_offTags(p.additives_tags),
+    // nova e nutriscore sono INFORMATIVI: non entrano in nessuna regola clinica.
+    // Il Nutri-Score è una sintesi da supermercato — una A può convivere con un
+    // contenuto di sale proibitivo per un iperteso.
+    nova:(p.nova_group!=null&&!isNaN(parseInt(p.nova_group,10))?parseInt(p.nova_group,10):null),
+    nutriscore:(p.nutriscore_grade?String(p.nutriscore_grade).toLowerCase():null),
+    quantita:((p.quantity||'').trim()||null),
+    porzione:((p.serving_size||'').trim()||null),
+    immagine:(p.image_front_small_url||null)
+  };
+}
+
+// Quali dati clinici sono arrivati e quali no. Serve a dirlo a schermo invece di
+// lasciare che l'assenza si confonda col silenzio.
+const _OFF_CLINICI=[['sale','sale'],['zuccheri','zuccheri'],['saturi','grassi saturi'],['fibra','fibra']];
+function _offRiepilogo(et){
+  if(!et) return {presenti:[], mancanti:[], nAllergeni:0};
+  const presenti=[],mancanti=[];
+  _OFF_CLINICI.forEach(function(c){
+    if(et.per100g&&et.per100g[c[0]]!=null) presenti.push(c[1]); else mancanti.push(c[1]);
+  });
+  return {presenti:presenti, mancanti:mancanti,
+          nAllergeni:(et.allergeni?et.allergeni.length:0)+(et.tracce?et.tracce.length:0)};
+}
+
 function cercaBarcodeOFF(code){
-  var url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=product_name,product_name_it,brands,nutriments,serving_quantity';
+  // P128 tappa 1 (5 ago 2026) — si raccoglie TUTTO quello che serve alle regole future,
+  // non solo i quattro macro. I campi mancano spesso (Open Food Facts è crowdsourced):
+  // assente resta null e non diventa mai zero, altrimenti un prodotto di cui non
+  // sappiamo il sodio sembrerebbe un prodotto senza sodio.
+  // app_name/app_version: le regole d'uso chiedono di identificarsi. Lo User-Agent da
+  // browser NON è impostabile (header vietato in fetch), quindi si passa in query.
+  var _campi='product_name,product_name_it,brands,quantity,serving_size,serving_quantity,'
+    +'nutriments,allergens_tags,traces_tags,labels_tags,ingredients_text,ingredients_text_it,'
+    +'ingredients_tags,categories_tags,additives_tags,nova_group,nutriscore_grade,image_front_small_url';
+  var url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json'
+    +'?fields='+_campi+'&app_name=NutriGest&app_version='+encodeURIComponent(_OFF_APP_VER);
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
   var timer=ctrl?setTimeout(function(){ctrl.abort();},12000):null;
   fetch(url,ctrl?{signal:ctrl.signal}:{}).then(function(r){
@@ -28300,10 +28430,11 @@ function _bcProdottoNonTrovato(code){
   // Il prodotto non è su OFF: apriamo comunque il form vuoto, ma agganciando il barcode
   // al futuro record (utile per il dedup alla prossima scansione).
   _resetAlimModal();
-  window._alimBarcodePrefill={barcode:code};
+  window._alimBarcodePrefill={barcode:code,etichetta:null};
   var box=document.getElementById('ac-barcode-box');
   box.style.display='block';
   document.getElementById('ac-barcode-val').textContent=code;
+  _bcMostraRiepilogo(null);
   document.getElementById('mo-alim-custom').classList.add('open');
   notif('ℹ Prodotto non presente su Open Food Facts — inserisci i valori dall\'etichetta');
   document.getElementById('ac-nome').focus();
@@ -28326,11 +28457,32 @@ function _bcPrecompilaForm(code,prod){
   document.getElementById('ac-carb').value=num(n['carbohydrates_100g']);
   document.getElementById('ac-gras').value=num(n['fat_100g']);
   var sq=parseFloat(prod.serving_quantity); if(sq&&sq>0) document.getElementById('ac-g').value=Math.round(sq);
+  // P128 tappa 1: l'etichetta completa viaggia col prefill e finisce nel record al salvataggio.
+  var et=_offEstraiEtichetta(prod,code,(typeof ymdLoc==='function'?ymdLoc():null));
+  window._alimBarcodePrefill.etichetta=et;
+  // gli allergeni dichiarati precompilano il campo, se l'utente non ne ha già scritti
+  var acAll=document.getElementById('ac-allergeni');
+  if(acAll&&!acAll.value.trim()&&et.allergeni.length) acAll.value=et.allergeni.join(', ');
   var box=document.getElementById('ac-barcode-box');
   box.style.display='block';
   document.getElementById('ac-barcode-val').textContent=code;
+  _bcMostraRiepilogo(et);
   document.getElementById('mo-alim-custom').classList.add('open');
   notif('📷 Dati caricati da Open Food Facts — verifica e conferma');
+}
+
+// Dice a schermo cosa l'etichetta ha portato e cosa NON ha portato. Un dato
+// raccolto e mai mostrato è indistinguibile da un dato mancante — ed è la stessa
+// confusione che P128 esiste per togliere di mezzo.
+function _bcMostraRiepilogo(et){
+  var el=document.getElementById('ac-barcode-riep'); if(!el) return;
+  if(!et){ el.innerHTML=''; return; }
+  var r=_offRiepilogo(et), parti=[];
+  if(r.presenti.length) parti.push('<span style="color:var(--teal2);font-weight:600">Dall\'etichetta:</span> '+r.presenti.join(' · '));
+  if(r.nAllergeni) parti.push('<span style="font-weight:600">'+r.nAllergeni+'</span> fra allergeni e tracce');
+  if(et.ingredienti) parti.push('elenco ingredienti');
+  if(r.mancanti.length) parti.push('<span style="color:#8a5a10;font-weight:600">Non dichiarati:</span> '+r.mancanti.join(' · '));
+  el.innerHTML=parti.length?('<div style="margin-top:.35rem;padding-top:.35rem;border-top:1px dashed var(--border)">'+parti.join(' &nbsp;·&nbsp; ')+'</div>'):'';
 }
 
 function togAl(el,key,nome){

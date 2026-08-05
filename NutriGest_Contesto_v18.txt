@@ -1395,7 +1395,7 @@ CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0+1): Map id→record che avvolge
   ALIMENTI+CREA_ALIMENTI SENZA sostituirli — entrambe restano popolate e
   invariate per compatibilità con tutto il codice esistente. Ogni record:
   {id, nome, categoriaSem, categoriaFunz, gDefault, gl, per100g, tags,
-  allergeni[], barcode, fonte:'crea'|'custom'|'off', attivo}. Id
+  allergeni[], barcode, etichetta, fonte:'crea'|'custom'|'off', attivo}. Id
   deterministico crea:<slug-nome> per i CREA-INRAN, cust:<ts>-<rnd> per i
   custom (assegnato una volta, poi stabile — usato da P110/scanner
   barcode per far convivere due prodotti diversi con lo stesso nome a
@@ -1434,6 +1434,30 @@ Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
   `mo-alim-custom` di P108 si riapre precompilato (nome+brand, kcal/P/C/G
   per 100g con conversione kJ→kcal se serve, grammatura da porzione) con
   un avviso a verificare i valori sull'etichetta — **mai auto-salvato**:
+  ── P128 TAPPA 1 (5 ago 2026): la chiamata chiede ora TUTTI i campi utili
+  (allergens_tags, traces_tags, labels_tags, ingredients, categories,
+  additives, nova, nutriscore, immagine) oltre ai nutrienti estesi, e
+  `_offEstraiEtichetta(prod, barcode, data)` — pura — produce la scheda
+  `rec.etichetta` di forma SEMPRE costante: {fonte, barcode, letto,
+  per100g:{kcal, proteine, carboidrati, zuccheri, grassi, saturi, fibra,
+  sale, sodio, potassio, fosforo}, allergeni[], tracce[], senza[],
+  ingredienti, ingredientiTag[], categorieOff[], additivi[], nova,
+  nutriscore, quantita, porzione, immagine}.
+  REGOLA: un campo che Open Food Facts non ha vale **null e si dichiara
+  mancante, MAI 0** — altrimenti un prodotto di cui non conosciamo il
+  sodio sembrerebbe un prodotto senza sodio. Uno zero DICHIARATO resta 0.
+  `_offNum` scarta i valori non numerici invece di ripiegare (niente
+  parseFloat nudo: "12,5" varrebbe 12). Conversioni: kcal dai kJ, e
+  sale<->sodio a vicenda (x2,5); se mancano entrambi non si inventa nulla.
+  Le dichiarazioni "senza" (gluten-free, lactose-free) stanno in `senza[]`
+  perché l'allergene dichiarato è il LATTE, non il lattosio: senza quel
+  correttivo un delattosato risulterebbe vietato al paziente per cui è
+  fatto. `nova` e `nutriscore` sono raccolti ma NON entrano in nessuna
+  regola clinica. `etichetta` è null sui record non scansionati; i macro
+  del record (confermati nel form) e quelli dell'etichetta (grezzi)
+  possono divergere di proposito — serve a sapere cosa è stato corretto.
+  Il riquadro del barcode dichiara a schermo cosa l'etichetta ha portato
+  E cosa no (`_offRiepilogo`, `_bcMostraRiepilogo`). ──
   l'utente conferma o corregge come per un alimento manuale. Se il
   prodotto non è su OFF o il servizio è irraggiungibile, messaggi
   dedicati che non bloccano il flusso (form vuoto con barcode agganciato,
@@ -3666,3 +3690,4 @@ REGOLE OPERATIVE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Fine documento — 6 luglio 2026 (BLOCCO 17, sessione serale del 5 lug: editor ricette con attributi strutturati e 8 TAG_COMUNI a chip + ricalcolo automatico kcal/macro dagli ingredienti + stagionalità nel generatore AI con guardia anti-pool-vuoto + riordino drag&drop ricette testuali + persistenza suggerimenti gruppi clinici + fix root-cause editPaz/checkSemaforo, commit finale ab4d472)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

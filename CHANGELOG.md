@@ -10,6 +10,78 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (6/6) — P128 TAPPA 1: SI RACCOGLIE TUTTA L'ETICHETTA, NON PIU'
+QUATTRO NUMERI. Suite da 667 a 685 verdi (19 test nuovi, `s2-etichetta-off`).
+
+DA DOVE NASCE. Fabrizio voleva ripartire da P90 ("l'abbiamo gia' fatto?") e ha
+chiesto: "usiamo il database di Yuka, Open Food Facts: non possiamo sfruttarlo
+appieno?". Verificando sono uscite tre cose.
+  1. **P90 NON e' fatto**: e' il FoodRowEditor, cioe' come una riga alimento+grammi
+     entra in una ricetta. Quello che e' fatto e' il blocco P108/P109/P110 —
+     sezione Alimenti, record unico e scanner barcode — chiuso il 13 luglio.
+  2. **La scheda di P128 dichiara una dipendenza sbagliata** ("dipende da P90").
+     Cio' che P128 aspettava era il codice a barre e il record unico, cioe' P110 e
+     P108: **e' sbloccata da tre settimane e nessuno se n'era accorto.** Corretta.
+  3. **Della risposta di Open Food Facts tenevamo il 15%.** La chiamata chiedeva
+     `product_name,brands,nutriments,serving_quantity` e ne mappava quattro numeri:
+     kcal, proteine, carboidrati, grassi. Sodio, zuccheri, saturi, fibra, allergeni
+     dichiarati, ingredienti, categorie — cioe' esattamente la materia prima delle
+     regole future — arrivavano e venivano buttati a ogni scansione.
+
+COSA FA QUESTA TAPPA. La chiamata chiede tutti i campi utili e nasce
+`_offEstraiEtichetta(prod, barcode, data)`, pura e testabile, che produce una
+scheda d'etichetta dalla forma SEMPRE identica — chi legge non deve mai indovinare
+se una chiave esiste. Il record alimento la conserva in `etichetta`, additiva:
+nessuna migrazione, i record vecchi hanno `etichetta:null` e va bene cosi'.
+
+LA REGOLA CHE GOVERNA IL BLOCCO: **assente non e' zero.** Un campo che Open Food
+Facts non ha vale null e si dichiara mancante. Se diventasse 0, un prodotto di cui
+non conosciamo il sodio sembrerebbe un prodotto senza sodio — ed e' esattamente il
+difetto che P128 esiste per non commettere. Il rovescio vale altrettanto: uno zero
+DICHIARATO (0 g di fibra) e' un dato e non va confuso con un buco.
+
+DUE CONVERSIONI, PERCHE' L'ETICHETTA E' INCOMPLETA IN MODI PREVEDIBILI: kcal dai kJ
+quando manca il valore diretto (4,184 kJ = 1 kcal), e sale<->sodio a vicenda
+(sale = sodio x 2,5). Se mancano entrambi non si inventa nessuno dei due.
+
+LA TRAPPOLA DEL LATTOSIO, raccolta ora e da usare nella tappa 4: l'allergene
+dichiarato e' **il latte, non il lattosio**. Un delattosato contiene latte e non
+contiene lattosio. Senza conservare `labels_tags: lactose-free` il sistema
+segnalerebbe come vietato proprio il prodotto fatto apposta per quel paziente.
+Stesso discorso per il senza glutine. Le dichiarazioni "senza" finiscono quindi in
+un campo loro.
+
+NOVA E NUTRI-SCORE SI RACCOLGONO, MA NON SONO CLINICI e non entreranno in nessuna
+regola: il Nutri-Score e' una sintesi da supermercato, e una A puo' convivere con un
+contenuto di sale proibitivo per un iperteso. Scritto nel codice accanto al campo,
+perche' e' li' che qualcuno un giorno sara' tentato di usarlo.
+
+IL DATO RACCOLTO NON RESTA INVISIBILE. Il riquadro del barcode ora dice in una riga
+cosa l'etichetta ha portato **e cosa non ha portato** ("Dall'etichetta: sale ·
+zuccheri · fibra — Non dichiarati: grassi saturi"). Un dato raccolto e mai mostrato
+e' indistinguibile da un dato mancante, che e' la confusione che questa voce esiste
+per togliere di mezzo.
+
+LO STESSO DIFETTO DI STAMATTINA, PRESO DUE VOLTE IN UN GIORNO: la prima versione di
+`_offNum` usava `parseFloat` nudo, e `parseFloat("12,5")` vale 12. E' identico al
+difetto trovato poche ore prima in P35 sulla virgola italiana. Qui pero' la
+decisione e' opposta e voluta: il valore con la virgola si **scarta** invece di
+convertirlo, perche' da una fonte esterna non si sa se la virgola separa i decimali
+o le migliaia — e un campo scartato compare come "non dichiarato", che e' vero e
+verificabile a mano sull'etichetta. Trovato da un test, non rileggendo il codice.
+
+REGOLE D'USO DI OPEN FOOD FACTS, verificate oggi sulla loro documentazione: 15
+letture prodotto al minuto per IP (scansionando un prodotto alla volta siamo
+lontanissimi), dati sotto Open Database License con attribuzione dovuta — il
+riquadro la cita gia'. Chiedono uno User-Agent identificativo: **dal browser non e'
+impostabile** perche' e' un header vietato in `fetch`, quindi si passano `app_name`
+e `app_version` in query. Detto come sta, non promesso.
+
+RESTA DA FARE (P128, tappe 2-6): la scheda alimento con la ciambella dei macro in
+percentuale di CALORIE, le soglie cliniche voce per voce con Fabrizio (L0), gli
+allergeni come regola, lo stato "da valutare" derivato, e il marchio nel piano AI.
+Decisioni gia' prese e registrate nella scheda.
+
 5 AGOSTO 2026 (5/5) — P35 TAPPE 1 E 2: LE DUE BILANCE SI SEPARANO, E IL PESO
 CASALINGO HA UN GRAFICO. Suite da 630 a 665 verdi (35 test nuovi).
 

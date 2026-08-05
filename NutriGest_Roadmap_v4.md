@@ -1514,7 +1514,42 @@ Test 290 → **301** (`s2-strade.test.js`).
 
 **Non copribile dai numeri:** nichel, FODMAP, purine, ossalati non stanno in etichetta e non si deducono. O una tabella per ingrediente-base, o restano gestiti a mano — e finché sono a mano, i prodotti nuovi vanno marcati "non valutato" su quelle condizioni, non bianchi.
 
-**SCHEDA:** Stato: **Da fare** — si apre quando parte il codice a barre (dipende da **P90**, nuovo strumento alimenti e grammature) · Priorità: Alta *(diventa bloccante nel momento in cui il DB cresce)* · Categoria: Semaforo clinico / dati alimenti · Dipendenze: P90, Scoperta #5 (saldata) · Autonomia: **L0** — soglie nutrizionali e significato del bianco sono sicurezza clinica.
+**⚠️ DIPENDENZA CORRETTA IL 5 AGOSTO 2026.** Questa scheda diceva «dipende da P90». È sbagliato:
+P90 è il `FoodRowEditor` (come una riga alimento+grammi entra in una ricetta) e non c'entra col
+catalogo. Ciò che P128 aspettava era **il codice a barre e il record unico, cioè P110 e P108** —
+chiusi il 13 luglio 2026. **La voce era sbloccata da tre settimane senza che nessuno lo sapesse.**
+
+**DECISIONI PRESE DA FABRIZIO IL 5 AGOSTO 2026** (ragionamento completo nel documento di progetto
+`NutriGest_P128_Alimenti_Etichetta_Ragionamento.md`):
+1. Lo stato di valutazione è **per condizione**, non per alimento — e non si compila, **si deriva**:
+   manuale (vince sempre) → automatico (se la regola ha trovato il dato) → altrimenti «da valutare».
+   Nessuna migrazione dati, nessun campo nuovo: il buco è calcolato.
+2. Nel piano AI un alimento «da valutare» **si propone ma si marca**, e la segnalazione arriva nella
+   verifica clinica (P61). Non si esclude.
+3. La ciambella della scheda alimento rappresenta la **percentuale delle calorie** (C×4, P×4, G×9),
+   non dei grammi: quella in grammi schiaccia i grassi e non si confronta col target.
+4. Si parte dal **raccogliere i dati**, prima di qualsiasi vista.
+
+**LE 15 CONDIZIONI, per quanto l'etichetta può dirne** (chiavi reali di `REGOLE_SEMAFORO_ALIMENTI`):
+- *dai numeri:* `pat-ipert` (sodio), `pat-diabete` (zuccheri), `pat-lipidi` (saturi), `pat-irc`
+  (parziale: potassio e fosforo su OFF sono rari);
+- *dagli allergeni dichiarati:* `all-glutine`, `all-lattosio` — **con il correttivo `gluten-free` /
+  `lactose-free`**, altrimenti un delattosato risulta vietato al paziente per cui è fatto;
+- *a mano per sempre (nove):* `all-nichel`, `all-fodmap`, `pat-uricemia`, `pat-ossalati`, `pat-ibs`,
+  `pat-reflusso`, `pat-tiroid`, `csp-gravidanza`, `csp-allattamento`.
+Nove su quindici non si coloreranno mai da sole: è la ragione per cui «da valutare» deve esistere.
+
+**TAPPA 1 ✅ FATTA IL 5 AGOSTO 2026** — raccolta allargata: la chiamata a Open Food Facts chiede
+tutti i campi utili, `_offEstraiEtichetta` produce una scheda d'etichetta di forma costante, il
+record la conserva in `etichetta` (additiva, nessuna migrazione), e il riquadro del barcode dichiara
+a schermo cosa è arrivato **e cosa no**. 19 test nuovi, suite a 685. Nova e Nutri-Score raccolti ma
+**mai clinici**. Racconto nel CHANGELOG del 5 ago 2026 (6/6).
+
+**SCHEDA:** Stato: **In corso** — tappa 1 fatta; restano: 2 scheda alimento (L1) · 3 soglie cliniche
+(**L0**, lavoro a quattro mani) · 4 allergeni come regola (L1) · 5 stato «da valutare» derivato
+(**L0** sul significato) · 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
+clinico / dati alimenti · Dipendenze: **P108 e P110, entrambe chiuse** · Autonomia: **L0** su soglie
+nutrizionali e significato del bianco.
 
 ---
 
