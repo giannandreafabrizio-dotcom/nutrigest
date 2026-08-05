@@ -41,40 +41,44 @@ L'ordine dei controlli testa prima `/sera|...|notte|.../ ` e solo dopo `/mattin|
 
 Il professionista può correggere a mano dal menu a tendina che appare subito dopo l'aggiunta, ma il valore proposto di default è sbagliato per due voci pensate apposta per essere aggiunte con un clic, e nulla segnala l'errore.
 
-### 🟠 3. `verificaRegola_75_20_5` — il nome del badge non è la soglia che il codice controlla
-**Riga 17819** · sezione GENERATORE PIANI (validatore clinico)
+### ✅ 3. `verificaRegola_75_20_5` — il nome del badge non è la soglia che il codice controlla — **CORRETTA 5 ago 2026**
+**Riga 17819** (ora `verificaRegola_70_25_10`) · sezione GENERATORE PIANI (validatore clinico)
+
+*Decisione di Fabrizio: soluzione A, rinominare senza toccare il comportamento — nessun piano che passa oggi deve iniziare a fallire il controllo. Chiarito nel passaggio: il testo "75/20/5" non era mai stato mostrato a video (solo in commenti/nomi di funzione), quindi la rinomina è innocua anche per l'interfaccia. Aggiunta anche la spiegazione di perché 70+25+10 fa 105 e non 100 (sono tre limiti indipendenti, non tre fette obbligate a sommare a 100). Dettagli in CHANGELOG, 5 agosto 2026.*
 
 Il badge mostrato al professionista si chiama "75/20/5" ovunque — nel codice, nei commenti, nell'interfaccia. Ma la soglia effettivamente calcolata è:
 ```
 percV >= 70 && percA <= 25 && percR <= 10
 ```
-cioè **70/25/10**, non 75/20/5. Nessuno dei quattro documenti riporta i numeri reali né spiega lo scarto — CHANGELOG e Contesto citano solo genericamente "badge 75/20/5". Non so se 70/25/10 sia una tolleranza voluta (più permissiva del nome) o un disallineamento fra etichetta e soglia mai aggiornato in un verso o nell'altro — è la domanda da fare a Fabrizio.
+cioè **70/25/10**, non 75/20/5. Nessuno dei quattro documenti riporta i numeri reali né spiega lo scarto — CHANGELOG e Contesto citano solo genericamente "badge 75/20/5".
 
-### 🟡 4. `delRic` su una ricetta di sistema — "Eliminata" non è vero
+### ✅ 4. `delRic` su una ricetta di sistema — "Eliminata" non è vero — **CORRETTA 5 ago 2026**
 **Riga 27995** · sezione RICETTARIO
+
+*Decisione di Fabrizio: "voglio che tutte le ricette siano uguali e tutte devono poter essere cancellabili... se un nutrizionista che ha la sua versione di NutriGest vuole farlo è libero di poterlo fare." Nuovo registro persistente per account (`db._ricetteEliminate`, sincronizzato) che `pullRicetteSupabase` rispetta prima di ricostruire l'elenco dalle ricette di sistema. Test: `s2-ricette-default-eliminabili.test.js` (6 test, incluso il caso multi-dispositivo). Dettagli in CHANGELOG, 5 agosto 2026.*
 
 Quando si elimina una delle 6 ricette di sistema (`RICETTE_DEFAULT`), la funzione la toglie da `db.ricette` in locale e mostra "✅ Ricetta eliminata" — **ma non chiama mai `delRicetteSupabase`**, perché il ramo `if(!isDefault)` lo salta apposta. Il problema è che `pullRicetteSupabase` (chiamata a ogni sync/pull/ricarica) ricostruisce sempre `db.ricette` ripartendo da `[...RICETTE_DEFAULT]` senza eccezioni: al primo sync dopo l'eliminazione, la ricetta **ritorna da sola**, silenziosamente, dopo che l'utente ha visto un messaggio di successo.
 
-Impatto pratico basso (solo 6 ricette coinvolte, probabilmente mai eliminate sul serio), ma il messaggio a video mente su cosa è realmente successo.
-
-### 🟡 5. Il modulo "B3 — Validazione input numerici" non è mai stato raccontato
+### ✅ 5. Il modulo "B3 — Validazione input numerici" non è mai stato raccontato — **DOCUMENTATA 5 ago 2026**
 **Riga 30201** (funzione IIFE, contiene `validaInput`/`getHint`/`attaccaTutti`, esposta come `window.b3Attach`)
 
-È un modulo completo e attivo su **26 campi diversi** in tutta l'app — tutti i parametri InBody (peso, %grasso, massa magra, MB, livello viscerale, pressione, girovita, altezza…), macro (g/kg proteine/grassi, peso target), ricette (kcal, macro, porzioni) e persino campi economici (prezzo visita/controllo, importo entrata). Per ognuno applica una soglia "fuori range" (bordo rosso, bloccante solo visivamente) e una "valore insolito" (giallo, di avviso) — non impedisce mai il salvataggio, solo segnala.
+*Decisione di Fabrizio: solo documentarlo, senza esagerare nella lunghezza — nessun cambio di codice. Aggiunto un paragrafo in `NutriGest_Contesto_v18.txt`, subito dopo il controllo di coerenza InBody di P63b.*
 
-L'ho cercato apposta sotto P63b (che tocca la stessa area, i controlli InBody) perché il commit che lo introduce (`ec6b52c`) è vicino a quella voce — ma la voce P63b in CHANGELOG parla solo di `_ibControllaCoerenza` (le identità aritmetiche peso=grassa+magra), non di questo modulo. Le 26 soglie (es. MB 500-5000 kcal, girovita 40-200 cm, peso target 30-250 kg) sono decisioni di plausibilità clinica che nessun documento discute o giustifica: oggi, se un valore andasse aggiornato, nessuno saprebbe dove cercarlo.
+È un modulo completo e attivo su **26 campi diversi** in tutta l'app — tutti i parametri InBody (peso, %grasso, massa magra, MB, livello viscerale, pressione, girovita, altezza…), macro (g/kg proteine/grassi, peso target), ricette (kcal, macro, porzioni) e persino campi economici (prezzo visita/controllo, importo entrata). Per ognuno applica una soglia "fuori range" (bordo rosso, bloccante solo visivamente) e una "valore insolito" (giallo, di avviso) — non impedisce mai il salvataggio, solo segnala. Le 26 soglie sono decisioni di plausibilità (un refuso tipo "peso 3000"), non cliniche.
 
-### 🟡 6. `ascoltaProgresso` — l'AI scrive e legge ad alta voce un commento motivazionale al paziente, e nessuno lo sa
+### 🟡 6. `ascoltaProgresso` — l'AI scrive e legge ad alta voce un commento motivazionale al paziente, e nessuno lo sa — **da valutare, annotata in Roadmap (P43b)**
 **Riga 26442** · sezione COMPOSIZIONE CORPOREA
 
-Il pulsante "▶ Ascolta il tuo progresso" nella card "Memoria paziente tra visite" confronta le ultime due misurazioni InBody, chiede all'AI di scrivere un commento **in seconda persona, rivolto per nome al paziente** ("Sei un nutrizionista empatico che parla direttamente al paziente…"), poi legge il testo ad alta voce con la sintesi vocale del browser (`speechSynthesis`).
+*Fabrizio la sta valutando per l'eliminazione, senza fretta: "non la vedo molto utile ... magari lo segnamo per il futuro". Aggiunta la voce P43b in Roadmap con la motivazione (testo AI non rivisto prima della lettura al paziente, compatibilità voce incerta fra browser) — nessun cambio di codice oggi.*
 
-L'unico riscontro nei documenti è una riga di passaggio nella chiusura di P66c (18 lug 2026, rimozione della chiave API diretta) che cita "voce-progresso" come uno dei 15 punti di chiamata AI da bonificare — nessuno descrive **cosa fa** la funzione. Due cose valgono la pena di essere scritte da qualche parte: il testo che l'AI genera non viene rivisto da Fabrizio prima di essere letto ad alta voce al paziente, e la qualità/compatibilità della sintesi vocale fra Chrome (PC) e Safari (iPhone) non è garantita.
+Il pulsante "▶ Ascolta il tuo progresso" nella card "Memoria paziente tra visite" confronta le ultime due misurazioni InBody, chiede all'AI di scrivere un commento **in seconda persona, rivolto per nome al paziente** ("Sei un nutrizionista empatico che parla direttamente al paziente…"), poi legge il testo ad alta voce con la sintesi vocale del browser (`speechSynthesis`). Il testo che l'AI genera non viene rivisto da Fabrizio prima di essere letto ad alta voce, e la qualità/compatibilità della sintesi vocale fra Chrome (PC) e Safari (iPhone) non è garantita.
 
-### ⚪ 7. `applicaPatch` — funzione morta, mai chiamata
-**Riga 30108** · sezione GENERATORE PIANI
+### ✅ 7. `applicaPatch` — funzione morta, mai chiamata — **RIMOSSA 5 ago 2026**
+**Riga 30108** (ora solo un commento che ne spiega la rimozione) · sezione GENERATORE PIANI
 
-Converte un "patch" dal formato pasto esteso (`principale1`/`principale2`/`alternative`) al formato compatto ormai superato (`p1`/`p2`/`alt`/`olio`). `grep` sul nome nell'intero file trova solo la sua definizione — zero chiamate. Sembra un residuo di un meccanismo di correzione via chat pre-P27. Non fa danno finché resta spenta, ma è lo stesso pattern già visto con `_applicaRegoloSemaforoLEGACY` (regola 13 di CLAUDE.md): codice raggiungibile che nessuno ha tolto. Se qualcuno la ricollegasse per errore scriverebbe silenziosamente nelle chiavi sbagliate di un piano.
+*Decisione di Fabrizio: "se non crea nessun problema puoi anche cancellarlo ora tanto è inutile." Rimossa: zero chiamate confermate in tutto il file, `deepClone` (usata anche altrove) non toccata. Dettagli in CHANGELOG, 5 agosto 2026.*
+
+Convertiva un "patch" dal formato pasto esteso (`principale1`/`principale2`/`alternative`) al formato compatto ormai superato (`p1`/`p2`/`alt`/`olio`). `grep` sul nome nell'intero file trovava solo la sua definizione — zero chiamate. Sembrava un residuo di un meccanismo di correzione via chat pre-P27, stesso pattern già visto con `_applicaRegoloSemaforoLEGACY` (regola 13 di CLAUDE.md).
 
 ---
 
@@ -88,4 +92,4 @@ Le altre 394 funzioni "a zero menzioni" scartate includono, per fare qualche ese
 
 ## Come procedere
 
-Nessuna modifica al codice è stata fatta. Come per l'audit di coerenza: **ecco la lista, decidi tu voce per voce** — quali di questi 7 punti vuoi sistemare (e come), quali vuoi solo documentare così come sono oggi, e quali vuoi lasciare aperti in Roadmap per dopo.
+**Aggiornamento 5 agosto 2026 (stesso giorno): 6 delle 7 segnalazioni sono chiuse.** Fabrizio ha deciso voce per voce, come per l'audit di coerenza — 4 corrette nel codice (1, 3, 4, 7), 1 documentata senza toccare il codice (5), 1 annotata in Roadmap per una decisione futura senza fretta (6, P43b). Suite 522 → 534. Dettagli completi di ogni correzione in CHANGELOG.md, voci del 5 agosto.

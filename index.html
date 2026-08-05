@@ -1125,8 +1125,8 @@ main{flex:1;overflow-y:auto;}
     <!-- Box dati piano (verde) -->
     <div id="piano-dati-box" style="display:none;"></div>
 
-    <!-- Badge 75/20/5 e macros reali -->
-    <div id="piano-badge-75"></div>
+    <!-- Badge 70/25/10 e macros reali -->
+    <div id="piano-badge-70"></div>
     <div id="piano-badge-macros"></div>
 
     <!-- Riepilogo settimana (3 viste) -->
@@ -4483,21 +4483,69 @@ async function pushRicetteSupabase(){
   }
 }
 
+// ── RICETTE DI SISTEMA ELIMINABILI (5 ago 2026, audit al contrario) ────────
+// Prima: eliminare una delle 6 ricette di sistema (RICETTE_DEFAULT) toglieva la
+// riga solo in locale — pullRicetteSupabase ricostruiva SEMPRE db.ricette da
+// [...RICETTE_DEFAULT] senza eccezioni, quindi al sync successivo la ricetta
+// tornava da sola, silenziosamente, dopo un messaggio "✅ Ricetta eliminata"
+// che non era vero. Decisione di Fabrizio: le ricette di sistema devono essere
+// eliminabili come le custom, per qualunque nutrizionista lo scelga sulla
+// propria installazione (lui non lo fa sul suo NutriGest, ma dev'essere
+// possibile). Serve quindi un registro di "eliminate" che sopravviva al pull,
+// per account (RLS), sullo stesso meccanismo generico già in uso per gli
+// altri 3 meta-record (_collectionsUpsert/_collectionsFetch) — NON il
+// tombstone dei pazienti (_registraTombstone/db._deleted): quello ha TTL 90gg
+// pensato per "resurrezioni sospette da sincronizzare" e cascata su
+// piani/entrate/eventi per pazienteId, semantica che qui non c'entra: una
+// ricetta di sistema eliminata resta eliminata, senza scadenza.
+const RICETTE_ELIMINATE_META_KEY = '__ricette_eliminate';
+
+function _ricetteEliminateSet(){
+  if(!Array.isArray(db._ricetteEliminate)) db._ricetteEliminate = [];
+  return db._ricetteEliminate;
+}
+
+function _registraRicettaEliminata(id){
+  if(!id) return;
+  const set = _ricetteEliminateSet();
+  if(!set.includes(id)){ set.push(id); saveLocal(); }
+}
+
+async function _pushRicetteEliminate(){
+  return _collectionsUpsert(RICETTE_ELIMINATE_META_KEY, {ids: _ricetteEliminateSet()});
+}
+
+// Legge il registro remoto e lo fonde nel locale (unione, mai una perdita):
+// così un'eliminazione fatta su un altro dispositivo/account non torna qui.
+async function _pullRicetteEliminate(){
+  try{
+    const rec = await _collectionsFetch(RICETTE_ELIMINATE_META_KEY);
+    const remoti = (rec && rec.data && Array.isArray(rec.data.ids)) ? rec.data.ids : [];
+    const set = _ricetteEliminateSet();
+    let cambiato = false;
+    remoti.forEach(id => { if(!set.includes(id)){ set.push(id); cambiato = true; } });
+    if(cambiato) saveLocal();
+    return set;
+  }catch(e){ console.error('[RICETTE] pull registro eliminate fallito:', e); return _ricetteEliminateSet(); }
+}
+
 async function pullRicetteSupabase(){
   console.log('[RICETTE] pull iniziato...');
   try {
+    await _pullRicetteEliminate();
+    const eliminate = new Set(_ricetteEliminateSet());
     const resp = await fetch(SUPA_URL+'/rest/v1/ricette?select=id,data', {method:'GET', headers: supaHeaders()});
     if(!resp.ok){ console.error('[RICETTE] pull ERRORE — status:', resp.status); return false; }
     const rows = await resp.json();
     console.log('[RICETTE] pull — righe ricevute da Supabase:', rows.length);
     const ricetteCustom = (rows || []).map(row => row.data).filter(Boolean);
-    // Merge: mantieni default + aggiungi/aggiorna custom
-    const ricetteFinali = [...RICETTE_DEFAULT];
+    // Merge: mantieni default (tranne quelle eliminate) + aggiungi/aggiorna custom
+    const ricetteFinali = RICETTE_DEFAULT.filter(r => !eliminate.has(r.id));
     ricetteCustom.forEach(rc => {
       if(!ricetteFinali.find(x => x.id === rc.id)) ricetteFinali.push(rc);
     });
     db.ricette = ricetteFinali;
-    console.log('[RICETTE] pull OK — totale in db:', db.ricette.length, '(default:', RICETTE_DEFAULT.length, '+ custom:', ricetteCustom.length, ')');
+    console.log('[RICETTE] pull OK — totale in db:', db.ricette.length, '(default:', RICETTE_DEFAULT.length, '- eliminate:', eliminate.size, '+ custom:', ricetteCustom.length, ')');
     return true;
   } catch(e) {
     console.error('[RICETTE] pull ECCEZIONE:', e);
@@ -17816,7 +17864,21 @@ function renderTargetBadge(p){
     +'</div>';
 }
 
-function verificaRegola_75_20_5(piano) {
+// Rinominata da verificaRegola_75_20_5 il 5 agosto 2026 (audit al contrario). Il nome
+// vecchio prometteva 75/20/5, ma la soglia scritta sotto era sempre stata 70/25/10 — un
+// disallineamento fra etichetta e codice mai spiegato da nessuna parte. Decisione di
+// Fabrizio: correggere l'etichetta, non il comportamento (nessun piano già valido oggi
+// deve iniziare a fallire il controllo).
+// NOTA per chi si chiede perché 70+25+10 fa 105 e non 100: non sono tre fette di una
+// torta che devono sommare a 100. Sono tre limiti INDIPENDENTI su tre percentuali che,
+// quelle sì, sommano sempre a ~100 (ogni alimento del piano è verde O arancione O rosso
+// O escluso, mai due cose insieme): verdi ALMENO 70%, arancioni AL MASSIMO 25%, rossi AL
+// MASSIMO 10% — più il vincolo separato "zero esclusi". Il fatto che 70+25+10=105 (e non
+// 100 come nel vecchio nome 75+20+5) è proprio la prova che sono margini indipendenti,
+// non una spartizione fissa: rende la regola PIÙ permissiva di quanto il vecchio nome
+// lasciasse credere — un piano con 70-74% di verde oggi passa comunque, cosa che col
+// nome "75/20/5" preso alla lettera non sarebbe dovuta succedere.
+function verificaRegola_70_25_10(piano) {
   if (!piano || !piano.length) return null;
   var isNuovo = piano[0] && piano[0].pasti;
   var totAl = 0, verdi = 0, arancioni = 0, rossi = 0, esclusi = 0;
@@ -17853,9 +17915,9 @@ function verificaRegola_75_20_5(piano) {
   return { ok, totAl, verdi, percV, arancioni, percA, rossi, percR, esclusi, percE, violazioni };
 }
 
-function renderBadge75_20_5(piano) {
-  var v = verificaRegola_75_20_5(piano);
-  var el = document.getElementById('piano-badge-75');
+function renderBadge70_25_10(piano) {
+  var v = verificaRegola_70_25_10(piano);
+  var el = document.getElementById('piano-badge-70');
   if (!el) return;
   if (!v) { el.innerHTML = ''; return; }
   var colore = v.ok ? '#059669' : '#D97706';
@@ -17873,7 +17935,7 @@ function renderBadge75_20_5(piano) {
   if (v.violazioni.length) h += '<div style="margin-top:.3rem;color:#DC2626;font-size:.7rem">'+v.violazioni.join(' | ')+'</div>';
   h += '</div>';
   el.innerHTML = h;
-  // P61 — il validatore clinico si aggiorna insieme al badge 75/20/5:
+  // P61 — il validatore clinico si aggiorna insieme al badge 70/25/10:
   // questo hook copre TUTTI i punti di render/mutazione del piano (15+ call site)
   // con una sola integrazione, senza toccare i singoli flussi.
   if (typeof renderBadgeValidatore === 'function') renderBadgeValidatore(piano);
@@ -17884,7 +17946,7 @@ function renderBadge75_20_5(piano) {
 // Funzione pura validaPiano(piano, p) → { violazioni[], copertura, livello }
 // Tre esiti per elemento: conforme / violazione (tipo+gravità) / non verificabile.
 // Gravità: allergene → BLOCCO · rosso semaforo → AVVISO · escluso → NOTA.
-// Gira: (a) post-generazione, (b) a ogni mutazione (hook in renderBadge75_20_5),
+// Gira: (a) post-generazione, (b) a ogni mutazione (hook in renderBadge70_25_10),
 // (c) come gate prima di generaPDF e del salvataggio manuale (validaGateExport).
 // Le righe testuali (ricette) sono scansionate a testo intero contro le liste
 // di pericolo E scomposte con _ngScomponiIngredienti per il conteggio copertura:
@@ -18081,9 +18143,9 @@ function _validaFirmaBlocchi(esito){
     .sort().join('§');
 }
 
-// ── BADGE PERMANENTE (verde/giallo/rosso) accanto al badge 75/20/5 ──
+// ── BADGE PERMANENTE (verde/giallo/rosso) accanto al badge 70/25/10 ──
 function renderBadgeValidatore(piano){
-  var anchor=document.getElementById('piano-badge-75');
+  var anchor=document.getElementById('piano-badge-70');
   if(!anchor) return;
   var el=document.getElementById('piano-badge-valida');
   if(!el){
@@ -18366,8 +18428,8 @@ function pianoPazSelezionato(id){
     if (typeof _aggiornaLabelSalvaPiano === 'function') _aggiornaLabelSalvaPiano(); // P31: fix label bottone verde rimasta col nome paziente precedente
     var _pBox = document.getElementById('piano-piano-box');
     if (_pBox) _pBox.innerHTML = '';
-    // Pulisci anche i badge sotto al piano (riepilogo settimana, 75/20/5, macros reali, dati box, load msg)
-    ['piano-badge-75','piano-badge-macros','piano-riepilogo-sett','piano-dati-box','piano-load-msg'].forEach(function(_bid){
+    // Pulisci anche i badge sotto al piano (riepilogo settimana, 70/25/10, macros reali, dati box, load msg)
+    ['piano-badge-70','piano-badge-macros','piano-riepilogo-sett','piano-dati-box','piano-load-msg'].forEach(function(_bid){
       var _b = document.getElementById(_bid);
       if (_b) { _b.innerHTML = ''; if (_bid === 'piano-dati-box' || _bid === 'piano-riepilogo-sett') _b.style.display = 'none'; }
     });
@@ -18897,7 +18959,7 @@ function pmgCambiaGrammi(input) {
 
   // Aggiorna piano principale (ri-render giorno senza toccare il pannello — evita loop)
   _aggiornaPianoBox();
-  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -18971,7 +19033,7 @@ function _montaPianoCorrente(pianoAI, pazId){
   if (!_pianoEl) return false;
   renderPianoConPillTabs(pianoAI, _pianoEl);
   inizializzaP2(pianoAI);
-  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(pianoAI);
+  if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(pianoAI);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(pianoAI);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(pianoAI);
   return true;
@@ -19685,13 +19747,13 @@ function costruisciPrompt(pazienteId) {
   var nGiorni = isCeto ? 7 : 6;
   var nomiGiorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
 
-  // ── Calcolo distribuzione colori per regola 75/20/5 ──
+  // ── Calcolo distribuzione colori per regola 70/25/10 ──
   var totAl = alimentiVerdi.length + alimentiArancioni.length + alimentiRossi.length;
   var percV = totAl ? Math.round(alimentiVerdi.length/totAl*100) : 0;
   var percA = totAl ? Math.round(alimentiArancioni.length/totAl*100) : 0;
   var percR = totAl ? Math.round(alimentiRossi.length/totAl*100) : 0;
 
-  // ── Calcolo totale ricette per regola 75/20/5 ──
+  // ── Calcolo totale ricette per regola 70/25/10 ──
   var totRicette = nGiorni === 7 ? 42 : 33; // 7gg cheto: 14x3=42 | 6gg: 11x3=33
 
   // ── P20: VINCOLI CLINICI per il generatore (approccio A pragmatico) ──
@@ -21449,7 +21511,7 @@ function cellaSposta(giorno, slotKey, cellaId, direzione) {
   });
 
   _aggiornaPianoBox();
-  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
 }
@@ -21469,7 +21531,7 @@ function cellaCancella(giorno, slotKey, cellaId) {
     perColonna[col].forEach(function(x, i){ x.ordine = i+1; });
   });
   _aggiornaPianoBox();
-  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -21509,7 +21571,7 @@ function apriEditGrammatura(span) {
     // gli errori del punto di partenza invece di correggerli)
     if (idx === 0 && nuovo !== oldG) ricalcolaAlternative(cella);
     _aggiornaPianoBox();
-    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
     if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -21536,7 +21598,7 @@ function cellaSwap(giorno, slotKey, cellaId, altIdx) {
   // (prima le grammature restavano quelle di prima, riferite a un principale che non c'era piu')
   ricalcolaAlternative(cella);
   _aggiornaPianoBox();
-  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -21550,7 +21612,7 @@ function cellaRimuoviAlt(giorno, slotKey, cellaId, altIdx) {
   if (!cella || !cella.alimenti[altIdx]) return;
   cella.alimenti.splice(altIdx, 1);
   _aggiornaPianoBox();
-  if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+  if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
   if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -21653,7 +21715,7 @@ function cellaAggiungiAlt(giorno, slotKey, cellaId) {
     cella.alimenti.push({n: scelto.n, g: grCalcolato, categoria: _catScelto, colore: scelto.colore});
     ricalcolaAlternative(cella);
     _aggiornaPianoBox();
-    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
   if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
     if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -22027,7 +22089,7 @@ function apriAggiungiCella(giorno, slotKey) {
           }]
         });
         _aggiornaPianoBox();
-        if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+        if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
         if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
         if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
         if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -22043,7 +22105,7 @@ function apriAggiungiCella(giorno, slotKey) {
     });
 
     _aggiornaPianoBox();
-    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
     if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
     if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
     if (window._pdfPiano) window._pdfPiano = window._pianoCorrente;
@@ -22291,7 +22353,7 @@ function _aggiornaPianoBox() {
   // invece di sovrascrivere il box con la vista classica del generatore AI.
   if (window._ngModalitaManuale && typeof _ngRenderPianoDestra === 'function' && document.getElementById('ng-piano-destra')) {
     _ngRenderPianoDestra();
-    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
     if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
     if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
     return;
@@ -22299,7 +22361,7 @@ function _aggiornaPianoBox() {
   // Se siamo nel generatore (pill tabs), usa _renderGiornoGen
   if (typeof window._renderGiornoGen === 'function' && document.getElementById('piano-select-paz')) {
     window._renderGiornoGen();
-    if (typeof renderBadge75_20_5 === 'function') renderBadge75_20_5(window._pianoCorrente);
+    if (typeof renderBadge70_25_10 === 'function') renderBadge70_25_10(window._pianoCorrente);
     if (typeof renderBadgeMacrosReali_DOM === 'function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
     if (typeof renderRiepilogoSettimana === 'function') renderRiepilogoSettimana(window._pianoCorrente);
     return;
@@ -23672,7 +23734,7 @@ async function generaPiano(forceRegen){
     window._storicoPiani = [];
     window._pianoGiornoCorrente = 0;
     renderPianoConPillTabs(pianoAI, pianoEl);
-    renderBadge75_20_5(pianoAI);
+    renderBadge70_25_10(pianoAI);
     renderRiepilogoSettimana(pianoAI);
     inizializzaP2(pianoAI);
 
@@ -24739,7 +24801,7 @@ function _ngDopoModifica(){
   // Post-unificazione: il refresh passa da _aggiornaPianoBox, che instrada alla vista attiva
   // (generatore/pill-tabs, oppure editor manuale legacy se il suo DOM è presente).
   if(typeof _aggiornaPianoBox==='function'){ _aggiornaPianoBox(); } else { _ngRenderPianoDestra(); }
-  if(typeof renderBadge75_20_5==='function') renderBadge75_20_5(window._pianoCorrente);
+  if(typeof renderBadge70_25_10==='function') renderBadge70_25_10(window._pianoCorrente);
   if(typeof renderBadgeMacrosReali_DOM==='function') renderBadgeMacrosReali_DOM(window._pianoCorrente);
   if(typeof renderRiepilogoSettimana==='function') renderRiepilogoSettimana(window._pianoCorrente);
 }
@@ -28029,15 +28091,17 @@ async function salvaRic(){
 }
 async function delRic(id){
   if(!confirm('Eliminare?'))return;
-  const isDefault = RICETTE_DEFAULT.find(r => r.id === id);
+  // 5 ago 2026 — tutte le ricette si eliminano allo stesso modo, comprese le 6 di
+  // sistema: quelle in più vanno anche nel registro RICETTE_ELIMINATE_META_KEY,
+  // altrimenti pullRicetteSupabase le ricostruirebbe da RICETTE_DEFAULT al prossimo
+  // sync (vedi commento sopra pullRicetteSupabase).
+  const isDefault = !!RICETTE_DEFAULT.find(r => r.id === id);
   db.ricette=db.ricette.filter(x=>x.id!==id);
+  if(isDefault) _registraRicettaEliminata(id);
   saveLocal();renderRic();
-  if(!isDefault){
-    const ok = await delRicetteSupabase(id);
-    notif(ok ? '✅ Ricetta eliminata' : '⚠️ Eliminata in locale, sync fallito',2500);
-  } else {
-    notif('Ricetta eliminata',2000);
-  }
+  const okDelete = await delRicetteSupabase(id); // no-op innocuo per le ricette di sistema: non sono mai state righe in Supabase
+  const okMeta = isDefault ? await _pushRicetteEliminate() : true;
+  notif((okDelete && okMeta) ? '✅ Ricetta eliminata' : '⚠️ Eliminata in locale, sync fallito',2500);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -30140,35 +30204,13 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-function applicaPatch(piano, patch) {
-  if (!patch.giorno || !patch.pasto || !patch.nuovoPasto)
-    throw new Error('Patch non valida');
-  var nuovo = deepClone(piano);
-  // Cerca giorno per nome (campo g nel formato compatto)
-  var giorno = nuovo.find(function(g){ return (g.g||g.giorno) === patch.giorno; });
-  if (!giorno) throw new Error('Giorno non trovato: ' + patch.giorno);
-  // Mappa nome pasto espanso → chiave compatta
-  var keyMap = {colazione:'col',spuntino_mattina:'sm',pranzo:'pr',spuntino_pomeriggio:'sp',cena:'ce',pre_nanna:'pn'};
-  var chiaveCompatta = keyMap[patch.pasto] || patch.pasto;
-  if (!giorno[chiaveCompatta]) throw new Error('Pasto non trovato: ' + patch.pasto + ' (chiave: ' + chiaveCompatta + ')');
-  // Converti dal formato espanso al formato compatto
-  var np = patch.nuovoPasto;
-  var pastoCompatto = {};
-  if (np.principale1) pastoCompatto.p1 = {n: np.principale1.nome, g: np.principale1.grammi};
-  if (np.principale2 && np.principale2.nome) pastoCompatto.p2 = {n: np.principale2.nome, g: np.principale2.grammi};
-  if (np.alternative && np.alternative.length) {
-    pastoCompatto.alt = np.alternative.map(function(alt){
-      return (alt.alimenti||[]).map(function(a){ return {n:a.nome,g:a.grammi}; });
-    });
-    // Aggiungi olio EVO se pranzo o cena e non già presente nelle alt
-    if ((patch.pasto==='pranzo'||patch.pasto==='cena') && np.principale1) {
-      pastoCompatto.olio = giorno[chiaveCompatta].olio || {n:'Olio EVO',g:10};
-    }
-  }
-  if (np.nota_descrittiva) pastoCompatto.nota = np.nota_descrittiva;
-  giorno[chiaveCompatta] = pastoCompatto;
-  return nuovo;
-}
+// (5 ago 2026, audit al contrario) Qui c'era applicaPatch(piano, patch): convertiva
+// una "patch" dal formato pasto esteso al formato compatto p1/p2/alt/olio ormai
+// superato — probabilmente un residuo di un meccanismo di correzione via chat
+// pre-P27. Zero chiamate in tutto il file (grep sul nome, solo la definizione).
+// Rimossa su richiesta di Fabrizio: stessa famiglia di selTuttiAl (F9, 26 lug
+// 2026) — codice raggiungibile che tocca dati di un piano e nessuno chiama è
+// solo un modo per sbagliare dopo, se qualcuno lo ricollegasse per errore.
 
 // ══════════════════════════════════════════════════════════════════════════
 // P27 — Salva/Aggiorna piano: stato di editing per evitare doppioni

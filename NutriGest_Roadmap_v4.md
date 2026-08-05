@@ -658,6 +658,21 @@ esistente) · Autonomia: L0 sulla tappa 1, L1 sui grafici.
 **FOCUS COMPONENTI COINVOLTI:** vari, tutti frontend.
 **SCHEDA:** Stato: Da fare · Priorità: Bassa · C: 1-2 | I: 2 | R: 1 · Modello: Sonnet (Bassa) · Autonomia: L1.
 
+### P43b — Valutare l'eliminazione di "Ascolta il tuo progresso" (`ascoltaProgresso`)
+**DA DOVE NASCE.** Segnalazione dell'audit al contrario (5 ago 2026): il pulsante nella
+scheda InBody fa scrivere all'AI un commento motivazionale rivolto al paziente per nome
+(confronto fra le ultime due misurazioni) e lo legge ad alta voce con la sintesi vocale
+del browser. Mai descritto in nessun documento fino ad ora. Fabrizio: "sinceramente
+stavo valutando di eliminarla perché non la vedo molto utile" — nessuna fretta.
+**PERCHÉ VALE LA PENA VALUTARLA (non solo "poco usata"):** il testo che l'AI scrive non
+passa mai sotto gli occhi di Fabrizio prima di essere letto al paziente — stessa
+famiglia di cautela dei messaggi WhatsApp assistiti, ma lì c'è sempre una revisione
+umana prima dell'invio, qui no. Ha anche un rischio di qualità/compatibilità: la voce
+sintetica del browser non suona uguale (e non è garantito che ci sia) su Chrome PC e
+Safari iPhone.
+**SCHEDA:** Stato: Da valutare · Priorità: Bassa, nessuna urgenza · C: 1 | I: 1 | R: 1 ·
+Modello: Sonnet (Bassa) · Autonomia: L1 (rimozione, se confermata, è un taglio secco senza migrazione dati).
+
 ### P74 — Estrazione entità dal blob + fine dei meta-record
 **L'APPROCCIO ORIGINARIO:** (1) meta-record → tabella collections; (2) entità pesanti → tabelle/colonne tipizzate; (3) query mirate al posto del pull totale. Rischio alto, backup CSV.
 **LA CRITICA DEL CTO:** piano giusto ma manca il gradino a costo zero (F5) e la disciplina di transizione: senza finestra di dual-write e senza P68/P69 fatti prima, la migrazione multi-dispositivo è roulette.

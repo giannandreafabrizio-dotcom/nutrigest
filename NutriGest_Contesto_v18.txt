@@ -1167,6 +1167,18 @@ p.inbody[] — INVARIANTE DI ORDINAMENTO (P120, 25 lug 2026):
   Le tolleranze sono larghe di proposito — cercano gli errori che spostano la clinica,
   non gli arrotondamenti.
 
+MODULO "B3 — Validazione input numerici" (documentato 5 ago 2026, esiste da prima —
+audit al contrario). IIFE a fine file, espone window.b3Attach/window.b3ValidaInput.
+Attivo su 26 campi diversi in tutta l'app: parametri InBody (peso, %grasso, massa
+magra, MB, viscerale, pressione, girovita, altezza...), macro (g/kg proteine/grassi,
+peso target — con eccezione per il tetto carbo in modalità keto), ricette (kcal,
+macro, porzioni) e campi economici (prezzo visita/controllo, importo entrata). Per
+ogni campo una coppia di soglie: min/max = "fuori range" (bordo rosso, blocca solo
+visivamente — non impedisce mai il salvataggio), warn_min/warn_max = "valore insolito,
+verifica" (giallo). Puramente di plausibilità: non sono soglie cliniche, solo un
+filtro contro un refuso (es. peso 3000 invece di 90). Le soglie vivono nell'oggetto
+RULES dentro il modulo — per cambiarne una si edita lì, non altrove.
+
 p.pesiIntermedi[] = { data, peso }
   // ATTIVO E CON INTERFACCIA COMPLETA (verificato 4 ago 2026). La vecchia nota
   // "C4 scartato / nessuna UI attiva / da rimuovere" era sbagliata: esiste la card

@@ -10,6 +10,64 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito) — LE ALTRE 4 DECISIONI SULL'AUDIT AL CONTRARIO.
+Baseline 10e1632.
+
+Fabrizio ha deciso le 6 segnalazioni rimaste aperte dopo la correzione di selCatAl.
+Quattro comportavano un intervento, riportate qui in ordine di decisione.
+
+1) BADGE RINOMINATO — verificaRegola_75_20_5 → verificaRegola_70_25_10 (e
+renderBadge75_20_5 → renderBadge70_25_10, id DOM piano-badge-75 → piano-badge-70).
+Soluzione A scelta da Fabrizio: cambia solo il nome, non il comportamento — nessun
+piano che passa oggi il controllo deve iniziare a fallirlo. Verificato prima di
+correggere: il testo "75/20/5" non è mai stato mostrato al paziente o al
+nutrizionista, viveva solo in commenti e nomi di funzione — quindi la correzione è
+innocua anche per l'interfaccia, non solo per il comportamento. Aggiunta una nota
+nel codice che risponde alla domanda "perché 70+25+10 fa 105 e non 100": non sono
+tre fette di una torta obbligate a sommare a 100, sono tre limiti indipendenti
+(verdi ALMENO 70%, arancioni AL MASSIMO 25%, rossi AL MASSIMO 10%, più "zero
+esclusi" a parte) — ed è proprio perché sono indipendenti che la regola reale è più
+permissiva del vecchio nome 75/20/5 lasciava credere.
+
+2) LE RICETTE DI SISTEMA ORA SI ELIMINANO DAVVERO. Decisione di Fabrizio: "voglio
+che tutte le ricette siano uguali e tutte devono poter essere cancellabili" — per
+qualunque nutrizionista lo scelga sulla propria installazione (lui non lo farebbe
+sul suo NutriGest, ma dev'essere possibile per chi lo vuole). Prima, `delRic` su
+una delle 6 ricette di sistema (RICETTE_DEFAULT) toglieva la riga solo in locale;
+`pullRicetteSupabase` la ricostruiva sempre da zero al sync successivo, silenziosamente,
+nonostante il messaggio "✅ Ricetta eliminata". Nuovo registro `db._ricetteEliminate`
+(chiave `__ricette_eliminate` sullo stesso meccanismo generico `_collectionsUpsert`/
+`_collectionsFetch` già usato per gli altri 3 meta-record, PER ACCOUNT via RLS — non
+il tombstone dei pazienti, che ha TTL 90gg e cascata su piani/entrate/eventi, semantica
+che qui non serve: una ricetta di sistema eliminata resta eliminata, senza scadenza).
+`pullRicetteSupabase` ora filtra RICETTE_DEFAULT contro il registro (locale +
+remoto, fuso all'inizio del pull) prima di ricostruire `db.ricette`, e `delRic`
+tratta le ricette di sistema esattamente come le custom. 6 test nuovi
+(`s2-ricette-default-eliminabili.test.js`), incluso il caso "eliminata su un altro
+dispositivo, arriva col registro remoto".
+
+3) MODULO "B3 — VALIDAZIONE INPUT NUMERICI" DOCUMENTATO NEL CONTESTO. Nessun
+cambio di codice: solo un paragrafo in NutriGest_Contesto_v18.txt (dopo il
+controllo di coerenza InBody di P63b, stesso argomento — "controlli su valori
+numerici immessi") che spiega cos'è, i 26 campi coperti, e che le soglie sono
+di plausibilità (avviso, mai blocco), non cliniche.
+
+4) applicaPatch RIMOSSA. Codice morto, zero chiamate in tutto il file (grep sul
+nome trovava solo la definizione) — decisione di Fabrizio: "se non crea nessun
+problema puoi anche cancellarlo ora tanto è inutile". Stessa famiglia di
+selTuttiAl (F9, 26 lug 2026): codice raggiungibile che tocca dati di un piano e
+nessuno chiama è solo un modo per sbagliare dopo. `deepClone` (usata anche
+altrove) NON è stata toccata.
+
+RESTA APERTA — nessun cambio oggi: `ascoltaProgresso` (il pulsante "Ascolta il
+tuo progresso" con sintesi vocale). Fabrizio la sta valutando per l'eliminazione
+ma senza fretta — annotata come nuova voce di roadmap P43b, con la motivazione
+(testo AI mai rivisto prima di essere letto al paziente, compatibilità voce
+incerta fra browser) invece che rimossa subito.
+
+Suite 528 → 534 (6 test nuovi sulle ricette). INDEX.md rigenerato (693 voci
+corrette in giornata, cumulative con la correzione di selCatAl).
+
 5 AGOSTO 2026 — AUDIT AL CONTRARIO: DAL CODICE AI DOCUMENTI, E LA CORREZIONE DI "TUTTI".
 Baseline b413f08.
 
