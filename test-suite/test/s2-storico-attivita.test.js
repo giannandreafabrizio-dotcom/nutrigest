@@ -1,4 +1,4 @@
-// ── S2 — Lo storico TDEE fotografa anche l'attività (3 ago 2026, P147d) ──
+// ── S2 — Lo storico TDEE fotografa anche l'attività (4 ago 2026, P147d) ──
 //
 // Il buco che questa suite chiude: `macrosStorico` salvava il RISULTATO (kcal,
 // macro, TDEE, LAF) ma non cosa stesse facendo il paziente per meritarselo.
