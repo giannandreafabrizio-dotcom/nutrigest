@@ -1553,7 +1553,17 @@ e in dubbio resta su `incompleta`. `completeness` e `states_tags` raccolti come 
 la regola non ci si appoggia (`states_tags` non è confermato nella documentazione ufficiale).
 Raccolto anche `nutrient_levels`: **controprova** delle soglie della tappa 3, mai sostituto.
 
-**SCHEDA:** Stato: **In corso** — tappa 1 fatta (+ addendum allergeni a tre stati); restano: 2 scheda alimento (L1) · 3 soglie cliniche
+**TAPPA 2 ✅ FATTA IL 5 AGOSTO 2026** — la scheda alimento (`_schHtml`, modale `mo-alim-scheda`,
+pulsante 🍽 su ogni riga della sezione Alimenti, anche sui CREA perché è sola lettura). Ciambella in
+percentuale di **calorie**, interruttore 100 g / porzione, i quattro numeri col metro delle soglie
+**dichiarate provvisorie a schermo**, allergeni a tre stati, valutazione delle 15 condizioni per
+famiglia col contatore. Non tocca dati e non entra in nessun calcolo. 18 test nuovi, suite a 710.
+> **Difetto clinico trovato da un test:** uno yogurt delattosato risultava **vietato** all'intollerante
+> al lattosio, perché dichiara il latte fra gli allergeni e la regola guardava l'allergene prima della
+> dichiarazione «senza lattosio». Ora la dichiarazione «senza» viene **prima**. Vale identico per il
+> pane senza glutine certificato con «tracce di frumento».
+
+**SCHEDA:** Stato: **In corso** — tappe 1 e 2 fatte; restano: 2 scheda alimento (L1) · 3 soglie cliniche
 (**L0**, lavoro a quattro mani) · 4 allergeni come regola (L1) · 5 stato «da valutare» derivato
 (**L0** sul significato) · 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
 clinico / dati alimenti · Dipendenze: **P108 e P110, entrambe chiuse** · Autonomia: **L0** su soglie

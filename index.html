@@ -1689,6 +1689,14 @@ main{flex:1;overflow-y:auto;}
 </div>
 
 <!-- ══════════════ MODAL RICETTA -->
+<!-- P128 tappa 2: scheda alimento (sola lettura) -->
+<div class="overlay" id="mo-alim-scheda">
+<div class="modal" style="max-width:620px">
+  <h3>🍽 Scheda alimento</h3>
+  <div id="alim-scheda-corpo"></div>
+  <div class="mf"><button class="btn btn-g" onclick="closeM('mo-alim-scheda')">Chiudi</button></div>
+</div></div>
+
 <div class="overlay" id="mo-alim-custom">
 <div class="modal" style="max-width:400px">
   <h3 id="ac-titolo">➕ Nuovo alimento</h3>
@@ -28050,6 +28058,275 @@ function eliminaAlimentoCustom(nome){
   notif('✓ "'+nome+'" rimosso');
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// P128 TAPPA 2 — LA SCHEDA ALIMENTO (5 ago 2026)
+//
+// Vista di SOLA LETTURA su un alimento del catalogo. Non tocca nessun dato e
+// non entra in nessun calcolo: è il banco di collaudo delle soglie prima che
+// colorino qualcosa, e il posto dove il "da valutare" diventa visibile.
+//
+// LA CIAMBELLA E' IN PERCENTUALE DI CALORIE, non di grammi (decisione di
+// Fabrizio, 5 ago 2026): carboidrati x4, proteine x4, grassi x9. In grammi i
+// grassi risultano schiacciati — pesano più del doppio per grammo — e la
+// ripartizione non si confronterebbe col target del paziente.
+// ══════════════════════════════════════════════════════════════════════════
+
+const _SCH_COL={carb:'#D97706', prot:'#1D9E75', gras:'#DD5A33'};  // palette validata per il daltonismo
+
+// SOGLIE PROVVISORIE — semaforo britannico (UK FSA), per 100 g. Sono soglie da
+// SCAFFALE, pensate per il consumatore, NON cliniche: servono solo a far vedere
+// la forma della scheda. Le soglie vere sono la tappa 3 e le decide Fabrizio
+// voce per voce con le fonti. Vivono solo qui e non toccano nulla.
+const _SCH_SOGLIE={
+  sale:     {lab:'Sale',          basso:0.3, alto:1.5},
+  zuccheri: {lab:'Zuccheri',      basso:5.0, alto:22.5},
+  saturi:   {lab:'Grassi saturi', basso:1.5, alto:5.0},
+  fibra:    {lab:'Fibra',         basso:null, alto:null}
+};
+
+const _SCH_FAMIGLIE=[
+  {t:'Dai numeri dell\'etichetta', note:'soglie provvisorie da scaffale — le cliniche sono la tappa 3', voci:[
+    {k:'pat-ipert',   lab:'Ipertensione',        campo:'sale'},
+    {k:'pat-diabete', lab:'Diabete / IR / PCOS', campo:'zuccheri'},
+    {k:'pat-lipidi',  lab:'Dislipidemia',        campo:'saturi'},
+    {k:'pat-irc',     lab:'Insufficienza renale',campo:'sodio'}
+  ]},
+  {t:'Dagli allergeni dichiarati', note:'', voci:[
+    {k:'all-glutine',  lab:'Glutine',  all:['gluten','glutine','wheat','frumento','barley','orzo','rye','segale','spelt','farro'], senza:['gluten','glutine']},
+    {k:'all-lattosio', lab:'Lattosio', all:['milk','latte','lactose','lattosio'], senza:['lactose','lattosio']}
+  ]},
+  {t:'Solo col tuo giudizio', note:'non si deducono dall\'etichetta', voci:[
+    {k:'all-nichel',lab:'Nichel'},{k:'all-fodmap',lab:'FODMAP'},
+    {k:'pat-uricemia',lab:'Uricemia / purine'},{k:'pat-ossalati',lab:'Ossalati'},
+    {k:'pat-ibs',lab:'Colon irritabile'},{k:'pat-reflusso',lab:'Reflusso'},
+    {k:'pat-tiroid',lab:'Tiroide'},{k:'csp-gravidanza',lab:'Gravidanza'},
+    {k:'csp-allattamento',lab:'Allattamento'}
+  ]}
+];
+
+// I tag arrivano in inglese da Open Food Facts. Tradotti i piu' frequenti; per
+// gli altri resta il tag originale — meglio una parola inglese che una sparita.
+const _SCH_TRAD={'milk':'latte','gluten':'glutine','wheat':'frumento','barley':'orzo','rye':'segale',
+ 'spelt':'farro','oats':'avena','eggs':'uova','egg':'uova','soybeans':'soia','soy':'soia',
+ 'nuts':'frutta a guscio','tree nuts':'frutta a guscio','peanuts':'arachidi','sesame seeds':'sesamo',
+ 'sesame':'sesamo','fish':'pesce','crustaceans':'crostacei','molluscs':'molluschi','celery':'sedano',
+ 'mustard':'senape','lupin':'lupini','sulphur dioxide and sulphites':'solfiti','sulphites':'solfiti',
+ 'lactose free':'senza lattosio','gluten free':'senza glutine','no lactose':'senza lattosio',
+ 'sans lactose':'senza lattosio','sans gluten':'senza glutine'};
+function _schTrad(t){ const k=String(t||'').toLowerCase().trim(); return _SCH_TRAD[k]||t; }
+
+function _schNum(v,dec){
+  if(v==null||isNaN(v)) return '—';
+  return (Math.round(v*Math.pow(10,dec==null?1:dec))/Math.pow(10,dec==null?1:dec)).toFixed(dec==null?1:dec).replace('.',',');
+}
+// Ripartizione delle CALORIE fra i tre macro. null se non si può calcolare:
+// un alimento senza macro non ha una ciambella, e non se ne inventa una.
+function _schQuoteKcal(m){
+  if(!m) return null;
+  const c=(+m.c||0)*4, p=(+m.p||0)*4, g=(+m.g||0)*9, t=c+p+g;
+  if(!(t>0)) return null;
+  return {carb:c/t*100, prot:p/t*100, gras:g/t*100, kcalCalcolate:t};
+}
+function _schCiambella(m,size){
+  const q=_schQuoteKcal(m); size=size||128;
+  if(!q) return '<div style="width:'+size+'px;height:'+size+'px;display:flex;align-items:center;justify-content:center;'
+    +'font-size:.7rem;color:var(--text3);text-align:center;flex:none">valori<br>non impostati</div>';
+  const r=size/2-14, sw=20, cx=size/2, cy=size/2;
+  let o='<svg viewBox="0 0 '+size+' '+size+'" style="width:'+size+'px;height:'+size+'px;flex:none">', ang=-90;
+  [['carb',q.carb],['prot',q.prot],['gras',q.gras]].forEach(function(par){
+    const pc=par[1]; if(pc<=0.05){ ang+=pc*3.6; return; }
+    const sweep=pc*3.6, gap=(pc<99.5?1.6:0);
+    const a0=(ang+gap/2)*Math.PI/180, a1=(ang+sweep-gap/2)*Math.PI/180;
+    o+='<path d="M'+(cx+r*Math.cos(a0)).toFixed(2)+' '+(cy+r*Math.sin(a0)).toFixed(2)
+      +'A'+r.toFixed(2)+' '+r.toFixed(2)+' 0 '+((sweep-gap>180)?1:0)+' 1 '
+      +(cx+r*Math.cos(a1)).toFixed(2)+' '+(cy+r*Math.sin(a1)).toFixed(2)
+      +'" fill="none" stroke="'+_SCH_COL[par[0]]+'" stroke-width="'+sw+'"></path>';
+    ang+=sweep;
+  });
+  const kc=(m.kcal!=null?Math.round(m.kcal):Math.round(q.kcalCalcolate));
+  o+='<text x="'+cx+'" y="'+(cy-1)+'" text-anchor="middle" font-size="21" font-weight="700" fill="var(--text)">'+kc+'</text>';
+  o+='<text x="'+cx+'" y="'+(cy+13)+'" text-anchor="middle" font-size="9.5" fill="var(--text3)">kcal</text>';
+  return o+'</svg>';
+}
+function _schMetro(campo,v){
+  const s=_SCH_SOGLIE[campo];
+  if(v==null||!s||s.alto==null) return '';
+  const hi=s.alto*1.7, b=s.basso/hi*100, a=s.alto/hi*100;
+  const x=Math.max(0,Math.min(98.2, v/hi*100));
+  const col=(v<=s.basso?'#0F6E56':(v<=s.alto?'#8a5a10':'#A32D2D'));
+  return '<svg viewBox="0 0 100 7" preserveAspectRatio="none" style="width:100%;height:7px;margin-top:.25rem">'
+    +'<rect x="0" y="2.4" width="100" height="2.2" rx="1.1" fill="var(--border)"></rect>'
+    +'<rect x="0" y="2.4" width="'+b.toFixed(1)+'" height="2.2" fill="#0F6E56" fill-opacity=".25"></rect>'
+    +'<rect x="'+a.toFixed(1)+'" y="2.4" width="'+(100-a).toFixed(1)+'" height="2.2" fill="#A32D2D" fill-opacity=".18"></rect>'
+    +'<rect x="'+x.toFixed(1)+'" y="0" width="1.8" height="7" rx=".9" fill="'+col+'"></rect></svg>';
+}
+// Stato di una condizione. TRE esiti + il manuale, e il MOTIVO sempre accanto:
+// "il dato manca in etichetta" si risolve digitando un numero, "non si deduce"
+// no. Distinguerli evita di rincorrere buchi che non sono buchi.
+function _schStatoCondizione(rec,voce){
+  const et=rec.etichetta;
+  if(voce.all){
+    // La dichiarazione "senza" viene PRIMA dell'allergene, ed è il punto in cui
+    // si evita il danno peggiore: un delattosato dichiara il LATTE fra gli
+    // allergeni (perché il latte c'è) e non contiene lattosio. Senza questa
+    // precedenza il prodotto fatto apposta per quel paziente risulterebbe
+    // vietato proprio a lui.
+    const dichiaraSenza=!!(et&&voce.senza&&(et.senza||[]).some(function(x){
+      return voce.senza.some(function(k){ return x.indexOf(k)>=0; }); }));
+    if(dichiaraSenza) return {s:'ok', m:'dichiarato "senza" in etichetta'};
+    const st=_offStatoAllergene(et,voce.all);
+    if(st==='contiene'){
+      // il latte non è il lattosio: si segnala da verificare, non si vieta
+      if(voce.k==='all-lattosio') return {s:'attenzione',m:'contiene latte — verificare se delattosato'};
+      return {s:'no',m:'dichiarato in etichetta'};
+    }
+    if(st==='assente') return {s:'ok', m:'ingredienti trascritti, non compare'};
+    return {s:'valutare', m:(et?'scheda incompleta: gli ingredienti non ci sono':'nessuna etichetta')};
+  }
+  if(!voce.campo) return {s:'valutare', m:'non si deduce dall\'etichetta'};
+  if(!et) return {s:'valutare', m:'alimento senza etichetta'};
+  const v=et.per100g?et.per100g[voce.campo]:null;
+  if(v==null) return {s:'valutare', m:'il dato manca in etichetta'};
+  const s=_SCH_SOGLIE[voce.campo];
+  // Avere il numero NON e' averlo valutato: senza una soglia clinica non c'e'
+  // nessun giudizio da dare, e dire "valutato" sarebbe la stessa bugia del
+  // bianco che significa due cose. Si resta su "da valutare", col dato accanto.
+  if(!s||s.alto==null) return {s:'valutare', m:_schNum(v,2)+' g/100 g — soglia da definire'};
+  if(v>s.alto)    return {s:'no',         m:_schNum(v)+' g/100 g: sopra la soglia'};
+  if(v<=s.basso)  return {s:'ok',         m:_schNum(v)+' g/100 g: sotto la soglia'};
+  return            {s:'attenzione', m:_schNum(v)+' g/100 g: nella fascia media'};
+}
+const _SCH_STILE={ok:['#0F6E56','#e8f4ee','valutato'], attenzione:['#8a5a10','#fdf4e6','valutato'],
+  no:['#A32D2D','#fdf0ee','valutato'], auto:['#0F6E56','#e8f4ee','valutato'],
+  valutare:['#6b6862','#eeece8','da valutare']};
+
+function _schHtml(rec, perPorzione){
+  const E=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+  const m=rec.per100g, et=rec.etichetta;
+  const gPorz=(rec.gDefault!=null&&rec.gDefault>0)?rec.gDefault:100;
+  const f=perPorzione?(gPorz/100):1;
+  const mm=m?{kcal:(m.kcal!=null?m.kcal*f:null),p:(m.p||0)*f,c:(m.c||0)*f,g:(m.g||0)*f}:null;
+  const q=_schQuoteKcal(m);
+  let h='';
+
+  // ── intestazione: nome, provenienza, e QUANDO il dato e' stato letto ──
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.7rem;flex-wrap:wrap;margin-bottom:.9rem">'
+    +'<div><div style="font-weight:700;font-size:1rem;letter-spacing:-.01em">'+E(rec.nome)+'</div>'
+    +'<div style="font-size:.72rem;color:var(--text3);margin-top:.2rem">'+_alimFonteBadge(rec)
+    +' · '+E(rec.categoriaSem||'—')
+    +(et&&et.letto?' · letto il '+E(et.letto):'')
+    +(rec.barcode?' · '+E(rec.barcode):'')+'</div></div>'
+    +'<div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;flex:none">'
+      +'<button onclick="_schPer(0)" style="border:none;background:'+(perPorzione?'#fff':'#eef4fa')+';color:'+(perPorzione?'var(--text3)':'#1b4f87')+';padding:.3rem .65rem;font:inherit;font-size:.74rem;font-weight:600;cursor:pointer">per 100 g</button>'
+      +'<button onclick="_schPer(1)" style="border:none;background:'+(perPorzione?'#eef4fa':'#fff')+';color:'+(perPorzione?'#1b4f87':'var(--text3)')+';padding:.3rem .65rem;font:inherit;font-size:.74rem;font-weight:600;cursor:pointer">porzione '+gPorz+' g</button>'
+    +'</div></div>';
+
+  // ── macro ──
+  h+='<div style="display:flex;gap:1.1rem;align-items:center;flex-wrap:wrap;margin-bottom:.4rem">'+_schCiambella(mm)
+    +'<div style="flex:1 1 210px;min-width:190px">';
+  if(q&&mm){
+    [['Carboidrati','carb',mm.c,q.carb],['Proteine','prot',mm.p,q.prot],['Grassi','gras',mm.g,q.gras]].forEach(function(r){
+      h+='<div style="display:flex;align-items:center;gap:.5rem;padding:.22rem 0;font-size:.84rem">'
+        +'<i style="width:11px;height:11px;border-radius:3px;flex:none;background:'+_SCH_COL[r[1]]+'"></i>'
+        +'<span style="flex:1">'+r[0]+'</span>'
+        +'<span style="font-weight:700;min-width:40px;text-align:right">'+_schNum(r[3],0)+'%</span>'
+        +'<span style="color:var(--text3);font-size:.77rem;min-width:56px;text-align:right">'+_schNum(r[2])+' g</span></div>';
+    });
+    h+='<div style="font-size:.68rem;color:var(--text3);margin-top:.35rem;line-height:1.4">Le fette sono la quota di <b>calorie</b>, non di grammi: i grassi pesano più del doppio per grammo.</div>';
+  } else {
+    h+='<div style="font-size:.8rem;color:var(--text3)">Questo alimento non ha i valori nutrizionali impostati.</div>';
+  }
+  h+='</div></div>';
+
+  // ── quello che dice l'etichetta ──
+  h+='<div style="font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin:1rem 0 .45rem">Quello che dice l\'etichetta</div>';
+  if(!et){
+    h+='<div style="background:var(--bg);border-radius:9px;padding:.6rem .75rem;font-size:.78rem;color:var(--text2);line-height:1.5">'
+      +'Questo alimento non viene da una scansione: ha i macro, non ha un\'etichetta. '
+      +'Sale, zuccheri, saturi e fibra <b>non esistono per questo record</b> — e non vanno letti come zero.</div>';
+  } else {
+    h+='<div style="display:flex;flex-wrap:wrap;gap:.45rem">';
+    ['sale','zuccheri','saturi','fibra'].forEach(function(campo){
+      const s=_SCH_SOGLIE[campo], v=et.per100g?et.per100g[campo]:null;
+      if(v==null){
+        h+='<div style="flex:1 1 128px;border-radius:9px;padding:.5rem .65rem;background:repeating-linear-gradient(135deg,#f7f6f3,#f7f6f3 6px,#f1efec 6px,#f1efec 12px)">'
+          +'<div style="font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700">'+s.lab+'</div>'
+          +'<div style="font-size:.8rem;font-weight:600;color:var(--text3);margin-top:.1rem">non dichiarato</div>'
+          +'<div style="font-size:.62rem;color:var(--text3);margin-top:.15rem">Open Food Facts non ce l\'ha</div></div>';
+      } else {
+        h+='<div style="flex:1 1 128px;border-radius:9px;padding:.5rem .65rem;background:var(--bg)">'
+          +'<div style="font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700">'+s.lab+'</div>'
+          +'<div style="font-size:1.02rem;font-weight:700;margin-top:.05rem">'+_schNum(v*f)+' <span style="font-size:.7rem;font-weight:600;color:var(--text3)">g</span></div>'
+          +(perPorzione?'':_schMetro(campo,v))
+          +'<div style="font-size:.62rem;color:var(--text3);margin-top:.15rem">'+(perPorzione?'su '+gPorz+' g':(s.alto!=null?'soglia provvisoria':'soglia da decidere'))+'</div></div>';
+      }
+    });
+    h+='</div>';
+    // allergeni, a tre stati
+    const chip=function(t,c,b){ return '<span style="font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:999px;color:'+c+';background:'+b+'">'+E(t)+'</span>'; };
+    let coda='';
+    (et.allergeni||[]).forEach(function(x){ coda+=chip(_schTrad(x),'#A32D2D','#fdf0ee'); });
+    (et.tracce||[]).forEach(function(x){ coda+=chip('tracce: '+_schTrad(x),'#8a5a10','#fdf4e6'); });
+    (et.senza||[]).forEach(function(x){ coda+=chip(_schTrad(x),'#0F6E56','#e8f4ee'); });
+    if(!coda){
+      coda = _offAllergeniAffidabili(et)
+        ? chip('nessuno negli ingredienti trascritti','#0F6E56','#e8f4ee')
+        : (chip('scheda incompleta','#8a5a10','#fdf4e6')
+           +'<span style="font-size:.7rem;color:var(--text3)">gli ingredienti non sono stati trascritti: la lista vuota non vuol dire «non contiene»</span>');
+    }
+    h+='<div style="margin-top:.6rem;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">'
+      +'<span style="font-size:.7rem;color:var(--text3);font-weight:600">Allergeni dichiarati</span>'+coda+'</div>';
+    h+='<details style="margin-top:.6rem"><summary style="cursor:pointer;color:var(--text2);font-size:.74rem;font-weight:600">Ingredienti e altro</summary>'
+      +'<div style="margin-top:.4rem;color:var(--text2);font-size:.78rem;line-height:1.5">'
+      +(et.ingredienti?E(et.ingredienti):'<i>Nessuno li ha trascritti su Open Food Facts.</i>')+'</div>'
+      +'<div style="margin-top:.35rem;font-size:.67rem;color:var(--text3);line-height:1.45">NOVA '+(et.nova!=null?et.nova:'—')
+      +' · Nutri-Score '+(et.nutriscore?E(et.nutriscore.toUpperCase()):'—')
+      +' — <b>informativi, non clinici</b>: una A può convivere con un contenuto di sale proibitivo per un iperteso.</div></details>';
+  }
+
+  // ── valutazione clinica ──
+  let tot=0, fatti=0, corpo='';
+  _SCH_FAMIGLIE.forEach(function(fam){
+    let rr='', i=0;
+    fam.voci.forEach(function(voce){
+      const st=_schStatoCondizione(rec,voce); tot++;
+      if(st.s!=='valutare') fatti++;
+      const stile=_SCH_STILE[st.s]; i++;
+      rr+='<div style="display:flex;align-items:center;gap:.5rem;padding:.24rem .5rem;border-radius:6px;font-size:.78rem'+(i%2===0?';background:var(--s1)':'')+'">'
+        +'<span style="min-width:132px;flex:none">'+voce.lab+'</span>'
+        +'<span style="font-size:.63rem;font-weight:700;padding:1px 7px;border-radius:4px;flex:none;color:'+stile[0]+';background:'+stile[1]+'">'+stile[2]+'</span>'
+        +'<span style="color:var(--text3);font-size:.71rem;flex:1">'+E(st.m)+'</span></div>';
+    });
+    corpo+='<div style="margin-bottom:.45rem"><div style="font-size:.69rem;font-weight:700;color:var(--text2);margin:.45rem 0 .25rem">'
+      +fam.t+(fam.note?' <span style="font-weight:400;color:var(--text3)">— '+fam.note+'</span>':'')+'</div>'+rr+'</div>';
+  });
+  h+='<div style="font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:700;margin:1rem 0 .2rem;display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap">'
+    +'<span>Valutazione clinica</span>'
+    +'<span style="text-transform:none;letter-spacing:0;font-weight:500;font-size:.71rem">'+fatti+' valutate · <b style="color:#8a5a10">'+(tot-fatti)+' da valutare</b></span></div>'
+    +corpo;
+  h+='<div style="background:#fffaf0;border:1px solid #f0dcb8;border-radius:9px;padding:.55rem .75rem;margin-top:.5rem;font-size:.71rem;color:#6b4c12;line-height:1.5">'
+    +'<b>Anteprima.</b> Le soglie di sale, zuccheri e saturi sono quelle del semaforo britannico: soglie da '
+    +'<i>scaffale</i>, non cliniche. Questa scheda <b>non colora nulla e non entra in nessun calcolo</b> — '
+    +'serve a guardare i dati veri prima di decidere le soglie (P128 tappa 3).</div>';
+  return h;
+}
+
+// ── apertura / chiusura ────────────────────────────────────────────────────
+var _schRecord=null, _schPorzione=false;
+function apriSchedaAlimento(nome){
+  const rec=(typeof risolviAlimento==='function')?risolviAlimento(nome):null;
+  if(!rec){ notif('⚠ Alimento non trovato'); return; }
+  _schRecord=rec; _schPorzione=false;
+  _schDisegna();
+  document.getElementById('mo-alim-scheda').classList.add('open');
+}
+function _schPer(porzione){ _schPorzione=!!porzione; _schDisegna(); }
+function _schDisegna(){
+  const box=document.getElementById('alim-scheda-corpo');
+  if(box&&_schRecord) box.innerHTML=_schHtml(_schRecord,_schPorzione);
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // P108 FASE 1 — Sezione "Alimenti": catalogo unico (base CREA + personalizzati)
 // con lista/ricerca/filtri, form manuale (riusa mo-alim-custom), archivia/ripristina.
@@ -28108,12 +28385,13 @@ function renderAlimentiPage(){
     var chips='';
     (r.allergeni||[]).forEach(function(al){ chips+='<span class="tag tag-red" style="font-size:.6rem;margin-right:3px">⚠ '+E(al)+'</span>'; });
     var azioni='';
+    var _sch='<button class="btn btn-g btn-sm" onclick="apriSchedaAlimento(\''+nomeJs+'\')" title="Scheda alimento">🍽</button>';
     if(r.fonte==='crea'){
-      azioni='<span style="font-size:.66rem;color:var(--text3)">🔒 sola lettura</span>';
+      azioni=_sch+'<span style="font-size:.66rem;color:var(--text3);margin-left:.3rem">🔒 sola lettura</span>';
     } else if(r.attivo===false){
-      azioni='<button class="btn btn-g btn-sm" onclick="ripristinaAlimentoCustom(\''+nomeJs+'\')">↺ Ripristina</button>';
+      azioni=_sch+'<button class="btn btn-g btn-sm" onclick="ripristinaAlimentoCustom(\''+nomeJs+'\')">↺ Ripristina</button>';
     } else {
-      azioni='<button class="btn btn-g btn-sm" onclick="modificaAlimentoCustom(\''+nomeJs+'\')" title="Modifica valori">✎</button>'
+      azioni=_sch+'<button class="btn btn-g btn-sm" onclick="modificaAlimentoCustom(\''+nomeJs+'\')" title="Modifica valori">✎</button>'
            +'<button class="btn btn-g btn-sm" onclick="rinominaAlimentoCustom(\''+nomeJs+'\')" title="Rinomina ovunque">🏷</button>'
            +'<button class="btn btn-r btn-sm" onclick="archiviaAlimentoCustom(\''+nomeJs+'\')" title="Archivia">📦</button>';
     }

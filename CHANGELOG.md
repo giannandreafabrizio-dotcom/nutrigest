@@ -10,6 +10,54 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (7/7) — P128 TAPPA 2: LA SCHEDA ALIMENTO. Suite da 692 a 710
+verdi (18 test nuovi, `s2-scheda-alimento`).
+
+COS'E'. Pulsante 🍽 su ogni riga della sezione Alimenti — anche sui CREA-INRAN,
+perche' e' sola lettura — che apre una scheda con: ciambella dei macro in
+percentuale di CALORIE, interruttore 100 g / porzione, i quattro numeri clinici
+dell'etichetta col metro delle soglie, allergeni a tre stati, ingredienti, e la
+valutazione clinica delle 15 condizioni divise in tre famiglie col contatore
+"N valutate · M da valutare". Non tocca nessun dato e non entra in nessun calcolo.
+
+LA CIAMBELLA E' IN CALORIE, NON IN GRAMMI (decisione di Fabrizio): sui cracker i
+grammi direbbero 71% carboidrati e 18% grassi, le calorie 58% e 32%. In grammi i
+grassi risultano schiacciati — pesano piu' del doppio per grammo — e la
+ripartizione non si confronterebbe col target del paziente.
+
+LE SOGLIE SONO DICHIARATE PROVVISORIE A SCHERMO. Sale, zuccheri e saturi usano il
+semaforo britannico (FSA), che e' una soglia da SCAFFALE e non clinica. La scheda
+lo dice in fondo con un riquadro: "non colora nulla e non entra in nessun calcolo
+— serve a guardare i dati veri prima di decidere le soglie". Le soglie cliniche
+restano la tappa 3, L0, lavoro a quattro mani.
+
+UN DIFETTO CLINICO PRESO DA UN TEST, ed era il peggiore possibile in questa voce:
+uno **yogurt delattosato risultava VIETATO al paziente intollerante al lattosio**.
+Il motivo: il prodotto dichiara il LATTE fra gli allergeni (perche' il latte c'e')
+e la regola guardava l'allergene prima della dichiarazione "senza lattosio". Ora la
+dichiarazione "senza" viene PRIMA dell'allergene. Vale identico per il pane senza
+glutine certificato che porta "tracce di frumento" nella trascrizione: senza questa
+precedenza sarebbe vietato proprio al celiaco per cui e' fatto.
+
+E UNA LEZIONE SUL COME TESTARE. Il test che ha trovato il difetto inizialmente
+FALLIVA per colpa mia: costruiva la definizione della condizione a mano invece di
+leggere quella vera da `_SCH_FAMIGLIE`. Riscritto per prendere la configurazione
+REALE (`voce('all-lattosio')`): collaudare una configurazione che l'app non usa e'
+il modo piu' comodo per far passare un difetto ai test.
+
+DUE RIFINITURE VISTE SOLO APRENDO LA SCHEDA IN UN BROWSER, non leggendo il codice:
+  1. **Avere il numero non e' averlo valutato.** L'insufficienza renale mostrava
+     "valutato" perche' il sodio c'era, ma una soglia clinica per il sodio non
+     esiste ancora. Ora senza soglia si resta su "da valutare", col dato accanto:
+     dire "valutato" sarebbe la stessa bugia del bianco che significa due cose.
+  2. **I tag di Open Food Facts sono in inglese** e arrivavano a schermo cosi'
+     ("milk", "sesame seeds", "lactose free") in un'app italiana. Tradotti i piu'
+     frequenti; un tag sconosciuto resta com'e' — meglio una parola inglese che
+     una parola sparita.
+
+RESTA: tappa 3 (soglie cliniche, L0), 4 (allergeni come regola vera), 5 (stato
+derivato nella lista), 6 (marchio nel piano AI).
+
 5 AGOSTO 2026 (6/6) — P128 TAPPA 1: SI RACCOGLIE TUTTA L'ETICHETTA, NON PIU'
 QUATTRO NUMERI. Suite da 667 a 685 verdi (19 test nuovi, `s2-etichetta-off`).
 

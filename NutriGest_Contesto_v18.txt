@@ -1467,7 +1467,23 @@ Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
   senza etichetta del tutto e' 'incompleta', mai 'assente'. `completezza`
   (da `completeness`) e `stati` (da `states_tags`) si raccolgono come
   corroborazione ma la regola NON ci si appoggia. Raccolto anche
-  `nutrient_levels`: controprova delle soglie, mai sostituto. ──
+  `nutrient_levels`: controprova delle soglie, mai sostituto.
+  SCHEDA ALIMENTO (P128 tappa 2, 5 ago 2026): pulsante 🍽 su ogni riga della
+  sezione Alimenti (anche sui CREA: e' sola lettura) -> modale
+  `mo-alim-scheda`, contenuto da `_schHtml(rec, perPorzione)`. Ciambella dei
+  macro in percentuale di CALORIE (C x4, P x4, G x9 — `_schQuoteKcal`), non di
+  grammi; interruttore 100 g / porzione (`_schPer`); i quattro numeri clinici
+  con metro `_schMetro`; allergeni a tre stati con tag tradotti (`_schTrad`);
+  valutazione delle 15 condizioni per famiglia (`_SCH_FAMIGLIE`,
+  `_schStatoCondizione`) col contatore "N valutate / M da valutare".
+  LE SOGLIE `_SCH_SOGLIE` SONO PROVVISORIE (semaforo UK FSA, da scaffale) e
+  vivono SOLO qui: la scheda non colora niente altrove e non entra in nessun
+  calcolo — lo dichiara a schermo. Le soglie cliniche sono la tappa 3.
+  Regole non negoziabili gia' costate un difetto: (a) la dichiarazione "senza"
+  viene PRIMA dell'allergene, altrimenti un delattosato risulta vietato
+  all'intollerante al lattosio e un pane senza glutine certificato al celiaco;
+  (b) avere il numero non e' averlo valutato — senza soglia lo stato resta
+  "da valutare", col dato accanto. ──
   l'utente conferma o corregge come per un alimento manuale. Se il
   prodotto non è su OFF o il servizio è irraggiungibile, messaggi
   dedicati che non bloccano il flusso (form vuoto con barcode agganciato,
