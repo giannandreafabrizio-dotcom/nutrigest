@@ -10,6 +10,62 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 5) — P148: SEI VOCI CORRETTE DA FABRIZIO, E LA SOGLIA
+ANNULLATA PERCHÉ LA DOMANDA ERA SBAGLIATA. Baseline 2e5c1b9. Zero codice.
+
+IL CHIARIMENTO CHE ANNULLA DUE DECISIONI. Poche ore dopo aver deciso la soglia
+("maggioranza vera invece dell'80%"), Fabrizio ha chiarito cosa intendeva:
+l'integratore va nel pasto più grasso DI QUEL GIORNO, e il pasto vincente può
+cambiare durante la settimana in base al piano. L'assegnazione è quindi giorno
+per giorno, non una scelta unica per l'intero piano — e con questa lettura il
+problema della soglia non si risolve, semplicemente NON ESISTE. LA LEZIONE, che
+vale oltre P148: due decisioni sono state prese, discusse e committate su una
+domanda che non andava posta. La domanda nasceva da un mio errore di
+comprensione del requisito, non dal problema reale; averla posta con due
+opzioni ben argomentate l'ha fatta sembrare legittima. Prima di far scegliere
+fra due varianti di una regola, va verificato che la REGOLA sia quella che
+l'utente ha in testa — altrimenti si raffina con precisione la risposta
+sbagliata. Stessa famiglia della regola 16 (contare le occorrenze non è ancora
+classificarle): il lavoro apparente nasconde che il presupposto non è stato
+controllato.
+
+SEI VOCI DI CATALOGO CORRETTE DA FABRIZIO: magnesio+potassio (non solo la sera
+— anche post-allenamento, dopo sudorazione importante, nella stanchezza);
+magnesio da solo (due usi distinti: mattina per l'energia, sera per il sonno);
+multivitaminico (colazione/pranzo/cena, mai a stomaco vuoto); probiotico (NON a
+stomaco vuoto come avevo scritto io — durante i pasti, pranzo o cena); creatina
+(dopo il pasto più ricco di carboidrati); BCAA (1 g ogni 10 kg di peso, metà
+prima e metà dopo l'allenamento). Voci riviste da Fabrizio: 9 su 25.
+
+TRE CONSEGUENZE STRUTTURALI, non testuali, nate da quelle correzioni:
+(a) La creatina introduce una SECONDA regola automatica, 'pasto_piu_carbo',
+identica per forma a quella dei grassi. `regolaOrario` diventa una famiglia
+('fisso' | 'pasto_piu_grasso' | 'pasto_piu_carbo'). Costo quasi nullo: la
+funzione che somma i grassi per slot somma già i carboidrati — va però scritta
+generica da subito, `pastoMaxPerMacro(piano, giorno, macro)`, invece di
+scriverne una sui grassi e doverla poi duplicare.
+(b) I BCAA rendono la DOSE dipendente dal paziente (1 g/10 kg): non più una
+stringa fissa ma una forma calcolata, risolta a video leggendo il peso
+dall'InBody più recente (regola 10) e MAI copiata dentro la routine del
+paziente. Un peso congelato lì dentro sarebbe la doppia fonte di verità di F4 e
+della regola 12: dopo tre mesi mostrerebbe una dose calcolata su un peso che non
+esiste più, senza un errore a video.
+(c) Il magnesio (due usi distinti) e magnesio+potassio (sera oppure post-sforzo)
+mostrano che `quando` può avere PIÙ ALTERNATIVE legittime. Comprimerle in una
+frase unica perde l'informazione clinica che le rende utili: va previsto come
+elenco di alternative col rispettivo motivo, e il nutrizionista sceglie quale
+finisce nel PDF.
+
+IL CATALOGO È UN DEFAULT SCAVALCABILE. Fabrizio ha precisato che i consigli
+sono scritti e visibili ma ogni nutrizionista sceglie se applicarli o
+cambiarli; vale anche per il pasto calcolato, che si presenta compilato ma
+modificabile e non viene risovrascritto da un ricalcolo. Questo abbassa il
+rischio delle bozze ma NON sostituisce la revisione clinica: un default
+sbagliato che nessuno corregge finisce comunque nel PDF del paziente — è
+esattamente il modo in cui sarebbero passati i valori FODMAP sbagliati
+(regola 14). Restano 16 voci mie da controllare, fra cui le 3 con interazione
+farmacologica e la pappa reale.
+
 5 AGOSTO 2026 (seguito 4) — P148: DUE DELLE TRE DOMANDE CHIUSE.
 Baseline 87d6e47. Sempre zero codice: solo la scheda di roadmap.
 

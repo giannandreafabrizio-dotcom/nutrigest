@@ -713,11 +713,30 @@ swatch della legenda — nessun impatto sui dati salvati.
 **2. UN CATALOGO UNICO, CON UNO SCHEMA PIÙ RICCO** (`CATALOGO_INTEGRATORI`, sostituisce
 `INTEGR_KEYS`/`INTEGR_LABELS` e il blocco "integratore" di `LIBRERIA_ROUTINE`). Ogni voce:
 `{chiave, nome, dose, quantiVolte, quando, regolaOrario, sinergie[], evitareCon[],
-razionale}`. `regolaOrario` è `'fisso'` (usa il testo di `quando`) oppure
-`'pasto_piu_grasso'` (vedi punto 4) per i liposolubili. `sinergie`/`evitareCon` alimentano
+razionale}`. `regolaOrario` vale `'fisso'` (usa il testo di `quando`), `'pasto_piu_grasso'`
+o `'pasto_piu_carbo'` (vedi punto 4). `sinergie`/`evitareCon` alimentano
 sia il testo del razionale sia il tooltip "ⓘ" proposto da Fabrizio accanto a ogni voce di
 Clinica e di Routine (un click apre una spiegazione breve: dose, quando, con cosa
 abbinarlo, cosa evitare).
+
+**DUE AGGIUNTE ALLO SCHEMA, emerse dalle correzioni di Fabrizio del 5 ago 2026 — sono
+strutturali, non testuali:**
+
+- **`dose` non è sempre una stringa fissa.** I BCAA vanno dosati a *1 g ogni 10 kg di peso
+  corporeo*: la dose dipende dal paziente e **cambia quando cambia il peso**. Serve una
+  forma calcolata — `{tipo:'per_peso', gPer10kg:1}` — risolta al momento della
+  visualizzazione leggendo il peso attuale dalla STESSA fonte che usa il resto dell'app
+  (l'InBody più recente, ordinato — regola 10), mai un peso copiato e congelato dentro la
+  routine del paziente. Un peso congelato è esattamente la doppia fonte di verità che F4
+  e la regola 12 dicono di non creare: dopo tre mesi mostrerebbe una dose calcolata su un
+  peso che non esiste più, senza un errore a video.
+- **`quando` può avere più alternative legittime, non una sola.** Il magnesio da solo ha
+  *due usi distinti* (mattina per l'energia, sera per il sonno) e si sceglie in base
+  all'obiettivo del paziente; magnesio+potassio vale la sera *oppure* dopo l'allenamento,
+  dopo una sudorazione importante, o nella stanchezza. Comprimere questi casi in una frase
+  unica perde l'informazione clinica che li rende utili. `quando` va quindi previsto come
+  elenco di alternative con il rispettivo motivo, non come stringa singola — e il
+  nutrizionista sceglie quale finisce nel PDF.
 
 **IL CATALOGO COMPLETO — bozza mia su richiesta esplicita di Fabrizio ("completali tu
 tutti"), da rivedere riga per riga prima che vada in produzione: è contenuto clinico,
@@ -730,14 +749,14 @@ non invenzioni — ma vanno lette con occhio clinico da chi prescrive davvero.
 | **[F] Omega-3 (EPA/DHA)** | 1 g | 🔥 pasto più grasso | Vitamina D3 | — |
 | **[F] Vitamina D3** | 2000 UI mantenimento / 4000 UI dose maggiore *(selettore già presente in Clinica, nessuna modifica UI)* | 🔥 pasto più grasso | Omega-3, Vitamina K2 | — |
 | **[F] Ferro (bisglicinato)** | 25 mg | Lontano dai pasti, o con vit.C | Vitamina C | Latticini, tè, caffè (tannini/calcio riducono l'assorbimento — distanziare 1-2h) |
-| Magnesio + Potassio | 300mg + 200mg (indicativo, varia per formulazione) | La sera | — | Funzione renale ridotta → SEMPRE concordare col medico prima |
-| Solo Magnesio (glicinato) | 300 mg | La sera prima di dormire | — | — |
-| Multivitaminico | 1 compressa | Mattino con colazione | — | — |
-| Probiotico (multistrain) | 10 mld UFC | Mattino a stomaco vuoto | — | Bevande/cibi molto caldi nello stesso momento |
-| Creatina (monoidrato) | 5 g | In qualsiasi momento, con costanza | — | — |
+| **[F] Magnesio + Potassio** | 300mg + 200mg (indicativo, varia per formulazione) | La sera, **oppure** dopo l'allenamento, dopo una sudorazione importante, o nei momenti di stanchezza | — | Funzione renale ridotta → SEMPRE concordare col medico prima |
+| **[F] Solo Magnesio (glicinato)** | 300 mg | **Due usi distinti:** la mattina per un effetto energizzante, la sera per migliorare il sonno — si sceglie in base all'obiettivo del paziente | — | — |
+| **[F] Multivitaminico** | 1 compressa | A colazione, pranzo o cena — **mai a stomaco vuoto** | — | — |
+| **[F] Probiotico (multistrain)** | 10 mld UFC | Durante i pasti, a pranzo o a cena — **mai a stomaco vuoto** | — | Bevande/cibi molto caldi nello stesso momento |
+| **[F] Creatina (monoidrato)** | 5 g | 🍞 dopo il pasto più ricco di carboidrati della giornata | — | — |
 | Vitamina K2 (MK-7) | 100 mcg | 🔥 pasto più grasso | Vitamina D3 | **Anticoagulanti (warfarin) — interferenza nota, segnalare sempre** |
 | Proteine in polvere | 25-30 g | Post-allenamento o spuntino | — | — |
-| BCAA (ramificati) | 5 g | Prima/durante l'allenamento | — | — |
+| **[F] BCAA (ramificati)** | **1 g ogni 10 kg di peso corporeo** (es. 70 kg → 7 g) — dose calcolata sul peso attuale del paziente, non fissa | Metà prima dell'allenamento, metà dopo | — | — |
 | EAA (essenziali) | 10 g | Prima/durante l'allenamento | — | — |
 | Leucina | 2-3 g | Ai pasti principali | — | — |
 | Pappa reale | 500mg-1g | Mattino a digiuno, a cicli | — | **Asma/allergia ai prodotti dell'alveare — rischio reazione allergica** |
@@ -754,9 +773,13 @@ non invenzioni — ma vanno lette con occhio clinico da chi prescrive davvero.
 | Collagene idrolizzato | 10 g | Mattino a stomaco vuoto | Vitamina C (cofattore di sintesi) | — |
 | Melatonina | 0,5-1 mg | 30min prima di dormire | Magnesio | (dosi basse spesso più efficaci delle alte — non aumentare "a caso" se non funziona subito) |
 
-**Le 4 righe con 🔥 e le 3 rimaste con "Evitare con" in grassetto sono quelle che meritano
-la tua occhiata per prima** (la quarta, Blu di metilene, è stata tolta) — le altre sono
-dosaggi standard a basso rischio. Voci attive nel catalogo dopo la rimozione: **25**.
+**Legenda:** 🔥 = va nel pasto più grasso del giorno · 🍞 = va dopo il pasto più ricco di
+carboidrati del giorno · **[F]** = dettata o corretta da Fabrizio.
+
+Voci attive: **25**. Riviste da Fabrizio finora: **9** (le 3 dettate all'inizio + le 6
+corrette il 5 ago). **Restano 16 voci mie ancora da controllare**, fra cui le 3 con
+un'incompatibilità farmacologica in grassetto (K2 e CoQ10 con gli anticoagulanti,
+Berberina con gli ipoglicemizzanti) e la Pappa reale con le allergie all'alveare.
 
 **3. Migrazione dati pazienti esistenti** invariata rispetto alla bozza precedente:
 mappa etichetta-vecchia → chiave-nuova, eseguita in lettura, nessuna voce persa (se
@@ -775,55 +798,81 @@ testabile, che spezzi lo stesso calcolo per slot (`colazione`/`pranzo`/`cena`/..
 che per giorno, sullo STESSO piano già generato — zero chiamate AI aggiuntive, zero costo,
 risultato deterministico e riproducibile.
 
-**LA SOGLIA — decisa da Fabrizio il 5 ago 2026: maggioranza, non l'80%.** La proposta
-iniziale era "stesso pasto in almeno l'80% dei giorni"; Fabrizio ha scelto la maggioranza
-semplice, per avere meno interruzioni. **Precisazione necessaria in fase di scrittura,
-perché "maggioranza semplice" ha due letture e una fa danno:** si implementa come
-maggioranza VERA, cioè più del 50% dei giorni (almeno 4 su 6, 4 su 7 per i chetogenici) —
-NON come maggioranza relativa. Su un piano frammentato (pranzo 2 giorni, cena 2, colazione
-2) esisterebbe un "vincitore" con un terzo dei casi: consigliarlo in silenzio sarebbe
-fingere una certezza inesistente.
+**⚠️ LA SOGLIA A MAGGIORANZA È SUPERATA — decisa e annullata lo stesso giorno.** Il 5 ago
+2026, dopo aver deciso "maggioranza vera invece dell'80%", Fabrizio ha chiarito cosa
+intendeva davvero: *"se un paziente assume vit d tutti i giorni nutrigest lo deve
+consigliare nel pasto della giornata con più grassi… che può essere variabile durante la
+settimana in base al piano alimentare."* Cioè **l'assegnazione è GIORNO PER GIORNO**:
+lunedì a pranzo se lunedì il pranzo è il pasto più grasso, martedì a cena se martedì lo è
+la cena. Non si sceglie un unico pasto per tutto il piano.
 
-**Cosa succede sotto soglia.** Non un avviso: il campo resta sul **testo generico del
-catalogo** ("durante i pasti principali"). È la scelta coerente con la richiesta di
-Fabrizio di non essere interrotto e insieme con la regola che un dato ambiguo non si
-traveste da certo — semplicemente il sistema non afferma ciò che non può sostenere. Nota
-di collaudo, famiglia della regola 19: **la metà più importante dei test qui è che il
-suggerimento specifico NON compaia** su un piano vario.
+**Con questa lettura il problema della soglia sparisce, non si risolve — non esisteva.**
+La soglia serviva a decidere quale pasto vincesse *sull'intera settimana*: una domanda che
+nasceva da un mio errore di comprensione, non dal problema reale. Ogni giorno ha la sua
+risposta, calcolata sul piano di quel giorno, senza ambiguità da dichiarare. **Lezione da
+non perdere: due decisioni (80% → maggioranza) sono state prese e committate su una
+domanda che non andava posta.** Prima di far scegliere all'utente fra due varianti di una
+regola, va verificato che la regola stessa sia quella che l'utente ha in testa — altrimenti
+si raffina con precisione la risposta sbagliata. La maggioranza sopravvive solo come
+eventuale frase di riepilogo a schermo ("di solito a pranzo"), mai come meccanismo.
 
-Si applica alle 4 voci liposolubili del catalogo (Omega-3, Vitamina D3, Vitamina K2,
-Coenzima Q10 — marcate 🔥 sopra). Il suggerimento compare quando si apre/aggiorna la
-scheda Routine di un paziente con un piano già generato; se il paziente non ha ancora un
-piano, il campo resta sul testo generico del catalogo ("durante i pasti principali").
+**DUE REGOLE, NON UNA — la creatina ne ha aggiunta una seconda.** Correggendo il catalogo,
+Fabrizio ha scritto che la creatina va *"dopo il pasto con più carboidrati della
+giornata"*. È la stessa identica forma della regola dei grassi, con un'altra macro. Quindi
+`regolaOrario` non è binario ma una piccola famiglia: `'fisso'` · `'pasto_piu_grasso'` (🔥
+Omega-3, Vitamina D3, Vitamina K2, Coenzima Q10) · `'pasto_piu_carbo'` (🍞 Creatina).
+**Costo aggiuntivo praticamente nullo:** la funzione che somma i grassi per slot pasto
+somma già anche i carboidrati — cambia la chiave della macro su cui si cerca il massimo,
+non il motore. Vale la pena scriverla generica fin da subito (`pastoMaxPerMacro(piano,
+giorno, macro)`) invece di scriverne una per i grassi e poi doverla duplicare.
+
+**Quando manca il piano.** Se il paziente non ha ancora un piano generato, non c'è niente
+su cui calcolare: il campo resta sul testo generico del catalogo ("durante i pasti
+principali"). Nota di collaudo, famiglia della regola 19: **una metà dei test deve
+verificare che il suggerimento specifico NON compaia** quando non c'è un piano da leggere.
 
 **5. Il collegamento Clinica→Routine resta un suggerimento, non un automatismo** (invariato
 dalla bozza precedente): "prende già"/"vorrebbe" è un fatto di anamnesi, la voce in
 Routine è la prescrizione per il PDF — restano due scritture distinte, collegate da un
 suggerimento cliccabile, mai una scrittura automatica silenziosa.
 
+**6. TUTTO IL CATALOGO È UN DEFAULT SCAVALCABILE, sempre.** Parole di Fabrizio (5 ago
+2026): *"tutti questi sono consigli che saranno scritti e visibili però poi ogni
+nutrizionista manualmente sceglierà se cambiare i consigli oppure applicarli."* Vale anche
+per le due regole automatiche del punto 4: il pasto calcolato si presenta **già compilato
+ma modificabile**, e il valore scelto a mano non viene mai risovrascritto da un ricalcolo
+successivo. Questo è anche il motivo per cui il catalogo può partire con delle bozze senza
+essere pericoloso — ma NON è un motivo per saltare la revisione clinica: un default
+sbagliato che nessuno corregge finisce comunque nel PDF del paziente, ed è precisamente il
+modo in cui i valori FODMAP sbagliati sarebbero passati (regola 14).
+
 ---
 
 **DOMANDE APERTE — stato al 5 ago 2026:**
-1. ⏳ **ANCORA APERTA, è quella che blocca il codice.** Le voci non dettate da Fabrizio nel
-   catalogo — vanno bene così o va corretto/scartato qualcosa? In particolare le 3 rimaste
-   con un'incompatibilità in grassetto: **K2 + anticoagulanti, CoQ10 + anticoagulanti,
-   Berberina + ipoglicemizzanti**, più **Pappa reale + allergie all'alveare**. È contenuto
-   clinico che finisce davanti a un paziente: non si scrive in codice finché Fabrizio non
-   l'ha letto riga per riga. Le altre 21 voci sono dosaggi standard a basso rischio.
+1. ⏳ **APERTA A METÀ — è quella che blocca il codice.** Fabrizio ha rivisto 9 voci su 25
+   (le 3 dettate all'inizio + 6 corrette il 5 ago: magnesio+potassio, magnesio, multi-
+   vitaminico, creatina, BCAA, probiotico). **Restano 16 voci mie non ancora controllate**,
+   fra cui le 3 con un'incompatibilità farmacologica in grassetto (**K2 + anticoagulanti,
+   CoQ10 + anticoagulanti, Berberina + ipoglicemizzanti**) e la **Pappa reale + allergie
+   all'alveare**. È contenuto clinico che finisce davanti a un paziente: non si scrive in
+   codice finché Fabrizio non l'ha letto riga per riga. Il fatto che ciascuna voce sia
+   scavalcabile a mano (punto 6) NON sostituisce questa revisione.
 2. ✅ **RISPOSTA: Blu di metilene TOLTO dal catalogo** (vedi tabella sopra). Resta
    gestibile come nota libera sul paziente.
-3. ✅ **RISPOSTA: maggioranza, non 80%** — implementata come maggioranza vera (>50% dei
-   giorni), con ricaduta sul testo generico sotto soglia invece che su un avviso (vedi
-   punto 4).
+3. ⛔ **DOMANDA ANNULLATA — non andava posta.** La risposta data (maggioranza vera invece
+   dell'80%) è stata superata poche ore dopo dal chiarimento di Fabrizio: l'assegnazione è
+   giorno per giorno, quindi non c'è nessuna soglia da fissare. Vedi punto 4 per il
+   ragionamento completo e la lezione.
 
 **FOCUS COMPONENTI COINVOLTI:** Frontend (scheda Clinica + scheda Routine, tooltip ⓘ),
 un nuovo motore puro (grassi per slot pasto, stesso stile di `calcolaMacrosPiano`), dati
 paziente (`p.integratori`/`p.integraWant`/`p.routineGiornaliera` — nessuna migrazione a
 tabella Supabase, restano nel blob paziente).
-**SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026 — 2 domande su 3 risolte (Blu di
-metilene tolto, soglia a maggioranza vera). Resta APERTA la domanda 1: la revisione clinica
-delle voci di catalogo non dettate da Fabrizio. È l'unica cosa che blocca l'inizio del
-codice** · Priorità: Media · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un
+**SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026** — meccanismo chiuso (assegnazione
+giorno per giorno, due regole 🔥grassi e 🍞carboidrati, nessuna soglia; dose per peso e
+`quando` con alternative aggiunti allo schema). **Blocca il codice solo la revisione
+clinica delle 16 voci di catalogo non ancora controllate da Fabrizio** (9 su 25 già
+riviste) · Priorità: Media · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un
 motore di calcolo nuovo) · Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
 
 ### P74 — Estrazione entità dal blob + fine dei meta-record
