@@ -73,8 +73,13 @@ test('ENERGIA — intake futuro = kcal delle fasi (pct del TDEE stimato corrente
 test('ENERGIA — TDEE osservato come segmento sul suo tratto di calcolo', () => {
   const d70 = iso(Date.now() - 70 * G), d50 = iso(Date.now() - 50 * G), d10 = iso(Date.now() - 10 * G);
   const paz = inWin(pazBase({
-    inbody: [{ data: d70, peso: 90, pg: 30, mb: 1700 }],
-    pesiIntermedi: [{ data: d50, peso: 89.2 }, { data: d10, peso: 87.8 }],
+    // P35 tappa 1 (5 ago 2026): il TDEE osservato si calibra SOLO su misurazioni
+    // di studio — due bilance diverse non calibrano un metabolismo. La fixture
+    // usava due pesate di casa: ora sono tre InBody, con d70 come ancora della
+    // fase acqua/glicogeno (i primi 14 giorni restano esclusi).
+    inbody: [{ data: d70, peso: 90, pg: 30, mb: 1700 },
+             { data: d50, peso: 89.2, pg: 29, mb: 1700 },
+             { data: d10, peso: 87.8, pg: 28, mb: 1700 }],
     macrosStorico: [{ kcal: 1800, tdee: 2500, timestamp: Date.now() - 70 * G }],
     percorso: { inizio: d10, fasi: [{ tipo: 'mantenimento', settimane: 8, pct: 0 }] }
   }));

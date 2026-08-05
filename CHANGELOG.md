@@ -10,6 +10,90 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (5/5) — P35 TAPPE 1 E 2: LE DUE BILANCE SI SEPARANO, E IL PESO
+CASALINGO HA UN GRAFICO. Suite da 630 a 665 verdi (35 test nuovi).
+
+IL DISEGNO, deciso da Fabrizio guardando tre mockup successivi. Alla domanda su
+quali tappe opzionali fare la risposta e' stata "voglio cose semplici, non voglio
+riempire di grafici anche il peso casalingo": UN grafico solo, con interruttori
+per accendere anche la serie dello studio, una barra di scorrimento nel tempo e
+pochi numeri. Scartate quindi la striscia di aderenza (tappa 4 della scheda) e il
+confronto casa-studio come pannello a se' (tappa 5) — quest'ultima e' comunque
+soddisfatta nella forma sicura che la scheda stessa prescriveva: le due serie sullo
+stesso asse dei tempi senza fonderle, nessun numero derivato, nessun offsetBilancia.
+
+TAPPA 1 — LA SEPARAZIONE, che era la correzione di un difetto clinico silenzioso.
+`_serieePesoOss` fondeva p.inbody[] e p.pesiIntermedi[] in una serie sola, e quella
+serie alimentava tre numeri clinici: il valore attuale del traguardo di peso, il
+punto di partenza della proiezione, e il Δpeso che calibra il TDEE osservato. Se la
+bilancia di casa legge 1,2 kg in piu' di quella dello studio, quel 1,2 entrava come
+se fosse grasso preso — in tutti e tre. Nasce `_seriePesoClinico(p)` (solo InBody) e
+i tre punti leggono da li'. La serie fusa resta viva ma con un uso dichiarato:
+`_percorsoChartSvg` (che disegna i due tipi di punto e la fonte si vede a schermo) e
+`_percorsoShiftGiorni` (che usa solo la DATA dell'ultima pesata come ancora, non i
+kg). Il compromesso — meno dati per il TDEE osservato — era gia' stato accettato da
+Fabrizio il 4 agosto: la risposta e' clinica, proporre una misurazione professionale
+ogni due-tre settimane.
+  Corretto nello stesso giro anche il delta della lista, che era calcolato contro il
+PRIMO PESO INBODY: il paziente vedeva addosso lo scarto di taratura il giorno stesso
+in cui iniziava. Ora ogni serie si confronta con la propria prima misura.
+  TRE TEST ESISTENTI SONO DIVENTATI ROSSI, ed era il punto. Uno si chiamava "il peso
+usa anche le pesate intermedie, non solo gli InBody": codificava esattamente il
+comportamento che questa tappa rovescia, ed e' stato riscritto al contrario con la
+spiegazione del perche'. Due fixture del TDEE osservato calibravano su pesate di casa
+e ora usano InBody. Un test che diventa rosso per una decisione presa non e' un test
+sbagliato: e' la decisione che si vede.
+
+TAPPA 2 — IL GRAFICO (prefisso `_pcas*`). Due serie separate sullo stesso asse dei
+tempi, con segni diversi (pallini per casa, rombi e tratteggio per lo studio) perche'
+restino leggibili come DUE STRUMENTI anche accese insieme. Media mobile a 7 giorni
+calcolata su una FINESTRA DI DATE e non sulle ultime 7 righe dell'array — con pesate
+a buchi "le ultime 7 pesate" puo' voler dire un mese — e la linea si INTERROMPE dove
+la finestra ha meno di 3 pesate, invece di interpolare sopra il vuoto. Barra di
+scorrimento trascinabile sotto al grafico, con 1 mese / 3 mesi / Tutto come
+scorciatoie che muovono la barra invece di essere un secondo controllo che puo' dire
+un'altra cosa. Tre numeri che seguono la finestra scelta: ultima pesata, variazione,
+velocita' in kg/settimana col metro della fascia di ritmo.
+
+LA FASCIA ESISTEVA GIA' e si chiama `_ibFasciaRitmo` (P132). Ne avevo scritta una
+seconda dentro il blocco nuovo prima che il repo mi correggesse: e' la regola 15,
+ripara il rubinetto — due copie della stessa soglia divergono al primo ritocco e i
+grafici InBody direbbero una cosa diversa dal peso casalingo sullo stesso paziente.
+Riusata quella, con la stessa disciplina di P132: si colora SOLO il calo troppo
+rapido, la lentezza e' scritta a parole e non colorata.
+
+TRE DIFETTI TROVATI DAI TEST E DAL COLLAUDO, non dalla rilettura del codice:
+  1. `parseFloat("78,5")` vale 78. La virgola italiana in un peso salvato diventava
+     mezzo chilo di errore MUTO. Nasce `_pcasNumero`, che converte la virgola e
+     scarta tutto cio' che non e' un numero pulito invece di arrotondarlo (regola 11:
+     un ripiego silenzioso su un dato e' un bug in attesa).
+  2. La tessera diceva "in 124 giorni" ma la variazione e' misurata fra i CENTRI dei
+     due gruppi di estremo, cioe' su meno giorni. E' la stessa famiglia del difetto
+     "Ultima settimana: -1,3 kg in 21 giorni" che questa voce corregge: l'etichetta
+     non deve mai dichiarare un denominatore piu' grande di quello usato. Ora la
+     tessera dice "misurata su N giorni" con gli N veri.
+  3. Con gruppi di estremo fissi a 7 giorni, un paziente che si pesa due volte a
+     settimana non vedeva quasi mai un numero — una pesata sola nei primi 7 giorni.
+     I gruppi ora si allargano fino a 21 giorni finche' non trovano 2 pesate. Trovato
+     provando il mockup su una serie rada, non leggendo il codice.
+
+LA META' DEI 35 TEST NUOVI VERIFICA IL SILENZIO (regola 19): finestra sotto i 14
+giorni, una sola pesata per lato, finestra sopra un buco, coda della finestra vuota,
+pesate tutte ravvicinate, bordi esatti della fascia che NON sono fuori fascia. Due
+pesate a tre giorni di distanza con il rumore di mezzo chilo darebbero "-1,9 kg a
+settimana" senza che sia successo niente: meglio nessun numero.
+
+COLLAUDO. `node --check`, 665/665 verdi, INDEX.md rigenerato, e la sezione renderizzata
+in un browser vero su una serie demo di 125 giorni con 68 pesate — e' li' che si e'
+visto il difetto 3 e che la lista di 68 righe sotto al grafico era diventata
+ingestibile (ora si ferma a 10 con "Mostra tutte"). I calcoli sono stati verificati
+contro un'implementazione indipendente in Python prima di scrivere il codice: zero
+discordanze su 125 giorni.
+
+RESTA APERTO: la striscia di aderenza, se un domani servisse per i pazienti lontani.
+E la domanda di P132 sulla lentezza resta decisa nel modo prudente (non si colora),
+coerente con l'esistente.
+
 5 AGOSTO 2026 (4/4) — MANUTENZIONE DOCUMENTAZIONE, su osservazione di Fabrizio.
 "Stai producendo davvero tanti documenti e molto lunghi, ho paura che nel tempo
 diventi troppo grande." Misurato: il CHANGELOG era a 8457 righe / 548K, e 493

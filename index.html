@@ -6811,8 +6811,8 @@ function _percorsoKcalFase(p, pct){
 function _percorsoProiezione(p){
   const percorso=_percorsoGet(p);
   if(!percorso || !percorso.fasi.length) return {ok:false, motivo:"nessuna fase pianificata"};
-  const serie=_serieePesoOss(p);
-  if(!serie.length) return {ok:false, motivo:"nessun peso registrato"};
+  const serie=_seriePesoClinico(p);   // P35 tappa 1: la proiezione parte da una misura di studio
+  if(!serie.length) return {ok:false, motivo:"nessun peso registrato in studio (le pesate di casa non calibrano la proiezione)"};
   const ct=calcolaTDEE(p);
   if(!ct || !ct.tdee) return {ok:false, motivo:"TDEE non calcolabile (manca InBody)"};
   const start=serie[serie.length-1];
@@ -7267,7 +7267,7 @@ function _traguardoValoreAttuale(p, t){
   const f=_TRG_TIPI[t.tipo].fonte;
   if(f==="manuale") return null;
   if(f==="peso"){
-    const s=_serieePesoOss(p);              // include le pesate intermedie
+    const s=_seriePesoClinico(p);           // P35 tappa 1: il traguardo si valuta sulla bilancia dello studio
     return s.length?{valore:+s[s.length-1].peso, data:s[s.length-1].data}:null;
   }
   if(f==="inbody"){
@@ -13177,57 +13177,549 @@ function _ibFmtBreve(d){
   const dt=new Date(d);return dt.getDate()+' '+mesi[dt.getMonth()];
 }
 // ═══════════════════════════════════════════════════════════
-// C4 — PESI INTERMEDI CASALINGHI
+// C4 / P35 — PESO CASALINGO
 // p.pesiIntermedi[] = [{data:'YYYY-MM-DD', peso:XX.X}]
+//
+// Due serie SEPARATE e mai fuse: la bilancia di casa e quella dello studio
+// sono due strumenti diversi. Ogni serie si confronta con la PROPRIA prima
+// misura: usare il primo peso InBody come base del delta casalingo trasla
+// tutto lo storico dello scarto di taratura fra le due bilance (difetto
+// corretto il 5 ago 2026 — stessa famiglia di F4/P118/P120).
+//
+// Tre numeri, un metodo solo: media delle prime pesate della finestra contro
+// media delle ultime, divise per la distanza VERA fra i centri dei due gruppi.
+// I gruppi partono da 7 giorni e si allargano fino a 21 finché non trovano
+// almeno 2 pesate: con una soglia fissa a 7 un paziente che si pesa due volte
+// a settimana non vedrebbe quasi mai un numero.
 // ═══════════════════════════════════════════════════════════
 
+const _PCAS_MM_RAGGIO   = 3;   // media mobile: ±3 giorni intorno al giorno (finestra di 7)
+const _PCAS_MM_MIN      = 3;   // pesate minime nella finestra perché la media esista
+const _PCAS_EDGE_MIN    = 7;   // ampiezza iniziale del gruppo di estremo, in giorni
+const _PCAS_EDGE_MAX    = 21;  // ampiezza massima a cui il gruppo può allargarsi
+const _PCAS_EDGE_N      = 2;   // pesate minime in un gruppo di estremo
+const _PCAS_FIN_MIN     = 14;  // giorni minimi della finestra perché i numeri si calcolino
+const _PCAS_LISTA_MAX   = 10;  // righe mostrate nell'elenco prima di "mostra tutte"
+const _PCAS_COL_CASA   = '#2a78d6';
+const _PCAS_COL_STUDIO = '#DD5A33';
+const _PCAS_COL_MEDIA  = '#1D9E75';
+
+// ── date: sempre locali, mai toISOString (regola 16 / s1-date-locali) ──
+function _pcasData(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||''));
+  if(!m) return null;
+  const d=new Date(+m[1],+m[2]-1,+m[3]);
+  return isNaN(d.getTime())?null:d;
+}
+function _pcasAddGg(iso,n){
+  const d=_pcasData(iso); if(!d) return null;
+  d.setDate(d.getDate()+n); return ymdLoc(d);
+}
+function _pcasGgTra(a,b){
+  const da=_pcasData(a), dbb=_pcasData(b);
+  if(!da||!dbb) return null;
+  return Math.round((dbb.getTime()-da.getTime())/86400000);
+}
+function _pcasFmtBreve(iso){
+  const mesi=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const d=_pcasData(iso); if(!d) return '—';
+  return d.getDate()+' '+mesi[d.getMonth()];
+}
+function _pcasNum(v,dec){
+  if(v==null||isNaN(v)) return '—';
+  return Math.abs(v).toFixed(dec==null?1:dec).replace('.',',');
+}
+function _pcasSeg(v,dec){
+  if(v==null||isNaN(v)) return '—';
+  return (v>0?'+':'−')+_pcasNum(v,dec);
+}
+
+// ── serie separate ──
+// parseFloat("78,5") vale 78, non 78,5: la virgola italiana diventerebbe un peso
+// sbagliato di mezzo chilo senza un errore a video. Qui la virgola si converte, e
+// tutto ciò che non è un numero pulito viene scartato invece che arrotondato.
+function _pcasNumero(v){
+  if(v==null||v==='') return null;
+  const s=String(v).trim().replace(',', '.');
+  if(!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const n=parseFloat(s);
+  return isNaN(n)?null:n;
+}
+function _pcasSerie(p){
+  const norm=function(arr){
+    const out=[];
+    (arr||[]).forEach(function(e){
+      if(!e||!e.data||!_pcasData(e.data)) return;
+      const kg=_pcasNumero(e.peso);
+      if(kg===null) return;
+      out.push({data:e.data, peso:kg});
+    });
+    return out.sort(function(a,b){ return a.data.localeCompare(b.data); });
+  };
+  return { casa: norm(p&&p.pesiIntermedi), studio: norm(p&&p.inbody) };
+}
+function _pcasMappa(casa){
+  const m={}; (casa||[]).forEach(function(e){ m[e.data]=e.peso; }); return m;
+}
+
+// ── media mobile su FINESTRA DI DATE (non sulle ultime N righe dell'array) ──
+function _pcasMedia(mappa,giorno){
+  let s=0,n=0;
+  for(let o=-_PCAS_MM_RAGGIO;o<=_PCAS_MM_RAGGIO;o++){
+    const k=_pcasAddGg(giorno,o);
+    if(k && mappa[k]!==undefined){ s+=mappa[k]; n++; }
+  }
+  return n>=_PCAS_MM_MIN ? {v:Math.round(s/n*100)/100, n:n} : {v:null, n:n};
+}
+
+// ── gruppo di estremo: si allarga finché non trova abbastanza pesate ──
+function _pcasGruppoEstremo(mappa,gIni,gFin,dallInizio){
+  const tot=_pcasGgTra(gIni,gFin);
+  if(tot==null||tot<0) return null;
+  const limite=Math.min(_PCAS_EDGE_MAX, tot+1);
+  for(let w=_PCAS_EDGE_MIN; w<=limite; w++){
+    let s=0,n=0,so=0;
+    for(let k=0;k<w;k++){
+      const off = dallInizio ? k : (tot-k);
+      if(off<0||off>tot) continue;
+      const g=_pcasAddGg(gIni,off);
+      if(g && mappa[g]!==undefined){ s+=mappa[g]; n++; so+=off; }
+    }
+    if(n>=_PCAS_EDGE_N) return {media:s/n, n:n, centro:so/n};
+  }
+  return null;
+}
+
+// ── i tre numeri. Restituisce SEMPRE un oggetto: ok:false col motivo. ──
+function _pcasStat(mappa,gIni,gFin){
+  const gg=_pcasGgTra(gIni,gFin);
+  if(gg==null||gg<_PCAS_FIN_MIN) return {ok:false, motivo:'finestra', gg:gg};
+  const A=_pcasGruppoEstremo(mappa,gIni,gFin,true);
+  const B=_pcasGruppoEstremo(mappa,gIni,gFin,false);
+  if(!A||!B) return {ok:false, motivo:'pesate', nA:A?A.n:0, nB:B?B.n:0};
+  const sett=(B.centro-A.centro)/7;
+  if(sett<1) return {ok:false, motivo:'ravvicinate', nA:A.n, nB:B.n};
+  const dKg=B.media-A.media;
+  return {ok:true, dKg:Math.round(dKg*100)/100, vel:Math.round(dKg/sett*1000)/1000,
+          sett:Math.round(sett*100)/100, gg:gg, ggMisurati:Math.round(B.centro-A.centro),
+          nA:A.n, nB:B.n};
+}
+
+// ── fascia di ritmo consigliato — Regola A (P132), % del peso di ADESSO ──
+// La fascia è quella di P132 e vive in _ibFasciaRitmo: qui si riusa, non si
+// riscrive (regola 15 — al primo ritocco due copie divergono e i grafici InBody
+// e il peso casalingo direbbero due cose diverse sullo stesso paziente).
+function _pcasFascia(peso){
+  const f = (typeof _ibFasciaRitmo==='function') ? _ibFasciaRitmo(peso) : null;
+  if(!f) return null;
+  return { lento:f[0], rapido:f[1] };   // _ibFasciaRitmo restituisce [lenta, rapida]
+}
+// Il colore si accende SOLO sul troppo rapido (rischio muscolo): la Regola A è
+// severa sul paziente magro e un avviso sempre acceso smette di essere letto
+// (regola 19). La lentezza è detta a parole, non colorata.
+function _pcasGiudizio(vel,fascia){
+  if(!fascia||vel==null||isNaN(vel)) return null;
+  if(vel<fascia.rapido) return 'rapido';
+  if(vel>fascia.lento)  return 'lento';
+  return 'dentro';
+}
+
+// ── modello completo per il disegno ──
+function _pcasModello(p){
+  const s=_pcasSerie(p);
+  if(!s.casa.length && !s.studio.length) return null;
+  const date=s.casa.concat(s.studio).map(function(x){return x.data;}).sort();
+  const d0=date[0], d1=date[date.length-1];
+  const n=_pcasGgTra(d0,d1);
+  if(n==null||n<0) return null;
+  const mappa=_pcasMappa(s.casa);
+  const giorni=[], mm=[];
+  for(let i=0;i<=n;i++){ const g=_pcasAddGg(d0,i); giorni.push(g); mm.push(_pcasMedia(mappa,g).v); }
+  return {casa:s.casa, studio:s.studio, d0:d0, d1:d1, n:n, mappa:mappa, giorni:giorni, mm:mm};
+}
+
+// ── stato dell'interfaccia. Cambiando paziente riparte da "Tutto". ──
+var _pcasStato = null;
+function _pcasStatoGet(p,mod){
+  if(!_pcasStato || _pcasStato.pazId!==p.id){
+    _pcasStato = {pazId:p.id, casa:true, media:true, studio:false, a:0, b:mod.n, listaTutta:false};
+  } else {
+    // pesata aggiunta in coda: se stavo guardando fino alla fine, ci resto
+    if(_pcasStato.b>=_pcasStato.nPrec) _pcasStato.b=mod.n;
+    _pcasStato.a=Math.max(0, Math.min(_pcasStato.a, Math.max(0,mod.n-_PCAS_FIN_MIN)));
+    _pcasStato.b=Math.max(_pcasStato.a+Math.min(_PCAS_FIN_MIN,mod.n), Math.min(_pcasStato.b, mod.n));
+  }
+  _pcasStato.nPrec=mod.n;
+  return _pcasStato;
+}
+
+// ═══════════════════════════════════════════════════════════
+// P35 — disegno
+// ═══════════════════════════════════════════════════════════
+const _PCAS_W=780, _PCAS_PADL=42, _PCAS_PADR=14;
+
+function _pcasX(i,a,b){
+  return _PCAS_PADL + (_PCAS_W-_PCAS_PADL-_PCAS_PADR)*(i-a)/Math.max(1,b-a);
+}
+
+function _pcasGraficoSvg(mod,st){
+  const H=228, TOP=10, MESI=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const dentro=function(iso){ const i=_pcasGgTra(mod.d0,iso); return i!=null && i>=st.a && i<=st.b; };
+  const casa=mod.casa.filter(function(e){return dentro(e.data);});
+  const studio=mod.studio.filter(function(e){return dentro(e.data);});
+  let vals=[];
+  if(st.casa||st.media) vals=vals.concat(casa.map(function(e){return e.peso;}));
+  if(st.studio) vals=vals.concat(studio.map(function(e){return e.peso;}));
+  if(!vals.length){
+    return '<svg viewBox="0 0 '+_PCAS_W+' '+(H+28)+'" style="display:block;width:100%;height:auto">'
+      +'<text x="'+(_PCAS_W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="12" fill="var(--text3)">'
+      +'Nessun dato nella finestra scelta</text></svg>';
+  }
+  const lo=Math.floor(Math.min.apply(null,vals)*2)/2-0.5;
+  const hi=Math.ceil(Math.max.apply(null,vals)*2)/2+0.5;
+  const Y=function(v){ return TOP+(H-TOP)*(hi-v)/Math.max(0.1,hi-lo); };
+  const X=function(iso){ return _pcasX(_pcasGgTra(mod.d0,iso), st.a, st.b); };
+  let o='<svg viewBox="0 0 '+_PCAS_W+' '+(H+28)+'" style="display:block;width:100%;height:auto;overflow:visible">';
+  // griglia orizzontale
+  const span=hi-lo, passo = span>10?2 : span>5?1 : 0.5;
+  for(let v=Math.ceil(lo/passo)*passo; v<=hi; v+=passo){
+    o+='<line x1="'+_PCAS_PADL+'" x2="'+(_PCAS_W-_PCAS_PADR)+'" y1="'+Y(v).toFixed(1)+'" y2="'+Y(v).toFixed(1)+'" stroke="#eceae5" stroke-width="1"></line>';
+    o+='<text x="'+(_PCAS_PADL-7)+'" y="'+(Y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10.5" fill="var(--text3)">'+_pcasNum(v,passo<1?1:0)+' kg</text>';
+  }
+  // asse del tempo alla DATA REALE, tacca a ogni cambio di mese
+  let mese='';
+  for(let i=st.a;i<=st.b;i++){
+    const g=mod.giorni[i], m=g.slice(0,7);
+    if(m!==mese){
+      mese=m;
+      const x=_pcasX(i,st.a,st.b).toFixed(1);
+      if(i>st.a) o+='<line x1="'+x+'" x2="'+x+'" y1="'+TOP+'" y2="'+H+'" stroke="#eceae5" stroke-width="1"></line>';
+      o+='<text x="'+(+x+3)+'" y="'+(H+14)+'" font-size="10.5" fill="var(--text3)">'+MESI[_pcasData(g).getMonth()]+'</text>';
+    }
+  }
+  // media mobile: segmenti SPEZZATI dove il dato manca, mai interpolati
+  if(st.media){
+    let seg=[];
+    const chiudi=function(){
+      if(seg.length>1) o+='<path d="M'+seg.join('L')+'" fill="none" stroke="'+_PCAS_COL_MEDIA+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>';
+      seg=[];
+    };
+    for(let i=st.a;i<=st.b;i++){
+      const v=mod.mm[i];
+      if(v==null) chiudi();
+      else seg.push(_pcasX(i,st.a,st.b).toFixed(1)+' '+Y(v).toFixed(1));
+    }
+    chiudi();
+  }
+  // pesate a casa
+  if(st.casa){
+    casa.forEach(function(e){
+      o+='<circle cx="'+X(e.data).toFixed(1)+'" cy="'+Y(e.peso).toFixed(1)+'" r="'+(st.media?2.8:3.3)+'"'
+        +' fill="'+_PCAS_COL_CASA+'" fill-opacity="'+(st.media?0.34:0.55)+'"'
+        +(st.media?'':' stroke="#fff" stroke-width="1"')+'>'
+        +'<title>'+_pcasFmtBreve(e.data)+' — casa '+_pcasNum(e.peso)+' kg</title></circle>';
+    });
+  }
+  // bilancia dello studio: rombi + tratteggio, segno diverso perché è un ALTRO strumento
+  if(st.studio && studio.length){
+    if(studio.length>1){
+      o+='<path d="M'+studio.map(function(e){return X(e.data).toFixed(1)+' '+Y(e.peso).toFixed(1);}).join('L')
+        +'" fill="none" stroke="'+_PCAS_COL_STUDIO+'" stroke-width="1.8" stroke-dasharray="6 4" stroke-opacity=".75"></path>';
+    }
+    studio.forEach(function(e){
+      const x=X(e.data), y=Y(e.peso);
+      o+='<path d="M'+x.toFixed(1)+' '+(y-6.2).toFixed(1)+'L'+(x+6.2).toFixed(1)+' '+y.toFixed(1)
+        +'L'+x.toFixed(1)+' '+(y+6.2).toFixed(1)+'L'+(x-6.2).toFixed(1)+' '+y.toFixed(1)+'Z"'
+        +' fill="'+_PCAS_COL_STUDIO+'" stroke="#fff" stroke-width="2">'
+        +'<title>'+_pcasFmtBreve(e.data)+' — studio '+_pcasNum(e.peso)+' kg</title></path>';
+      o+='<text x="'+x.toFixed(1)+'" y="'+(y+15).toFixed(1)+'" text-anchor="middle" font-size="10.5" fill="var(--text2)" font-weight="600">'+_pcasNum(e.peso)+'</text>';
+    });
+  }
+  return o+'</svg>';
+}
+
+function _pcasBarraSvg(mod,st){
+  const H=58, TOP=6, BOT=44;
+  const MESI=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  let o='<svg viewBox="0 0 '+_PCAS_W+' '+H+'" style="display:block;width:100%;height:auto">';
+  o+='<rect x="'+_PCAS_PADL+'" y="'+TOP+'" width="'+(_PCAS_W-_PCAS_PADL-_PCAS_PADR)+'" height="'+(BOT-TOP)+'" rx="6" fill="var(--bg)"></rect>';
+  const vis=mod.mm.filter(function(v){return v!=null;});
+  if(vis.length){
+    const lo=Math.min.apply(null,vis), hi=Math.max.apply(null,vis);
+    const Y=function(v){ return TOP+3+(BOT-TOP-6)*(hi-v)/Math.max(0.1,hi-lo); };
+    let seg=[];
+    const chiudi=function(){
+      if(seg.length>1) o+='<path d="M'+seg.join('L')+'" fill="none" stroke="#b9b6ae" stroke-width="1.6" stroke-linecap="round"></path>';
+      seg=[];
+    };
+    for(let i=0;i<=mod.n;i++){
+      const v=mod.mm[i];
+      if(v==null) chiudi(); else seg.push(_pcasX(i,0,mod.n).toFixed(1)+' '+Y(v).toFixed(1));
+    }
+    chiudi();
+  }
+  const xa=_pcasX(st.a,0,mod.n), xb=_pcasX(st.b,0,mod.n);
+  o+='<rect x="'+_PCAS_PADL+'" y="'+TOP+'" width="'+Math.max(0,xa-_PCAS_PADL).toFixed(1)+'" height="'+(BOT-TOP)+'" rx="6" fill="#fff" fill-opacity=".72"></rect>';
+  o+='<rect x="'+xb.toFixed(1)+'" y="'+TOP+'" width="'+Math.max(0,_PCAS_W-_PCAS_PADR-xb).toFixed(1)+'" height="'+(BOT-TOP)+'" rx="6" fill="#fff" fill-opacity=".72"></rect>';
+  o+='<rect x="'+xa.toFixed(1)+'" y="'+TOP+'" width="'+(xb-xa).toFixed(1)+'" height="'+(BOT-TOP)+'" rx="5" fill="'+_PCAS_COL_CASA+'" fill-opacity=".09" stroke="'+_PCAS_COL_CASA+'" stroke-opacity=".5" stroke-width="1.2"></rect>';
+  [xa,xb].forEach(function(x){
+    o+='<rect x="'+(x-3.5).toFixed(1)+'" y="'+(TOP+3)+'" width="7" height="'+(BOT-TOP-6)+'" rx="3.5" fill="'+_PCAS_COL_CASA+'" stroke="#fff" stroke-width="1.5"></rect>';
+  });
+  let mese='';
+  for(let i=0;i<=mod.n;i++){
+    const m=mod.giorni[i].slice(0,7);
+    if(m!==mese){ mese=m;
+      o+='<text x="'+(_pcasX(i,0,mod.n)+2).toFixed(1)+'" y="'+(H-1)+'" font-size="9.5" fill="var(--text3)">'+MESI[_pcasData(mod.giorni[i]).getMonth()]+'</text>';
+    }
+  }
+  return o+'</svg>';
+}
+
+function _pcasNumeriHtml(mod,st){
+  const gIni=mod.giorni[st.a], gFin=mod.giorni[st.b];
+  const stat=_pcasStat(mod.mappa,gIni,gFin);
+  const casa=mod.casa.filter(function(e){ const i=_pcasGgTra(mod.d0,e.data); return i>=st.a&&i<=st.b; });
+  const ult=casa.length?casa[casa.length-1]:null;
+  const tile=function(k,v,m,spento){
+    return '<div style="flex:1 1 150px;background:var(--bg);border-radius:9px;padding:.5rem .7rem">'
+      +'<div style="font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700">'+k+'</div>'
+      +'<div style="font-size:'+(spento?'1rem':'1.2rem')+';font-weight:'+(spento?600:700)+';margin-top:.08rem;letter-spacing:-.02em;'
+      +(spento?'color:var(--text3)':'')+'">'+v+'</div>'
+      +'<div style="font-size:.7rem;color:var(--text3);margin-top:.05rem">'+m+'</div></div>';
+  };
+  let h='<div style="display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.85rem">';
+  h+=tile('Ultima pesata', ult?_pcasNum(ult.peso)+' kg':'—', ult?_pcasFmtBreve(ult.data):'nessuna nel periodo', !ult);
+  if(!stat.ok){
+    const perche = stat.motivo==='finestra' ? 'servono almeno '+_PCAS_FIN_MIN+' giorni'
+      : stat.motivo==='ravvicinate' ? 'le pesate sono tutte ravvicinate'
+      : 'servono 2 pesate per lato (ci sono '+stat.nA+' e '+stat.nB+')';
+    h+=tile('Variazione','dato insufficiente',perche,1);
+    h+=tile('Velocità nel periodo','—','manca la variazione',1);
+  } else {
+    h+=tile('Variazione nel periodo', _pcasSeg(stat.dKg)+' kg',
+            'misurata su '+stat.ggMisurati+' giorni · '+stat.nA+'+'+stat.nB+' pesate');
+    // fascia sul peso di ADESSO: si stringe man mano che il paziente cala
+    const pesoOra = mod.mm[st.b]!=null ? mod.mm[st.b] : (ult?ult.peso:null);
+    const fascia=_pcasFascia(pesoOra);
+    const giud=_pcasGiudizio(stat.vel,fascia);
+    let metro='', sotto='su '+_pcasNum(stat.sett)+' settimane';
+    if(fascia && giud){
+      const lo=Math.min(stat.vel,fascia.rapido)-0.15, hi=Math.max(stat.vel,fascia.lento,0)+0.15;
+      const px=function(v){ return ((v-lo)/Math.max(0.01,hi-lo))*100; };
+      metro='<svg viewBox="0 0 100 9" preserveAspectRatio="none" style="width:100%;height:9px;margin:.3rem 0 .15rem">'
+        +'<rect x="0" y="3.2" width="100" height="2.6" rx="1.3" fill="var(--border)"></rect>'
+        +'<rect x="'+px(fascia.rapido).toFixed(1)+'" y="2.4" width="'+(px(fascia.lento)-px(fascia.rapido)).toFixed(1)+'" height="4.2" rx="2" fill="'+_PCAS_COL_MEDIA+'" fill-opacity=".38"></rect>'
+        +'<rect x="'+(px(stat.vel)-0.9).toFixed(1)+'" y="0" width="1.8" height="9" rx="0.9" fill="'+(giud==='rapido'?_PCAS_COL_STUDIO:'var(--text)')+'"></rect></svg>';
+      sotto=(giud==='rapido'?'più rapido della fascia':giud==='lento'?'più lento della fascia':'dentro la fascia')
+        +' '+_pcasSeg(fascia.rapido,2)+' … '+_pcasSeg(fascia.lento,2);
+    }
+    h+='<div style="flex:1 1 150px;background:var(--bg);border-radius:9px;padding:.5rem .7rem">'
+      +'<div style="font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700">Velocità nel periodo</div>'
+      +'<div style="font-size:1.2rem;font-weight:700;margin-top:.08rem;letter-spacing:-.02em">'+_pcasSeg(stat.vel,2)+' kg/sett</div>'
+      +metro+'<div style="font-size:.7rem;color:var(--text3)">'+sotto+'</div></div>';
+  }
+  return h+'</div>';
+}
+
+function _pcasInternoHtml(mod,st){
+  return '<div id="pcas-graf">'+_pcasGraficoSvg(mod,st)+'</div>'
+    +'<div id="pcas-barra" style="touch-action:none;cursor:grab;margin-top:.15rem"'
+    +' onpointerdown="_pcasBarraGiu(event)" onpointermove="_pcasBarraMuovi(event)"'
+    +' onpointerup="_pcasBarraSu(event)" onpointercancel="_pcasBarraSu(event)">'
+    +_pcasBarraSvg(mod,st)+'</div>'
+    +'<div id="pcas-numeri">'+_pcasNumeriHtml(mod,st)+'</div>';
+}
+
+function _pcasRidisegna(){
+  const st=_pcasStato; if(!st) return;
+  const p=(db.pazienti||[]).find(function(x){return x.id===st.pazId;}); if(!p) return;
+  const mod=_pcasModello(p); if(!mod) return;
+  const g=document.getElementById('pcas-graf');
+  const b=document.getElementById('pcas-barra');
+  const n=document.getElementById('pcas-numeri');
+  if(g) g.innerHTML=_pcasGraficoSvg(mod,st);
+  if(b) b.innerHTML=_pcasBarraSvg(mod,st);
+  if(n) n.innerHTML=_pcasNumeriHtml(mod,st);
+  const lbl=document.getElementById('pcas-sel');
+  if(lbl) lbl.textContent=_pcasFmtBreve(mod.giorni[st.a])+' → '+_pcasFmtBreve(mod.giorni[st.b])+'  ('+(st.b-st.a)+' gg)';
+  ['1m','3m','tutto'].forEach(function(k){
+    const el=document.getElementById('pcas-per-'+k); if(!el) return;
+    const a = k==='tutto'?0:Math.max(0, mod.n-(k==='1m'?30:92));
+    const on = st.a===a && st.b===mod.n;
+    el.style.background=on?'#eef4fa':'#fff';
+    el.style.borderColor=on?'#a9c8e8':'var(--border)';
+    el.style.color=on?'#1b4f87':'var(--text3)';
+  });
+}
+
+function _pcasInterruttore(k){
+  if(!_pcasStato) return;
+  _pcasStato[k]=!_pcasStato[k];
+  const el=document.getElementById('pcas-sw-'+k);
+  if(el){
+    const col={casa:_PCAS_COL_CASA, media:_PCAS_COL_MEDIA, studio:_PCAS_COL_STUDIO}[k];
+    const on=_pcasStato[k];
+    el.style.background=on?'#faf9f7':'#fff';
+    el.style.borderColor=on?'#c9c6bf':'var(--border)';
+    el.style.color=on?'var(--text)':'var(--text3)';
+    const d=el.querySelector('i'); if(d) d.style.background=on?col:'#d6d4cf';
+  }
+  _pcasRidisegna();
+}
+
+function _pcasListaTutta(){
+  if(!_pcasStato) return;
+  _pcasStato.listaTutta=!_pcasStato.listaTutta;
+  const p=(db.pazienti||[]).find(function(x){return x.id===_pcasStato.pazId;});
+  if(p) renderPdInbody(p);
+}
+
+function _pcasPeriodo(gg){
+  const st=_pcasStato; if(!st) return;
+  const p=(db.pazienti||[]).find(function(x){return x.id===st.pazId;}); if(!p) return;
+  const mod=_pcasModello(p); if(!mod) return;
+  st.a = gg==null ? 0 : Math.max(0, mod.n-gg);
+  st.b = mod.n;
+  _pcasRidisegna();
+}
+
+// ── trascinamento della barra ──
+var _pcasDrag=null;
+function _pcasBarraIdx(ev){
+  const st=_pcasStato; if(!st) return null;
+  const box=document.getElementById('pcas-barra'); if(!box) return null;
+  const p=(db.pazienti||[]).find(function(x){return x.id===st.pazId;}); if(!p) return null;
+  const mod=_pcasModello(p); if(!mod) return null;
+  const r=box.getBoundingClientRect();
+  if(!r.width) return null;
+  const px=(ev.clientX-r.left)*(_PCAS_W/r.width);
+  const i=Math.round((px-_PCAS_PADL)/(_PCAS_W-_PCAS_PADL-_PCAS_PADR)*mod.n);
+  return {i:Math.max(0,Math.min(mod.n,i)), n:mod.n};
+}
+function _pcasBarraGiu(ev){
+  const q=_pcasBarraIdx(ev); if(!q) return;
+  const st=_pcasStato;
+  const tol=Math.max(3, Math.round(q.n*0.02));
+  if(Math.abs(q.i-st.a)<=tol) _pcasDrag={modo:'a'};
+  else if(Math.abs(q.i-st.b)<=tol) _pcasDrag={modo:'b'};
+  else if(q.i>st.a && q.i<st.b) _pcasDrag={modo:'sposta', off:q.i-st.a};
+  else { st.a=Math.min(q.i, Math.max(0,q.n-_PCAS_FIN_MIN)); st.b=Math.min(q.n, st.a+_PCAS_FIN_MIN); _pcasDrag={modo:'b'}; }
+  const box=document.getElementById('pcas-barra');
+  if(box){ box.style.cursor='grabbing'; if(box.setPointerCapture) try{ box.setPointerCapture(ev.pointerId); }catch(e){} }
+  _pcasBarraMuovi(ev);
+}
+function _pcasBarraMuovi(ev){
+  if(!_pcasDrag) return;
+  const q=_pcasBarraIdx(ev); if(!q) return;
+  const st=_pcasStato;
+  if(_pcasDrag.modo==='a')      st.a=Math.min(q.i, st.b-_PCAS_FIN_MIN);
+  else if(_pcasDrag.modo==='b') st.b=Math.max(q.i, st.a+_PCAS_FIN_MIN);
+  else { const w=st.b-st.a; st.a=Math.max(0,Math.min(q.n-w, q.i-_pcasDrag.off)); st.b=st.a+w; }
+  st.a=Math.max(0,st.a); st.b=Math.min(q.n,st.b);
+  if(st.b-st.a<_PCAS_FIN_MIN){ st.b=Math.min(q.n, st.a+_PCAS_FIN_MIN); st.a=Math.max(0, st.b-_PCAS_FIN_MIN); }
+  _pcasRidisegna();
+}
+function _pcasBarraSu(){
+  _pcasDrag=null;
+  const box=document.getElementById('pcas-barra'); if(box) box.style.cursor='grab';
+}
+
 function _renderPesiIntermediSection(p){
-  const pi=(p.pesiIntermedi||[]).slice().sort((a,b)=>a.data.localeCompare(b.data));
+  const s=_pcasSerie(p);
+  const pi=s.casa;
   const oggi=today();
 
-  // Calcola delta rispetto al primo peso InBody (o p.peso)
-  const inbodySorted=(p.inbody||[]).filter(x=>x&&x.data).sort((a,b)=>a.data.localeCompare(b.data));
-  const pesoBase=inbodySorted.length?parseFloat(inbodySorted[0].peso):(parseFloat(p.peso)||null);
+  // Δ di ogni pesata contro la PRIMA PESATA A CASA (P35 tappa 1). Prima si usava
+  // il primo peso InBody: la differenza di taratura fra le due bilance traslava
+  // tutto lo storico casalingo, e il paziente vedeva uno scarto il primo giorno.
+  const pesoBase = pi.length ? pi[0].peso : null;
 
+  // Tetto sulla lista: con la pesata quotidiana un anno fa 365 righe, e sotto un
+  // grafico la lista serve per correggere una riga, non per leggere l'andamento.
   let listaHtml='';
   if(pi.length){
+    const tutte = !!(_pcasStato && _pcasStato.pazId===p.id && _pcasStato.listaTutta);
     const piDesc=[...pi].reverse();
-    listaHtml=piDesc.map((e,i)=>{
-      const delta=pesoBase!==null?(parseFloat(e.peso)-pesoBase).toFixed(1):null;
-      const deltaCol=delta===null?'':(parseFloat(delta)<=0?'color:#0F6E56':'color:#A32D2D');
-      const deltaStr=delta===null?'':`<span style="font-size:.72rem;font-weight:600;margin-left:.4rem;${deltaCol}">${parseFloat(delta)>0?'+':''}${delta} kg</span>`;
-      const ggFa=Math.round((new Date(oggi)-new Date(e.data))/86400000);
-      const ggStr=ggFa===0?'oggi':ggFa===1?'ieri':`${ggFa}gg fa`;
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.35rem .5rem;border-radius:6px;background:var(--bg);margin-bottom:.3rem">
-        <span style="font-size:.82rem;color:var(--text2)">${fData(e.data)} <span style="font-size:.7rem;color:var(--text3)">(${ggStr})</span></span>
-        <span style="font-size:.88rem;font-weight:600">${e.peso} kg${deltaStr}</span>
-        <button onclick="eliminaPesoIntermedio('${p.id}',${pi.length-1-i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:2px 6px;border-radius:4px" title="Elimina">✕</button>
-      </div>`;
+    const mostrate = (tutte || piDesc.length<=_PCAS_LISTA_MAX) ? piDesc : piDesc.slice(0,_PCAS_LISTA_MAX);
+    listaHtml=mostrate.map(function(e,i){
+      const posAsc = pi.length-1-piDesc.indexOf(e);
+      const delta = pesoBase!==null ? (e.peso-pesoBase) : null;
+      const deltaStr = (delta===null||posAsc===0) ? '' :
+        '<span style="font-size:.72rem;font-weight:600;margin-left:.4rem;color:'+(delta<=0?'#0F6E56':'#A32D2D')+'">'+_pcasSeg(delta)+' kg</span>';
+      const ggFa=_pcasGgTra(e.data,oggi);
+      const ggStr=ggFa===0?'oggi':ggFa===1?'ieri':(ggFa+'gg fa');
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:.35rem .5rem;border-radius:6px;background:var(--bg);margin-bottom:.3rem">'
+        +'<span style="font-size:.82rem;color:var(--text2)">'+fData(e.data)+' <span style="font-size:.7rem;color:var(--text3)">('+ggStr+')</span></span>'
+        +'<span style="font-size:.88rem;font-weight:600">'+_pcasNum(e.peso)+' kg'+deltaStr+'</span>'
+        +'<button onclick="eliminaPesoIntermedio(\''+p.id+'\','+posAsc+')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:2px 6px;border-radius:4px" title="Elimina">✕</button>'
+      +'</div>';
     }).join('');
+    if(piDesc.length>_PCAS_LISTA_MAX){
+      listaHtml+='<button onclick="_pcasListaTutta()" style="width:100%;margin-top:.15rem;padding:.3rem;'
+        +'background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text3);'
+        +'font-size:.75rem;font-family:inherit;cursor:pointer">'
+        +(tutte ? 'Mostra solo le ultime '+_PCAS_LISTA_MAX : 'Mostra tutte le '+piDesc.length+' pesate')
+        +'</button>';
+    }
   }else{
     listaHtml='<div style="font-size:.78rem;color:var(--text3);padding:.3rem .2rem">Nessuna pesata registrata</div>';
   }
 
-  // Ultima pesata con delta rispetto alla precedente
-  let ultimaDeltaHtml='';
-  if(pi.length>=2){
-    const last=pi[pi.length-1],prev=pi[pi.length-2];
-    const d=(parseFloat(last.peso)-parseFloat(prev.peso)).toFixed(1);
-    const gg=Math.round((new Date(last.data)-new Date(prev.data))/86400000);
-    const col=parseFloat(d)<=0?'#0F6E56':'#A32D2D';
-    ultimaDeltaHtml=`<div style="font-size:.75rem;color:${col};margin-top:.3rem">Ultima settimana: <strong>${parseFloat(d)>0?'+':''}${d} kg</strong> in ${gg} giorni</div>`;
+  // Grafico + barra + numeri. Compare solo quando c'è qualcosa da disegnare.
+  const mod=_pcasModello(p);
+  let graficoHtml='';
+  if(mod && (mod.casa.length>=2 || (mod.casa.length && mod.studio.length))){
+    const st=_pcasStatoGet(p,mod);
+    const sw=function(k,testo,col){
+      const on=st[k];
+      return '<button id="pcas-sw-'+k+'" onclick="_pcasInterruttore(\''+k+'\')" aria-pressed="'+on+'"'
+        +' style="display:inline-flex;align-items:center;gap:.42rem;border:1.5px solid '+(on?'#c9c6bf':'var(--border)')+';'
+        +'background:'+(on?'#faf9f7':'#fff')+';border-radius:999px;padding:.32rem .7rem;font-size:.79rem;'
+        +'color:'+(on?'var(--text)':'var(--text3)')+';cursor:pointer;font-family:inherit;font-weight:600">'
+        +'<i style="width:10px;height:10px;border-radius:50%;flex:none;background:'+(on?col:'#d6d4cf')+'"></i>'+testo+'</button>';
+    };
+    const per=function(k,testo,gg){
+      return '<button id="pcas-per-'+k+'" onclick="_pcasPeriodo('+(gg==null?'null':gg)+')"'
+        +' style="border:1.5px solid var(--border);background:#fff;border-radius:7px;padding:.24rem .6rem;'
+        +'font-size:.74rem;color:var(--text3);cursor:pointer;font-family:inherit;font-weight:600">'+testo+'</button>';
+    };
+    graficoHtml='<div style="margin-bottom:.7rem">'
+      +'<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.45rem">'
+        +sw('casa','Pesate a casa',_PCAS_COL_CASA)
+        +sw('media','Andamento (media 7 gg)',_PCAS_COL_MEDIA)
+        +sw('studio','Bilancia studio',_PCAS_COL_STUDIO)
+      +'</div>'
+      +'<div style="display:flex;gap:.3rem;align-items:center;flex-wrap:wrap">'
+        +per('1m','1 mese',30)+per('3m','3 mesi',92)+per('tutto','Tutto',null)
+        +'<span id="pcas-sel" style="font-size:.74rem;color:var(--text3);margin-left:auto"></span>'
+      +'</div>'
+      +_pcasInternoHtml(mod,st)
+    +'</div>';
   }
 
-  return `<div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:.8rem 1rem;margin-bottom:.9rem">
-    <div style="font-weight:700;font-size:.85rem;color:var(--teal2);margin-bottom:.6rem">⚖️ Peso casalingo</div>
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
-      <input type="date" id="pi-data" value="${oggi}" style="border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">
-      <input type="number" id="pi-peso" step="0.1" min="30" max="300" placeholder="kg" style="width:80px;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">
-      <button onclick="aggiungiPesoIntermedio('${p.id}')" style="padding:.3rem .9rem;background:var(--teal2);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer">+ Aggiungi</button>
-    </div>
-    ${listaHtml}
-    ${ultimaDeltaHtml}
-  </div>`;
+  // Ultima variazione fra le DUE ultime pesate, con l'intervallo vero.
+  // Prima diceva sempre "Ultima settimana" qualunque fosse il numero di giorni.
+  let ultimaDeltaHtml='';
+  if(pi.length>=2){
+    const last=pi[pi.length-1], prev=pi[pi.length-2];
+    const d=last.peso-prev.peso;
+    const gg=_pcasGgTra(prev.data,last.data);
+    const etichetta = gg===1 ? 'Dal giorno prima' : ('Negli ultimi '+gg+' giorni');
+    ultimaDeltaHtml='<div style="font-size:.75rem;color:'+(d<=0?'#0F6E56':'#A32D2D')+';margin-top:.3rem">'
+      +etichetta+': <strong>'+_pcasSeg(d)+' kg</strong></div>';
+  }
+
+  return '<div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:.8rem 1rem;margin-bottom:.9rem">'
+    +'<div style="font-weight:700;font-size:.85rem;color:var(--teal2);margin-bottom:.6rem">⚖️ Peso casalingo</div>'
+    +'<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">'
+      +'<input type="date" id="pi-data" value="'+oggi+'" style="border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">'
+      +'<input type="number" id="pi-peso" step="0.1" min="30" max="300" placeholder="kg" style="width:80px;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">'
+      +'<button onclick="aggiungiPesoIntermedio(\''+p.id+'\')" style="padding:.3rem .9rem;background:var(--teal2);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer">+ Aggiungi</button>'
+    +'</div>'
+    +graficoHtml
+    +listaHtml
+    +ultimaDeltaHtml
+  +'</div>';
 }
 
 function aggiungiPesoIntermedio(pazId){
@@ -17197,7 +17689,29 @@ function _initRegimeSliderDaPaziente(p, tdee, mb){
 const _TDEE_OSS_K_PER_KG = 7700;   // kcal per kg di tessuto adiposo (approssimazione)
 const _TDEE_OSS_GIORNI_ACQUA = 14; // fase iniziale scartata
 
+// P35 tappa 1 (5 ago 2026) — SERIE CLINICA: solo la bilancia dello studio.
+// La bilancia di casa e quella dello studio sono due strumenti: se quella di casa
+// legge 1,2 kg in più, quel 1,2 entrava come se fosse grasso preso dentro il
+// traguardo, la proiezione e la calibrazione del TDEE osservato. I tre punti che
+// producono un NUMERO CLINICO leggono da qui.
+// Restano volutamente sulla serie fusa: _percorsoChartSvg (disegna i due tipi di
+// punto e dichiara la fonte a schermo) e _percorsoShiftGiorni (usa solo la DATA
+// dell'ultima pesata come ancora temporale, non i kg).
+// Il compromesso è stato accettato il 4 ago 2026: con meno pesate il TDEE
+// osservato si calcola più di rado, e la risposta è clinica — proporre al
+// paziente una misurazione professionale ogni due-tre settimane.
+function _seriePesoClinico(p){
+  const punti=[];
+  (p&&p.inbody||[]).forEach(function(ib){
+    if(ib.data && ib.peso!=null && !isNaN(new Date(ib.data).getTime())) punti.push({data:ib.data, peso:+ib.peso, fonte:"inbody"});
+  });
+  const perData={};
+  punti.forEach(function(pt){ perData[pt.data]=pt; });
+  return Object.values(perData).sort(function(a,b){return a.data.localeCompare(b.data);});
+}
+
 // Serie peso ordinata: InBody + pesate intermedie, dedup per data (vince InBody).
+// USO CONSENTITO: solo disegno e ancore temporali — mai un numero clinico.
 function _serieePesoOss(p){
   const punti=[];
   (p.inbody||[]).forEach(function(ib){
@@ -17222,8 +17736,8 @@ function _kcalMediaPrescrittaOss(p, d0, d1){
 }
 
 function calcolaTDEEOsservato(p){
-  const tutta=_serieePesoOss(p);
-  if(tutta.length<2) return {ok:false, motivo:"Servono almeno 2 pesate con data (InBody o pesata intermedia)."};
+  const tutta=_seriePesoClinico(p);   // P35 tappa 1: due bilance diverse non calibrano un TDEE
+  if(tutta.length<2) return {ok:false, motivo:"Servono almeno 2 misurazioni InBody con data (le pesate di casa non entrano: sono un altro strumento)."};
   const t0tot=new Date(tutta[0].data).getTime();
   const serie=tutta.filter(function(pt){ return (new Date(pt.data).getTime()-t0tot)/864e5 >= _TDEE_OSS_GIORNI_ACQUA; });
   if(serie.length<2) return {ok:false, motivo:"Scartati i primi "+_TDEE_OSS_GIORNI_ACQUA+" giorni (fase acqua/glicogeno) restano meno di 2 pesate: servono pesate distribuite nel tempo."};
@@ -17252,7 +17766,7 @@ function _renderTDEEOsservatoHtml(p){
   if(!r.ok){
     // mostra il motivo solo se il paziente ha già almeno 2 pesate (dati in accumulo):
     // per pazienti nuovi/vuoti il riquadro non compare affatto.
-    if(_serieePesoOss(p).length>=2){
+    if(_seriePesoClinico(p).length>=2){
       return '<div style="margin-top:.8rem;padding:.55rem .8rem;background:var(--bg2);border:1px dashed var(--border);border-radius:8px;font-size:.7rem;color:var(--text3)">📈 TDEE osservato: non ancora calcolabile — '+r.motivo+'</div>';
     }
     return '';

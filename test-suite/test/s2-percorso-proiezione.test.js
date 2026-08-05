@@ -49,8 +49,12 @@ test('PROIEZIONE — il cono si allarga col tempo', () => {
 test('PROIEZIONE — calibrata: mantenimento con TDEE osservato < stimato → il peso RISALE', () => {
   const d70 = iso(Date.now() - 70 * G), d50 = iso(Date.now() - 50 * G), d10 = iso(Date.now() - 10 * G);
   const paz = inWin(pazBase({
-    inbody: [{ data: d70, peso: 90, pg: 30, mb: 1700 }],
-    pesiIntermedi: [{ data: d50, peso: 89.2 }, { data: d10, peso: 87.8 }],
+    // P35 tappa 1 (5 ago 2026): due bilance diverse non calibrano un TDEE, e la
+    // proiezione parte da una misura di studio. La fixture usava due pesate di
+    // casa: ora sono tre InBody, con d70 come ancora della fase acqua/glicogeno.
+    inbody: [{ data: d70, peso: 90, pg: 30, mb: 1700 },
+             { data: d50, peso: 89.2, pg: 29, mb: 1700 },
+             { data: d10, peso: 87.8, pg: 28, mb: 1700 }],
     macrosStorico: [{ kcal: 1800, timestamp: Date.now() - 70 * G }],
     percorso: { inizio: d10, fasi: [{ tipo: 'mantenimento', settimane: 8, pct: 0 }] }
   }));

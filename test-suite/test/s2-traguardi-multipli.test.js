@@ -36,10 +36,22 @@ test('TRAGUARDI — ogni tipo legge il dato che l\'app ha già', () => {
   assert.ok(Math.abs(pct.valore - 19.8) < 0.11, '17 kg su 86 = 19.8% (derivata, non copiata)');
 });
 
-test('TRAGUARDI — il peso usa anche le pesate intermedie, non solo gli InBody', () => {
+// ROVESCIATO DA P35 TAPPA 1 (5 ago 2026). Fino a oggi il traguardo di peso
+// leggeva l'ultimo valore della serie FUSA, quindi poteva essere valutato sulla
+// bilancia di casa del paziente. Se quella legge 1,2 kg in più, il traguardo si
+// allontanava di 1,2 kg senza che nessuno lo vedesse. Il traguardo è un numero
+// clinico: si misura sullo strumento con cui è stato fissato.
+test('TRAGUARDI — il peso NON usa le pesate di casa: è un altro strumento', () => {
   const p = inWin(Object.assign({}, PAZ, { pesiIntermedi:[{data:'2026-06-20', peso:84.2}] }));
-  assert.strictEqual(win._traguardoValoreAttuale(p, inWin({tipo:'peso'})).valore, 84.2);
+  assert.strictEqual(win._traguardoValoreAttuale(p, inWin({tipo:'peso'})).valore, 86,
+    'deve restare il peso InBody del 7 mag, non gli 84,2 della bilancia di casa');
   assert.strictEqual(win._traguardoValoreAttuale(p, inWin({tipo:'massaMagra'})).valore, 69, 'la composizione resta quella dell\'InBody');
+});
+
+test('TRAGUARDI — senza nessun InBody il peso non si inventa dalla bilancia di casa', () => {
+  const soloCasa = inWin({ pesiIntermedi:[{data:'2026-06-20', peso:84.2}] });
+  assert.strictEqual(win._traguardoValoreAttuale(soloCasa, inWin({tipo:'peso'})), null,
+    'meglio nessun valore che un valore preso da un altro strumento');
 });
 
 test('TRAGUARDI — dato mancante: null, mai un numero inventato', () => {

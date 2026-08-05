@@ -1195,15 +1195,35 @@ p.pesiIntermedi[] = { data, peso }
   // renderPdInbody(p) in cima alla scheda InBody. Contiene: campo data (default oggi),
   // campo peso (kg, 30-300, step 0.1), pulsante "+ Aggiungi" (aggiungiPesoIntermedio,
   // sovrascrive se la data esiste già), elenco delle pesate in ordine dal più recente
-  // con "N gg fa" e delta colorato rispetto al primo peso InBody, riga "Ultima
-  // settimana: ±X kg in N giorni" quando ci sono ≥2 pesate, e "✕ Elimina" per riga
-  // (eliminaPesoIntermedio). Ogni operazione fa save(p.id) e ridisegna la scheda.
-  // NB: dal 19 lug (P114 passo 4) e dal 24 lug (P115) la serie peso li LEGGE se presenti (_serieePesoOss)
-  // MANCA ANCORA: `offsetBilancia`, cioè la normalizzazione fra bilancia di casa e
-  // bilancia dello studio. Verificato il 4 ago 2026: `grep offsetBilancia index.html`
-  // non trova NULLA — il campo non esiste. Il dubbio originario di C4 (bilance
-  // domestiche ≠ bilancia studio) resta quindi non risolto: i pesi casalinghi si
-  // registrano grezzi e i delta misti casa/studio portano dentro l'errore di taratura.
+  // con "N gg fa" e delta colorato, riga di variazione fra le ultime due pesate,
+  // e "✕ Elimina" per riga (eliminaPesoIntermedio). Ogni operazione fa save(p.id)
+  // e ridisegna la scheda.
+  //
+  // P35 TAPPE 1-2, 5 ago 2026 — la card ha ora un GRAFICO (prefisso _pcas*):
+  //   - due serie SEPARATE sullo stesso asse dei tempi, mai fuse: pesate di casa
+  //     (pallini blu #2a78d6) e bilancia dello studio (rombi terracotta #DD5A33 con
+  //     tratteggio). Interruttori: "Pesate a casa" / "Andamento (media 7 gg)" /
+  //     "Bilancia studio" (quest'ultimo spento all'apertura).
+  //   - MEDIA MOBILE a 7 giorni calcolata su una FINESTRA DI DATE (±3 gg), non
+  //     sulle ultime 7 righe dell'array: con pesate a buchi le due cose divergono.
+  //     Sotto le 3 pesate in finestra la linea si INTERROMPE, non si interpola.
+  //   - BARRA DI SCORRIMENTO sotto al grafico (trascina i bordi per stringere, il
+  //     centro per spostare; minimo 14 giorni) + scorciatoie 1 mese / 3 mesi /
+  //     Tutto che muovono la barra. All'apertura di un paziente riparte da "Tutto".
+  //   - TRE NUMERI che seguono la finestra: ultima pesata · variazione nel periodo ·
+  //     velocità in kg/sett col metro della fascia di ritmo (_ibFasciaRitmo, P132 —
+  //     riusata, non riscritta). Metodo unico: media delle prime pesate della
+  //     finestra contro media delle ultime, diviso la distanza VERA fra i centri dei
+  //     due gruppi. I gruppi partono da 7 giorni e si allargano fino a 21 finché non
+  //     trovano ≥2 pesate (senza questo, chi si pesa 2 volte a settimana non vedeva
+  //     mai un numero). Sotto le condizioni minime compare "dato insufficiente".
+  //   - il colore d'allarme si accende SOLO sul calo troppo rapido; la lentezza è
+  //     scritta a parole e non colorata (stessa disciplina di P132).
+  //   - la lista si ferma a 10 righe con "Mostra tutte le N pesate".
+  //   - IL DELTA DELLA LISTA parte dalla PRIMA PESATA A CASA, non dal primo peso
+  //     InBody: la vecchia base traslava tutto lo storico casalingo dello scarto di
+  //     taratura fra le due bilance. Niente `offsetBilancia` e nessuna correzione
+  //     automatica: le due serie non si normalizzano perché non si confrontano.
 
 p.percorso = { inizio:"YYYY-MM-DD", fasi:[{ tipo:"deficit"|"mantenimento"|"surplus", settimane, pct,
     opz. condizioneUscita:{tipo,op,valore}, stato:"chiusa", esito:{data,peso,pctGrasso,massaMagra} }] }
@@ -1364,8 +1384,9 @@ p.dateCalendario: DISMESSO il 31 lug 2026 (P140 T2). Conteneva cinque date tutte
   p.visitaData/p.controlloData restano come proiezione leggibile.
 p.pesiIntermedi[] = { data, peso }  // ATTIVA, non futura: card "⚖️ Peso casalingo"
   // (_renderPesiIntermediSection, chiamata da renderPdInbody) con data, peso,
-  // "+ Aggiungi" e "✕ Elimina" per riga — verificato 4 ago 2026. Manca solo
-  // `offsetBilancia` (taratura casa/studio): assente dal codice.
+  // "+ Aggiungi", "✕ Elimina" per riga e — dal 5 ago 2026 (P35 tappe 1-2) — grafico
+  // a due serie separate, barra di scorrimento e tre numeri. `offsetBilancia` non
+  // esiste e non deve esistere: le due serie non si normalizzano.
 
 CATALOGO_ALIMENTI (dal 13 lug 2026, P108 fase 0+1): Map id→record che avvolge
   ALIMENTI+CREA_ALIMENTI SENZA sostituirli — entrambe restano popolate e
@@ -2486,8 +2507,8 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
       già validate). Senza FFM o TDEE non avvisa (niente falsi allarmi).
   TDEE OSSERVATO (P114 passo 4, 19 lug 2026 — SOLO INFORMATIVO):
     riquadro viola sotto lo storico TDEE, appeso da renderStoricoTDEE.
-    Confronta il Δpeso reale (serie da p.inbody[] + p.pesiIntermedi[], dedup
-    per data con precedenza InBody) con le kcal medie prescritte (media pesata
+    Confronta il Δpeso reale (serie SOLO da p.inbody[] — dal 5 ago 2026, P35
+    tappa 1: due bilance diverse non calibrano un metabolismo) con le kcal medie prescritte (media pesata
     sui giorni dagli slot di p.macrosStorico[]): TDEE = kcalMedie −
     Δpeso×7700/giorni, calcolato SOLO sul tratto stabilizzato (scartati i
     primi 14 giorni = fase acqua/glicogeno, che gonfierebbe la stima).
@@ -2499,7 +2520,7 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
     semaforo (scarto ≤8% verde · ≤15% ambra · oltre rosso) e due avvertenze
     fisse: non entra in nessun calcolo, e presuppone aderenza al piano (se il
     paziente non lo segue, il numero riflette l'assunzione reale, non il
-    metabolismo). Funzioni: _serieePesoOss, _kcalMediaPrescrittaOss,
+    metabolismo). Funzioni: _seriePesoClinico, _kcalMediaPrescrittaOss,
     calcolaTDEEOsservato, _renderTDEEOsservatoHtml (prima di
     renderStoricoTDEE). Il pulsante "Usa come TDEE" è rimandato di proposito
     a quando Fabrizio si sarà fatto l'occhio sui pazienti reali.
@@ -2581,8 +2602,9 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
   MASSA MAGRA + INTERRUTTORI STRATI (P115 Tappa 4, 24 lug 2026):
     _percorsoSerieMassaMagra(p) (pura) → punti {data,m,pg} SOLO da p.inbody
     (le pesate intermedie non registrano composizione corporea, quindi non
-    contribuiscono qui, a differenza di _serieePesoOss che le include per il
-    peso). Disegnata sullo STESSO asse kg del peso (quadratini magenta
+    contribuiscono qui; _serieePesoOss le include ancora, ma dal 5 ago 2026 quella
+    serie fusa serve SOLO al disegno e alle ancore temporali, mai a un numero
+    clinico — per quelli c'e' _seriePesoClinico). Disegnata sullo STESSO asse kg del peso (quadratini magenta
     #e87ba4, tratteggio tra i punti): il divario verticale col peso È la
     massa grassa, nessun calcolo ulteriore. % grassa in tooltip nativo SVG
     (<title> dentro il marker — zero JS di interazione da mantenere).
@@ -2660,7 +2682,8 @@ SCHEDA "📈 PERCORSO" — timeline di periodizzazione (P115 Tappa 1, 24 lug 202
     ("inbody"/"peso"/"sangue"/"manuale"). _traguardoValoreAttuale(p,t) legge il
     valore corrente dai dati che l'app HA GIA': composizione da _traguardoMisura
     (quindi con la %grasso derivata e il controllo di coerenza), peso da
-    _serieePesoOss (include le pesate intermedie), girovita dall'InBody piu'
+    _seriePesoClinico (SOLO InBody dal 5 ago 2026, P35 tappa 1: un traguardo si
+    misura sullo strumento con cui e' stato fissato), girovita dall'InBody piu'
     recente che ce l'ha, esame da _andSerie (P118). Dato assente -> null, mai un
     numero finto. _traguardoVerso: "auto" (peso, esami) si decide dalla partenza
     — un sottopeso deve salire. _traguardoValuta aggiunge attuale, progresso

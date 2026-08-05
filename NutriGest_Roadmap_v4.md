@@ -550,7 +550,7 @@ Verifica: `node --check`, test logico del motore, prove browser con DB reale + P
 
 # PRIORITÀ 4 — UX, pulizia, strutturali residui
 
-### P35 — Peso casalingo: strumento SEPARATO, non un secondo peso ⚠️ **PARZIALE — la card c'è, ma oggi le due bilance sono fuse**
+### P35 — Peso casalingo: strumento SEPARATO, non un secondo peso ✅ **CHIUSA — tappe 1 e 2 fatte il 5 ago 2026; tappe 3-5 decise (vedi scheda in fondo)**
 
 **IL DISEGNO, dettato da Fabrizio il 4 agosto 2026.** Questa voce era nata come «raffinare la
 sezione pesate»; non è quello. Il peso casalingo è **un secondo strumento**, con un mestiere suo:
@@ -638,30 +638,47 @@ altrimenti si crea un terzo numero che nessuno sa spiegare.
 `offsetBilancia` per normalizzare i pesi di casa su quelli di studio. È stato superato dal disegno
 del 4 agosto: le due serie non si normalizzano perché non si confrontano.)*
 
-**PICCOLA COSA DA SISTEMARE NELLA TAPPA 2:** la riga di sintesi della card dice «Ultima settimana:
-±X kg in N giorni» ma calcola fra le ultime due pesate, quali che siano — se sono distanti un mese
-scrive «Ultima settimana … in 30 giorni». Il numero è giusto, l'etichetta no.
+**PICCOLA COSA DA SISTEMARE NELLA TAPPA 2 — ✅ fatta il 5 ago 2026:** la riga di sintesi diceva
+«Ultima settimana: ±X kg in N giorni» calcolando fra le ultime due pesate quali che fossero. Ora
+dice «Dal giorno prima» o «Negli ultimi N giorni» con l'intervallo vero.
 
 **FOCUS COMPONENTI COINVOLTI:** Frontend (card + grafici) + un intervento chirurgico su
 `_serieePesoOss`. Nessuna migrazione dati: `p.pesiIntermedi[]` resta com'è.
-> ⚠️ **DECISIONE APERTA, DA PRENDERE PRIMA DI SCRIVERE CODICE (segnata il 5 ago 2026).**
-> Le tappe 1 e 2 sono decise e si fanno. Le tre opzionali NO: Fabrizio deve scegliere quali
-> vuole, ed è la prima cosa da chiedergli quando si riapre questa voce.
-> - **Striscia di aderenza** (punto 4): in quali giorni il paziente si è pesato davvero.
->   Costa poco, e prima di una videochiamata dice a colpo d'occhio se il dato è denso o pieno
->   di buchi. È quella che consiglierei per prima.
-> - **Velocità di variazione** (punto 3): calcolata sulla media mobile, con la fascia di ritmo
->   `_ibFasciaRitmo` già esistente. Si colora solo il lato pericoloso.
-> - **Confronto casa↔studio** (punto 5): Fabrizio stesso l'ha giudicato «può essere molto
->   fuorviante». Se si fa, solo nella forma che non produce numeri derivati.
+> ✅ **DECISIONE PRESA DA FABRIZIO IL 5 AGOSTO 2026**, guardando tre mockup successivi.
+> La richiesta testuale: *«voglio cose semplici, non voglio riempire di grafici anche il peso
+> casalingo»*. Un grafico solo, con interruttori per accendere anche la serie dello studio,
+> una barra di scorrimento nel tempo e pochi numeri.
+> - **Velocità di variazione** (punto 3): **SÌ**, dentro il grafico come terzo numero, con il
+>   metro della fascia `_ibFasciaRitmo`. Confermata la disciplina di P132: si colora solo il
+>   calo troppo rapido, la lentezza è scritta a parole e non colorata.
+> - **Striscia di aderenza** (punto 4): **NO** per ora. Resta l'unica cosa non fatta di
+>   questa voce; se un domani servisse per i pazienti lontani si riapre da qui.
+> - **Confronto casa↔studio** (punto 5): **fatto nella forma sicura che questa scheda
+>   prescriveva** — le due serie sullo stesso asse dei tempi senza fonderle, accese da un
+>   interruttore, nessun numero derivato e nessun `offsetBilancia`. Non è stato fatto come
+>   pannello a sé, che era la forma giudicata fuorviante.
+> - Scelto anche: la finestra riparta sempre da «Tutto» quando si apre un paziente, e i
+>   pulsanti 1 mese / 3 mesi restino come **scorciatoie della barra**, non come secondo
+>   controllo indipendente.
 
-**SCHEDA:** Stato: ⚠️ **PARZIALE** — card «⚖️ Peso casalingo» in produzione (`p.pesiIntermedi[]`,
-`_renderPesiIntermediSection` chiamata da `renderPdInbody`); **da fare: tappa 1 (separazione, è
-anche una correzione di difetto) e tappa 2 (grafico andamento)**; **tappe 3-5 opzionali: scelta
-ancora da fare, vedi riquadro sopra** · Priorità:
-**Media** — alzata dal 4 ago 2026: la tappa 1 corregge un difetto clinico silenzioso, non è più
-solo un miglioramento · C: 3 | I: 4 | R: 2 · Modello: Opus (tocca dati clinici e un calcolo
-esistente) · Autonomia: L0 sulla tappa 1, L1 sui grafici.
+**SCHEDA:** Stato: ✅ **CHIUSA il 5 agosto 2026** (tappe 1, 2, 3 e 5-in-forma-sicura; tappa 4
+striscia di aderenza consapevolmente NON fatta, vedi riquadro). Suite da 630 a 665 verdi,
+35 test nuovi in `test-suite/test/s2-peso-casalingo.test.js`. Racconto completo nel CHANGELOG
+del 5 ago 2026 (5/5).
+- **Tappa 1 fatta:** nasce `_seriePesoClinico(p)` (solo `p.inbody[]`) e la usano i tre punti che
+  producono un numero clinico — `_traguardoValoreAttuale` (fonte peso), `_percorsoProiezione`,
+  `calcolaTDEEOsservato`. `_serieePesoOss` resta viva ma con uso dichiarato: solo disegno
+  (`_percorsoChartSvg`, che mostra la fonte a schermo) e ancore temporali
+  (`_percorsoShiftGiorni`, che usa la data e non i kg). Corretto anche il delta della lista, che
+  partiva dal primo peso InBody.
+- **Tappa 2 fatta:** grafico `_pcas*` a due serie separate, media mobile su finestra di date con
+  interruzione sui buchi, barra di scorrimento, tre numeri sulla finestra scelta, lista limitata
+  a 10 righe.
+- **Tre difetti emersi in collaudo** e corretti: virgola italiana letta da `parseFloat` come
+  mezzo chilo in meno; etichetta che dichiarava più giorni di quelli misurati (stessa famiglia
+  del vecchio «Ultima settimana»); gruppi di estremo fissi che rendevano muti i numeri per chi
+  si pesa due volte a settimana.
+· Priorità: **chiusa** · C: 3 | I: 4 | R: 2 · Modello: Opus · Autonomia: L0 sulla tappa 1, L1 sui grafici.
 
 ### P43 — Piccoli interventi "quando capita"
 **L'APPROCCIO ORIGINARIO:** pulizia prompt | sidebar <1130px | backup settimanale JSON | DB equivalenze.
