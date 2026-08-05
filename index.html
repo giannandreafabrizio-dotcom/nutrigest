@@ -28380,8 +28380,49 @@ function _offEstraiEtichetta(prod, barcode, dataLettura){
     nutriscore:(p.nutriscore_grade?String(p.nutriscore_grade).toLowerCase():null),
     quantita:((p.quantity||'').trim()||null),
     porzione:((p.serving_size||'').trim()||null),
-    immagine:(p.image_front_small_url||null)
+    immagine:(p.image_front_small_url||null),
+    // Quanto è compilata la scheda su Open Food Facts. Serve a distinguere
+    // "non contiene" da "nessuno l'ha ancora scritto" — vedi _offAllergeniAffidabili.
+    completezza:_offNum(p.completeness),
+    stati:_offTags(p.states_tags)
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// "Non contiene" oppure "nessuno l'ha compilato"? (5 ago 2026)
+//
+// Domanda di Fabrizio guardando il mockup della scheda alimento. Una lista di
+// allergeni VUOTA su Open Food Facts può voler dire due cose opposte, e a schermo
+// sono identiche. Trattarle come una sola sarebbe comodo e clinicamente sbagliato.
+//
+// IL SEGNALE CHE DECIDE NON E' UN CAMPO DI METADATO, E' IL TESTO DEGLI INGREDIENTI.
+// Open Food Facts ricava gli allergeni analizzando la lista ingredienti trascritta
+// da un volontario: se quella lista non c'e', non c'e' stata nessuna analisi e
+// l'assenza di allergeni non significa niente. Se invece c'e', l'assenza e'
+// un'informazione — con la riserva che resta una trascrizione, non l'etichetta.
+//
+// `completezza` e `stati` si raccolgono come corroborazione, ma la regola NON ci si
+// appoggia: sono campi che non ho potuto verificare fino in fondo nella
+// documentazione, e una regola clinica non si costruisce su un campo incerto.
+// ══════════════════════════════════════════════════════════════════════════
+const _OFF_ING_MIN=12;   // sotto questa lunghezza la lista ingredienti non è una lista
+function _offAllergeniAffidabili(et){
+  if(!et) return false;
+  const ing=et.ingredienti;
+  return !!(ing && String(ing).trim().length>=_OFF_ING_MIN);
+}
+// Stato a TRE valori per un allergene, invece di due.
+//   'contiene'    — dichiarato fra allergeni o tracce
+//   'assente'     — ingredienti trascritti e allergene non presente: è un'informazione
+//   'incompleta'  — nessuna lista ingredienti: l'assenza non significa niente
+function _offStatoAllergene(et, chiavi){
+  if(!et) return 'incompleta';
+  const k=(Array.isArray(chiavi)?chiavi:[chiavi]).map(function(x){return String(x).toLowerCase();});
+  const dentro=function(lista){
+    return (lista||[]).some(function(t){ return k.some(function(x){ return t.indexOf(x)>=0; }); });
+  };
+  if(dentro(et.allergeni)||dentro(et.tracce)) return 'contiene';
+  return _offAllergeniAffidabili(et) ? 'assente' : 'incompleta';
 }
 
 // Quali dati clinici sono arrivati e quali no. Serve a dirlo a schermo invece di
@@ -28406,7 +28447,8 @@ function cercaBarcodeOFF(code){
   // browser NON è impostabile (header vietato in fetch), quindi si passa in query.
   var _campi='product_name,product_name_it,brands,quantity,serving_size,serving_quantity,'
     +'nutriments,allergens_tags,traces_tags,labels_tags,ingredients_text,ingredients_text_it,'
-    +'ingredients_tags,categories_tags,additives_tags,nova_group,nutriscore_grade,image_front_small_url';
+    +'ingredients_tags,categories_tags,additives_tags,nova_group,nutriscore_grade,image_front_small_url,'
+    +'completeness,states_tags,nutrient_levels';
   var url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json'
     +'?fields='+_campi+'&app_name=NutriGest&app_version='+encodeURIComponent(_OFF_APP_VER);
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;

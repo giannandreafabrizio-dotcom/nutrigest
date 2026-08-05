@@ -1457,7 +1457,17 @@ Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
   del record (confermati nel form) e quelli dell'etichetta (grezzi)
   possono divergere di proposito — serve a sapere cosa è stato corretto.
   Il riquadro del barcode dichiara a schermo cosa l'etichetta ha portato
-  E cosa no (`_offRiepilogo`, `_bcMostraRiepilogo`). ──
+  E cosa no (`_offRiepilogo`, `_bcMostraRiepilogo`).
+  ALLERGENI A TRE STATI (`_offStatoAllergene(et, chiavi)`): 'contiene' /
+  'assente' / 'incompleta'. Una lista allergeni VUOTA su Open Food Facts
+  puo' voler dire "non contiene" oppure "nessuno l'ha trascritta": il
+  segnale che decide e' la presenza del TESTO INGREDIENTI (>=12 caratteri),
+  perche' e' da li' che Open Food Facts ricava gli allergeni. Senza
+  ingredienti lo stato e' 'incompleta' e l'assenza non vale come prova;
+  senza etichetta del tutto e' 'incompleta', mai 'assente'. `completezza`
+  (da `completeness`) e `stati` (da `states_tags`) si raccolgono come
+  corroborazione ma la regola NON ci si appoggia. Raccolto anche
+  `nutrient_levels`: controprova delle soglie, mai sostituto. ──
   l'utente conferma o corregge come per un alimento manuale. Se il
   prodotto non è su OFF o il servizio è irraggiungibile, messaggi
   dedicati che non bloccano il flusso (form vuoto con barcode agganciato,

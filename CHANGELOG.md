@@ -77,6 +77,28 @@ riquadro la cita gia'. Chiedono uno User-Agent identificativo: **dal browser non
 impostabile** perche' e' un header vietato in `fetch`, quindi si passano `app_name`
 e `app_version` in query. Detto come sta, non promesso.
 
+ADDENDUM DELLA SERA — "NON CONTIENE" E "NESSUNO L'HA COMPILATO" DIVENTANO DUE
+COSE DIVERSE. Domanda di Fabrizio guardando il mockup della scheda alimento: una
+lista di allergeni vuota su Open Food Facts puo' voler dire "non contiene" oppure
+"nessuno l'ha ancora trascritta", e a schermo erano identiche.
+  SI PUO' DISTINGUERE, e il segnale che decide **non e' un bollino di completezza**:
+e' **la lista degli ingredienti**. Open Food Facts ricava gli allergeni analizzando
+il testo trascritto da un volontario; se quel testo non c'e', non c'e' stata nessuna
+analisi e l'assenza di allergeni non significa niente. Nasce
+`_offStatoAllergene(et, chiavi)` con tre valori invece di due: 'contiene' (dichiarato
+fra allergeni o tracce), 'assente' (ingredienti trascritti e allergene non presente:
+e' un'informazione), 'incompleta' (nessuna lista ingredienti: l'assenza non vale).
+  `completeness` e `states_tags` si raccolgono come corroborazione ma **la regola non
+ci si appoggia**: nella documentazione ufficiale ho potuto confermare `completeness`
+e `complete`, non `states_tags`, e una regola clinica non si costruisce su un campo
+che non si e' verificato. Raccolti si', usati come prova no.
+  In dubbio si resta prudenti: senza etichetta lo stato e' 'incompleta', mai
+'assente'. Un alimento di cui non sappiamo niente non e' un alimento sicuro.
+  Trovato anche `nutrient_levels` — la classificazione basso/medio/alto che Open
+Food Facts calcola da se' sui quattro nutrienti. Si raccoglie: sara' utile come
+CONTROPROVA delle soglie della tappa 3, mai come loro sostituto (sono soglie da
+scaffale, non cliniche — stesso ragionamento del Nutri-Score).
+
 RESTA DA FARE (P128, tappe 2-6): la scheda alimento con la ciambella dei macro in
 percentuale di CALORIE, le soglie cliniche voce per voce con Fabrizio (L0), gli
 allergeni come regola, lo stato "da valutare" derivato, e il marchio nel piano AI.

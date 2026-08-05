@@ -197,3 +197,66 @@ test('P128 — il riepilogo scrive a schermo anche i dati NON dichiarati', () =>
   assert.strictEqual(el.innerHTML, '', 'senza etichetta il riquadro resta vuoto, non tiene il testo di prima');
   el.remove();
 });
+
+// ═══ 8. "Non contiene" oppure "nessuno l ha compilato"? ══════════════════
+// Domanda di Fabrizio guardando il mockup: una lista di allergeni vuota su Open
+// Food Facts può voler dire due cose opposte, e a schermo sono identiche.
+// Il segnale che decide NON è un metadato: è la presenza del testo ingredienti,
+// perché è da quello che Open Food Facts ricava gli allergeni.
+test('P128 — allergene dichiarato: "contiene", e vale anche fra le tracce', () => {
+  const et = win._offEstraiEtichetta({
+    allergens_tags: ['en:gluten'], ingredients_text: 'Farina di frumento, acqua, sale'
+  }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(et, 'gluten'), 'contiene');
+  const tracce = win._offEstraiEtichetta({
+    traces_tags: ['en:nuts'], ingredients_text: 'Farina, zucchero, uova, burro'
+  }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(tracce, 'nuts'), 'contiene',
+    'una traccia è un rischio, non un silenzio');
+});
+
+test('P128 — lista vuota MA ingredienti trascritti: "assente" è un informazione', () => {
+  const et = win._offEstraiEtichetta({
+    allergens_tags: [], ingredients_text: 'Pomodoro 100%, sale marino, basilico'
+  }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(et, 'milk'), 'assente');
+});
+
+test('P128 — lista vuota SENZA ingredienti: "incompleta", non "assente"', () => {
+  // È il cuore della domanda. Senza la lista ingredienti nessuno ha analizzato
+  // niente, e l assenza di allergeni non significa "non contiene".
+  const senza = win._offEstraiEtichetta({ allergens_tags: [] }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(senza, 'milk'), 'incompleta');
+  const vuoto = win._offEstraiEtichetta({ allergens_tags: [], ingredients_text: '   ' }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(vuoto, 'milk'), 'incompleta');
+  const briciola = win._offEstraiEtichetta({ allergens_tags: [], ingredients_text: 'latte' }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(briciola, 'milk'), 'incompleta',
+    'una parola sola non è una lista ingredienti');
+});
+
+test('P128 — SILENZIO: senza etichetta lo stato è "incompleta", mai "assente"', () => {
+  assert.strictEqual(win._offStatoAllergene(null, 'milk'), 'incompleta',
+    'in dubbio si resta prudenti: un alimento senza etichetta non è un alimento sicuro');
+});
+
+test('P128 — più chiavi per lo stesso allergene (glutine = frumento, orzo, farro)', () => {
+  const et = win._offEstraiEtichetta({
+    allergens_tags: ['en:barley'], ingredients_text: 'Acqua, malto d orzo, luppolo'
+  }, '1', null);
+  assert.strictEqual(win._offStatoAllergene(et, ['gluten', 'wheat', 'barley']), 'contiene');
+  assert.strictEqual(win._offStatoAllergene(et, ['milk']), 'assente');
+});
+
+test('P128 — i segnali di completezza si raccolgono ma non decidono da soli', () => {
+  // completeness e states_tags entrano nel record come corroborazione. La regola
+  // NON ci si appoggia: sono campi che la documentazione non conferma fino in
+  // fondo, e una regola clinica non si costruisce su un campo incerto.
+  const et = win._offEstraiEtichetta({
+    completeness: 0.875, states_tags: ['en:ingredients-to-be-completed'],
+    allergens_tags: [], ingredients_text: 'Acqua, zucchero, aromi naturali'
+  }, '1', null);
+  assert.strictEqual(et.completezza, 0.875);
+  assert.deepStrictEqual(puro(et.stati), ['ingredients to be completed']);
+  assert.strictEqual(win._offStatoAllergene(et, 'milk'), 'assente',
+    'decide la lista ingredienti, non il metadato');
+});

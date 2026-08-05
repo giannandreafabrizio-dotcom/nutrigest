@@ -1545,7 +1545,15 @@ record la conserva in `etichetta` (additiva, nessuna migrazione), e il riquadro 
 a schermo cosa è arrivato **e cosa no**. 19 test nuovi, suite a 685. Nova e Nutri-Score raccolti ma
 **mai clinici**. Racconto nel CHANGELOG del 5 ago 2026 (6/6).
 
-**SCHEDA:** Stato: **In corso** — tappa 1 fatta; restano: 2 scheda alimento (L1) · 3 soglie cliniche
+**ADDENDUM 5 AGO 2026 (sera), da domanda di Fabrizio:** «non è meglio distinguere le voci *non
+contiene* da *nessuno l'ha ancora compilata*?». Sì, e si può: il segnale che decide **non è un
+bollino di completezza ma la lista degli ingredienti**, perché è da quella che Open Food Facts
+ricava gli allergeni. `_offStatoAllergene` ha tre valori — `contiene` / `assente` / `incompleta` —
+e in dubbio resta su `incompleta`. `completeness` e `states_tags` raccolti come corroborazione ma
+la regola non ci si appoggia (`states_tags` non è confermato nella documentazione ufficiale).
+Raccolto anche `nutrient_levels`: **controprova** delle soglie della tappa 3, mai sostituto.
+
+**SCHEDA:** Stato: **In corso** — tappa 1 fatta (+ addendum allergeni a tre stati); restano: 2 scheda alimento (L1) · 3 soglie cliniche
 (**L0**, lavoro a quattro mani) · 4 allergeni come regola (L1) · 5 stato «da valutare» derivato
 (**L0** sul significato) · 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
 clinico / dati alimenti · Dipendenze: **P108 e P110, entrambe chiuse** · Autonomia: **L0** su soglie
