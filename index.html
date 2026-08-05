@@ -6414,6 +6414,107 @@ function _semaforoMigraTutti(pazienti){
   return {colori:colori, pazienti:quanti};
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// P128 TAPPA 4 — IL SEMAFORO LEGGE ANCHE L'ETICHETTA (5 ago 2026)
+//
+// Fino a oggi il semaforo colorava per NOME: liste di nomi propri, una per
+// condizione. Un prodotto appena scansionato col codice a barre non era in
+// nessuna lista, quindi entrava fra gli alimenti scegliibili per il paziente
+// **bianco** — cioè indistinguibile da uno controllato e approvato. Il latte
+// di una marca qualsiasi non risultava sconsigliato all'intollerante al lattosio.
+//
+// Da qui il semaforo ha una SECONDA sorgente: i dati d'etichetta raccolti alla
+// scansione. Le due sorgenti confluiscono negli stessi contatori di
+// applicaRegoloSemaforo, quindi tutto ciò che sta a valle — tooltip, avvisi
+// allergeni, esclusioni del generatore, PDF — funziona senza sapere da dove
+// viene il colore.
+//
+// PERIMETRO: solo gli alimenti che HANNO un'etichetta, cioè quelli scansionati.
+// Sui CREA-INRAN non cambia nulla: continuano a valere le liste di nomi.
+//
+// SOGLIE: quelle del semaforo UK FSA per 100 g, adottate il 5 ago 2026 come
+// punto di partenza dichiaratamente provvisorio (v. P128b in roadmap).
+// ══════════════════════════════════════════════════════════════════════════
+
+// [condizione, campo, soglia grigio (oltre), soglia celeste (fino a)]
+const _SEM_ET_NUMERI=[
+  ['pat-ipert',  'sale',     1.5,  0.3 ],
+  ['pat-diabete','zuccheri', 22.5, 5.0 ],
+  ['pat-lipidi', 'saturi',   5.0,  1.5 ]
+];
+const _SEM_ET_ALLERGENI={
+  'all-glutine' :{tag:['gluten','glutine','wheat','frumento','barley','orzo','rye','segale','spelt','farro'], senza:['gluten','glutine']},
+  'all-lattosio':{tag:['milk','latte','lactose','lattosio'], senza:['lactose','lattosio']}
+};
+
+// Verdetto dell'etichetta per UNA condizione. Pura.
+//   'grigio'  → sconsigliato
+//   'celeste' → consigliato
+//   null      → l'etichetta non dice niente su questa condizione (NON è "va bene")
+function _semEtichettaValuta(rec, idCond){
+  const et=rec&&rec.etichetta;
+  if(!et) return null;
+  const alle=_SEM_ET_ALLERGENI[idCond];
+  if(alle){
+    // La dichiarazione "senza" viene PRIMA dell'allergene: un delattosato
+    // dichiara il latte fra gli allergeni e non contiene lattosio. Senza questa
+    // precedenza il prodotto fatto apposta per quel paziente gli sarebbe negato.
+    if((et.senza||[]).some(function(x){ return alle.senza.some(function(k){ return x.indexOf(k)>=0; }); })) return 'celeste';
+    return _offStatoAllergene(et, alle.tag)==='contiene' ? 'grigio' : null;
+  }
+  for(let i=0;i<_SEM_ET_NUMERI.length;i++){
+    const r=_SEM_ET_NUMERI[i];
+    if(r[0]!==idCond) continue;
+    const v=et.per100g?et.per100g[r[1]]:null;
+    if(v==null) return null;          // dato mancante non è dato buono
+    if(v>r[2]) return 'grigio';
+    if(v<=r[3]) return 'celeste';
+    return null;                       // fascia media: nessun consiglio
+  }
+  return null;
+}
+
+// Scorre il catalogo e riversa i verdetti d'etichetta negli stessi contatori
+// usati dalle regole per nome.
+// Un alimento appena scansionato deve colorarsi SUBITO sul paziente aperto.
+// Senza questo resterebbe bianco fino al prossimo salvataggio del paziente —
+// cioè indistinguibile da uno valutato, che è il difetto che P128 chiude.
+function _semRicalcolaPazienteAperto(){
+  if(typeof currentPazId==='undefined'||!currentPazId) return;
+  const p=(db.pazienti||[]).find(function(x){return x.id===currentPazId;});
+  if(!p||!p.checkSemaforo) return;
+  applicaRegoloSemaforo(p);
+  window._alStato=p.alimenti||{};
+  window._alMotivazioni=p.motivazioniSemaforo||{};
+  if(typeof save==='function') save(p.id);
+}
+
+function _semApplicaEtichette(p, cs, cGrigi, mGrigi, cLuci, mLuci){
+  // CATALOGO_ALIMENTI è una Map (id → record): forEach passa (valore, chiave).
+  const cat=(typeof CATALOGO_ALIMENTI!=='undefined'&&CATALOGO_ALIMENTI)?CATALOGO_ALIMENTI:new Map();
+  const NOMI=NOMI_CONDIZIONE_SEMAFORO;
+  cat.forEach(function(rec){
+    if(!rec||!rec.etichetta||rec.attivo===false) return;
+    const key=trovaChiaveAlimento(rec.nome);
+    if(!key) return;
+    Object.keys(_SEM_ET_ALLERGENI).concat(_SEM_ET_NUMERI.map(function(r){return r[0];})).forEach(function(idCond){
+      if(!cs[idCond]) return;
+      const v=_semEtichettaValuta(rec, idCond);
+      if(!v) return;
+      const nome=NOMI[idCond]||idCond;
+      if(v==='grigio'){
+        cGrigi[key]=(cGrigi[key]||0)+1;
+        mGrigi[key]=mGrigi[key]||[];
+        if(mGrigi[key].indexOf(nome)<0) mGrigi[key].push(nome);
+      } else {
+        cLuci[key]=(cLuci[key]||0)+1;
+        mLuci[key]=mLuci[key]||[];
+        if(mLuci[key].indexOf(nome)<0) mLuci[key].push(nome);
+      }
+    });
+  });
+}
+
 function applicaRegoloSemaforo(p){
   if(!p||!p.checkSemaforo)return;
   const cs=p.checkSemaforo;
@@ -6477,6 +6578,13 @@ function applicaRegoloSemaforo(p){
       }
     });
   });
+
+  // P128 tappa 4: seconda sorgente — i dati d'etichetta dei prodotti scansionati.
+  // Confluisce negli stessi contatori, quindi tutto ciò che sta a valle non
+  // deve sapere da dove viene il colore.
+  if(typeof _semApplicaEtichette==='function'){
+    _semApplicaEtichette(p, cs, conteggioGrigi, motivazioniGrigi, conteggioLuci, motivazioniLuci);
+  }
 
   // Assegna colori e salva motivazioni per tooltip ⚡
   if(!p.motivazioniSemaforo)p.motivazioniSemaforo={};
@@ -27999,6 +28107,7 @@ function salvaAlimentoCustom(){
     if(a.per100g)CREA_ALIMENTI[a.nome]=a.per100g;else delete CREA_ALIMENTI[a.nome];
     saveLocal();
     pushAlimentiCustomSupabase();
+    if(typeof _semRicalcolaPazienteAperto==='function') _semRicalcolaPazienteAperto();  // P128 tappa 4
     closeM('mo-alim-custom');
     _resetAlimModal();
     if(window.b3Attach)window.b3Attach();
@@ -28024,6 +28133,7 @@ function salvaAlimentoCustom(){
   if(alim.per100g)CREA_ALIMENTI[nome]=alim.per100g;
   saveLocal();
   pushAlimentiCustomSupabase();
+  if(typeof _semRicalcolaPazienteAperto==='function') _semRicalcolaPazienteAperto();  // P128 tappa 4
   closeM('mo-alim-custom');
   // Reset form
   _resetAlimModal();

@@ -1482,6 +1482,21 @@ Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
   meglio di uno che nessuno ha guardato. Vivono SOLO qui — non colorano il
   semaforo del piano e non entrano in nessun calcolo — e la scheda dichiara a
   schermo fonte e provvisorieta'. Rivalutazione in P128b (roadmap).
+  SEMAFORO DALL'ETICHETTA (P128 tappa 4, 5 ago 2026): `applicaRegoloSemaforo`
+  ha una SECONDA sorgente oltre alle liste di nomi. `_semApplicaEtichette(p, ...)`
+  scorre CATALOGO_ALIMENTI (che e' una **Map** id->record) e, per i soli record
+  con `etichetta` e `attivo!==false`, chiama `_semEtichettaValuta(rec, idCond)` —
+  pura, restituisce 'grigio' | 'celeste' | null — riversando i verdetti negli
+  STESSI contatori delle regole per nome. Quindi tooltip, avvisi allergeni,
+  esclusioni del generatore e PDF non sanno da dove viene il colore e non sono
+  stati toccati. Perimetro: `all-lattosio` e `all-glutine` dagli allergeni
+  dichiarati (con la dichiarazione "senza" che vince SEMPRE sull'allergene, per
+  non negare un delattosato a chi non tollera il lattosio), `pat-ipert`,
+  `pat-diabete`, `pat-lipidi` dalle soglie UK FSA. Le altre dieci condizioni
+  restano fuori. REGOLA: **null non e' "va bene"** — dato mancante e fascia media
+  non producono mai un celeste. I colori manuali non vengono mai sovrascritti.
+  Salvando un alimento si richiama `_semRicalcolaPazienteAperto()`, altrimenti il
+  prodotto appena scansionato resterebbe bianco fino al salvataggio del paziente.
   Regole non negoziabili gia' costate un difetto: (a) la dichiarazione "senza"
   viene PRIMA dell'allergene, altrimenti un delattosato risulta vietato
   all'intollerante al lattosio e un pane senza glutine certificato al celiaco;

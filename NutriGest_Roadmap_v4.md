@@ -1602,7 +1602,16 @@ provvisorietà sono **dichiarate a schermo** nella scheda alimento, e un test lo
 > zuccheri **liberi** — una soglia sui totali colora di grigio lo yogurt bianco e la frutta.
 > *Priorità: Bassa. Autonomia: L0. Non bloccante: le soglie attuali funzionano e sono dichiarate.*
 
-**SCHEDA:** Stato: **In corso** — tappe 1, 2 e 3 (provvisoria) fatte; restano: 4 allergeni come regola (L1) · 5 stato «da valutare» derivato
+**TAPPA 4 ✅ FATTA IL 5 AGOSTO 2026** — il semaforo legge anche l'etichetta. `applicaRegoloSemaforo`
+ha una seconda sorgente (`_semApplicaEtichette`) che, per i soli alimenti scansionati, riversa i
+verdetti di `_semEtichettaValuta` negli **stessi contatori** delle regole per nome: tooltip, avvisi
+allergeni, esclusioni del generatore e PDF non sono stati toccati e funzionano già.
+Perimetro: lattosio e glutine dagli allergeni dichiarati, sodio/zuccheri/saturi dalle soglie della
+tappa 3. Le altre dieci condizioni restano fuori. **Regola non negoziabile: `null` non è «va bene»** —
+un'etichetta muta non produce mai un celeste. Ricalcolo immediato sul paziente aperto al salvataggio
+di un alimento. 14 test nuovi, suite a 724.
+
+**SCHEDA:** Stato: **In corso** — tappe 1, 2, 3 (provvisoria) e 4 fatte; restano: 5 stato «da valutare» derivato
 (**L0** sul significato) · 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
 clinico / dati alimenti · Dipendenze: **P108 e P110, entrambe chiuse** · Autonomia: **L0** su soglie
 nutrizionali e significato del bianco.

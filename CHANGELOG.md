@@ -10,6 +10,55 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (9/9) — P128 TAPPA 4: IL SEMAFORO LEGGE ANCHE L'ETICHETTA.
+Suite da 710 a 724 verdi (14 test nuovi, `s2-semaforo-etichetta`).
+
+DA DOVE NASCE, parole di Fabrizio: *"se aggiungo il latte di una certa marca ed ho
+un paziente intollerante al lattosio, io voglio vedere che quel latte e' grigio
+scuro e quindi sconsigliato per la sua patologia"*.
+  IL DIFETTO ERA ESATTAMENTE QUELLO. Il semaforo colorava solo per NOME, con liste
+di nomi propri. Un prodotto appena scansionato non e' in nessuna lista, quindi
+entrava fra gli alimenti scegliibili per il paziente **bianco** — cioe'
+indistinguibile da uno controllato e approvato. Con un database che cresce col
+codice a barre e' il rischio principale dell'app, ed e' il motivo per cui P128
+esiste.
+
+COSA FA. `applicaRegoloSemaforo` ha ora una SECONDA sorgente: `_semApplicaEtichette`
+scorre il catalogo e, per i soli alimenti che hanno un'etichetta (cioe' gli
+scansionati), riversa i verdetti nei MEDESIMI contatori delle regole per nome.
+Conseguenza voluta: tooltip, avvisi allergeni, esclusioni del generatore e PDF
+funzionano senza sapere da dove viene il colore — nessuno di loro e' stato toccato.
+  `_semEtichettaValuta(rec, condizione)` e' pura e restituisce 'grigio', 'celeste'
+o **null**. Perimetro: lattosio e glutine dagli allergeni dichiarati; sodio,
+zuccheri e saturi dalle soglie UK FSA della tappa 3. Le altre dieci condizioni
+restano fuori: non si deducono, e non si inventano.
+
+LA REGOLA CHE TIENE IN PIEDI TUTTO: **null non e' "va bene".** Un'etichetta che non
+dice niente su una condizione non produce mai un celeste. Un prodotto di cui non
+conosciamo il sodio non e' un prodotto a basso sodio, e la fascia media non e' un
+via libera. Cinque dei quattordici test nuovi verificano solo questo silenzio.
+
+E LA PRECEDENZA CHE EVITA IL DANNO PEGGIORE: la dichiarazione "senza" viene prima
+dell'allergene. Un latte delattosato dichiara il LATTE fra gli allergeni e non
+contiene lattosio: senza quella precedenza risulterebbe sconsigliato proprio al
+paziente per cui e' fatto. Ora risulta **celeste**, cioe' consigliato.
+
+INVARIANTI CONFERMATE DAI TEST: un colore messo a mano non viene mai sovrascritto
+(la scelta ultima e' del nutrizionista); un alimento archiviato non entra nel
+semaforo; in conflitto fra grigio e celeste vince la cautela e il conflitto resta
+registrato per il tooltip; sui CREA-INRAN non cambia nulla.
+
+RICALCOLO IMMEDIATO. Salvando un alimento si richiama `_semRicalcolaPazienteAperto`:
+senza, il prodotto appena scansionato sarebbe rimasto bianco fino al successivo
+salvataggio del paziente — di nuovo indistinguibile da uno valutato.
+
+UN DIFETTO DA UN TEST, E LA STESSA LEZIONE DI STAMATTINA: la prima versione
+iterava `CATALOGO_ALIMENTI` come un array. **E' una Map** (id -> record). Il codice
+e' stato corretto, ma il punto vero e' il test: era stato scritto su un array,
+cioe' collaudava una struttura dati che l'app non ha. E' la stessa lezione della
+tappa 2, dove il test costruiva a mano una configurazione che l'app non usa.
+**Un test che si costruisce il proprio mondo non collauda niente.**
+
 5 AGOSTO 2026 (8/8) — P128 TAPPA 3: SI ADOTTANO LE SOGLIE BRITANNICHE, E SI
 DICHIARA CHE SONO PROVVISORIE. Suite 710 verdi.
 
