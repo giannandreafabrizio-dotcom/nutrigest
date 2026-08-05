@@ -8398,6 +8398,48 @@ const LIBRERIA_ROUTINE = [
   { nome:'Succo Viola 🟣', dose:'200-250 ml', quante_volte:1, quando:'Sera o fuori pasto come antiossidante', razionale:'Antociani da mirtilli, mora e cavolo viola (cervello, memoria, vascolare), resveratrolo da ribes nero, vitamina C da limone, zenzero antinfiammatorio. Il più neuroprotettivo.', tipo:'superfood', ingredienti:'mirtilli, mora, cavolo viola, ribes nero, limone, zenzero' },
 ];
 
+// ── P148 tappa 4 — il ponte fra scheda Clinica e scheda Routine ──────────
+// Il problema da cui è nata tutta P148: Fabrizio spunta "Omega-3" nella
+// scheda Clinica, apre la Routine e non trova niente.
+// È un SUGGERIMENTO CLICCABILE, non un'aggiunta automatica, e la ragione è
+// che i due dati dicono cose diverse: "prende già / vorrebbe prendere" è un
+// fatto di ANAMNESI (cosa fa il paziente), la voce in Routine è una
+// PRESCRIZIONE (cosa gli dico di fare). Scriverle insieme in automatico
+// significherebbe trasformare in prescrizione qualcosa che il paziente aveva
+// solo dichiarato — e il PDF che gli arriva è la stessa cosa in entrambi i
+// casi. Restano due scritture, collegate da un click.
+function integratoriDaSuggerireInRoutine(p) {
+  if (!p) return [];
+  const inRoutine = new Set();
+  (p.routineGiornaliera || []).forEach(v => {
+    const k = v.chiave || chiaveIntegratore(v.nome);
+    if (k) inRoutine.add(k);
+  });
+  const daClinica = new Set();
+  _chiaviSpuntate(p.integratori || []).forEach(k => daClinica.add(k));
+  _chiaviSpuntate(p.integraWant || []).forEach(k => daClinica.add(k));
+  return Array.from(daClinica)
+    .filter(k => !inRoutine.has(k))
+    .map(k => integratorePerChiave(k))
+    .filter(v => v && v.attivo !== false);
+}
+
+function _suggerimentiDaClinicaHTML(p) {
+  const sugg = integratoriDaSuggerireInRoutine(p);
+  if (!sugg.length) return '';
+  return '<div style="margin-bottom:.8rem;padding:.6rem .7rem;border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:8px;background:var(--bg2,#fafafa)">'
+    + '<div style="font-size:.74rem;color:var(--text2);margin-bottom:.4rem">'
+    + 'Dalla scheda Clinica risultano <strong>' + sugg.length + '</strong> integratori non ancora in routine. '
+    + 'Aggiungili se vuoi dirgli anche <em>quando</em> assumerli:</div>'
+    + '<div style="display:flex;gap:.4rem;flex-wrap:wrap">'
+    + sugg.map(v => {
+        const idx = LIBRERIA_ROUTINE.findIndex(l => l.chiave === v.chiave);
+        return idx < 0 ? '' :
+          '<button class="btn btn-g btn-sm" onclick="aggiungiDaLibreriaIdx(' + idx + ')">+ ' + v.nome + '</button>';
+      }).join('')
+    + '</div></div>';
+}
+
 function renderPdRoutine(p) {
   const el = document.getElementById('pd-routine');
   if (!el) return;
@@ -8413,12 +8455,36 @@ function renderPdRoutine(p) {
     pre_nanna:'Pre-nanna' 
   };
 
+  // P148 tappa 4: il piano serve a risolvere le voci in "automatico".
+  // Si legge UNA volta per tutta la griglia, non una per card.
+  const _pianoPaz = pianoPiuRecenteDelPaziente(p.id);
+
   function cardHTML(voce, idx) {
     const tipoClass = 'routine-tipo-' + voce.tipo;
     const tipoTxt = tipoLabel[voce.tipo] || voce.tipo;
+    const ammetteAuto = routineAmmetteAuto(voce);
+    const inAuto = voce.pastoRif === 'auto';
+    const macro = _macroRegolaRoutine(voce);
+    const etichettaAuto = macro === 'c'
+      ? '⚡ Automatico — pasto più ricco di carboidrati del giorno'
+      : '⚡ Automatico — pasto più grasso del giorno';
+    // Quando è in automatico si mostra il risultato giorno per giorno: senza
+    // questo il nutrizionista non saprebbe mai dove finisce davvero la voce.
+    let rigaAuto = '';
+    if (inAuto) {
+      const ass = routineAssegnazionePerGiorni(voce, _pianoPaz);
+      const risolti = ass.filter(a => a.slot);
+      rigaAuto = risolti.length
+        ? `<div style="font-size:.68rem;color:var(--text2);margin-top:4px">Calcolato sul piano attuale: `
+          + risolti.map(a => `<strong>${a.giorno}</strong> → ${slotLabelUI[a.slot]||a.slot}`).join(' · ')
+          + (ass.length > risolti.length ? ` <span style="color:var(--text3)">(${ass.length-risolti.length} giorni non calcolabili)</span>` : '')
+          + `</div>`
+        : `<div style="font-size:.68rem;color:#c2410c;margin-top:4px">Nessun piano da cui calcolare: genera un piano per questo paziente e il pasto comparirà da solo.</div>`;
+    }
+    const doseTxt = doseIntegratoreRisolta(voce, p);
     return `<div class="routine-card">
       <div class="rc-body" style="flex:1">
-        <div class="rc-nome"><span class="routine-tipo-badge ${tipoClass}">${tipoTxt}</span>${voce.nome} · <span style="font-weight:400;color:var(--text2)">${voce.dose||''}</span></div>
+        <div class="rc-nome"><span class="routine-tipo-badge ${tipoClass}">${tipoTxt}</span>${voce.nome} · <span style="font-weight:400;color:var(--text2)">${doseTxt||''}</span></div>
         <div style="display:flex;gap:.5rem;margin-top:6px;flex-wrap:wrap;align-items:center">
           <select onchange="updateRoutineCampo(${idx},'quandoRif',this.value)" style="padding:.2rem .4rem;border:1px solid #a8ddc7;border-radius:5px;font-size:.7rem;background:#f0faf6">
             <option value="prima"${voce.quandoRif==='prima'?' selected':''}>Prima di</option>
@@ -8427,6 +8493,7 @@ function renderPdRoutine(p) {
           </select>
           <select onchange="updateRoutineCampo(${idx},'pastoRif',this.value)" style="padding:.2rem .4rem;border:1px solid #a8ddc7;border-radius:5px;font-size:.7rem;background:#f0faf6">
             <option value="">— Scegli pasto —</option>
+            ${ammetteAuto?`<option value="auto"${inAuto?' selected':''}>${etichettaAuto}</option>`:''}
             <option value="colazione"${voce.pastoRif==='colazione'?' selected':''}>Colazione</option>
             <option value="spuntino_mattina"${voce.pastoRif==='spuntino_mattina'?' selected':''}>Spuntino mattina</option>
             <option value="pranzo"${voce.pastoRif==='pranzo'?' selected':''}>Pranzo</option>
@@ -8436,6 +8503,7 @@ function renderPdRoutine(p) {
           </select>
           ${!voce.pastoRif?'<span style="font-size:.68rem;color:#c2410c">⚠ Non apparirà nel PDF</span>':'<span style="font-size:.68rem;color:#15803d">✓ Apparirà nel PDF</span>'}
         </div>
+        ${rigaAuto}
         ${voce.razionale?`<div class="rc-razionale" style="margin-top:5px">${voce.razionale}</div>`:''}
         ${voce.ingredienti?`<div style="font-size:.68rem;color:#2d7a5a;margin-top:3px"><strong>Ingredienti:</strong> ${voce.ingredienti}</div>`:''}
         <div style="font-size:.66rem;color:var(--text3);margin-top:3px;font-style:italic">${voce.quando||''}</div>
@@ -8470,6 +8538,7 @@ function renderPdRoutine(p) {
         <button class="btn btn-p btn-sm" onclick="openModalRoutine()">+ Aggiungi voce</button>
       </div>
     </div>
+    ${_suggerimentiDaClinicaHTML(p)}
     ${routine.length ? riepilogoHTML : `<div class="empty" style="padding:1.5rem;text-align:center;color:var(--text2);font-size:.82rem;background:#f0faf6;border-radius:10px;border:1px dashed #a8ddc7">
       Nessuna voce aggiunta.<br><span style="font-size:.75rem">Clicca "+ Aggiungi voce" per personalizzare la routine di ${p.nome}</span>
     </div>`}
@@ -8574,6 +8643,110 @@ function suggerisciPastoEQuando(testoQuando) {
   return { quandoRif:'durante', pastoRif:'' };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// P148 tappa 4 — IL PASTO AUTOMATICO, GIORNO PER GIORNO
+// ══════════════════════════════════════════════════════════════════════════
+// Richiesta di Fabrizio (5 ago 2026): "se un paziente assume vit d tutti i
+// giorni nutrigest lo deve consigliare nel pasto della giornata con più
+// grassi… che può essere variabile durante la settimana in base al piano
+// alimentare". Quindi `pastoRif` accetta un valore in più, 'auto': non è un
+// pasto, è una REGOLA — "il pasto più grasso (o più ricco di carboidrati) di
+// QUEL giorno", risolta ogni volta sul piano reale del paziente.
+//
+// PERCHÉ NON SI CONGELA IL RISULTATO. Salvare il pasto calcolato dentro la
+// voce di routine sarebbe più semplice, e sbagliato: il piano cambia, e la
+// voce continuerebbe a indicare il pasto di un piano che non esiste più —
+// senza un errore a video. È la doppia fonte di verità di F4 e della regola
+// 12. Si salva la REGOLA, si calcola il RISULTATO ogni volta.
+//
+// Resta tutto scavalcabile: chi sceglie un pasto fisso a mano non viene mai
+// risovrascritto dal calcolo (punto 6 del disegno).
+
+// Il piano più recente del paziente, già espanso in array di giorni.
+// null se non ne ha ancora nessuno: in quel caso non c'è niente da calcolare
+// e le voci 'auto' restano senza pasto, dichiarandolo (regola 19).
+function pianoPiuRecenteDelPaziente(pazId) {
+  if (!pazId) return null;
+  const suoi = (typeof db !== 'undefined' && db.piani ? db.piani : [])
+    .filter(pl => pl && pl.pazienteId === pazId && pl.pianoJSON);
+  if (!suoi.length) return null;
+  suoi.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+  try {
+    const parsed = JSON.parse(suoi[0].pianoJSON);
+    return Array.isArray(parsed) ? parsed : (Array.isArray(parsed.giorni) ? parsed.giorni : null);
+  } catch (e) { return null; }
+}
+
+// La macro su cui si cerca il massimo, dedotta dalla regola della voce.
+function _macroRegolaRoutine(voce) {
+  const reg = voce && (voce.regolaOrario || (voce.chiave && (integratorePerChiave(voce.chiave) || {}).regolaOrario));
+  if (reg === 'pasto_piu_carbo') return 'c';
+  if (reg === 'pasto_piu_grasso') return 'g';
+  return null;
+}
+
+// Una voce può stare in automatico solo se il catalogo le dà una regola.
+function routineAmmetteAuto(voce) { return !!_macroRegolaRoutine(voce); }
+
+// Il pasto di UNA voce in UN giorno. Se pastoRif non è 'auto' vince sempre la
+// scelta manuale: è il punto in cui si garantisce che il calcolo non
+// sovrascriva mai una decisione del nutrizionista.
+function routineSlotDelGiorno(voce, piano, indiceGiorno) {
+  if (!voce) return '';
+  if (voce.pastoRif !== 'auto') return voce.pastoRif || '';
+  const macro = _macroRegolaRoutine(voce);
+  if (!macro) return '';
+  const r = pastoMaxPerMacro(piano, indiceGiorno, macro);
+  return r ? r.slot : '';
+}
+
+// Stessa cosa partendo dal NOME del giorno: è la forma che serve nel PDF,
+// dove le funzioni di disegno ricevono `giornoNome` e non l'indice.
+function routineSlotPerGiornoNome(voce, piano, giornoNome) {
+  if (!voce) return '';
+  if (voce.pastoRif !== 'auto') return voce.pastoRif || '';
+  if (!Array.isArray(piano)) return '';
+  const norm = s => String(s == null ? '' : s).toLowerCase().trim();
+  const i = piano.findIndex(g => g && norm(g.giorno || g.g) === norm(giornoNome));
+  if (i < 0) return '';
+  return routineSlotDelGiorno(voce, piano, i);
+}
+
+// L'assegnazione su tutti i giorni, per mostrarla nella scheda Routine.
+// [{giorno, slot}] — slot vuoto dove il giorno non è calcolabile.
+function routineAssegnazionePerGiorni(voce, piano) {
+  if (!Array.isArray(piano)) return [];
+  return piano.map((g, i) => ({
+    giorno: (g && (g.giorno || g.g)) || ('Giorno ' + (i + 1)),
+    slot: routineSlotDelGiorno(voce, piano, i)
+  }));
+}
+
+// ── La dose che dipende dal peso (BCAA: 1 g ogni 10 kg) ──────────────────
+// Il peso si legge SEMPRE dall'InBody più recente (regola 10: p.inbody è
+// ordinato in scrittura, l'ultimo è l'attuale) e non viene mai copiato dentro
+// la voce di routine. Un peso congelato lì dentro mostrerebbe, dopo tre mesi,
+// una dose calcolata su un peso che non esiste più — senza errori a video.
+function pesoAttualePaziente(p) {
+  if (!p) return null;
+  const ib = p.inbody && p.inbody.length ? p.inbody[p.inbody.length - 1] : null;
+  const peso = ib && ib.peso != null ? parseFloat(ib.peso) : (p.peso != null ? parseFloat(p.peso) : null);
+  return (peso && isFinite(peso) && peso > 0) ? peso : null;
+}
+
+// Testo della dose: quello del catalogo, più il calcolo sul peso quando la
+// voce lo prevede. Senza peso NON inventa un numero: mostra la regola.
+function doseIntegratoreRisolta(voce, p) {
+  const base = (voce && voce.dose) || '';
+  const perPeso = voce && (voce.dosePerPeso
+    || (voce.chiave && (integratorePerChiave(voce.chiave) || {}).dosePerPeso));
+  if (!perPeso || !perPeso.gPer10kg) return base;
+  const peso = pesoAttualePaziente(p);
+  if (!peso) return base;                       // nessun referto: resta la regola, nessun numero inventato
+  const g = Math.round(peso / 10 * perPeso.gPer10kg * 10) / 10;
+  return base + ' → ' + g + ' g per ' + Math.round(peso) + ' kg';
+}
+
 let _fltLibreria = 'tutti';
 function filtroLibreria(tipo) {
   _fltLibreria = tipo;
@@ -8616,10 +8789,15 @@ function aggiungiDaLibreriaIdx(idx) {
     return;
   }
   const sugg = suggerisciPastoEQuando(voceLib.quando);
-  const voce = Object.assign({}, voceLib, { 
-    attivo: true, 
-    quandoRif: sugg.quandoRif, 
-    pastoRif: sugg.pastoRif 
+  // P148 tappa 4: se il catalogo dà a questa voce una regola di orario
+  // (liposolubili → pasto più grasso, creatina → più ricco di carboidrati),
+  // parte in automatico invece di indovinare un pasto fisso dal testo. Resta
+  // modificabile: il menu a tendina mostra sia l'automatico sia i sei pasti.
+  const auto = routineAmmetteAuto(voceLib);
+  const voce = Object.assign({}, voceLib, {
+    attivo: true,
+    quandoRif: auto && _macroRegolaRoutine(voceLib) === 'c' ? 'dopo' : sugg.quandoRif,
+    pastoRif: auto ? 'auto' : sugg.pastoRif
   });
   p.routineGiornaliera.push(voce);
   save(p.id);
@@ -25931,8 +26109,10 @@ async function generaPDF(paziente, giorni) {
 
     var h = 0;
     h += 5.2 * c;
+    // P148 tappa 4: `pastoRif` può valere 'auto' — il pasto si risolve sul
+    // giorno che si sta misurando, non è un valore fisso.
     var routineDelPastoMis = ((paziente.routineGiornaliera || []).filter(function(v){
-      return v.attivo !== false && v.pastoRif === slotKey;
+      return v.attivo !== false && routineSlotPerGiornoNome(v, giorni, giornoNome) === slotKey;
     }));
     if (routineDelPastoMis.length > 3) h += 3.6 * c;
 
@@ -26038,8 +26218,10 @@ async function generaPDF(paziente, giorni) {
       }
     }
 
+    // P148 tappa 4: stessa risoluzione della misura, altrimenti il PDF
+    // disegnerebbe una voce in un pasto di cui non ha calcolato l'altezza.
     var routineDelPasto = ((paziente.routineGiornaliera || []).filter(function(v){
-      return v.attivo !== false && v.pastoRif === slotKey;
+      return v.attivo !== false && routineSlotPerGiornoNome(v, giorni, giornoNome) === slotKey;
     }));
     var hRoutineExtra = 0;
     if (routineDelPasto.length) {

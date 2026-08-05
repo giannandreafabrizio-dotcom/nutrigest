@@ -857,8 +857,19 @@ verificare che il suggerimento specifico NON compaia** quando non c'è un piano 
 > scomparsa. Blu di metilene: casella visibile solo sui pazienti che ce l'hanno, marcata
 > "(ritirato)". 23 test nuovi, suite a 604 verdi.
 >
-> Resta la **tappa 4** (Routine: pasto automatico giorno per giorno col motore della tappa 1,
-> dose BCAA sul peso dell'InBody più recente, collegamento cliccabile dalla Clinica).
+> ✅ **TAPPA 4 FATTA (5 ago 2026) — P148 COMPLETA.** `pastoRif` accetta 'auto': non un pasto
+> ma una regola, risolta ogni volta sul piano reale, giorno per giorno. La scelta manuale
+> non viene mai sovrascritta. Nel PDF la risoluzione è applicata sia alla misura sia al
+> disegno (sostituirla solo nel secondo avrebbe fatto disegnare una voce in un pasto di cui
+> non era stato calcolato lo spazio). Dose BCAA calcolata sull'InBody più recente e mai
+> congelata nella voce; senza referto resta la regola, senza numero inventato. Ponte
+> Clinica→Routine come suggerimento cliccabile, che riconosce anche le voci salvate prima
+> del catalogo risolvendole dal nome. 25 test nuovi, suite a 629 verdi.
+>
+> **DA COLLAUDARE A VIDEO** (PC e iPhone): apertura scheda Clinica di un paziente storico
+> (le spunte devono esserci tutte), colori e pannello ⓘ, aggiunta di Omega-3 o Vitamina D
+> dalla Routine su un paziente con un piano generato (deve mostrare il pasto giorno per
+> giorno), e un PDF con una voce in automatico.
 
 **5. Il collegamento Clinica→Routine resta un suggerimento, non un automatismo** (invariato
 dalla bozza precedente): "prende già"/"vorrebbe" è un fatto di anamnesi, la voce in
@@ -899,13 +910,12 @@ modo in cui i valori FODMAP sbagliati sarebbero passati (regola 14).
 un nuovo motore puro (grassi per slot pasto, stesso stile di `calcolaMacrosPiano`), dati
 paziente (`p.integratori`/`p.integraWant`/`p.routineGiornaliera` — nessuna migrazione a
 tabella Supabase, restano nel blob paziente).
-**SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026** — meccanismo chiuso (assegnazione
-giorno per giorno, due regole 🔥grassi e 🍞carboidrati, nessuna soglia; dose per peso e
-`quando` con alternative aggiunti allo schema). Catalogo **approvato da Fabrizio** il 5 ago
-2026 → codice sbloccato. **Tappe 1, 2 e 3 di 4 ✅ CHIUSE** (motore `pastoMaxPerMacro`,
-catalogo unico `CATALOGO_INTEGRATORI` con mappa alias, scheda Clinica generata dal catalogo
-con colori nuovi e pannello ⓘ; 70 test nuovi, suite 604 verdi).
-**Prossima: tappa 4, scheda Routine — pasto automatico e collegamento** · Priorità: Media
+**SCHEDA:** Stato: ✅ **CHIUSA 5 ago 2026 — tutte e 4 le tappe scritte, 95 test nuovi,
+suite da 534 a 629 verdi. Resta il collaudo a video su PC e iPhone** (vedi elenco sopra).
+Catalogo approvato da Fabrizio lo stesso giorno. Tappa 1 motore `pastoMaxPerMacro` ·
+tappa 2 catalogo unico `CATALOGO_INTEGRATORI` con mappa alias · tappa 3 scheda Clinica
+generata dal catalogo, colori non-semaforo, pannello ⓘ · tappa 4 pasto automatico giorno
+per giorno, dose per peso, ponte Clinica→Routine · Priorità: Media
 · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un motore di calcolo nuovo) ·
 Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
 

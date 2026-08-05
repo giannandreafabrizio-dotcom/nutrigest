@@ -1111,10 +1111,19 @@ p.routineGiornaliera[] = {
   tipo: "integratore" | "spezia" | "superfood",
   quando: "30 min prima dei pasti principali",
   quandoRif: "prima" | "durante" | "dopo",
-  pastoRif: "colazione" | "spuntino_mattina" | "pranzo" | "spuntino_pomeriggio" | "cena" | "pre_nanna",
+  pastoRif: "auto" | "colazione" | "spuntino_mattina" | "pranzo" | "spuntino_pomeriggio" | "cena" | "pre_nanna",
+  chiave: "berber",          // P148 — collega la voce al catalogo integratori
+  regolaOrario: "fisso" | "pasto_piu_grasso" | "pasto_piu_carbo",   // P148
   razionale: "Migliora sensibilità insulinica via AMPK",
   attivo: true
 }
+  pastoRif:"auto" (P148, 5 ago 2026) NON è un pasto: è la regola "il pasto più grasso —
+  o più ricco di carboidrati — di QUEL giorno", risolta ogni volta sul piano più recente
+  del paziente da routineSlotDelGiorno()/routineSlotPerGiornoNome(). Il risultato NON
+  viene mai salvato nella voce: si salva la regola, si ricalcola il risultato, altrimenti
+  al primo piano nuovo la voce indicherebbe il pasto di un piano che non esiste più.
+  Un pastoRif scelto a mano vince sempre: il calcolo non entra nemmeno in funzione.
+  Vale per i 4 liposolubili (omega3, vitd, k2, coq10) e per la creatina (carboidrati).
 
 p.noteClinica[] = { id, testo, data }  // max 15 note, append-only
 p.note = ""  // campo legacy — retrocompatibile, migrazione automatica
@@ -1258,8 +1267,28 @@ p.ragionamentoClinico.fxSig = stringa  // P22, 29 giu 2026 — firma dei dati cl
 p.ragionamentoClinico.fxData = stringa  // data (formato today()) dell'ultima generazione FX,
   // mostrata nell'header del box "Cosa proporre" della tab Riepilogo chiamata.
 
-p.integratori: doppio quadratino □ verde (prende già) | □ ambra (vorrebbe prendere)
-  "Vorrebbe prendere" NON va automaticamente in Routine
+p.integratori / p.integraWant: doppio quadratino □ teal (prende già) | □ blu (vorrebbe
+  prendere). I colori sono stati scelti fuori dalla rampa del semaforo alimenti (P148,
+  5 ago 2026): una casella di anamnesi non deve leggersi come un giudizio clinico.
+  Salvati come ETICHETTE, non come chiavi: la mappa INTEGR_ALIAS traduce ogni etichetta
+  storica in chiave, altrimenti un rinomino del catalogo farebbe risultare non spuntate
+  le caselle dei pazienti storici e il salvataggio successivo cancellerebbe il dato.
+  "Vorrebbe prendere" NON va automaticamente in Routine: la scheda Routine mostra un
+  suggerimento cliccabile (integratoriDaSuggerireInRoutine) perché "prende già" è un
+  fatto di anamnesi mentre la voce in Routine è una prescrizione che finisce nel PDF.
+
+CATALOGO_INTEGRATORI (P148, 5 ago 2026): unica fonte di verità degli integratori, 25 voci
+  attive. Ogni voce: {chiave, nome, dose, dosePerPeso?, quanteVolte, quando, quandoAlt?,
+  regolaOrario, sinergie[], evitareCon, razionale, attivo}. Da qui sono DERIVATI
+  INTEGR_KEYS, INTEGR_LABELS e il blocco "integratore" di LIBRERIA_ROUTINE — prima erano
+  tre elenchi paralleli andati alla deriva (19 voci in Clinica contro 12 in Routine).
+  Le caselle della scheda Clinica sono generate da renderCaselleIntegratori(p), non più
+  scritte a mano nel markup, e ognuna apre un pannello ⓘ con dose/quando/sinergie/
+  avvertenze. Le voci con attivo:false (oggi il solo Blu di metilene) non sono più
+  proponibili ma restano leggibili sui pazienti che le hanno già in scheda.
+  dosePerPeso (oggi i soli BCAA, 1 g ogni 10 kg) si risolve con doseIntegratoreRisolta()
+  leggendo il peso dall'InBody più recente: mai copiato dentro la voce, e senza referto
+  non viene mostrato nessun numero.
 
 p.regolePiano: {
   pesce, carnebianca, carnerossa, uova, affettati, latticini, legumi, pesceconsv,

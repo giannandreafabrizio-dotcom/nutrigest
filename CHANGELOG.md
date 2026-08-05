@@ -10,6 +10,59 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 9) — P148 TAPPA 4, CHIUSA: IL PASTO SI SCEGLIE DA SOLO,
+GIORNO PER GIORNO. Baseline 6bdec3b. Con questa P148 è completa.
+
+IL PROBLEMA DI PARTENZA, RISOLTO. Fabrizio spuntava "Omega-3" nella scheda
+Clinica, apriva la Routine e non trovava niente; e quando aggiungeva una voce
+doveva scegliere a mano un pasto fisso per tutta la settimana. Ora la voce può
+stare in "automatico" e finisce, ogni giorno, nel pasto più grasso di QUEL
+giorno — o nel più ricco di carboidrati per la creatina.
+
+SI SALVA LA REGOLA, NON IL RISULTATO. `pastoRif` accetta un valore in più,
+'auto', che non è un pasto ma una regola. Congelare il pasto calcolato dentro
+la voce sarebbe stato più semplice e sbagliato: al primo piano nuovo la voce
+indicherebbe il pasto di un piano che non esiste più, senza un errore a video.
+È la doppia fonte di verità di F4 e della regola 12, applicata al tempo invece
+che ai campi. Un test lo fissa: cambia il piano, cambia il pasto, la voce non
+viene toccata.
+
+LA SCELTA MANUALE NON VIENE MAI SOVRASCRITTA (punto 6 del disegno: "ogni
+nutrizionista sceglie se applicarli o cambiarli"). Se pastoRif è un pasto
+vero, il calcolo non entra nemmeno in funzione — due test, incluso il caso in
+cui la scelta manuale contraddice quella calcolata.
+
+NEL PDF LA RISOLUZIONE VA FATTA IN DUE PUNTI, NON UNO. Il generatore misura
+l'altezza dei pasti prima di disegnarli: sostituendo il filtro solo nel punto
+di disegno, il PDF avrebbe disegnato una voce in un pasto di cui non aveva
+calcolato lo spazio. Entrambi i punti ora usano `routineSlotPerGiornoNome`.
+
+LA DOSE CHE DIPENDE DAL PESO. I BCAA sono 1 g ogni 10 kg: si legge dall'InBody
+più recente (regola 10) al momento in cui si mostra, e non si copia MAI dentro
+la voce di routine — un peso congelato lì mostrerebbe fra tre mesi una dose
+giusta per un peso che non esiste più. Senza referto la dose non viene
+inventata: resta la regola ("1 g ogni 10 kg") senza numero, perché un valore
+plausibile inventato è peggio di un valore mancante (regola 11). C'è un test
+che verifica proprio che il peso NON finisca dentro la voce.
+
+IL PONTE CLINICA→ROUTINE È UN SUGGERIMENTO, NON UN'AGGIUNTA. Sopra la routine
+compaiono i pulsanti degli integratori spuntati in Clinica e non ancora
+prescritti. Non vengono aggiunti da soli, e la ragione è che i due dati dicono
+cose diverse: "prende già / vorrebbe prendere" è un fatto di ANAMNESI, la voce
+in Routine è una PRESCRIZIONE che finisce nel PDF del paziente. Trasformare
+automaticamente la prima nella seconda significherebbe prescrivere qualcosa
+che il paziente aveva solo dichiarato. Il ponte riconosce anche le voci
+salvate prima del catalogo, che non hanno `chiave`, risolvendole dal nome —
+refuso "bisgliccinato" compreso.
+
+25 test nuovi, suite a 629 verdi. Trappola di realm JSDOM incontrata di nuovo,
+in forma nuova: `db` e `currentPazId` sono let/var top-level e assegnarli come
+`win.window.db` non li rebinda — vanno assegnati dentro un `eval`. Annotato
+nel test.
+
+P148 CHIUSA: quattro tappe, 95 test nuovi, dalla suite a 534 di stamattina a
+629. Restano da collaudare a video su PC e iPhone.
+
 5 AGOSTO 2026 (seguito 8) — P148 TAPPA 3: LA SCHEDA CLINICA SI GENERA DA SOLA.
 Baseline b65b136. Prima tappa che si vede a schermo.
 
