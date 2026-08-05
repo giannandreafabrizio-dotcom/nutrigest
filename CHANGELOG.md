@@ -10,498 +10,253 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-5 AGOSTO 2026 (seguito 9) — P148 TAPPA 4, CHIUSA: IL PASTO SI SCEGLIE DA SOLO,
-GIORNO PER GIORNO. Baseline 6bdec3b. Con questa P148 è completa.
+5 AGOSTO 2026 (4/4) — MANUTENZIONE DOCUMENTAZIONE, su osservazione di Fabrizio.
+"Stai producendo davvero tanti documenti e molto lunghi, ho paura che nel tempo
+diventi troppo grande." Misurato: il CHANGELOG era a 8457 righe / 548K, e 493
+di quelle righe erano state scritte in giornata, in dieci voci separate che
+raccontavano più volte le stesse lezioni.
+  La struttura regge — il CHANGELOG non si legge mai per intero, si cerca per
+numero di voce, e cercare in 8000 righe costa quanto cercare in 800. Il difetto
+era la prolissità, contro una regola di stile che c'era già scritta ("taglia le
+ripetizioni e le ri-spiegazioni"). Le dieci voci di oggi sono state fuse in
+tre — audit, disegno di P148, realizzazione di P148 — conservando root cause,
+decisioni, lezioni e incidenti, e togliendo solo il racconto ripetuto: da 499 a
+227 righe, senza perdere nulla di sostanziale.
+  **Il meccanismo giusto esiste già ed è quello che regge nel tempo:** la
+storia va nel CHANGELOG UNA volta, la lezione permanente diventa una riga
+numerata in CLAUDE.md. Sono quelle regole a essere rilette a ogni sessione, non
+la cronaca. Da qui in avanti: una voce per sessione di lavoro, non una per
+consegna.
+  Segnata anche in P35 la decisione ancora aperta sulle tappe opzionali del
+grafico del peso casalingo, che rischiava di restare implicita.
 
-IL PROBLEMA DI PARTENZA, RISOLTO. Fabrizio spuntava "Omega-3" nella scheda
-Clinica, apriva la Routine e non trovava niente; e quando aggiungeva una voce
-doveva scegliere a mano un pasto fisso per tutta la settimana. Ora la voce può
-stare in "automatico" e finisce, ogni giorno, nel pasto più grasso di QUEL
-giorno — o nel più ricco di carboidrati per la creatina.
+5 AGOSTO 2026 (3/4) — P148 REALIZZATA E COLLAUDATA: QUATTRO TAPPE.
+Baseline b413f08 → 8988864. 95 test nuovi, suite da 534 a 630 verdi.
 
-SI SALVA LA REGOLA, NON IL RISULTATO. `pastoRif` accetta un valore in più,
-'auto', che non è un pasto ma una regola. Congelare il pasto calcolato dentro
-la voce sarebbe stato più semplice e sbagliato: al primo piano nuovo la voce
-indicherebbe il pasto di un piano che non esiste più, senza un errore a video.
-È la doppia fonte di verità di F4 e della regola 12, applicata al tempo invece
-che ai campi. Un test lo fissa: cambia il piano, cambia il pasto, la voce non
-viene toccata.
+TAPPA 1 — IL MOTORE. `pastoMaxPerMacro(piano, giorno, macro)` e
+`pastoMaxPerMacroTuttiIGiorni` restituiscono lo slot pasto con più grassi (o
+più carboidrati) di un giorno. Nessuna chiamata AI: il piano è già generato con
+alimenti e grammi, la risposta è una somma e un massimo — stesso principio di
+P63b. Sull'esempio di Fabrizio esce quel che deve: lunedì pranzo (mozzarella),
+martedì cena (salmone).
+  La ponderata 35/25/15/10/8/7 serviva anche qui e viveva dentro
+  `calcolaMacrosPiano`. Copiarla sarebbe stato più rapido ed è il difetto di
+  P141 (tre funzioni per la stessa cosa, correggerne una lascia rotte le
+  altre): è stata quindi ESTRATTA in `_macrosCella` — regola 15, ripara il
+  rubinetto. Protezione: output misurato su un fixture prima dell'estrazione e
+  riconfrontato dopo, identico, e ora pinnato in un test di regressione.
+  `calcolaMacrosPiano` non ne aveva NESSUNO prima di oggi.
 
-LA SCELTA MANUALE NON VIENE MAI SOVRASCRITTA (punto 6 del disegno: "ogni
-nutrizionista sceglie se applicarli o cambiarli"). Se pastoRif è un pasto
-vero, il calcolo non entra nemmeno in funzione — due test, incluso il caso in
-cui la scelta manuale contraddice quella calcolata.
+TAPPA 2 — IL CATALOGO UNICO. `CATALOGO_INTEGRATORI` è l'unico posto in cui un
+integratore è definito: 25 voci attive con nome, dose, quando, regolaOrario,
+sinergie, incompatibilità, razionale. `INTEGR_KEYS`, `INTEGR_LABELS` e il
+blocco "integratore" di `LIBRERIA_ROUTINE` sono DERIVATI da lì (F4/regola 12:
+si elimina la seconda fonte). La libreria della Routine passa da 12 a 25 voci,
+le stesse della Clinica.
+  IL GUASTO INTERCETTATO PRIMA DI SCRIVERLO — REGOLA 21 IN DIRETTA. Gli
+  integratori sono salvati sui pazienti per ETICHETTA, non per chiave
+  (["Probiotici", "Ferro"]). Il catalogo rinomina diverse voci, e
+  `setIntegratori` confrontava l'etichetta carattere per carattere: aprendo un
+  paziente storico la casella sarebbe risultata non spuntata e il salvataggio
+  successivo avrebbe cancellato il dato, senza un errore a video. È lo stesso
+  guasto di P147 sulle attività; la regola 21 lo prevedeva e stavolta è stato
+  preso PRIMA. Rimedio: mappa `INTEGR_ALIAS` con tutte le etichette storiche
+  dei due elenchi e `chiaveIntegratore()` usata dai due setter. Nella mappa è
+  finito anche un refuso reale dei dati: "Ferro (bisgliccinato)" con due c.
+  BLU DI METILENE: ritirato (`attivo:false`), NON cancellato. Cancellare la
+  riga avrebbe fatto sparire il dato dai pazienti che ce l'hanno — famiglia
+  F6/F7. Non è proponibile, ma la sua etichetta continua a risolvere.
+  Le etichette che nessuna regola sa tradurre finiscono in `liberi` e si
+  conservano come testo libero: un dato cancellato è peggio sia di uno
+  mancante sia di uno inventato (regola 11 portata alle conseguenze).
 
-NEL PDF LA RISOLUZIONE VA FATTA IN DUE PUNTI, NON UNO. Il generatore misura
-l'altezza dei pasti prima di disegnarli: sostituendo il filtro solo nel punto
-di disegno, il PDF avrebbe disegnato una voce in un pasto di cui non aveva
-calcolato lo spazio. Entrambi i punti ora usano `routineSlotPerGiornoNome`.
+TAPPA 3 — LA SCHEDA CLINICA SI GENERA DA SOLA. Le 19 caselle scritte a mano nel
+markup sono sostituite da `renderCaselleIntegratori(p)`: è proprio quel doppio
+punto di manutenzione ad aver fatto divergere i due elenchi. Il render va
+chiamato PRIMA di `setIntegratori` — invertendoli le spunte non
+comparirebbero, in silenzio: c'è un commento sul punto di chiamata e un test
+che fissa l'ordine.
+  COLORI: `var(--teal)` e `var(--blue)` al posto di `#BA7517`, che non era
+  nemmeno una variabile CSS ma un colore scritto a mano in venti punti. Il
+  motivo non è estetico: una casella di ANAMNESI (il paziente lo prende) non
+  deve leggersi come un GIUDIZIO clinico (glielo consiglio). Un test vieta gli
+  accent-color del semaforo su questa griglia, così il vincolo non si perde.
+  PANNELLO ⓘ per voce: dose, quando, alternative col loro motivo, sinergie
+  scritte col NOME (non con la chiave interna), avvertenze staccate con un
+  bordo rosso, razionale. Resta aperto finché non lo chiudi invece di essere un
+  avviso a scomparsa: cinque righe di testo su iPhone non si leggono in un
+  toast. La casella del Blu di metilene compare solo sui pazienti che ce
+  l'hanno, marcata "(ritirato)".
 
-LA DOSE CHE DIPENDE DAL PESO. I BCAA sono 1 g ogni 10 kg: si legge dall'InBody
-più recente (regola 10) al momento in cui si mostra, e non si copia MAI dentro
-la voce di routine — un peso congelato lì mostrerebbe fra tre mesi una dose
-giusta per un peso che non esiste più. Senza referto la dose non viene
-inventata: resta la regola ("1 g ogni 10 kg") senza numero, perché un valore
-plausibile inventato è peggio di un valore mancante (regola 11). C'è un test
-che verifica proprio che il peso NON finisca dentro la voce.
+TAPPA 4 — IL PASTO AUTOMATICO. `pastoRif` accetta 'auto', che non è un pasto ma
+una REGOLA, risolta ogni volta sul piano reale del paziente, giorno per giorno.
+  SI SALVA LA REGOLA, NON IL RISULTATO. Congelare il pasto calcolato dentro la
+  voce sarebbe stato più semplice e sbagliato: al primo piano nuovo la voce
+  indicherebbe il pasto di un piano che non esiste più. È la doppia fonte di
+  verità di F4/regola 12 applicata al tempo invece che ai campi. Un test lo
+  fissa: cambia il piano, cambia il pasto, la voce non viene toccata.
+  LA SCELTA MANUALE NON VIENE MAI SOVRASCRITTA: se `pastoRif` è un pasto vero,
+  il calcolo non entra nemmeno in funzione.
+  NEL PDF LA RISOLUZIONE VA IN DUE PUNTI. Il generatore MISURA l'altezza dei
+  pasti prima di disegnarli: sostituendo il filtro solo nel disegno, il PDF
+  avrebbe stampato una voce in un pasto di cui non aveva riservato lo spazio.
+  DOSE PER PESO (BCAA, 1 g ogni 10 kg): letta dall'InBody più recente (regola
+  10) al momento in cui si mostra, MAI copiata nella voce — un peso congelato
+  mostrerebbe fra tre mesi una dose giusta per un peso che non esiste più.
+  Senza referto non viene mostrato nessun numero: resta la regola.
+  PONTE CLINICA→ROUTINE: suggerimento cliccabile, non aggiunta automatica.
+  "prende già / vorrebbe" è un fatto di ANAMNESI, la voce in Routine è una
+  PRESCRIZIONE che finisce nel PDF: trasformare la prima nella seconda
+  significherebbe prescrivere ciò che il paziente aveva solo dichiarato. Il
+  ponte riconosce anche le voci salvate prima del catalogo, senza `chiave`,
+  risolvendole dal nome.
 
-IL PONTE CLINICA→ROUTINE È UN SUGGERIMENTO, NON UN'AGGIUNTA. Sopra la routine
-compaiono i pulsanti degli integratori spuntati in Clinica e non ancora
-prescritti. Non vengono aggiunti da soli, e la ragione è che i due dati dicono
-cose diverse: "prende già / vorrebbe prendere" è un fatto di ANAMNESI, la voce
-in Routine è una PRESCRIZIONE che finisce nel PDF del paziente. Trasformare
-automaticamente la prima nella seconda significherebbe prescrivere qualcosa
-che il paziente aveva solo dichiarato. Il ponte riconosce anche le voci
-salvate prima del catalogo, che non hanno `chiave`, risolvendole dal nome —
-refuso "bisgliccinato" compreso.
+DUE COSE DELL'ATTREZZATURA, utili a chi verrà dopo.
+(1) TRAPPOLA DI REALM JSDOM, incontrata in tre forme: `deepStrictEqual` su
+valori nati dentro la finestra fallisce per il prototipo diverso; i `const`/
+`let` top-level non diventano proprietà di `window` (le `function` sì) e si
+leggono con `win.eval`; assegnare `win.window.db` non rebinda il `let db`, va
+fatto dentro un eval. L'helper di normalizzazione stava per essere copiato in
+ogni file di test: è stato messo in `_loadApp.js` come `puro()` — regola 15
+applicata all'attrezzatura di collaudo.
+(2) `rigenera-index.js` RIALLINEA i numeri di riga ma NON aggiunge le funzioni
+nuove. Dopo la tappa 1 la suite era verde e l'indice "allineato" pur non
+contenendo nessuna delle tre funzioni appena scritte: `s1-doc-allineata`
+verifica che le voci elencate siano giuste, non che siano complete. Annotato in
+testa a INDEX.md. Stessa famiglia della regola 20: un controllo verde non è una
+verifica di ciò che quel controllo non guarda.
 
-25 test nuovi, suite a 629 verdi. Trappola di realm JSDOM incontrata di nuovo,
-in forma nuova: `db` e `currentPazId` sono let/var top-level e assegnarli come
-`win.window.db` non li rebinda — vanno assegnati dentro un `eval`. Annotato
-nel test.
+COLLAUDO A VIDEO SUPERATO da Fabrizio lo stesso giorno, sui sette punti
+concordati: spunte intatte su un paziente storico (il punto in cui il guasto da
+regola 21 si sarebbe visto), colori, pannello ⓘ, suggerimento dalla Clinica,
+pasto automatico giorno per giorno su un paziente con piano, scavalcamento
+manuale che regge alla riapertura, PDF con la voce nel pasto giusto di ogni
+giorno. P148 CHIUSA.
 
-P148 CHIUSA: quattro tappe, 95 test nuovi, dalla suite a 534 di stamattina a
-629. Restano da collaudare a video su PC e iPhone.
+5 AGOSTO 2026 (2/4) — P148 DISEGNATA: DAL PROBLEMA AL CATALOGO, E UNA DOMANDA
+CHE NON ANDAVA POSTA. Nessuna riga di codice, solo la scheda di roadmap.
 
-5 AGOSTO 2026 (seguito 8) — P148 TAPPA 3: LA SCHEDA CLINICA SI GENERA DA SOLA.
-Baseline b65b136. Prima tappa che si vede a schermo.
-
-LE CASELLE NON SONO PIÙ NEL MARKUP. Erano 19 blocchi di HTML scritti a mano
-nella scheda paziente: aggiungere un integratore voleva dire toccare il
-catalogo E il markup, ed è esattamente così che i due elenchi erano andati
-alla deriva (12 voci in Routine contro 19 in Clinica). Ora
-`renderCaselleIntegratori(p)` genera la griglia da CATALOGO_INTEGRATORI: la
-scheda mostra 25 voci e per aggiungerne una basta scriverla nel catalogo.
-
-L'ORDINE CONTA, E IL SINTOMO SAREBBE STATO INVISIBILE. Il render va chiamato
-PRIMA di setIntegratori: invertendoli, setIntegratori non troverebbe nessun
-elemento nel DOM e le spunte del paziente non comparirebbero — senza errori a
-video, esattamente come la famiglia F6/F7. C'è un commento sul punto di
-chiamata e un test che fissa l'ordine.
-
-I COLORI (richiesta di Fabrizio). "prende già" e "vorrebbe prendere" si
-leggevano come verde e arancione, gli stessi registri del semaforo alimenti.
-Il rischio non è estetico: una casella di ANAMNESI (il paziente lo prende) si
-poteva leggere come un GIUDIZIO clinico (glielo consiglio). Ora `var(--teal)`
-e `var(--blue)`, due toni freddi lontani dalla rampa calda del semaforo. Il
-vecchio `#BA7517` non era nemmeno una variabile CSS: era un colore scritto a
-mano in venti punti del markup. Un test verifica che nessun accent-color di
-questa griglia usi --green/--orange/--red, così il vincolo non si perde.
-
-IL PANNELLO ⓘ. Ogni voce ha un pulsante che apre, sotto la griglia, dose,
-quando, alternative di orario col loro motivo, sinergie scritte col NOME
-dell'integratore (non con la chiave interna), avvertenze in evidenza con un
-bordo rosso, e il razionale. È un pannello che resta aperto finché non lo
-chiudi, NON un avviso a scomparsa: qui ci sono quattro o cinque righe da
-leggere e su iPhone un messaggio che sparisce da solo è inutilizzabile.
-
-BLU DI METILENE, USCITA DI SCENA SENZA PERDITE. La sua casella compare solo se
-il paziente ce l'ha già fra i "prende già" o i "vorrebbe", ed è marcata
-"(ritirato)". Un paziente nuovo non la vede; chi ce l'ha può toglierla con un
-click e da quel momento sparisce. Toglierla per tutti avrebbe cancellato il
-dato al primo salvataggio: un test copre proprio il giro apertura → spunta →
-rilettura, che è il momento in cui il dato o sopravvive o si perde per sempre.
-
-23 test nuovi, suite a 604 verdi.
-
-PROSSIMA TAPPA: 4) scheda Routine — pasto automatico giorno per giorno usando
-il motore della tappa 1, dose BCAA calcolata sul peso dell'InBody più recente,
-e il suggerimento cliccabile dalla Clinica alla Routine.
-
-5 AGOSTO 2026 (seguito 7) — P148 TAPPA 2: IL CATALOGO UNICO, E UN GUASTO
-SILENZIOSO DISINNESCATO PRIMA CHE NASCESSE. Baseline 108a8bb.
-
-COSA CAMBIA. `CATALOGO_INTEGRATORI` è ora l'unico posto in cui un integratore
-è definito: 25 voci attive con nome, dose, quando, regolaOrario, sinergie,
-incompatibilità e razionale. `INTEGR_KEYS`, `INTEGR_LABELS` e il blocco
-"integratore" di `LIBRERIA_ROUTINE` sono DERIVATI da lì, non più tre elenchi
-paralleli da tenere allineati a mano (F4/regola 12: si elimina la seconda
-fonte, non si aggiunge un avviso). Effetto immediato: la libreria della scheda
-Routine passa da 12 a 25 integratori, e sono gli stessi della scheda Clinica.
-
-IL GUASTO CHE STAVA PER NASCERE — REGOLA 21 IN DIRETTA. Gli integratori sono
-salvati sui pazienti per ETICHETTA, non per chiave: p.integratori contiene
-["Probiotici", "Ferro"]. Il catalogo unico rinomina diverse voci ("Probiotico
-(multistrain)", "Ferro (bisglicinato)"), e `setIntegratori` confrontava
-l'etichetta salvata con quella del catalogo carattere per carattere. Aprendo un
-paziente salvato prima del rinomino la casella sarebbe risultata NON spuntata,
-e al primo salvataggio successivo `getIntegratori()` avrebbe riscritto
-p.integratori senza quella voce: dato perso, nessun errore a video. È
-esattamente il guasto di P147 sulle attività, e la regola 21 lo prevedeva —
-questa volta è stato intercettato PRIMA di scrivere la modifica, non dopo.
-Rimedio: mappa `INTEGR_ALIAS` di tutte le etichette storiche (dai DUE elenchi,
-che usavano nomi diversi per la stessa cosa) + `chiaveIntegratore()` che
-risolve per chiave, e `setIntegratori`/`setIntegraWant` ora passano da lì.
-Nella mappa è finito anche un refuso reale trovato nei dati: la libreria
-scriveva "Ferro (bisgliccinato)" con due c.
-
-BLU DI METILENE: RITIRATO, NON CANCELLATO. Fabrizio lo ha tolto dal catalogo,
-ma cancellarne la riga avrebbe fatto sparire il dato dai pazienti che ce
-l'hanno già in scheda — famiglia F6/F7 (campo tolto, lettura rimasta, dato
-azzerato in silenzio). Resta quindi nel catalogo con `attivo:false`: non è
-proponibile fra le scelte nuove né compare nella libreria Routine, ma la sua
-etichetta continua a risolvere e il dato si conserva. La sua casella sparirà
-dal markup nella tappa 3, dopo aver spostato il valore fra le note libere.
-
-LE ETICHETTE SCONOSCIUTE SI CONSERVANO. `migraEtichetteIntegratori` restituisce
-{chiavi, liberi}: quello che nessuna regola sa tradurre finisce in `liberi` e
-va tenuto come testo libero. Una voce che non sappiamo interpretare non si
-scarta in silenzio — un dato cancellato è peggio sia di uno mancante sia di uno
-inventato (regola 11 portata alle sue conseguenze).
-
-I TEST (30 nuovi, suite a 581 verdi). Il più importante elenca TUTTE e 31 le
-etichette storiche dei due elenchi, copiate dal commit 108a8bb refusi
-compresi, e verifica che ognuna risolva: se una sola salta deve diventare rosso
-subito, perché in produzione il sintomo è invisibile. Ci sono poi i controlli
-di integrità del catalogo (chiavi uniche, campi obbligatori, regolaOrario
-valida, ogni sinergia punta a una chiave esistente, le incompatibilità decise
-con Fabrizio ancora presenti) e il giro completo lettura→scrittura su etichette
-vecchie, che è la riproduzione esatta del guasto evitato.
-
-TERZA VOLTA DELLA STESSA TRAPPOLA JSDOM, quindi spostata nell'harness. Il
-confronto `deepStrictEqual` su valori nati dentro la finestra JSDOM fallisce
-per via del prototipo diverso, con un messaggio che sembra un bug applicativo.
-Stava per nascere una copia dell'helper di normalizzazione in ogni file di
-test: è stato messo in `_loadApp.js` come `puro()`, documentato, e i due file
-lo importano da lì. Regola 15 applicata all'attrezzatura di collaudo.
-
-PROSSIME TAPPE: 3) scheda Clinica — colori (`var(--blue)` al posto di
-`#BA7517`), caselle generate dal catalogo, tooltip ⓘ, e uscita di scena del
-Blu di metilene dal markup; 4) scheda Routine — pasto automatico giorno per
-giorno, dose BCAA calcolata sul peso, collegamento dalla Clinica.
-
-5 AGOSTO 2026 (seguito 6) — P148 TAPPA 1: IL MOTORE CHE SCEGLIE IL PASTO.
-Baseline 2f0555e. Prima tappa di codice di P148, sbloccata da Fabrizio con
-"le altre voci vanno bene" sul catalogo. Zero interfaccia, zero dati salvati:
-solo calcolo puro, così è collaudabile da sola.
-
-COSA FA. `pastoMaxPerMacro(piano, indiceGiorno, macro)` restituisce lo slot
-pasto con più grassi (o più carboidrati) di UN giorno del piano, e
-`pastoMaxPerMacroTuttiIGiorni` lo fa su tutta la settimana. Sull'esempio
-stesso di Fabrizio il risultato è quello atteso: lunedì vince il pranzo per
-la mozzarella, martedì la cena per il salmone. Nessuna chiamata AI: il piano è
-già generato con alimenti e grammi, la risposta è una somma e un massimo —
-stesso principio di P63b.
-
-L'ESTRAZIONE DI `_macrosCella`, E PERCHÉ NON HO SCRITTO UNA FUNZIONE NUOVA
-ACCANTO. Serviva la ponderata 35/25/15/10/8/7 anche qui, e viveva dentro il
-corpo di `calcolaMacrosPiano`. Scriverne una copia sarebbe stato più veloce e
-più sicuro nell'immediato, ed è esattamente il difetto trovato in P141: tre
-funzioni per la stessa cosa, scritte da chi aveva sbattuto contro il problema
-nel proprio angolo, con la conseguenza che correggerne una lasciava rotte le
-altre. Regola 15, "ripara il rubinetto". La ponderata è stata quindi estratta
-in `_macrosCella(cella, nonTrovati)` e `calcolaMacrosPiano` ora la chiama.
-PROTEZIONE: prima di toccare qualsiasi cosa ho misurato l'output di
-`calcolaMacrosPiano` su un fixture (2 giorni, con dentro anche due alimenti
-volutamente non riconosciuti) e ho confrontato numero per numero dopo
-l'estrazione — identico. Quei valori sono ora pinnati in un test di
-regressione: `calcolaMacrosPiano` non aveva NESSUN test prima di oggi.
-
-I TEST (17 nuovi, suite a 551 verdi). Metà verifica il SILENZIO, regola 19:
-piano assente, giorno fuori dal piano, macro non riconosciuta, pasti vuoti,
-solo alimenti non riconosciuti — in tutti questi casi la funzione deve
-restituire null, mai un pasto scelto per ripiego. Un consiglio inventato su un
-piano che non esiste finirebbe nel PDF di un paziente senza un errore a video,
-famiglia F6/F7 e regola 11. C'è anche un test che verifica che il pasto
-vincente CAMBI da un giorno all'altro: è la prova in codice che il requisito è
-l'assegnazione per giorno e non una scelta unica per la settimana — se qualcuno
-reintroducesse la seconda, quel test diventerebbe rosso.
-
-DUE TRAPPOLE DI AMBIENTE INCONTRATE (annotate nei test per chi verrà dopo).
-(1) In JSDOM gli oggetti creati dentro la finestra hanno un Object.prototype
-diverso da quello di Node: `deepStrictEqual` fallisce con "same structure but
-not reference-equal" pur essendo i valori identici — si confrontano copie
-normalizzate con JSON. È la sorella del quirk trovato ieri sui const/let
-top-level che non diventano proprietà di window.
-(2) `rigenera-index.js` riallinea i numeri di riga ma NON aggiunge le funzioni
-nuove: la suite era verde e l'indice "allineato" pur non contenendo nessuna
-delle tre funzioni appena scritte, perché `s1-doc-allineata` verifica che le
-voci elencate siano giuste, non che siano complete. Aggiunte a mano e annotato
-in testa a INDEX.md. Stessa famiglia della regola 20: un controllo verde non è
-una verifica di ciò che quel controllo non guarda.
-
-PROSSIME TAPPE: 2) catalogo unico `CATALOGO_INTEGRATORI` e migrazione dati;
-3) scheda Clinica, colori e tooltip ⓘ; 4) scheda Routine, pasto automatico
-giorno per giorno e collegamento dalla Clinica.
-
-5 AGOSTO 2026 (seguito 5) — P148: SEI VOCI CORRETTE DA FABRIZIO, E LA SOGLIA
-ANNULLATA PERCHÉ LA DOMANDA ERA SBAGLIATA. Baseline 2e5c1b9. Zero codice.
-
-IL CHIARIMENTO CHE ANNULLA DUE DECISIONI. Poche ore dopo aver deciso la soglia
-("maggioranza vera invece dell'80%"), Fabrizio ha chiarito cosa intendeva:
-l'integratore va nel pasto più grasso DI QUEL GIORNO, e il pasto vincente può
-cambiare durante la settimana in base al piano. L'assegnazione è quindi giorno
-per giorno, non una scelta unica per l'intero piano — e con questa lettura il
-problema della soglia non si risolve, semplicemente NON ESISTE. LA LEZIONE, che
-vale oltre P148: due decisioni sono state prese, discusse e committate su una
-domanda che non andava posta. La domanda nasceva da un mio errore di
-comprensione del requisito, non dal problema reale; averla posta con due
-opzioni ben argomentate l'ha fatta sembrare legittima. Prima di far scegliere
-fra due varianti di una regola, va verificato che la REGOLA sia quella che
-l'utente ha in testa — altrimenti si raffina con precisione la risposta
-sbagliata. Stessa famiglia della regola 16 (contare le occorrenze non è ancora
-classificarle): il lavoro apparente nasconde che il presupposto non è stato
-controllato.
-
-SEI VOCI DI CATALOGO CORRETTE DA FABRIZIO: magnesio+potassio (non solo la sera
-— anche post-allenamento, dopo sudorazione importante, nella stanchezza);
-magnesio da solo (due usi distinti: mattina per l'energia, sera per il sonno);
-multivitaminico (colazione/pranzo/cena, mai a stomaco vuoto); probiotico (NON a
-stomaco vuoto come avevo scritto io — durante i pasti, pranzo o cena); creatina
-(dopo il pasto più ricco di carboidrati); BCAA (1 g ogni 10 kg di peso, metà
-prima e metà dopo l'allenamento). Voci riviste da Fabrizio: 9 su 25.
-
-TRE CONSEGUENZE STRUTTURALI, non testuali, nate da quelle correzioni:
-(a) La creatina introduce una SECONDA regola automatica, 'pasto_piu_carbo',
-identica per forma a quella dei grassi. `regolaOrario` diventa una famiglia
-('fisso' | 'pasto_piu_grasso' | 'pasto_piu_carbo'). Costo quasi nullo: la
-funzione che somma i grassi per slot somma già i carboidrati — va però scritta
-generica da subito, `pastoMaxPerMacro(piano, giorno, macro)`, invece di
-scriverne una sui grassi e doverla poi duplicare.
-(b) I BCAA rendono la DOSE dipendente dal paziente (1 g/10 kg): non più una
-stringa fissa ma una forma calcolata, risolta a video leggendo il peso
-dall'InBody più recente (regola 10) e MAI copiata dentro la routine del
-paziente. Un peso congelato lì dentro sarebbe la doppia fonte di verità di F4 e
-della regola 12: dopo tre mesi mostrerebbe una dose calcolata su un peso che non
-esiste più, senza un errore a video.
-(c) Il magnesio (due usi distinti) e magnesio+potassio (sera oppure post-sforzo)
-mostrano che `quando` può avere PIÙ ALTERNATIVE legittime. Comprimerle in una
-frase unica perde l'informazione clinica che le rende utili: va previsto come
-elenco di alternative col rispettivo motivo, e il nutrizionista sceglie quale
-finisce nel PDF.
-
-IL CATALOGO È UN DEFAULT SCAVALCABILE. Fabrizio ha precisato che i consigli
-sono scritti e visibili ma ogni nutrizionista sceglie se applicarli o
-cambiarli; vale anche per il pasto calcolato, che si presenta compilato ma
-modificabile e non viene risovrascritto da un ricalcolo. Questo abbassa il
-rischio delle bozze ma NON sostituisce la revisione clinica: un default
-sbagliato che nessuno corregge finisce comunque nel PDF del paziente — è
-esattamente il modo in cui sarebbero passati i valori FODMAP sbagliati
-(regola 14). Restano 16 voci mie da controllare, fra cui le 3 con interazione
-farmacologica e la pappa reale.
-
-5 AGOSTO 2026 (seguito 4) — P148: DUE DELLE TRE DOMANDE CHIUSE.
-Baseline 87d6e47. Sempre zero codice: solo la scheda di roadmap.
-
-BLU DI METILENE TOLTO DAL CATALOGO. Fabrizio ha scelto di rimuoverlo invece di
-tenerlo senza dose. Motivo che vale la pena ricordare: era l'unica voce del
-catalogo con un'interazione seria nota (SSRI/serotoninergici) e un uso
-specialistico — una casella spuntabile in un catalogo rapido è l'interfaccia
-sbagliata per qualcosa che va ragionato ogni volta da capo. Resta gestibile
-come nota libera sul paziente. Catalogo attivo: 25 voci.
-
-SOGLIA DEL "PASTO PIÙ GRASSO": MAGGIORANZA, NON 80%. Fabrizio ha scelto la
-maggioranza semplice per avere meno interruzioni. In fase di scrittura è
-emersa un'ambiguità che andava sciolta prima, non dopo: "maggioranza semplice"
-può voler dire maggioranza RELATIVA (il pasto che vince più spesso) o VERA
-(più del 50% dei giorni). Con la prima lettura, su un piano frammentato
-— pranzo 2 giorni, cena 2, colazione 2 — esisterebbe un "vincitore" con un
-terzo dei casi, e il sistema lo consiglierebbe in silenzio: una certezza
-inventata. Implementata quindi come maggioranza VERA (≥4 giorni su 6, ≥4 su 7
-per i chetogenici). Sotto soglia NON compare un avviso — compare il testo
-generico del catalogo ("durante i pasti principali"): rispetta la richiesta di
-non essere interrotto e insieme la regola che un dato ambiguo non si traveste
-da certo. Il sistema semplicemente non afferma ciò che non può sostenere.
-Nota di collaudo (famiglia della regola 19): la metà più importante dei test
-qui è che il suggerimento specifico NON compaia su un piano vario.
-
-RESTA APERTA LA DOMANDA 1 — la revisione clinica delle voci di catalogo non
-dettate da Fabrizio, in particolare le 3 con interazione farmacologica
-(K2 e CoQ10 con anticoagulanti, Berberina con ipoglicemizzanti) e la Pappa
-reale con le allergie all'alveare. È l'unica cosa che blocca l'inizio del
-codice: è contenuto clinico destinato a un paziente, non si scrive finché non
-è stato letto riga per riga.
-
-5 AGOSTO 2026 (seguito 3) — P148: COLORI, SCHEMA RICCO E TIMING SUL PASTO PIÙ
-GRASSO. Baseline 4004ef4. Ancora nessuna riga di codice toccata: solo la scheda
-di roadmap, ampliata su richiesta di Fabrizio con tre aggiunte precise.
-
-1) COLORI. Fabrizio nota che "prende già"/"vorrebbe prendere" si leggono come
-verde/arancione, gli stessi registri del semaforo alimenti, anche se i codici
-CSS non coincidono alla lettera (`var(--teal)` e `#BA7517`) — chiede di non
-usare quei due colori e domanda consiglio. Deciso: due colori diversi, non
-nessun colore (19 righe × 2 checkbox restano illeggibili in tinta unica).
-`var(--teal)` resta per "prende già" (già il colore generico di "attivo"
-altrove nell'app); `var(--blue)` sostituisce `#BA7517` per "vorrebbe" — preso
-dalla stessa palette CSS già in uso, nessun colore nuovo inventato, entrambi
-toni freddi lontani dalla rampa calda verde→arancione→rosso del semaforo.
-
-2) SCHEMA CATALOGO ARRICCHITO. Fabrizio chiede, per ogni integratore: nome,
-dose, momento consigliato, sinergie, incompatibilità, e una spiegazione che si
-apre da una "ⓘ" cliccabile nella casella. Nuovo schema `CATALOGO_INTEGRATORI`:
-`{chiave, nome, dose, quantiVolte, quando, regolaOrario, sinergie[],
-evitareCon[], razionale}`. Fabrizio ha dettato 3 voci come esempio (Omega-3,
-Vitamina D3, Ferro) poi ha chiesto esplicitamente "completali tu tutti": in
-Roadmap ora c'è la bozza completa delle 26 voci, marcate [F] quelle dettate da
-Fabrizio, con 4 righe segnalate in grassetto per interazione nota con farmaci
-(Vitamina K2 e Coenzima Q10 con anticoagulanti, Berberina con
-ipoglicemizzanti, Pappa reale con allergie) e il Blu di metilene lasciato
-apposta SENZA dose di default (interazione nota con SSRI, va deciso caso per
-caso). Bozza esplicitamente segnata come contenuto clinico da rivedere riga
-per riga prima del codice — stessa cautela già avuta per colesterolo e chia.
-
-3) TIMING SUL "PASTO PIÙ GRASSO". Fabrizio chiede se il generatore AI può
-assegnare da solo Omega-3/Vitamina D al pasto più grasso della giornata,
-analizzando la struttura reale del piano generato. Deciso: sì, ma con un
-calcolo deterministico, non una chiamata AI — stesso principio di P63b
-(coerenza InBody con una sottrazione, non con l'AI). `calcolaMacrosPiano`
-dimostra che il motore per sommare i grassi di un pasto esiste già, solo
-aggregato per giorno; serve una funzione nuova, pura, che spezzi lo stesso
-calcolo per slot pasto sul piano già generato — zero chiamate AI aggiuntive.
-Il caso in cui il pasto più grasso cambia di giorno in giorno (l'esempio
-stesso di Fabrizio) non va risolto in silenzio: se non è costante in almeno
-l'80% dei giorni (soglia proposta, da confermare), il sistema lo dichiara
-invece di scegliere da solo — stessa disciplina già adottata per il 190-200
-del colesterolo e per il TDEE osservato ambiguo. Si applica alle 4 voci
-liposolubili del catalogo (Omega-3, Vitamina D3, Vitamina K2, Coenzima Q10).
-
-Il collegamento Clinica→Routine resta un suggerimento cliccabile, non un
-automatismo (invariato dalla bozza precedente). Tre domande esplicite lasciate
-aperte per Fabrizio prima che si scriva una riga di codice: revisione delle
-voci non dettate (specie le 4 con interazione farmacologica), se tenere il Blu
-di metilene nel catalogo rapido o solo come nota libera, e se l'80% di "pasto
-costante" è una soglia ragionevole.
-
-5 AGOSTO 2026 (seguito 2) — P148: DISEGNATO IL CATALOGO UNICO INTEGRATORI.
-Baseline 4004ef4. Nessuna riga di codice toccata: solo la scheda di roadmap, come P35.
-
-DA DOVE NASCE. Rispondendo alla spiegazione del difetto di suggerisciPastoEQuando,
-Fabrizio nota che le caselle Integratori della scheda Clinica ("prende già" /
-"vorrebbe prendere") non fanno comparire nulla nella scheda Routine — dove poi va
-concretamente a dire al paziente quando prendere l'integratore per il PDF. Chiede se
-non sarebbe più logico che si collegassero.
+DA DOVE NASCE. Fabrizio spunta "Omega-3" nella scheda Clinica di un paziente,
+va sulla Routine per dirgli quando assumerlo, e la trova vuota. Chiede se non
+sia più logico che le due si colleghino.
 
 VERIFICATO NEL CODICE: sono due sistemi indipendenti. Clinica (19 voci) scrive
-p.integratori/p.integraWant, letti SOLO nel contesto che va a FX. Routine (12 voci
-integratore nella libreria, con dose/quando/razionale) scrive p.routineGiornaliera,
-alimentata solo da un click manuale. Zero funzioni le collegano. Il problema vero non
-è "manca un collegamento": le due liste usano vocabolari diversi, costruiti in momenti
-diversi — solo 5 delle 19 voci Clinica hanno un corrispondente in Routine, e nemmeno
-con lo stesso nome. 13 voci esistono solo in Clinica senza dose/timing da nessuna
-parte; 7 esistono solo in Routine.
+p.integratori/p.integraWant, letti SOLO nel contesto che va a FX. Routine (12
+voci con dose/quando/razionale) scrive p.routineGiornaliera, alimentata solo da
+un click manuale. Il problema vero non è "manca un collegamento": le due liste
+usano vocabolari diversi, costruiti in momenti diversi — solo 5 voci su 19
+hanno un corrispondente, e nemmeno con lo stesso nome. Decisione: unificarle,
+con disegno prima e codice dopo (schema di P35).
 
-DECISIONE DI FABRIZIO: unificare le due liste in un catalogo unico, disegno ora e
-codice dopo (stesso schema di P35). Scheda P148 in Roadmap con: il catalogo proposto,
-bozze di dose/quando/razionale per le 13 voci mancanti (Blu di metilene lasciato
-apposta SENZA bozza — non è un nutraceutico da banco, rischio noto di interazione con
-SSRI, dose va decisa caso per caso da Fabrizio), il meccanismo di collegamento
-proposto (suggerimento cliccabile quando si apre Routine, non aggiunta automatica —
-"prende già" è un fatto di anamnesi, "è in Routine" è una prescrizione: fatti diversi,
-non vanno confusi in un'unica scrittura automatica), e il piano di migrazione dei
-dati dei pazienti già in archivio. Tre domande esplicite lasciate aperte per la
-revisione di Fabrizio prima che si scriva una riga di codice.
+I COLORI. Fabrizio nota che "prende già"/"vorrebbe prendere" si leggono come
+verde e arancione, i registri del semaforo alimenti, e chiede di cambiarli.
+Deciso: due colori diversi, non nessun colore (19 righe × 2 caselle in tinta
+unica sarebbero illeggibili). `var(--teal)` resta, `var(--blue)` sostituisce
+`#BA7517`: entrambi già in palette, entrambi toni freddi lontani dalla rampa
+calda del semaforo.
 
-5 AGOSTO 2026 (seguito) — LE ALTRE 4 DECISIONI SULL'AUDIT AL CONTRARIO.
-Baseline 10e1632.
+IL CATALOGO. Schema `{chiave, nome, dose, dosePerPeso?, quanteVolte, quando,
+quandoAlt?, regolaOrario, sinergie[], evitareCon[], razionale}`. Fabrizio ha
+dettato 3 voci d'esempio (Omega-3, Vitamina D3, Ferro) e ha chiesto
+esplicitamente di completare le altre; la bozza è stata marcata come contenuto
+clinico da rivedere riga per riga, con 4 righe segnalate per interazione nota
+con farmaci (K2 e CoQ10 con anticoagulanti, Berberina con ipoglicemizzanti,
+Pappa reale con allergie all'alveare).
+  BLU DI METILENE TOLTO su decisione di Fabrizio: unica voce con interazione
+  seria nota (SSRI) e uso specialistico — una casella spuntabile in un catalogo
+  rapido è l'interfaccia sbagliata per qualcosa che va ragionato ogni volta.
+  Resta gestibile come nota libera.
+  Poi Fabrizio ha corretto SEI voci: magnesio+potassio (non solo la sera —
+  anche post-allenamento, dopo sudorazione, nella stanchezza); magnesio da solo
+  (due usi distinti: mattina energizzante, sera per il sonno); multivitaminico
+  (mai a stomaco vuoto); probiotico (NON a stomaco vuoto come avevo scritto —
+  durante i pasti); creatina (dopo il pasto più ricco di carboidrati); BCAA
+  (1 g ogni 10 kg, metà prima e metà dopo l'allenamento). Le restanti 16
+  approvate. Contenuto clinico: non si tocca senza passare da lui.
 
-Fabrizio ha deciso le 6 segnalazioni rimaste aperte dopo la correzione di selCatAl.
-Quattro comportavano un intervento, riportate qui in ordine di decisione.
+TRE CONSEGUENZE STRUTTURALI di quelle correzioni, non testuali:
+(a) la creatina introduce una SECONDA regola automatica, 'pasto_piu_carbo',
+identica per forma a quella dei grassi — `regolaOrario` diventa una famiglia, e
+la funzione va scritta generica da subito invece di duplicarla poi;
+(b) i BCAA rendono la DOSE dipendente dal paziente: non più una stringa fissa
+ma una forma calcolata sul peso;
+(c) il magnesio mostra che `quando` può avere PIÙ alternative legittime —
+comprimerle in una frase perde l'informazione clinica che le rende utili.
 
-1) BADGE RINOMINATO — verificaRegola_75_20_5 → verificaRegola_70_25_10 (e
-renderBadge75_20_5 → renderBadge70_25_10, id DOM piano-badge-75 → piano-badge-70).
-Soluzione A scelta da Fabrizio: cambia solo il nome, non il comportamento — nessun
-piano che passa oggi il controllo deve iniziare a fallirlo. Verificato prima di
-correggere: il testo "75/20/5" non è mai stato mostrato al paziente o al
-nutrizionista, viveva solo in commenti e nomi di funzione — quindi la correzione è
-innocua anche per l'interfaccia, non solo per il comportamento. Aggiunta una nota
-nel codice che risponde alla domanda "perché 70+25+10 fa 105 e non 100": non sono
-tre fette di una torta obbligate a sommare a 100, sono tre limiti indipendenti
-(verdi ALMENO 70%, arancioni AL MASSIMO 25%, rossi AL MASSIMO 10%, più "zero
-esclusi" a parte) — ed è proprio perché sono indipendenti che la regola reale è più
-permissiva del vecchio nome 75/20/5 lasciava credere.
+LA DOMANDA CHE NON ANDAVA POSTA — la lezione più importante della giornata.
+Il disegno prevedeva che il sistema scegliesse UN pasto per l'intero piano, e
+da lì nasceva il problema di cosa fare quando il pasto più grasso cambia da un
+giorno all'altro. È stata posta a Fabrizio come scelta fra due soglie (80% o
+maggioranza), lui ha risposto, la decisione è stata discussa e committata — e
+poche ore dopo, chiarendo, ha detto che intendeva l'assegnazione GIORNO PER
+GIORNO. Con quella lettura il problema della soglia non si risolve: NON ESISTE.
+La domanda nasceva da un errore di comprensione del requisito, e averla
+presentata con due opzioni ben argomentate l'ha fatta sembrare legittima.
+**Prima di far scegliere fra due varianti di una regola, va verificato che la
+REGOLA sia quella che l'utente ha in testa** — altrimenti si raffina con
+precisione la risposta sbagliata. Stessa famiglia della regola 16: il lavoro
+apparente nasconde che il presupposto non è stato controllato.
 
-2) LE RICETTE DI SISTEMA ORA SI ELIMINANO DAVVERO. Decisione di Fabrizio: "voglio
-che tutte le ricette siano uguali e tutte devono poter essere cancellabili" — per
-qualunque nutrizionista lo scelga sulla propria installazione (lui non lo farebbe
-sul suo NutriGest, ma dev'essere possibile per chi lo vuole). Prima, `delRic` su
-una delle 6 ricette di sistema (RICETTE_DEFAULT) toglieva la riga solo in locale;
-`pullRicetteSupabase` la ricostruiva sempre da zero al sync successivo, silenziosamente,
-nonostante il messaggio "✅ Ricetta eliminata". Nuovo registro `db._ricetteEliminate`
-(chiave `__ricette_eliminate` sullo stesso meccanismo generico `_collectionsUpsert`/
-`_collectionsFetch` già usato per gli altri 3 meta-record, PER ACCOUNT via RLS — non
-il tombstone dei pazienti, che ha TTL 90gg e cascata su piani/entrate/eventi, semantica
-che qui non serve: una ricetta di sistema eliminata resta eliminata, senza scadenza).
-`pullRicetteSupabase` ora filtra RICETTE_DEFAULT contro il registro (locale +
-remoto, fuso all'inizio del pull) prima di ricostruire `db.ricette`, e `delRic`
-tratta le ricette di sistema esattamente come le custom. 6 test nuovi
-(`s2-ricette-default-eliminabili.test.js`), incluso il caso "eliminata su un altro
-dispositivo, arriva col registro remoto".
+IL CATALOGO È UN DEFAULT SCAVALCABILE. Parole di Fabrizio: i consigli sono
+scritti e visibili, ma ogni nutrizionista sceglie se applicarli o cambiarli.
+Vale anche per il pasto calcolato, che si presenta compilato ma modificabile e
+non viene risovrascritto. Questo abbassa il rischio delle bozze ma NON
+sostituisce la revisione clinica: un default sbagliato che nessuno corregge
+finisce comunque nel PDF del paziente — è il modo in cui sarebbero passati i
+valori FODMAP sbagliati (regola 14).
 
-3) MODULO "B3 — VALIDAZIONE INPUT NUMERICI" DOCUMENTATO NEL CONTESTO. Nessun
-cambio di codice: solo un paragrafo in NutriGest_Contesto_v18.txt (dopo il
-controllo di coerenza InBody di P63b, stesso argomento — "controlli su valori
-numerici immessi") che spiega cos'è, i 26 campi coperti, e che le soglie sono
-di plausibilità (avviso, mai blocco), non cliniche.
+5 AGOSTO 2026 (1/4) — AUDIT AL CONTRARIO: DAL CODICE AI DOCUMENTI.
+Baseline b413f08. Sette segnalazioni, sei chiuse in giornata.
 
-4) applicaPatch RIMOSSA. Codice morto, zero chiamate in tutto il file (grep sul
-nome trovava solo la definizione) — decisione di Fabrizio: "se non crea nessun
-problema puoi anche cancellarlo ora tanto è inutile". Stessa famiglia di
-selTuttiAl (F9, 26 lug 2026): codice raggiungibile che tocca dati di un piano e
-nessuno chiama è solo un modo per sbagliare dopo. `deepClone` (usata anche
-altrove) NON è stata toccata.
+IL METODO, opposto a quello delle passate precedenti: invece di partire dai
+documenti e cercarne il riscontro nel codice, si parte dalle funzioni che
+esistono e si cercano quelle di cui nessun documento parla. 877 funzioni
+top-level, filtro meccanico per assenza di menzione nei quattro file di
+verità → 401 candidati, esaminati da nove agenti in parallelo, poi
+riverificati uno per uno nel codice. Sette segnalazioni reali.
 
-RESTA APERTA — nessun cambio oggi: `ascoltaProgresso` (il pulsante "Ascolta il
-tuo progresso" con sintesi vocale). Fabrizio la sta valutando per l'eliminazione
-ma senza fretta — annotata come nuova voce di roadmap P43b, con la motivazione
-(testo AI mai rivisto prima di essere letto al paziente, compatibilità voce
-incerta fra browser) invece che rimossa subito.
+1. `selCatAl` — CORRETTA. Il pulsante "Tutti" di una categoria sovrascriveva
+il colore del semaforo senza registrare quello di origine, e riportando il
+ciclo a "nessun colore" lo azzerava del tutto: un alimento segnalato
+automaticamente come celeste o grigio scuro perdeva la segnalazione in
+silenzio. Decisione di Fabrizio: «"tutti" si deve comportare come "singolo" —
+il nutrizionista può scegliere, ma deve restare visibile che quell'alimento
+era celeste o grigio scuro». Corretto registrando l'origine in
+`_alOrigineAuto` e ripristinandola a fine ciclo, con un marcatore ✏️ che
+distingue lo scavalcamento manuale dalla segnalazione ancora automatica.
 
-Suite 528 → 534 (6 test nuovi sulle ricette). INDEX.md rigenerato (693 voci
-corrette in giornata, cumulative con la correzione di selCatAl).
+2. `suggerisciPastoEQuando` — SPIEGATA, non corretta. Indovina il pasto dal
+testo e lo SALVA subito, prima che il nutrizionista lo veda; la tendina che
+compare dopo è modificabile ma non segnala che il valore è una supposizione.
+Nessun intervento: è diventata la premessa di P148.
 
-5 AGOSTO 2026 — AUDIT AL CONTRARIO: DAL CODICE AI DOCUMENTI, E LA CORREZIONE DI "TUTTI".
-Baseline b413f08.
+3. Badge `75/20/5` — RINOMINATO in `70/25/10`. I nomi non corrispondevano più
+alle soglie applicate dal codice. Fabrizio ha chiesto perché 70+25+10 faccia
+105: perché non sono una ripartizione, sono tre limiti indipendenti di minimo
+e massimo — spiegazione ora scritta in un commento sopra la funzione, non solo
+detta a voce.
 
-L'IDEA. Fino ad ora l'audit aveva sempre controllato una direzione sola: "i documenti
-dicono il vero sul codice?". Fabrizio ha chiesto il verso opposto — partire dalle 877
-funzioni mappate in INDEX.md e trovare quelle di cui NESSUN documento parla affatto,
-nemmeno per nome. Un controllo meccanico (ricerca del nome, confini di parola) ha
-trovato 401 funzioni su 877 senza alcuna menzione in CHANGELOG/Roadmap/Contesto/
-CLAUDE.md. Lette una per una (9 letture indipendenti in parallelo, poi verifica diretta
-sul codice di ogni segnalazione sopravvissuta): 394 erano getter/setter banali o
-comportamenti già raccontati sotto un numero di roadmap anche senza il nome esatto
-della funzione. 7 erano buchi veri. Report completo: NutriGest_Audit_Al_Contrario.md.
+4. Ricette di sistema — ORA ELIMINABILI DAVVERO. `delRic` toglieva la riga e
+diceva "eliminata", ma `pullRicetteSupabase` ricostruiva sempre le 6 ricette
+di sistema: al sync successivo tornavano. Fabrizio: «voglio che tutte le
+ricette siano uguali e tutte cancellabili — non lo farò io, ma un nutrizionista
+che ha la sua versione dev'essere libero». Registro `_ricetteEliminate`
+sincronizzato sul meta-record generico, distinto dai tombstone dei pazienti
+(quelli hanno TTL e cascata, qui non servono).
 
-LA CORREZIONE FATTA SUBITO (le altre 6 restano segnalazioni aperte, da decidere).
-`selCatAl` — il bottone "Tutti" accanto a ogni categoria dell'editor alimenti —
-scriveva lo stesso colore manuale su OGNI alimento della categoria in blocco, senza
-controllare se qualcuno era colorato automaticamente (celeste/grigio scuro) per un
-motivo clinico: allergia, patologia. A differenza del click singolo (`togAl`), non
-c'era alcuna protezione — un clic su "Tutti → sì" poteva marcare "consigliato"
-un'intera categoria che conteneva un alimento sconsigliato per glutine o lattosio,
-senza avviso, e la sovrascrittura restava per sempre (`applicaRegoloSemaforo` non
-tocca mai i colori manuali).
+5. Modulo B3 (validazione input numerici, 26 campi) — DOCUMENTATO nel Contesto:
+esisteva e nessun documento lo nominava.
 
-Decisione di Fabrizio: "'tutti' si deve comportare come 'singolo'... un nutrizionista
-può anche scegliere di selezionare un alimento ma deve restare visibile che
-quell'alimento era o celeste o grigio scuro". Non si toglie la possibilità di
-selezionare in blocco — si toglie la possibilità di farlo SENZA SAPERLO.
+6. `applicaPatch` — RIMOSSA. Zero chiamanti, confermato con grep.
 
-LA CORREZIONE. `selCatAl` ora registra l'origine automatica in
-`window._alOrigineAuto` per ogni alimento che sovrascrive, esattamente come fa
-`togAl` sul singolo. `renderAlEditor` mostra il badge della condizione clinica anche
-quando lo stato è ormai manuale, purché l'origine sia registrata, con un piccolo
-marcatore ✏️ che distingue "scelta manuale sopra un avviso automatico" da un
-automatico ancora attivo. Quando il ciclo di "Tutti" torna al neutro, l'alimento che
-era automatico ci ritorna (non sparisce): prima di questa correzione un giro completo
-di "Tutti" cancellava il colore clinico per sempre.
+7. `ascoltaProgresso` — annotata come P43b, da valutare senza fretta.
 
-Test nuovi: `s2-selcatal-preserva-origine.test.js` (6 test — origine registrata,
-badge visibile col marcatore, ciclo completo che ritorna all'origine, nessuna
-regressione sugli alimenti mai automatici, nessuna doppia scrittura dell'origine).
-Suite 522 → 528. INDEX.md rigenerato (163 voci corrette dallo spostamento righe).
-
-LE ALTRE 6 SEGNALAZIONI (nessuna corretta in questa consegna, elenco in
-NutriGest_Audit_Al_Contrario.md — Fabrizio decide voce per voce):
-`suggerisciPastoEQuando` (due voci della libreria integratori si autoclassificano nel
-pasto sbagliato per un bug d'ordine nei regex), `verificaRegola_75_20_5` (il badge si
-chiama 75/20/5 ma il codice controlla 70/25/10 — da decidere quale dei due correggere),
-`delRic` su ricetta di sistema (torna dopo un sync nonostante il messaggio "Eliminata"),
-il modulo "B3 — Validazione input numerici" (26 soglie di plausibilità clinica/
-economica mai documentate), `ascoltaProgresso` (l'AI scrive e legge ad alta voce un
-commento motivazionale al paziente, testo mai rivisto prima della lettura),
-`applicaPatch` (funzione morta, mai chiamata — Fabrizio valuta di toglierla, nessuna
-fretta).
+DUE LEZIONI. (a) I documenti di progetto Claude sono fotografie datate: prima
+di implementare qualunque cosa descritta lì dentro va cercato nel CODICE se
+esiste già. (b) `ORFANI_NOTI` è un elenco di deroghe, non di assoluzioni: per
+ogni voce la domanda non è "è censita?" ma "cosa smette di funzionare quando
+l'elemento non c'è?" — un orfano dentro una guardia che fa `return` è un pezzo
+di programma spento in silenzio.
 
 4 AGOSTO 2026 — P35 RISCRITTA: IL PESO CASALINGO E' UNO STRUMENTO SEPARATO.
 Baseline d4d5a67. Nessuna riga di codice toccata: solo la scheda di roadmap.

@@ -644,9 +644,21 @@ scrive «Ultima settimana … in 30 giorni». Il numero è giusto, l'etichetta n
 
 **FOCUS COMPONENTI COINVOLTI:** Frontend (card + grafici) + un intervento chirurgico su
 `_serieePesoOss`. Nessuna migrazione dati: `p.pesiIntermedi[]` resta com'è.
+> ⚠️ **DECISIONE APERTA, DA PRENDERE PRIMA DI SCRIVERE CODICE (segnata il 5 ago 2026).**
+> Le tappe 1 e 2 sono decise e si fanno. Le tre opzionali NO: Fabrizio deve scegliere quali
+> vuole, ed è la prima cosa da chiedergli quando si riapre questa voce.
+> - **Striscia di aderenza** (punto 4): in quali giorni il paziente si è pesato davvero.
+>   Costa poco, e prima di una videochiamata dice a colpo d'occhio se il dato è denso o pieno
+>   di buchi. È quella che consiglierei per prima.
+> - **Velocità di variazione** (punto 3): calcolata sulla media mobile, con la fascia di ritmo
+>   `_ibFasciaRitmo` già esistente. Si colora solo il lato pericoloso.
+> - **Confronto casa↔studio** (punto 5): Fabrizio stesso l'ha giudicato «può essere molto
+>   fuorviante». Se si fa, solo nella forma che non produce numeri derivati.
+
 **SCHEDA:** Stato: ⚠️ **PARZIALE** — card «⚖️ Peso casalingo» in produzione (`p.pesiIntermedi[]`,
 `_renderPesiIntermediSection` chiamata da `renderPdInbody`); **da fare: tappa 1 (separazione, è
-anche una correzione di difetto) e tappa 2 (grafico andamento)**; tappe 3-5 opzionali · Priorità:
+anche una correzione di difetto) e tappa 2 (grafico andamento)**; **tappe 3-5 opzionali: scelta
+ancora da fare, vedi riquadro sopra** · Priorità:
 **Media** — alzata dal 4 ago 2026: la tappa 1 corregge un difetto clinico silenzioso, non è più
 solo un miglioramento · C: 3 | I: 4 | R: 2 · Modello: Opus (tocca dati clinici e un calcolo
 esistente) · Autonomia: L0 sulla tappa 1, L1 sui grafici.
@@ -910,8 +922,10 @@ modo in cui i valori FODMAP sbagliati sarebbero passati (regola 14).
 un nuovo motore puro (grassi per slot pasto, stesso stile di `calcolaMacrosPiano`), dati
 paziente (`p.integratori`/`p.integraWant`/`p.routineGiornaliera` — nessuna migrazione a
 tabella Supabase, restano nel blob paziente).
-**SCHEDA:** Stato: ✅ **CHIUSA 5 ago 2026 — tutte e 4 le tappe scritte, 95 test nuovi,
-suite da 534 a 629 verdi. Resta il collaudo a video su PC e iPhone** (vedi elenco sopra).
+**SCHEDA:** Stato: ✅ **CHIUSA E COLLAUDATA 5 ago 2026** — tutte e 4 le tappe scritte, 95
+test nuovi, suite da 534 a 629 verdi, **collaudo a video superato da Fabrizio**: spunte dei
+pazienti storici intatte, colori e pannello ⓘ, suggerimento dalla Clinica, pasto automatico
+giorno per giorno su un paziente con piano, scavalcamento manuale, PDF.
 Catalogo approvato da Fabrizio lo stesso giorno. Tappa 1 motore `pastoMaxPerMacro` ·
 tappa 2 catalogo unico `CATALOGO_INTEGRATORI` con mappa alias · tappa 3 scheda Clinica
 generata dal catalogo, colori non-semaforo, pannello ⓘ · tappa 4 pasto automatico giorno

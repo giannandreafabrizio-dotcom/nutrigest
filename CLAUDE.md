@@ -156,6 +156,22 @@ Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero pr
 - **Rigenera `INDEX.md` a ogni sessione che tocca `index.html`**: `cd test-suite && node rigenera-index.js`. Lo script stampa quante voci ha corretto — quel numero va guardato, non dato per buono.
 - Usa `str_replace` per le modifiche puntuali quando la stringa target è già nota e univoca, senza bisogno di rileggere l'intero file.
 
+## Quanto si scrive — una voce per SESSIONE, non per consegna (5 ago 2026)
+Osservazione di Fabrizio: «stai producendo davvero tanti documenti e molto lunghi, ho paura
+che nel tempo diventi troppo grande». Misurato lo stesso giorno: **493 righe di CHANGELOG in
+una sola giornata, in dieci voci separate** che ripetevano le stesse lezioni. Fuse in tre
+senza perdere nulla: **da 499 a 227 righe**.
+- **Una voce di CHANGELOG per sessione di lavoro, non una per ogni consegna.** Se in una
+  giornata si chiudono quattro tappe della stessa voce di roadmap, è UNA voce con quattro
+  paragrafi, non quattro voci.
+- **La lezione permanente NON vive nel CHANGELOG:** diventa una riga numerata qui in
+  CLAUDE.md. Il CHANGELOG racconta l'episodio una volta sola; sono le regole numerate a
+  essere rilette a ogni sessione. Ripetere la lezione in ogni voce è la causa principale
+  della crescita.
+- **La dimensione non è il problema, la ripetizione sì.** Il CHANGELOG non si legge mai per
+  intero: si cerca per numero di voce, e cercare in 8000 righe costa quanto cercare in 800.
+  Quello che si paga è rileggere tre volte lo stesso ragionamento in tre punti diversi.
+
 ## Stile della documentazione — conciso ma completo
 Quando aggiorni CLAUDE.md, CHANGELOG.md, Roadmap o INDEX.md, punta al conciso-ma-completo: taglia il superfluo, non la sostanza.
 - **Conserva sempre:** root cause dei bug, il "perché" delle decisioni (non solo il "cosa"), gli incidenti e le lezioni imparate, i vincoli non ovvi. È la parte che ha valore mesi dopo — non sacrificarla per brevità.
