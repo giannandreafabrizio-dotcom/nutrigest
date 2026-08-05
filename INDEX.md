@@ -973,7 +973,7 @@ Righe 27436-27648
 ---
 
 ### ALIMENTI CUSTOM + P108 FASE 1 (sezione "Alimenti") — editor, badge semaforo per condizione, CRUD custom, archivia/ripristina
-Righe 27676-28431
+Righe 27676-28439
 
 - `27676` — buildSemLegenda
 - `27690` — renderAlEditor
@@ -991,156 +991,156 @@ Righe 27676-28431
 - `27963` — apriNuovoAlimentoCustom
 - `27969` — salvaAlimentoCustom
 - `28037` — eliminaAlimentoCustom
-- `28337` — _alimFonteBadge
-- `28342` — renderAlimentiPage
+- `28345` — _alimFonteBadge
+- `28350` — renderAlimentiPage
 - `22217` — E
-- `28413` — archiviaAlimentoCustom
-- `28431` — ripristinaAlimentoCustom
+- `28421` — archiviaAlimentoCustom
+- `28439` — ripristinaAlimentoCustom
 
 ---
 
 ### SCANNER BARCODE — P110 (Open Food Facts) — camera nativa/ZXing, fetch OFF, precompilazione form, dedup
-Righe 28458-29094
+Righe 28466-29102
 
-- `28458` — _bcSetStatus
-- `28460` — apriScannerBarcode
-- `28468` — chiudiScannerBarcode
-- `28473` — _bcStopCamera
-- `28481` — _bcModaleAperto
-- `28483` — _bcAvviaCamera
-- `28494` — _bcAvviaNativo
-- `28514` — _bcAvviaZXing
-- `28523` — _bcZXStart
-- `28534` — _bcErroreCamera
-- `28542` — cercaBarcodeManuale
-- `28548` — _barcodeTrovato
-- `28719` — cercaBarcodeOFF
-- `28748` — _bcProdottoNonTrovato
-- `28763` — _bcPrecompilaForm
+- `28466` — _bcSetStatus
+- `28468` — apriScannerBarcode
+- `28476` — chiudiScannerBarcode
+- `28481` — _bcStopCamera
+- `28489` — _bcModaleAperto
+- `28491` — _bcAvviaCamera
+- `28502` — _bcAvviaNativo
+- `28522` — _bcAvviaZXing
+- `28531` — _bcZXStart
+- `28542` — _bcErroreCamera
+- `28550` — cercaBarcodeManuale
+- `28556` — _barcodeTrovato
+- `28727` — cercaBarcodeOFF
+- `28756` — _bcProdottoNonTrovato
+- `28771` — _bcPrecompilaForm
 - `22477` — num
-- `28808` — togAl
-- `28861` — selCatAl
+- `28816` — togAl
+- `28869` — selCatAl
 - `25402` — selTuttiAl
-- `28926` — _appIdAnag  (P140 T1)
-- `28936` — _appSyncPaz  (P140 T1)
-- `28980` — _appSpecchioInverso  (P140 T2)
-- `29006` — _appRitiraSpecchio  (P140 T2)
-- `29037` — _appAncoraTappe  (P140 T2)
-- `29056` — _appTappe  (P140 T2)
-- `29077` — _appMigraPaziente  (P140 T1)
-- `29087` — _appMigraTutti  (P140 T1)
-- `29094` — getEventi
+- `28934` — _appIdAnag  (P140 T1)
+- `28944` — _appSyncPaz  (P140 T1)
+- `28988` — _appSpecchioInverso  (P140 T2)
+- `29014` — _appRitiraSpecchio  (P140 T2)
+- `29045` — _appAncoraTappe  (P140 T2)
+- `29064` — _appTappe  (P140 T2)
+- `29085` — _appMigraPaziente  (P140 T1)
+- `29095` — _appMigraTutti  (P140 T1)
+- `29102` — getEventi
 
 ---
 
 ### CALENDARIO APPUNTAMENTI — viste mese/settimana/giorno, eventi, disponibilità
-Righe 29110-29579
+Righe 29118-29587
 
-- `29110` — setCalView
-- `29120` — calPrev
-- `29121` — calNext
-- `29122` — calToday
-- `29124` — renderCal
-- `29138` — renderCalMonth
-- `29165` — renderCalWeek
-- `29198` — renderCalDay
-- `29249` — selGiorno
-- `29263` — setDisp
-- `29268` — openAddEvento
-- `29281` — openAddEventoPaz
-- `29287` — toggleEntrataCheck
-- `29292` — salvaEvento
-- `29334` — _evTestoPromemoria  (P140 T1)
-- `29340` — openEvDetail
-- `29395` — delEvento
-- `29417` — copyMsg
-- `29429` — aggDateCal
+- `29118` — setCalView
+- `29128` — calPrev
+- `29129` — calNext
+- `29130` — calToday
+- `29132` — renderCal
+- `29146` — renderCalMonth
+- `29173` — renderCalWeek
+- `29206` — renderCalDay
+- `29257` — selGiorno
+- `29271` — setDisp
+- `29276` — openAddEvento
+- `29289` — openAddEventoPaz
+- `29295` — toggleEntrataCheck
+- `29300` — salvaEvento
+- `29342` — _evTestoPromemoria  (P140 T1)
+- `29348` — openEvDetail
+- `29403` — delEvento
+- `29425` — copyMsg
+- `29437` — aggDateCal
 - `27020` — syncInizio
 - `27021` — syncControllo
-- `29442` — aggiornaPrev
-- `29467` — apriEventoDaScheda  (P140 T2)
-- `29481` — _appAggiornaOreScheda  (P140 T2)
-- `29498` — renderRic
-- `29525` — openNuovaRic
-- `29526` — editRic
-- `29536` — salvaRic
-- `29561` — delRic
-- `29579` — renderEntrate
+- `29450` — aggiornaPrev
+- `29475` — apriEventoDaScheda  (P140 T2)
+- `29489` — _appAggiornaOreScheda  (P140 T2)
+- `29506` — renderRic
+- `29533` — openNuovaRic
+- `29534` — editRic
+- `29544` — salvaRic
+- `29569` — delRic
+- `29587` — renderEntrate
 
 ---
 
 ### RICETTARIO — CRUD ricette
-Righe 29665-29725
+Righe 29673-29733
 
-- `29665` — aggiungiEntrataPerPaziente
-- `29682` — openNuovaEntrata
-- `29696` — salvaEntrata
-- `29717` — delEntrata
-- `29725` — startVoiceRicetta
+- `29673` — aggiungiEntrataPerPaziente
+- `29690` — openNuovaEntrata
+- `29704` — salvaEntrata
+- `29725` — delEntrata
+- `29733` — startVoiceRicetta
 
 ---
 
 ### RICETTARIO — input vocale, suggerimento AI ricetta; CONCETTI EDUCATIVI — modale allegati
-Righe 29755-30470
+Righe 29763-30478
 
-- `29755` — aiSuggerisciRicetta
-- `29800` — renderConcettiModal
-- `29819` — apriConcettiModal
-- `29846` — salvaConcettiAllegati
-- `29870` — _ibNormalizzaData *(P120 — data del test dal referto → YYYY-MM-DD o null)*
-- `29908` — _ibOrdinaPerData *(P120 — invariante: p.inbody sempre ordinato per data)*
-- `30051` — loadInbodyPDF
-- `30172` — _vitdLabel
-- `30176` — getIntegratori
-- `30180` — getIntegraWant
-- `30193` — _chiaviSpuntate *(P148 — risolve le etichette salvate in chiavi, regola 21)*
-- `30201` — setIntegratori
-- `30218` — setIntegraWant
-- `30246` — _infoIntegratoreHtml *(P148 — contenuto del pannello ⓘ)*
-- `30274` — mostraInfoIntegratore *(P148 — apre/chiude il pannello sotto la griglia)*
-- `30286` — renderCaselleIntegratori *(P148 — genera le caselle dal catalogo; va chiamata PRIMA di setIntegratori, altrimenti le spunte non trovano gli elementi)*
-- `30347` — getPatologieChip
-- `30348` — getAllergieChip
-- `30349` — setPatologieChip
-- `30350` — setAllergieChip
-- `30351` — getPatologie
-- `30352` — getAllergie
-- `30353` — setPatologieFromStr
-- `30360` — setAllergieFromStr
-- `30373` — getSdvChip
-- `30374` — getCspChip
-- `30375` — setSdvChip
-- `30376` — setCspChip
-- `30377` — setSdvFromStr
-- `30378` — setCspFromStr
-- `30382` — getBudget
-- `30383` — setBudget
-- `30388` — renderCalAnno
-- `30419` — comprimeImmagine
-- `30441` — uploadImmagineConcetto
-- `30460` — rimuoviImmagineConcetto
-- `30470` — renderConcettiPage
+- `29763` — aiSuggerisciRicetta
+- `29808` — renderConcettiModal
+- `29827` — apriConcettiModal
+- `29854` — salvaConcettiAllegati
+- `29878` — _ibNormalizzaData *(P120 — data del test dal referto → YYYY-MM-DD o null)*
+- `29916` — _ibOrdinaPerData *(P120 — invariante: p.inbody sempre ordinato per data)*
+- `30059` — loadInbodyPDF
+- `30180` — _vitdLabel
+- `30184` — getIntegratori
+- `30188` — getIntegraWant
+- `30201` — _chiaviSpuntate *(P148 — risolve le etichette salvate in chiavi, regola 21)*
+- `30209` — setIntegratori
+- `30226` — setIntegraWant
+- `30254` — _infoIntegratoreHtml *(P148 — contenuto del pannello ⓘ)*
+- `30282` — mostraInfoIntegratore *(P148 — apre/chiude il pannello sotto la griglia)*
+- `30294` — renderCaselleIntegratori *(P148 — genera le caselle dal catalogo; va chiamata PRIMA di setIntegratori, altrimenti le spunte non trovano gli elementi)*
+- `30355` — getPatologieChip
+- `30356` — getAllergieChip
+- `30357` — setPatologieChip
+- `30358` — setAllergieChip
+- `30359` — getPatologie
+- `30360` — getAllergie
+- `30361` — setPatologieFromStr
+- `30368` — setAllergieFromStr
+- `30381` — getSdvChip
+- `30382` — getCspChip
+- `30383` — setSdvChip
+- `30384` — setCspChip
+- `30385` — setSdvFromStr
+- `30386` — setCspFromStr
+- `30390` — getBudget
+- `30391` — setBudget
+- `30396` — renderCalAnno
+- `30427` — comprimeImmagine
+- `30449` — uploadImmagineConcetto
+- `30468` — rimuoviImmagineConcetto
+- `30478` — renderConcettiPage
 
 ---
 
 ### CONCETTI EDUCATIVI — pagina gestione, riscrittura AI, upload immagini
-Righe 30536-30620
+Righe 30544-30628
 
-- `30536` — entraSelConcetti
-- `30537` — annullaSelConcetti
-- `30538` — toggleConcettoSel
-- `30543` — eliminaConcettiSelezionati
-- `30562` — confermaEliminaConcetti
-- `30577` — aiRiscriviConcetto
-- `30591` — editConcetto
-- `30609` — salvaConcetto
-- `30620` — openNuovoConcetto
+- `30544` — entraSelConcetti
+- `30545` — annullaSelConcetti
+- `30546` — toggleConcettoSel
+- `30551` — eliminaConcettiSelezionati
+- `30570` — confermaEliminaConcetti
+- `30585` — aiRiscriviConcetto
+- `30599` — editConcetto
+- `30617` — salvaConcetto
+- `30628` — openNuovoConcetto
 - `27519` — getAgendaPersonale
 
 ---
 
 ### DASHBOARD — agenda personale, todo, promemoria
-Righe 30657-30657
+Righe 30665-30665
 
 - `27520` — saveAgendaPersonale
 - `27521` — getAgendaTodo
@@ -1155,76 +1155,76 @@ Righe 30657-30657
 - `27574` — toggleTodoFatto
 - `27587` — _catCol
 - `27589` — renderAgendaDx
-- `30657` — renderDashboard
+- `30665` — renderDashboard
 
 ---
 
 ### DASHBOARD — home, scadenze/alert controlli in ritardo
-Righe 30769-31094
+Righe 30777-31102
 
-- `30769` — renderScadenzeAlert
-- `31029` — _scadGestiti  (P144)
-- `31039` — _scadPota  (P144)
-- `31054` — _scadMigraDaLocalStorage  (P144)
-- `31077` — segnaGestito
-- `31094` — archiviaPaz
+- `30777` — renderScadenzeAlert
+- `31037` — _scadGestiti  (P144)
+- `31047` — _scadPota  (P144)
+- `31062` — _scadMigraDaLocalStorage  (P144)
+- `31085` — segnaGestito
+- `31102` — archiviaPaz
 
 ---
 
 ### PAZIENTI — archiviazione/ripristino/eliminazione
-Righe 31103-31178
+Righe 31111-31186
 
-- `31103` — ripristinaPaz
-- `31111` — eliminaPaz
-- `31156` — getDove
-- `31160` — setDove
-- `31178` — salvaCredenzialiPersistenti
+- `31111` — ripristinaPaz
+- `31119` — eliminaPaz
+- `31164` — getDove
+- `31168` — setDove
+- `31186` — salvaCredenzialiPersistenti
 
 ---
 
 ### AUTENTICAZIONE — login/signup/recovery, refresh token, sessione Supabase
-Righe 31183-31621
+Righe 31191-31629
 
-- `31183` — getCredenzialiPersistenti
-- `31196` — cancellaCredenzialiPersistenti
-- `31201` — rinnovaSessioneConRefreshToken
-- `31218` — getSessioneSalvata
-- `31237` — salvaSessione
-- `31247` — cancellaSessione
-- `31251` — eseguiLogin
-- `31298` — eseguiLogout
-- `31320` — mostraApp
-- `31325` — verificaSessioneEAvvia
-- `31353` — assicuraTokenValido
-- `31382` — _garantiscoSessionePerSync
-- `31394` — avviaRinnovoTokenPeriodico
-- `31398` — fermaRinnovoTokenPeriodico
-- `31407` — _authReset
-- `31412` — _authMostra
-- `31415` — mostraLogin
-- `31416` — mostraRegistrazione
-- `31417` — mostraRecupero
-- `31418` — mostraNuovaPassword
-- `31421` — eseguiRegistrazione
-- `31459` — eseguiRecuperoPassword
-- `31488` — eseguiNuovaPassword
-- `31522` — _parseHashParams
-- `31529` — _pulisciHash
-- `31533` — gestisciRitornoAuth
-- `31621` — renderPianoBox
+- `31191` — getCredenzialiPersistenti
+- `31204` — cancellaCredenzialiPersistenti
+- `31209` — rinnovaSessioneConRefreshToken
+- `31226` — getSessioneSalvata
+- `31245` — salvaSessione
+- `31255` — cancellaSessione
+- `31259` — eseguiLogin
+- `31306` — eseguiLogout
+- `31328` — mostraApp
+- `31333` — verificaSessioneEAvvia
+- `31361` — assicuraTokenValido
+- `31390` — _garantiscoSessionePerSync
+- `31402` — avviaRinnovoTokenPeriodico
+- `31406` — fermaRinnovoTokenPeriodico
+- `31415` — _authReset
+- `31420` — _authMostra
+- `31423` — mostraLogin
+- `31424` — mostraRegistrazione
+- `31425` — mostraRecupero
+- `31426` — mostraNuovaPassword
+- `31429` — eseguiRegistrazione
+- `31467` — eseguiRecuperoPassword
+- `31496` — eseguiNuovaPassword
+- `31530` — _parseHashParams
+- `31537` — _pulisciHash
+- `31541` — gestisciRitornoAuth
+- `31629` — renderPianoBox
 
 ---
 
 ### GENERATORE PIANI — rendering box piano, pannello scelta ricette, patch piano
-Righe 31693-31794
+Righe 31701-31802
 
-- `31693` — apriPannelloRicette
-- `31722` — chiudiPannelloRicette
-- `31730` — applicaRicettaPasto
-- `31766` — inizializzaP2
-- `31778` — deepClone
+- `31701` — apriPannelloRicette
+- `31730` — chiudiPannelloRicette
+- `31738` — applicaRicettaPasto
+- `31774` — inizializzaP2
+- `31786` — deepClone
 - `30143` — applicaPatch
-- `31794` — _aggiornaLabelSalvaPiano
+- `31802` — _aggiornaLabelSalvaPiano
 - `24992` — getHint
 - `24997` — validaInput
 - `25022` — attacca

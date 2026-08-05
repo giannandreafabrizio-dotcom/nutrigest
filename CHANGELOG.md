@@ -10,6 +10,41 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (8/8) — P128 TAPPA 3: SI ADOTTANO LE SOGLIE BRITANNICHE, E SI
+DICHIARA CHE SONO PROVVISORIE. Suite 710 verdi.
+
+LA DOMANDA DI FABRIZIO era "qual e' il miglior modo per determinare le soglie, un
+modo scientificamente valido?", e la ricerca ha portato due documenti nel progetto
+Claude: il metodo (budget giornaliero + quota della porzione, con le fonti OMS
+verificate) e il confronto con gli altri software.
+  DAL CONFRONTO: Yuka e il Nutri-Score danno un voto UGUALE PER TUTTI, senza
+condizioni cliniche. Fig lavora sugli ingredienti con 50.000 relazioni
+dieta-ingrediente — che sono il loro prodotto, non un dettaglio: e' l'ordine di
+grandezza del lavoro per nichel/FODMAP/purine a mano. Monash FODMAP, l'unico
+rigoroso, misura in laboratorio e mette il semaforo SULLA PORZIONE, non sui 100 g.
+Il software professionale per dietisti in gran parte non affronta il problema.
+  **Nessuno di loro ha uno stato "non l'ho ancora valutato".** Per un consumatore
+va bene, non rischia niente. Per chi firma una dieta e' l'unica cosa che distingue
+"l'ho controllato" da "non l'ho mai guardato" — ed e' la parte gia' costruita qui.
+
+LA DECISIONE. Fabrizio ha osservato che "NutriGest colora gli alimenti perche' il
+nutrizionista scelga con piu' facilita', pero' la scelta ultima e' sempre del
+nutrizionista". Se il colore e' un AIUTO e non un verdetto, la precisione della
+soglia conta molto meno: si sta ordinando una lista, non misurando. Quindi: si
+adottano le soglie UK FSA per 100 g, **consapevolmente provvisorie**, perche' un
+alimento valutato con una soglia grossolana e' meglio di un alimento che nessuno
+ha guardato — che e' il difetto vero quando il database cresce col codice a barre.
+  La scheda alimento **dichiara la fonte e la provvisorieta' a schermo**, e un test
+lo verifica: una soglia senza la sua fonte e' una soglia che nessuno sapra' rivedere.
+  Le soglie restano confinate alla scheda: non colorano il semaforo del piano.
+
+APERTA P128b — RIVALUTARE LE SOGLIE, priorita' bassa, non bloccante. Due strade
+candidate: la quota del budget giornaliero per porzione (che si adatta al TDEE del
+paziente e usa `gDefault`, gia' presente in ogni record), oppure — idea di Fabrizio —
+**mostrare la quantita' invece del colore**: "una porzione porta il 34% del sale
+della giornata di questo paziente". La seconda non richiede NESSUNA soglia: elimina
+del tutto la decisione piu' difficile e resta personalizzata.
+
 5 AGOSTO 2026 (7/7) — P128 TAPPA 2: LA SCHEDA ALIMENTO. Suite da 692 a 710
 verdi (18 test nuovi, `s2-scheda-alimento`).
 

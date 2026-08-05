@@ -28074,10 +28074,15 @@ function eliminaAlimentoCustom(nome){
 
 const _SCH_COL={carb:'#D97706', prot:'#1D9E75', gras:'#DD5A33'};  // palette validata per il daltonismo
 
-// SOGLIE PROVVISORIE — semaforo britannico (UK FSA), per 100 g. Sono soglie da
-// SCAFFALE, pensate per il consumatore, NON cliniche: servono solo a far vedere
-// la forma della scheda. Le soglie vere sono la tappa 3 e le decide Fabrizio
-// voce per voce con le fonti. Vivono solo qui e non toccano nulla.
+// SOGLIE IN USO — semaforo britannico (UK FSA), per 100 g. Scelta di Fabrizio del
+// 5 ago 2026, e scelta CONSAPEVOLMENTE PROVVISORIA: sono soglie da scaffale,
+// pensate per il consumatore, non cliniche. Si adottano ora perché un alimento
+// valutato con una soglia grossolana è comunque meglio di un alimento che nessuno
+// ha guardato — che è il difetto vero quando il database cresce col codice a barre.
+// DA RIVALUTARE: la strada candidata è la quota del budget giornaliero del
+// paziente per porzione (che si adatta al TDEE e non ha bisogno di una soglia
+// fissa), documentata in NutriGest_P128_Soglie_Metodo.md nel progetto Claude.
+// Vivono solo qui: non toccano il semaforo del piano né i documenti del paziente.
 const _SCH_SOGLIE={
   sale:     {lab:'Sale',          basso:0.3, alto:1.5},
   zuccheri: {lab:'Zuccheri',      basso:5.0, alto:22.5},
@@ -28259,7 +28264,7 @@ function _schHtml(rec, perPorzione){
           +'<div style="font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700">'+s.lab+'</div>'
           +'<div style="font-size:1.02rem;font-weight:700;margin-top:.05rem">'+_schNum(v*f)+' <span style="font-size:.7rem;font-weight:600;color:var(--text3)">g</span></div>'
           +(perPorzione?'':_schMetro(campo,v))
-          +'<div style="font-size:.62rem;color:var(--text3);margin-top:.15rem">'+(perPorzione?'su '+gPorz+' g':(s.alto!=null?'soglia provvisoria':'soglia da decidere'))+'</div></div>';
+          +'<div style="font-size:.62rem;color:var(--text3);margin-top:.15rem">'+(perPorzione?'su '+gPorz+' g':(s.alto!=null?'soglia UK FSA · provvisoria':'soglia da decidere'))+'</div></div>';
       }
     });
     h+='</div>';
@@ -28306,9 +28311,12 @@ function _schHtml(rec, perPorzione){
     +'<span style="text-transform:none;letter-spacing:0;font-weight:500;font-size:.71rem">'+fatti+' valutate · <b style="color:#8a5a10">'+(tot-fatti)+' da valutare</b></span></div>'
     +corpo;
   h+='<div style="background:#fffaf0;border:1px solid #f0dcb8;border-radius:9px;padding:.55rem .75rem;margin-top:.5rem;font-size:.71rem;color:#6b4c12;line-height:1.5">'
-    +'<b>Anteprima.</b> Le soglie di sale, zuccheri e saturi sono quelle del semaforo britannico: soglie da '
-    +'<i>scaffale</i>, non cliniche. Questa scheda <b>non colora nulla e non entra in nessun calcolo</b> — '
-    +'serve a guardare i dati veri prima di decidere le soglie (P128 tappa 3).</div>';
+    +'<b>Da dove vengono le soglie.</b> Sale, zuccheri e grassi saturi usano il <b>semaforo britannico '
+    +'(UK FSA)</b>, per 100 g: basso ≤0,3 · ≤5 · ≤1,5, alto &gt;1,5 · &gt;22,5 · &gt;5. Sono soglie da '
+    +'<i>scaffale</i> e non cliniche — adottate di proposito come punto di partenza, perché un alimento '
+    +'valutato con una soglia grossolana è meglio di uno che nessuno ha guardato. '
+    +'<b>Da rivalutare</b> quando avrai visto abbastanza prodotti veri. Questa scheda non colora il '
+    +'semaforo del piano e non entra in nessun calcolo.</div>';
   return h;
 }
 

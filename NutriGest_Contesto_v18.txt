@@ -1476,9 +1476,12 @@ Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
   con metro `_schMetro`; allergeni a tre stati con tag tradotti (`_schTrad`);
   valutazione delle 15 condizioni per famiglia (`_SCH_FAMIGLIE`,
   `_schStatoCondizione`) col contatore "N valutate / M da valutare".
-  LE SOGLIE `_SCH_SOGLIE` SONO PROVVISORIE (semaforo UK FSA, da scaffale) e
-  vivono SOLO qui: la scheda non colora niente altrove e non entra in nessun
-  calcolo — lo dichiara a schermo. Le soglie cliniche sono la tappa 3.
+  LE SOGLIE `_SCH_SOGLIE` sono quelle del semaforo UK FSA per 100 g, adottate
+  il 5 ago 2026 come punto di partenza CONSAPEVOLMENTE PROVVISORIO (sono soglie
+  da scaffale, non cliniche): un alimento valutato con una soglia grossolana e'
+  meglio di uno che nessuno ha guardato. Vivono SOLO qui — non colorano il
+  semaforo del piano e non entrano in nessun calcolo — e la scheda dichiara a
+  schermo fonte e provvisorieta'. Rivalutazione in P128b (roadmap).
   Regole non negoziabili gia' costate un difetto: (a) la dichiarazione "senza"
   viene PRIMA dell'allergene, altrimenti un delattosato risulta vietato
   all'intollerante al lattosio e un pane senza glutine certificato al celiaco;

@@ -133,11 +133,18 @@ test('P128 — l alimento CREA dichiara di non avere un etichetta', () => {
   assert.ok(h.indexOf('non vanno letti come zero') >= 0);
 });
 
-test('P128 — la scheda dichiara di essere un anteprima e di non colorare niente', () => {
+test('P128 — la scheda dichiara SEMPRE da dove vengono le soglie', () => {
+  // Scelta di Fabrizio del 5 ago 2026: si adottano le soglie britanniche come
+  // punto di partenza, perché un alimento valutato con una soglia grossolana è
+  // meglio di uno che nessuno ha guardato. Ma la provenienza va dichiarata, e
+  // va dichiarato che sono da rivalutare: una soglia senza la sua fonte è una
+  // soglia che nessuno saprà più rivedere.
   const h = win._schHtml(REC_PIENO, false);
-  assert.ok(h.indexOf('non colora nulla') >= 0,
-    'finché le soglie sono da scaffale, la scheda deve dirlo a chiare lettere');
-  assert.ok(h.indexOf('scaffale') >= 0);
+  assert.ok(h.indexOf('UK FSA') >= 0, 'la fonte deve essere scritta a schermo');
+  assert.ok(h.indexOf('scaffale') >= 0, 'e va detto che sono soglie da scaffale, non cliniche');
+  assert.ok(h.indexOf('Da rivalutare') >= 0, 'e che sono provvisorie');
+  assert.ok(h.indexOf('non colora il semaforo del piano') >= 0,
+    'e che restano confinate a questa scheda');
 });
 
 // ═══ 4. L interruttore porzione ═════════════════════════════════════════
@@ -146,7 +153,7 @@ test('P128 — la porzione scala i macro ma NON le soglie', () => {
   const porz = win._schHtml(REC_PIENO, true);
   assert.ok(cento.indexOf('437') >= 0, 'a 100 g sono 437 kcal');
   assert.ok(porz.indexOf('131') >= 0, 'su 30 g sono 131 kcal');
-  assert.ok(cento.indexOf('soglia provvisoria') >= 0, 'a 100 g il metro delle soglie c è');
+  assert.ok(cento.indexOf('soglia UK FSA') >= 0, 'a 100 g il metro delle soglie c è, con la fonte');
   assert.ok(porz.indexOf('su 30 g') >= 0, 'sulla porzione si dichiara la base, e il metro sparisce');
 });
 

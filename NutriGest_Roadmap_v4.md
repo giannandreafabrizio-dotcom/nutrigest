@@ -1563,8 +1563,46 @@ famiglia col contatore. Non tocca dati e non entra in nessun calcolo. 18 test nu
 > dichiarazione «senza lattosio». Ora la dichiarazione «senza» viene **prima**. Vale identico per il
 > pane senza glutine certificato con «tracce di frumento».
 
-**SCHEDA:** Stato: **In corso** — tappe 1 e 2 fatte; restano: 2 scheda alimento (L1) · 3 soglie cliniche
-(**L0**, lavoro a quattro mani) · 4 allergeni come regola (L1) · 5 stato «da valutare» derivato
+**TAPPA 3 — DECISIONE DEL 5 AGOSTO 2026: si adottano le soglie del semaforo britannico (UK FSA),
+per 100 g, CONSAPEVOLMENTE PROVVISORIE.** Sale basso ≤0,3 / alto >1,5 · zuccheri ≤5 / >22,5 ·
+saturi ≤1,5 / >5. Non sono soglie cliniche: sono soglie da scaffale. Si adottano lo stesso perché
+**un alimento valutato con una soglia grossolana è meglio di un alimento che nessuno ha guardato** —
+che è il difetto vero nel momento in cui il database cresce col codice a barre. La provenienza e la
+provvisorietà sono **dichiarate a schermo** nella scheda alimento, e un test lo verifica.
+
+**IL RAGIONAMENTO CHE HA PORTATO ALLA DECISIONE** (5 ago 2026, documenti nel progetto Claude
+`NutriGest_P128_Soglie_Metodo.md` e `NutriGest_P128_Come_Fanno_Gli_Altri.md`):
+- Fabrizio: *«NutriGest colora gli alimenti perché il nutrizionista scelga con più facilità, però la
+  scelta ultima è sempre del nutrizionista»*. Se il colore è **un aiuto e non un verdetto**, la
+  precisione della soglia conta molto meno: si sta ordinando una lista, non misurando.
+- Come lo fanno gli altri: Yuka/Nutri-Score danno un voto **uguale per tutti**, senza condizioni
+  cliniche; Fig lavora sugli **ingredienti** con 50.000 relazioni dieta-ingrediente; **Monash FODMAP**
+  — l'unico rigoroso — misura in laboratorio e usa soglie **sulla porzione, non sui 100 g**; il
+  software professionale per dietisti in gran parte **non affronta il problema**.
+- **Nessuno di loro ha uno stato «non l'ho ancora valutato»**: è la parte più preziosa e più rara di
+  questa voce, ed è quella che protegge il semaforo esistente quando il database cresce.
+
+> ### ⏳ P128b — RIVALUTARE LE SOGLIE (aperta il 5 ago 2026, nessuna fretta)
+> Le soglie UK FSA sono un punto di partenza dichiarato tale. Da riaprire **dopo aver visto abbastanza
+> prodotti veri**, con due strade candidate:
+> 1. **Quota del budget giornaliero per porzione** (la strada consigliata):
+>    `(valore per 100 g × grammi di porzione ÷ 100) ÷ budget giornaliero`, con budget da fonte
+>    autorevole (OMS: sale <5 g/die, saturi ≤10 % dell'energia, fibra ≥25 g/die). Tre soli numeri di
+>    soglia per tutte le condizioni, **si adatta al paziente attraverso il TDEE** che l'app ha già, e
+>    `gDefault` esiste già in ogni record: non serve nessun dato nuovo.
+> 2. **Mostrare la quantità invece del colore** (idea di Fabrizio, 5 ago): *«una porzione porta il 34 %
+>    del sale della giornata di questo paziente»*. **Non richiede nessuna soglia**: elimina del tutto
+>    la decisione più difficile, resta personalizzato, e si dice al paziente a voce.
+>
+> **Come si rivaluta, quando si rivaluta:** far girare le soglie candidate su tutto il catalogo e
+> guardare la **distribuzione** (se colora il 60 % il grigio smette di significare qualcosa; se colora
+> il 2 % non protegge nessuno), poi leggere i **20 alimenti appena sopra e i 20 appena sotto**. Se fra
+> i grigi compare l'olio extravergine o il salmone, la soglia è sbagliata **a prescindere da quanto è
+> autorevole la fonte**. Trappola nota: l'etichetta dichiara zuccheri **totali**, l'OMS parla di
+> zuccheri **liberi** — una soglia sui totali colora di grigio lo yogurt bianco e la frutta.
+> *Priorità: Bassa. Autonomia: L0. Non bloccante: le soglie attuali funzionano e sono dichiarate.*
+
+**SCHEDA:** Stato: **In corso** — tappe 1, 2 e 3 (provvisoria) fatte; restano: 4 allergeni come regola (L1) · 5 stato «da valutare» derivato
 (**L0** sul significato) · 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
 clinico / dati alimenti · Dipendenze: **P108 e P110, entrambe chiuse** · Autonomia: **L0** su soglie
 nutrizionali e significato del bianco.
