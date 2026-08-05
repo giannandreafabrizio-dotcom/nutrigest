@@ -15530,7 +15530,7 @@ function renderPdMacros(p){
   const ffm=lastIb?(parseFloat(lastIb.m)|| (lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null)):null;
 
   let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3></div><div class="card-bd">
-  <div class="sec-title">Attività Fisica</div>
+  <div class="sec-title">1 · Da dove parte — attività fisica</div>
 
   <div style="font-size:.7rem;color:var(--text3);margin:-.35rem 0 .7rem;line-height:1.4">Due voci diverse del calcolo: il <b>movimento quotidiano</b> (i passi) fa il NEAT, l'<b>allenamento</b> fa l'EAT. Il primo blocco vale per tutti, anche per chi non si allena.</div>
 
@@ -15596,6 +15596,124 @@ function renderPdMacros(p){
       <div id="att-righe-tot" style="font-size:.72rem;color:var(--teal2);font-weight:600;margin-top:.5rem"></div>
     </div>
   </div>
+  `;
+
+  if(!mb){
+    html+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:.8rem">⚠️ Nessuna misurazione InBody presente. Inserisci i dati InBody per il calcolo automatico del metabolismo basale.</div>`;
+  } else {
+    html+=`<div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.75rem 1rem;margin-bottom:.9rem;font-size:.8rem">
+      <strong>MB da InBody:</strong> ${mb} kcal · <strong>Peso:</strong> ${peso} kg ${ffm?`· <strong>FFM:</strong> ${ffm} kg`:''}
+    </div>`;
+  }
+
+  const _ct0=calcolaTDEE(p);
+  html+=`<div class="fr" style="margin-bottom:.8rem;align-items:flex-end">
+    <div class="fg" style="flex:2">
+      <label>Fattore attività (LAF)</label>
+      <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">${_tdeePannelloHtml(_ct0, p)}
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">2 · Dove vuole arrivare</div>
+  <div id="mac-peso-rif-box"></div>
+  <details id="mac-altri-modi" style="margin:-.3rem 0 .9rem">
+    <summary style="cursor:pointer;font-size:.72rem;color:#185FA5;font-weight:600;outline:none">Altri modi di fissare il peso — a mano, Peso Ideale InBody, BMI, Devine, Robinson</summary>
+    <div style="margin-top:.5rem;padding:.6rem .75rem;background:var(--bg);border:1px dashed var(--border);border-radius:8px">
+      <div style="font-size:.68rem;color:var(--text3);margin-bottom:.5rem;line-height:1.35"><span style="color:#b45309">Nessuno di questi usa la massa magra misurata:</span> il Peso Ideale InBody lo deriva da altezza e sesso, il BMI è una statistica di popolazione, Devine e Robinson sono formule nate per dosare i farmaci. Stanno qui perché il paziente li vede sul referto e te li cita.</div>
+      <div class="fg" style="max-width:250px;margin-bottom:.55rem"><label>Obiettivo peso (kg) — scritto a mano</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}" oninput="_aggiornaRifPesoTarget()"></div>
+      <div id="mac-rif-chips"></div>
+    </div>
+  </details>
+
+  <div class="sec-title">3 · Quanto in fretta</div>
+  <div class="fr" style="margin-bottom:.7rem">
+    <div class="fg"><label>Approccio dieta</label>
+      <div id="mac-mode-switch" style="display:flex;gap:3px;background:var(--bg2);border-radius:8px;padding:3px">
+        <button type="button" id="mac-mode-bil" onclick="_setModalitaDieta('bil')" style="flex:1;border:none;border-radius:6px;padding:.4rem;font-size:.78rem;font-weight:700;cursor:pointer;background:#fff;color:#185FA5;box-shadow:0 1px 3px rgba(0,0,0,.12)">🍽 Bilanciata</button>
+        <button type="button" id="mac-mode-keto" onclick="_setModalitaDieta('keto')" style="flex:1;border:none;border-radius:6px;padding:.4rem;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--text2)">🥑 Chetogenica</button>
+      </div>
+      <!-- select nascosto: resta la fonte di verità per strategia (compat con tutto il codice) -->
+      <select id="mac-strategia" onchange="_applicaModalitaKeto()" style="display:none">
+        <option value="standard">Standard (bilanciata)</option>
+        <optgroup label="— Chetogenici —">
+          <option value="keto-psmf">PSMF — Protein Sparing Modified Fast</option>
+          <option value="keto-aggressiva">VLCKD — Very Low Calorie KD</option>
+          <option value="keto-moderata">LCKD — Low Calorie KD</option>
+          <option value="keto-mediterranea">Mediterranea chetogenica</option>
+          <option value="keto-wkd">WKD — Well Formulated (normocalorica)</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+  <div id="mac-keto-chips" style="display:none;margin-bottom:.6rem"></div>
+  <div id="mac-keto-uscita-btn" style="display:none;margin-bottom:.6rem">
+    <button type="button" class="btn btn-g btn-sm" onclick="_apriModaleUscitaKeto()">🔄 Uscita graduale dalla chetosi</button>
+  </div>
+  <div id="mac-keto-suggest" style="display:none;margin-bottom:.6rem"></div>
+  <div id="mac-psmf-banner" style="display:none;margin-bottom:.6rem;padding:.55rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.74rem;color:#b91c1c;line-height:1.35"></div>
+  <div id="mac-strada-box"></div>
+  <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;background:var(--bg);margin-bottom:.8rem">
+    <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.3rem">
+      <label style="margin:0">Regime energetico</label>
+      <span id="mac-regime-label" style="font-weight:600;color:var(--teal2);font-size:.85rem">Normocalorico</span>
+      <span id="mac-regime-strada" style="font-size:.66rem;color:var(--text3)"></span>
+      <span id="mac-regime-target" style="margin-left:auto;font-weight:600;font-size:.95rem">— kcal</span>
+    </div>
+    <details id="mac-regime-manuale" open style="margin:.15rem 0 0">
+      <summary style="cursor:pointer;font-size:.68rem;color:#185FA5;font-weight:600;outline:none;list-style:none">⚙ Regola a mano — slider, kcal, percentuali</summary>
+    <input type="range" id="mac-off-slider" min="-40" max="25" value="0" step="1" style="width:100%;margin:.3rem 0" oninput="_aggiornaRegimeSlider('slider')">
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span id="mac-slider-min-lbl">−40% (deficit)</span><span>mantenimento</span><span>+25% (surplus)</span></div>
+    <div class="fr">
+      <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione kcal</label><input type="number" id="mac-off-kcal" step="10" placeholder="0" oninput="_aggiornaRegimeSlider('kcal')"></div>
+      <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione %</label><input type="number" id="mac-off-pct" step="1" placeholder="0" oninput="_aggiornaRegimeSlider('pct')"></div>
+    </div>
+    <div id="mac-preset-row" style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem">
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-25)">−25%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-10)">−10%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-5)">−5%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(0)">Mantenimento</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(10)">+10%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(15)">+15%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(20)">+20%</button>
+      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(25)">+25%</button>
+    </div>
+    </details>
+    <div id="mac-keto-zonemap" style="display:none;margin-top:.7rem"></div>
+    <div id="mac-regime-warn" style="font-size:.72rem;margin-top:.5rem"></div>
+  </div>
+
+  <div class="sec-title">4 · Come si compone il piatto</div>
+  <div class="fr" style="margin-bottom:.8rem">
+    <div class="fg"><label id="mac-prot-lbl">Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
+    <div class="fg"><label id="mac-grassi-lbl">Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
+  </div>
+  <div style="margin-bottom:.8rem;padding:.55rem .8rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;">
+    <div style="font-size:.75rem;color:var(--text2);font-weight:600;margin-bottom:.4rem;">Calcola proteine e lipidi su:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #185FA5;background:#E6F1FB;">
+        <input type="radio" name="mac-ref" id="mac-ref-ffm" value="ffm" style="accent-color:#185FA5" onchange="aggiornaLabelMacros()">
+        <span style="color:#185FA5;font-weight:600">g/FFM</span>
+        <span style="font-size:.65rem;color:var(--text3)">(massa magra)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #B8860B;background:#FFF8E1;" id="mac-ref-ideale-label">
+        <input type="radio" name="mac-ref" id="mac-ref-ideale" value="ideale" style="accent-color:#B8860B" onchange="aggiornaLabelMacros()">
+        <span style="color:#B8860B;font-weight:600">g/Peso Ideale</span>
+        <span style="font-size:.65rem;color:var(--text3)">(da InBody)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #3B6D11;background:#F1F8E9;">
+        <input type="radio" name="mac-ref" id="mac-ref-peso" value="peso" style="accent-color:#3B6D11" onchange="aggiornaLabelMacros()">
+        <span style="color:#3B6D11;font-weight:600">g/Peso corporeo</span>
+        <span style="font-size:.65rem;color:var(--text3)">(peso attuale)</span>
+      </label>
+    </div>
+    <div id="mac-ref-auto-info" style="margin-top:.35rem;font-size:.68rem;color:var(--teal2);font-style:italic;">&#9679; Selezione automatica: <span id="mac-ref-auto-label">BMI&#8805;25 &#8594; FFM &nbsp;|&nbsp; BMI&lt;25 &#8594; Peso corporeo</span></div>
+  </div>
+
+  <div class="sec-title">5 · Come si distribuisce nella settimana</div>
+  <div style="font-size:.68rem;color:var(--text3);margin:-.35rem 0 .6rem;line-height:1.35">Nessuno di questi campi cambia il totale delle calorie: decidono <b>come si distribuiscono</b> nella settimana e nella giornata. Per questo stanno dopo il calcolo, non prima.</div>
   <div class="fg"><label>Giorni di carico (ON)</label>
     <div style="font-size:.68rem;color:var(--text3);margin-bottom:.3rem">Per chi si allena, coincidono con i giorni di allenamento. Con la ciclizzazione attiva sono i giorni "carico".</div>
     <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
@@ -15653,103 +15771,7 @@ function renderPdMacros(p){
     <label>Note orario allenamento</label>
     <input id="p-orario-all-note" placeholder="Specifica...">
   </div>
-  `;
 
-  if(!mb){
-    html+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:.8rem">⚠️ Nessuna misurazione InBody presente. Inserisci i dati InBody per il calcolo automatico del metabolismo basale.</div>`;
-  } else {
-    html+=`<div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.75rem 1rem;margin-bottom:.9rem;font-size:.8rem">
-      <strong>MB da InBody:</strong> ${mb} kcal · <strong>Peso:</strong> ${peso} kg ${ffm?`· <strong>FFM:</strong> ${ffm} kg`:''}
-    </div>`;
-  }
-
-  const _ct0=calcolaTDEE(p);
-  html+=`<div class="fr" style="margin-bottom:.8rem;align-items:flex-end">
-    <div class="fg" style="flex:2">
-      <label>Fattore attività (LAF)</label>
-      <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">${_tdeePannelloHtml(_ct0, p)}
-      </div>
-    </div>
-  </div>
-  <div class="fr" style="margin-bottom:.8rem">
-    <div class="fg"><label>Obiettivo peso (kg)</label><input type="number" id="mac-peso-target" step="0.1" placeholder="es. 70" value="${p&&p.pesoTarget?p.pesoTarget:''}" oninput="_aggiornaRifPesoTarget()"></div>
-    <div class="fg"><label>Approccio dieta</label>
-      <div id="mac-mode-switch" style="display:flex;gap:3px;background:var(--bg2);border-radius:8px;padding:3px">
-        <button type="button" id="mac-mode-bil" onclick="_setModalitaDieta('bil')" style="flex:1;border:none;border-radius:6px;padding:.4rem;font-size:.78rem;font-weight:700;cursor:pointer;background:#fff;color:#185FA5;box-shadow:0 1px 3px rgba(0,0,0,.12)">🍽 Bilanciata</button>
-        <button type="button" id="mac-mode-keto" onclick="_setModalitaDieta('keto')" style="flex:1;border:none;border-radius:6px;padding:.4rem;font-size:.78rem;font-weight:700;cursor:pointer;background:transparent;color:var(--text2)">🥑 Chetogenica</button>
-      </div>
-      <!-- select nascosto: resta la fonte di verità per strategia (compat con tutto il codice) -->
-      <select id="mac-strategia" onchange="_applicaModalitaKeto()" style="display:none">
-        <option value="standard">Standard (bilanciata)</option>
-        <optgroup label="— Chetogenici —">
-          <option value="keto-psmf">PSMF — Protein Sparing Modified Fast</option>
-          <option value="keto-aggressiva">VLCKD — Very Low Calorie KD</option>
-          <option value="keto-moderata">LCKD — Low Calorie KD</option>
-          <option value="keto-mediterranea">Mediterranea chetogenica</option>
-          <option value="keto-wkd">WKD — Well Formulated (normocalorica)</option>
-        </optgroup>
-      </select>
-    </div>
-  </div>
-  <div id="mac-keto-chips" style="display:none;margin-bottom:.6rem"></div>
-  <div id="mac-keto-uscita-btn" style="display:none;margin-bottom:.6rem">
-    <button type="button" class="btn btn-g btn-sm" onclick="_apriModaleUscitaKeto()">🔄 Uscita graduale dalla chetosi</button>
-  </div>
-  <div id="mac-keto-suggest" style="display:none;margin-bottom:.6rem"></div>
-  <div id="mac-psmf-banner" style="display:none;margin-bottom:.6rem;padding:.55rem .8rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:.74rem;color:#b91c1c;line-height:1.35"></div>
-  <div id="mac-peso-rif-box"></div>
-  <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;background:var(--bg);margin-bottom:.8rem">
-    <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.3rem">
-      <label style="margin:0">Regime energetico</label>
-      <span id="mac-regime-label" style="font-weight:600;color:var(--teal2);font-size:.85rem">Normocalorico</span>
-      <span id="mac-regime-target" style="margin-left:auto;font-weight:600;font-size:.95rem">— kcal</span>
-    </div>
-    <input type="range" id="mac-off-slider" min="-40" max="25" value="0" step="1" style="width:100%;margin:.3rem 0" oninput="_aggiornaRegimeSlider('slider')">
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text3);margin-bottom:.5rem"><span id="mac-slider-min-lbl">−40% (deficit)</span><span>mantenimento</span><span>+25% (surplus)</span></div>
-    <div class="fr">
-      <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione kcal</label><input type="number" id="mac-off-kcal" step="10" placeholder="0" oninput="_aggiornaRegimeSlider('kcal')"></div>
-      <div class="fg" style="margin:0"><label style="font-size:.7rem">Variazione %</label><input type="number" id="mac-off-pct" step="1" placeholder="0" oninput="_aggiornaRegimeSlider('pct')"></div>
-    </div>
-    <div id="mac-preset-row" style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.5rem">
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-25)">−25%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-20)">−20%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-15)">−15%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-10)">−10%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(-5)">−5%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(0)">Mantenimento</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(10)">+10%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(15)">+15%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(20)">+20%</button>
-      <button type="button" class="btn btn-g btn-sm" onclick="_presetRegime(25)">+25%</button>
-    </div>
-    <div id="mac-keto-zonemap" style="display:none;margin-top:.7rem"></div>
-    <div id="mac-regime-warn" style="font-size:.72rem;margin-top:.5rem"></div>
-  </div>
-  <div class="fr" style="margin-bottom:.8rem">
-    <div class="fg"><label id="mac-prot-lbl">Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
-    <div class="fg"><label id="mac-grassi-lbl">Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
-  </div>
-  <div style="margin-bottom:.8rem;padding:.55rem .8rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;">
-    <div style="font-size:.75rem;color:var(--text2);font-weight:600;margin-bottom:.4rem;">Calcola proteine e lipidi su:</div>
-    <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
-      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #185FA5;background:#E6F1FB;">
-        <input type="radio" name="mac-ref" id="mac-ref-ffm" value="ffm" style="accent-color:#185FA5" onchange="aggiornaLabelMacros()">
-        <span style="color:#185FA5;font-weight:600">g/FFM</span>
-        <span style="font-size:.65rem;color:var(--text3)">(massa magra)</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #B8860B;background:#FFF8E1;" id="mac-ref-ideale-label">
-        <input type="radio" name="mac-ref" id="mac-ref-ideale" value="ideale" style="accent-color:#B8860B" onchange="aggiornaLabelMacros()">
-        <span style="color:#B8860B;font-weight:600">g/Peso Ideale</span>
-        <span style="font-size:.65rem;color:var(--text3)">(da InBody)</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1.5px solid #3B6D11;background:#F1F8E9;">
-        <input type="radio" name="mac-ref" id="mac-ref-peso" value="peso" style="accent-color:#3B6D11" onchange="aggiornaLabelMacros()">
-        <span style="color:#3B6D11;font-weight:600">g/Peso corporeo</span>
-        <span style="font-size:.65rem;color:var(--text3)">(peso attuale)</span>
-      </label>
-    </div>
-    <div id="mac-ref-auto-info" style="margin-top:.35rem;font-size:.68rem;color:var(--teal2);font-style:italic;">&#9679; Selezione automatica: <span id="mac-ref-auto-label">BMI&#8805;25 &#8594; FFM &nbsp;|&nbsp; BMI&lt;25 &#8594; Peso corporeo</span></div>
-  </div>
   <button class="btn btn-p" onclick="calcolaMacros()">Calcola</button>
 
   <div id="mac-result" style="margin-top:1rem"></div>
@@ -15758,7 +15780,7 @@ function renderPdMacros(p){
   </div>
   <div id="mac-storico-box" style="margin-top:1rem"></div>
 
-  <div style="margin-top:1.2rem"><div class="sec-title">Tabella di riferimento per categoria paziente</div>
+  <details style="margin-top:1.2rem"><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:var(--teal2);outline:none">Tabella di riferimento per categoria paziente</summary>
   <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem">
     <thead><tr>
       <th style="padding:.4rem .5rem;text-align:left;color:var(--text3);border-bottom:1.5px solid var(--border);font-weight:500">Categoria</th>
@@ -15823,7 +15845,7 @@ function renderPdMacros(p){
     </tbody>
   </table></div>
   <div style="font-size:.68rem;color:var(--text3);margin-top:.5rem">Clicca su una riga per applicare i valori minimi · Riga verde = BMI del paziente · Grammi calcolati sul paziente corrente</div>
-  </div>`;
+  </details>`;
 
   html+=`</div></div>`;
   document.getElementById('pd-macros').innerHTML=html;
@@ -15846,6 +15868,7 @@ function renderPdMacros(p){
   // P-REGIME SLIDER — init da paziente (ancora slider al TDEE/MB correnti)
   (function(){ var _ctR=calcolaTDEE(p); _initRegimeSliderDaPaziente(p, _ctR.tdee, _ctR.mb); })();
   // P-RIF-PESO: mostra riferimenti obiettivo peso (Peso Ideale InBody, BMI, Devine, Robinson)
+  _regimeFoldAuto=false;   // P149 — una sola apertura automatica della piega per scheda
   _renderRifPesoBox();
   _gs('p-cronotipo', p.cronotipo);
   _gs('p-orario-pasto', p.orarioPastoPrincipale);
@@ -16837,6 +16860,11 @@ function _vcRitara(kcalTarget){
 
 // ── UI: il blocco "Come ci arrivi", sotto il pannello 🎯 ────────────────────
 let _stradePctExtra = "";     // valore libero digitato, solo di sessione
+// P149 — la piega "Regola a mano" del regime si apre da sola UNA volta per
+// apertura scheda, e solo quando le strade non ci sono (paziente senza
+// traguardo calcolabile): altrimenti l'unico comando delle calorie resterebbe
+// nascosto. Dopo, la decide l'utente.
+let _regimeFoldAuto = false;
 
 function _stradeHtml(p, r){
   // In chetogenica i protocolli sono in kcal assolute con bande e durate proprie:
@@ -16856,31 +16884,35 @@ function _stradeHtml(p, r){
   const sc=(p&&p.obiettivoPercorso&&p.obiettivoPercorso.paziente)?p.obiettivoPercorso.paziente:null;
   const scadenza=sc&&sc.scadenzaPersonale?sc.scadenzaPersonale:null;
 
-  let h='<div style="margin-top:.7rem;border-top:1px dashed #e0cfa0;padding-top:.6rem">'
+  // P149 — fuori dal riquadro del traguardo le strade hanno bisogno di un
+  // contenitore proprio: prima ereditavano il bordo giallo del pannello 🎯.
+  let h='<div style="border:1.5px solid #E6D08A;background:#FFFDF5;border-radius:10px;padding:.55rem .75rem;margin-bottom:.7rem">'
     +'<div style="font-size:.78rem;font-weight:700;color:#8a6508;margin-bottom:.15rem">🛣 Come ci arrivi</div>'
     +'<div style="font-size:.72rem;color:var(--text2);margin-bottom:.45rem">Da togliere <strong style="font-size:.9rem">'+g.kg+' kg di grasso</strong> '
     +'<span style="color:var(--text3)">(oggi ne ha '+g.grassoOggi+' kg'+(g.min!==g.max?' · tra '+g.min+' e '+g.max+' kg a seconda del muscolo che mette — due etti di differenza, per questo il tempo non dipende da quella previsione':'')+')</span></div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:.73rem">'
-    +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.2rem .35rem">Strada</th><th>Calorie</th><th>Grasso perso</th><th>Ci arriva in</th><th>Quando</th><th></th></tr></thead><tbody>';
+    +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.2rem .35rem">Strada</th><th>Calorie</th><th>Grasso perso</th><th>Ci arriva in</th><th>Quando</th></tr></thead><tbody>';
 
+  // P149 — una riga = una scelta. Il pulsante «Usa» spariva nel rumore e non
+  // diceva mai QUALE strada fosse quella attiva: ora la riga si clicca e quella
+  // in vigore è marcata (◉) da _stradeEvidenzia, che rilegge il regime vero.
   s.strade.forEach(function(st){
     const rosso=st.avvisi.length>0;
-    h+='<tr style="border-top:1px solid var(--border)">'
-      +'<td style="padding:.28rem .35rem;white-space:nowrap"><strong>'+st.nome+'</strong> <span style="color:var(--text3)">−'+st.pct+'%</span></td>'
+    h+='<tr data-strada-pct="'+st.pct+'" onclick="_stradaUsa('+st.pct+')" style="border-top:1px solid var(--border);cursor:pointer">'
+      +'<td style="padding:.28rem .35rem;white-space:nowrap"><span class="strada-dot" style="color:var(--text3)">○</span> <strong>'+st.nome+'</strong> <span style="color:var(--text3)">−'+st.pct+'%</span></td>'
       +'<td style="white-space:nowrap"><strong>'+st.kcalTarget+'</strong> <span style="color:var(--text3);font-size:.65rem">(−'+st.deficitKcal+')</span></td>'
       +'<td style="white-space:nowrap'+(rosso?';color:#c2410c':'')+'">'+st.kgSett.toFixed(2).replace('.',',')+' kg/sett.</td>'
       +'<td style="white-space:nowrap">'+st.settimane.toString().replace('.',',')+' settimane</td>'
       +'<td style="white-space:nowrap;color:var(--text3)">'+_percorsoDataBreve(st.arrivo)+'</td>'
-      +'<td style="text-align:right;white-space:nowrap"><button type="button" class="btn btn-g btn-sm" onclick="_stradaUsa('+st.pct+')">Usa</button></td>'
       +'</tr>';
     if(rosso){
-      h+='<tr><td></td><td colspan="5" style="padding:0 .35rem .25rem;font-size:.64rem;color:#c2410c">⚠️ '+st.avvisi.join(' · ')+'</td></tr>';
+      h+='<tr><td></td><td colspan="4" style="padding:0 .35rem .25rem;font-size:.64rem;color:#c2410c">⚠️ '+st.avvisi.join(' · ')+'</td></tr>';
     }
   });
   h+='</tbody></table>'
     +'<div style="margin-top:.35rem;font-size:.68rem;color:var(--text3)">Altra percentuale: '
-      +'<input type="number" id="trg-pct-extra" min="1" max="40" step="1" value="'+(_stradePctExtra||"")+'" placeholder="es. 25" style="width:62px;font-size:.7rem" onchange="_stradaPctExtra(this.value)"> %'
-      +' — «Usa» imposta il regime energetico qui sotto; se c\'è un percorso, ti propone di riscrivere le fasi con quel deficit.</div>';
+      +'<input type="number" id="trg-pct-extra" min="1" max="40" step="1" value="'+(_stradePctExtra||"")+'" placeholder="es. 25" style="width:62px;font-size:.7rem" onclick="event.stopPropagation()" onchange="_stradaPctExtra(this.value)"> %'
+      +' — clicca una riga per sceglierla: imposta il regime energetico qui sotto e, se c\'è un percorso, ti propone di riscrivere le fasi con quel deficit.</div>';
 
   // la data che conta per il paziente
   if(scadenza){
@@ -16903,6 +16935,45 @@ function _stradeHtml(p, r){
 }
 
 function _stradaPctExtra(v){ _stradePctExtra=v; _traguardoAnteprima(); }
+
+// P149 — il riquadro del passo «3 · Quanto in fretta»: verifica al controllo
+// (cos'è successo) + strade (dove si va). Prima stavano dentro #trg-out, cioè
+// dentro il riquadro del traguardo, lontani dal regime energetico che
+// impostano. Il calcolo non cambia: cambia dove finisce l'HTML.
+function _aggiornaStradaBox(p, r){
+  const box=document.getElementById("mac-strada-box");
+  if(!box) return;
+  let h=(typeof _verificaControlloHtml==="function") ? _verificaControlloHtml(p, r, {azioni:true}) : "";
+  if(r && r.ok && !r.bloccato) h+=_stradeHtml(p, r);
+  box.innerHTML=h;
+  _stradeEvidenzia();
+  if(!_regimeFoldAuto){
+    _regimeFoldAuto=true;
+    const det=document.getElementById("mac-regime-manuale");
+    if(det) det.open = !box.querySelector("[data-strada-pct]");
+  }
+}
+
+// Marca la strada davvero in vigore leggendo il regime, non ricordandosi cosa
+// è stato cliccato: se le calorie vengono cambiate a mano (o da «Ritara»), la
+// riga si spegne e l'etichetta accanto al regime lo dice.
+function _stradeEvidenzia(){
+  const pctEl=document.getElementById("mac-off-pct");
+  const att=(pctEl && pctEl.value!=="") ? Math.round(parseFloat(pctEl.value)) : NaN;
+  const righe=document.querySelectorAll("[data-strada-pct]");
+  let attiva=null;
+  righe.forEach(function(tr){
+    const pct=+tr.getAttribute("data-strada-pct");
+    const on=!isNaN(att) && att===-pct;
+    if(on) attiva=pct;
+    tr.style.background=on?"rgba(29,158,117,.10)":"";
+    tr.style.boxShadow=on?"inset 3px 0 0 var(--teal)":"";
+    const dot=tr.querySelector(".strada-dot");
+    if(dot){ dot.textContent=on?"◉":"○"; dot.style.color=on?"var(--teal2)":"var(--text3)"; }
+  });
+  const lbl=document.getElementById("mac-regime-strada");
+  if(lbl) lbl.textContent = righe.length ? (attiva!=null ? "· strada −"+attiva+"%" : "· impostato a mano") : "";
+}
 
 // Applica una strada: imposta il regime energetico e, se esiste un percorso,
 // propone di riscrivere le fasi con quel deficit. Mai in automatico.
@@ -16998,6 +17069,7 @@ function _traguardoAnteprima(){
   const r=calcolaTraguardoComposizione(p, gv("trg-pct"), {modo:modo, quotaMagraPersa:gv("trg-quota"), guadagnoMagra:gv("trg-guad")});
   if(!r||!r.ok){
     out.innerHTML='<div style="font-size:.7rem;color:#b45309">'+((r&&r.dettaglio)||(r&&r.motivo)||"Traguardo non calcolabile")+'</div>';
+    _aggiornaStradaBox(p, null);
     return;
   }
   const o=r.ottimista, re=r.realistico;
@@ -17078,11 +17150,11 @@ function _traguardoAnteprima(){
         +(ult.decisoDa?' ('+ult.decisoDa+')':'')+'</div>';
     }
   }
-  // P127 — la verifica al controllo sta SOPRA le strade: prima cos'è successo,
-  // poi dove si va. Con le azioni attive: qui il campo delle calorie è in pagina.
-  h+=_verificaControlloHtml(p, r, {azioni:true});
-  if(!r.bloccato) h+=_stradeHtml(p, r);   // P123 — le strade per arrivarci
   out.innerHTML=h;
+  // P127 — la verifica al controllo sta SOPRA le strade: prima cos'è successo,
+  // poi dove si va. P149 — entrambe vivono nel passo 3, accanto al regime che
+  // impostano, non più in coda al riquadro del traguardo.
+  _aggiornaStradaBox(p, r);
 }
 
 // Registra come revisione il valore scritto a mano nel campo Obiettivo peso:
@@ -17132,7 +17204,13 @@ function _renderRifPesoBox(){
   var box=document.getElementById('mac-peso-rif-box');
   if(!box) return;
   var p=_macrosPaziente||{};
-  var trgHtml=_traguardoPanelHtml(p);   // P122 — il traguardo dalla composizione sta SOPRA i riferimenti
+  // P149 — il riquadro contiene SOLO il traguardo dalla composizione: i quattro
+  // riferimenti storici (InBody, BMI, Devine, Robinson) e il campo peso scritto
+  // a mano sono scesi dentro la piega «Altri modi», in #mac-rif-chips. Prima
+  // stavano allo stesso livello del metodo consigliato e lo facevano sembrare
+  // uno dei cinque modi possibili invece che quello buono.
+  box.innerHTML=_traguardoPanelHtml(p);
+  var chipBox=document.getElementById('mac-rif-chips');
   var lastIb=p.inbody&&p.inbody.length?p.inbody[p.inbody.length-1]:null;
   var altezzaCm=(lastIb&&lastIb.altezza?parseFloat(lastIb.altezza):null)||(p.altezza?parseFloat(p.altezza):null);
   var sesso=p.sesso||null;
@@ -17159,7 +17237,7 @@ function _renderRifPesoBox(){
     hint='<div style="font-size:.63rem;color:#B8860B;margin-top:.35rem">Imposta il <strong>Sesso</strong> nell\'anagrafica del paziente per vedere anche le stime Devine e Robinson.</div>';
   }
   if(!refs.length){
-    box.innerHTML=trgHtml+'<div style="font-size:.68rem;color:var(--text3);margin:-.3rem 0 .8rem">Inserisci altezza/sesso (o un referto InBody con Peso Ideale) per vedere qui anche i riferimenti di confronto.</div>';
+    if(chipBox) chipBox.innerHTML='<div style="font-size:.68rem;color:var(--text3)">Inserisci altezza/sesso (o un referto InBody con Peso Ideale) per vedere qui anche i riferimenti di confronto.</div>';
     _traguardoAnteprima();
     return;
   }
@@ -17172,11 +17250,9 @@ function _renderRifPesoBox(){
       +'<span style="font-size:.62rem;font-weight:400;opacity:.8">'+r.note+'</span>'
       +'</button>';
   }).join('');
-  box.innerHTML=trgHtml+'<div style="margin:-.3rem 0 .8rem">'
-    +'<div style="font-size:.68rem;color:var(--text3);margin-bottom:.35rem">Altri riferimenti, solo per confronto — clicca per usare il valore. <span style="color:#b45309">Nessuno di questi usa la massa magra misurata:</span> il Peso Ideale InBody lo deriva da altezza e sesso, il BMI è una statistica di popolazione, Devine e Robinson sono formule nate per dosare i farmaci.</div>'
+  if(chipBox) chipBox.innerHTML='<div style="font-size:.66rem;color:var(--text3);margin-bottom:.3rem">Clicca un riferimento per portarlo nel campo qui sopra.</div>'
     +'<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+chips+'</div>'
-    +hint
-    +'</div>';
+    +hint;
   _traguardoAnteprima();
 }
 function _usaRifPeso(val){
@@ -17245,6 +17321,10 @@ function _aggiornaRegimeSlider(origine){
     } else warnEl.textContent='';
   }
   if(_isKetoSl && typeof _renderKetoZoneMap==='function') _renderKetoZoneMap(); // muove il marker sulla riga
+  // P149 — le calorie si decidono in un posto solo: qualunque strada le abbia
+  // cambiate (slider, campi, preset, «Ritara», una riga delle strade), la riga
+  // in vigore là sopra si riallinea a questo numero.
+  if(typeof _stradeEvidenzia==='function') _stradeEvidenzia();
 }
 
 // ── P114 passo 3: guardia proteine minime in deficit ──────────────────────────

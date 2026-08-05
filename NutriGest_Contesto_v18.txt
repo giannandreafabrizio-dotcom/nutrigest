@@ -2568,6 +2568,13 @@ REGIME ENERGETICO — slider kcal/percentuale (P58, 4 lug 2026 — commit e35752
   `Math.max(_minPct, Math.min(25, pct))` — l'estremo BASSO cambia col protocollo,
   quello alto resta +25% sempre. L'etichetta sotto lo slider (`mac-slider-min-lbl`)
   si riscrive di conseguenza.
+  P149 (5 ago 2026): slider, campi kcal/% e i dieci preset stanno dentro la piega
+  `<details id="mac-regime-manuale">`, chiusa quando le strade sono in pagina e
+  APERTA quando non ci sono (traguardo non calcolabile: senza strade sarebbe
+  l'unico comando rimasto per le calorie). La decisione automatica avviene una
+  volta per apertura scheda, guardata da `_regimeFoldAuto`. Accanto all'etichetta
+  del regime, `#mac-regime-strada` dichiara quale strada e' in vigore oppure
+  "impostato a mano".
   I PRESET RAPIDI SONO DIECI, non sei: −25% · −20% · −15% · −10% · −5% ·
   Mantenimento · +10% · +15% · +20% · +25% (bottoni `_presetRegime(n)` in
   `mac-preset-row`). Più corretto clinicamente di un offset fisso uguale per tutti
@@ -2847,6 +2854,14 @@ LE STRADE PER ARRIVARE AL TRAGUARDO (P123, 26 lug 2026):
   percorso, PROPONE (confirm) di riscrivere le fasi su quel ritmo —
   _percorsoGeneraFasi accetta ora un terzo parametro {pctDeficit} che sostituisce
   il default -18%. E' l'aggancio tra traguardo, calorie e programmazione lunga.
+  P149 (5 ago 2026): il blocco strade e la verifica al controllo NON stanno piu'
+  in coda a `#trg-out` (dentro il riquadro 🎯) ma in `#mac-strada-box`, nel passo
+  "3 · Quanto in fretta", subito sopra il regime energetico che impostano — li
+  scrive `_aggiornaStradaBox(p, r)`. Le righe della tabella sono cliccabili
+  (`_stradaUsa`) e quella in vigore e' marcata da `_stradeEvidenzia()`, che la
+  RILEGGE dal campo % del regime invece di ricordare l'ultimo clic ed e'
+  agganciata alla fine di `_aggiornaRegimeSlider` (unico imbuto di slider, campi,
+  preset, "Usa" e "Ritara").
   CHETOGENICA: il blocco non compare, al suo posto una riga di rinvio. I
   protocolli keto sono in kcal ASSOLUTE con bande proprie (PROTOCOLLI_KETO) e la
   domanda li' non e' "quanto ci mette" ma "quanto puo' durare". Rinviato.

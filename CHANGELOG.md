@@ -10,6 +10,82 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (11/11) — P149: LA SECONDA PARTE DEL TDEE, DALL'OBIETTIVO PESO IN GIU'.
+Baseline d7f4512. Suite da 732 a 738 verdi (6 test nuovi in
+`s2-tdee-parte2-ordine.test.js`). Chiude cio' che P147 aveva lasciato aperto: la
+prima meta' della scheda Macros era stata rifatta il 3 agosto, questa e' la seconda.
+
+IL MOTORE NON E' STATO TOCCATO. `calcolaTDEE`, `calcolaTraguardoComposizione`,
+`_stradeVerso`, `_stradaCalcola`, `_traguardoScrivi`, i pavimenti di sicurezza per
+sesso, lo storico delle revisioni, la verifica al controllo P127, il contesto AI e
+il PDF: identici. E' cambiato DOVE stanno le cose e QUANTE VOLTE compaiono.
+
+I TRE DIFETTI VERI.
+(1) **Le decisioni erano in ordine sbagliato.** Giorni di carico, ciclizzazione
+carboidrati e cronotipo stavano PRIMA del calcolo: la ciclizzazione chiedeva
+"kcal giorni ON / kcal giorni OFF" mezza schermata prima che le calorie
+esistessero. Due numeri che devono USCIRE dal calcolo, digitati a occhio.
+(2) **Le calorie si decidevano in sei posti**: slider, campo kcal, campo %, dieci
+pulsanti preset, tre pulsanti "Usa" delle strade, "Ritara a X kcal" della verifica
+al controllo. E dopo aver premuto "Usa" su -20% la tabella delle strade restava
+identica: nulla diceva quale fosse quella in vigore.
+(3) **Il peso obiettivo si decideva in tre posti che si contraddicono** — campo
+libero in alto, pannello 🎯 al centro, quattro chip di riferimento sotto. Che
+fosse un difetto strutturale lo diceva il codice stesso: dal 26 luglio esiste un
+avviso scritto apposta per quando il campo e il pannello divergono ("il campo dice
+86 kg, l'ultimo traguardo calcolato era 75,2"). **Un avviso che ripara una
+contraddizione creata dall'interfaccia e' un sintomo, non una cura.**
+
+LA SCHEDA ORA RACCONTA UNA DECISIONE IN CINQUE PASSI, con i titoli numerati:
+1 Da dove parte (attivita' fisica, invariata da P147) · 2 Dove vuole arrivare
+(il 🎯 da solo) · 3 Quanto in fretta (approccio dieta, verifica al controllo,
+strade, regime) · 4 Come si compone il piatto · 5 Come si distribuisce nella
+settimana. Il passo 5 e' esattamente il blocco che stava in cima.
+
+COSA E' SCESO SOTTO UNA PIEGA, NON RIMOSSO. Il campo "Obiettivo peso" e i quattro
+riferimenti (Peso Ideale InBody, BMI, Devine, Robinson) vivono in
+`#mac-altri-modi`, chiusa per default. **Il campo NON e' stato eliminato:** lo
+leggono `salvaCalcoloMacros`, `_traguardoUsa`, `_traguardoAllineaManuale`,
+`_usaRifPeso`, il salvataggio dell'anagrafica con la guardia `_stessoPaz` e la
+tabella di validazione dei campi. Toglierlo sarebbe stata la famiglia F6/F7 —
+campo tolto, lettura rimasta, dato azzerato in silenzio. Un test verifica che
+esista, che porti il valore del paziente e che stia DENTRO la piega.
+
+STRADE E REGIME NELLO STESSO PASSO. `_verificaControlloHtml` e `_stradeHtml` non
+si concatenano piu' dentro `#trg-out` (in coda al riquadro del traguardo): vanno
+in `#mac-strada-box`, sopra il regime energetico che impostano. Le righe delle
+strade sono cliccabili (via il gia' esistente `_stradaUsa`) e quella in vigore e'
+marcata con un pallino pieno. **La marcatura non ricorda cosa e' stato cliccato:
+la RILEGGE dal campo % del regime**, in `_stradeEvidenzia`, agganciata alla fine
+di `_aggiornaRegimeSlider` — cioe' all'unico imbuto da cui passano slider, campi,
+preset, "Usa" e "Ritara". Se le calorie vengono cambiate da qualunque altra parte
+la riga si spegne e accanto al regime compare "impostato a mano". E' la stessa
+logica di P147c sul pannello LAF: **un numero visibile che contraddice i comandi
+visibili sopra di esso e' peggio di un numero assente.**
+
+IL TRANELLO EVITATO NELLA PIEGA DEL REGIME. Slider, kcal, % e i dieci preset sono
+finiti dentro `<details id="mac-regime-manuale">`. Ma su un paziente senza
+traguardo calcolabile (manca il sesso, manca l'InBody) le strade non esistono, e
+la piega chiusa avrebbe nascosto **l'unico comando rimasto per le calorie**.
+Quindi la piega si apre da sola quando le strade non ci sono, una volta sola per
+apertura scheda (`_regimeFoldAuto`), e poi la decide l'utente. Due test, uno per
+ciascuno dei due casi.
+
+ANCHE: l'approccio dieta (Bilanciata/Chetogenica) e' rimasto PRIMA della scelta
+del ritmo e non e' sceso col resto della composizione — in chetogenica i
+protocolli sono in kcal assolute con bande proprie, quindi condiziona sia il passo
+3 sia il passo 4 e deve stare in cima al 3. La tabella "Riferimento per categoria
+paziente" (7 colonne x 6 righe) e' diventata richiudibile: e' materiale di
+consultazione, non un passo della decisione.
+
+METODO — il riordino e' stato fatto da uno script con ancoraggi verificati
+(`find_one` che si ferma se una stringa non e' unica), non a mano riga per riga:
+su un blocco di markup di 150 righe dentro un template literal, un taglio a occhio
+sbagliato di una riga non da' errore di sintassi, da' un `<div>` non chiuso che si
+vede solo a video. Collaudo: `node --check` sullo script estratto, INDEX.md
+rigenerato, suite completa, e **render vero in Chromium** dello stesso paziente
+dello screenshot per guardare il risultato invece di dedurlo.
+
 5 AGOSTO 2026 (10/10) — P128 TAPPA 5: QUELLO CHE NESSUNO HA ANCORA GUARDATO.
 Suite da 724 a 732 verdi (8 test nuovi). **Con questa P128 arriva al punto per cui
 era stata aperta.**
