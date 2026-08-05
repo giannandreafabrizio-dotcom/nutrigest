@@ -1348,92 +1348,15 @@ main{flex:1;overflow-y:auto;}
       <label>Integratori</label>
       <div style="display:flex;gap:12px;align-items:center;margin:.4rem 0 .6rem;font-size:.72rem;color:var(--text2)">
         <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:var(--teal);display:inline-block"></span> Prende già</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:#BA7517;display:inline-block"></span> Vorrebbe prendere</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;background:var(--blue);display:inline-block"></span> Vorrebbe prendere</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:2px;border:1px solid var(--border);display:inline-block"></span> Nessuno</span>
       </div>
-      <div class="chip-group" id="int-dual-group">
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-omega3" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-omega3" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Omega-3
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-magpot" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-magpot" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Magnesio + Potassio
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-mag" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-mag" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Solo Magnesio
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-multi" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-multi" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Multivitaminico
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-prob" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-prob" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Probiotici
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-creat" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-creat" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Creatina
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-ferro" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-ferro" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Ferro
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-vitd" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-vitd" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Vitamina D
-          <select id="int-vitd-dose" title="Dosaggio Vitamina D" style="margin-left:4px;font-size:.72rem;border:1px solid var(--border);border-radius:4px;background:var(--bg2,#fff);color:inherit;padding:1px 3px">
-            <option value="">--</option>
-            <option value="2000">2000 UI</option>
-            <option value="4000">4000 UI</option>
-          </select>
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-acfol" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-acfol" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Acido folico
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-blumet" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-blumet" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Blu di metilene
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-fosfco" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-fosfco" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Fosfatidilcolina
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-lecsoia" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-lecsoia" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Lecitina di soia
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-k2" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-k2" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Vitamina K2
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-prot" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-prot" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Proteine in polvere
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-bcaa" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-bcaa" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          BCAA (ramificati)
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-eaa" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-eaa" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          EAA (essenziali)
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-leuc" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-leuc" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Leucina
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-pappar" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-pappar" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Pappa reale
-        </div>
-        <div class="chip-pill" style="gap:6px;cursor:default">
-          <span style="display:flex;gap:3px"><input type="checkbox" id="int-betaala" title="Prende già" style="accent-color:var(--teal)"><input type="checkbox" id="inw-betaala" title="Vorrebbe prendere" style="accent-color:#BA7517"></span>
-          Beta-alanina
-        </div>
-      </div>
+      <!-- P148 tappa 3 — le caselle NON sono piu' scritte a mano qui: le genera
+           renderCaselleIntegratori() da CATALOGO_INTEGRATORI, cosi' aggiungere un
+           integratore al catalogo lo fa comparire da solo in questa scheda e nella
+           libreria della Routine, senza toccare il markup in due punti. -->
+      <div class="chip-group" id="int-dual-group"></div>
+      <div id="int-info-box" style="display:none;margin:.5rem 0 .2rem;padding:.6rem .7rem;border:1px solid var(--border);border-radius:8px;background:var(--bg2,#fafafa);font-size:.76rem;line-height:1.5"></div>
     </div>
     <div class="fg"><label>Altri integratori / note</label><input id="p-int-note" placeholder="Specificare altri integratori..."></div>
     <div class="sec-title">Anamnesi patologica</div>
@@ -5948,6 +5871,10 @@ function editPaz(){
   ss('p-regime',p.regime);
   const s2=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined)el.value=v;};
   s2('p-prezzo-visita',p.prezzoVisita);s2('p-prezzo-controllo',p.prezzoControllo);
+  // P148 tappa 3: la griglia si genera PRIMA di spuntare le caselle — se
+  // l'ordine si invertisse, setIntegratori non troverebbe nessun elemento e
+  // le spunte del paziente non comparirebbero (senza errori a video).
+  renderCaselleIntegratori(p);
   setIntegratori(p.integratori||[]);setIntegraWant(p.integraWant||[]);setPatologieFromStr(p.patologie||'');setAllergieFromStr(p.allergie||'');setSdvFromStr(p.sdv||'');setCspFromStr(p.condSpeciali||'');
   /* IMPORTANTE: checkSemaforo va applicato DOPO setPatologieFromStr/setAllergieFromStr,
      perché condividono gli stessi id di checkbox (es. pat-tiroid, pat-diabete...) e altrimenti
@@ -29099,6 +29026,96 @@ function setIntegraWant(lista) {
     const el=document.getElementById('inw-'+k);
     if(el) el.checked = spuntate.has(k);
   });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// P148 tappa 3 — LE CASELLE INTEGRATORI SI GENERANO DAL CATALOGO
+// ══════════════════════════════════════════════════════════════════════════
+// Prima erano 19 blocchi di markup scritti a mano nella scheda paziente:
+// aggiungere un integratore voleva dire toccare il catalogo E il markup, e
+// infatti i due elenchi erano andati alla deriva. Ora la griglia è generata.
+//
+// COLORI (richiesta di Fabrizio, 5 ago 2026): "prende già" e "vorrebbe
+// prendere" si leggevano come verde e arancione, gli stessi registri del
+// semaforo alimenti — rischio di scambiarli per un giudizio clinico invece
+// che per un fatto di anamnesi. Ora `var(--teal)` e `var(--blue)`: due toni
+// freddi, entrambi già in palette, lontani dalla rampa calda
+// verde→arancione→rosso del semaforo. Il vecchio `#BA7517` non era nemmeno
+// una variabile CSS, era un colore scritto a mano in 20 posti.
+//
+// BLU DI METILENE: la sua casella compare SOLO se il paziente ce l'ha già in
+// scheda. Non è proponibile ai pazienti nuovi (Fabrizio l'ha ritirato dal
+// catalogo), ma toglierla del tutto avrebbe fatto sparire il dato al primo
+// salvataggio di chi ce l'ha — famiglia F6/F7. Così resta visibile, si può
+// togliere con un click, e una volta tolta non torna più.
+function _infoIntegratoreHtml(v) {
+  const nome = (x) => { const t = integratorePerChiave(x); return t ? t.nome : x; };
+  let h = '<div style="font-weight:700;margin-bottom:.25rem">' + v.nome + '</div>';
+  if (v.dose) h += '<div><strong>Dose:</strong> ' + v.dose + '</div>';
+  h += '<div><strong>Quando:</strong> ' + v.quando + '</div>';
+  if (v.quandoAlt && v.quandoAlt.length) {
+    h += '<div style="margin-top:.15rem"><strong>Alternative:</strong><ul style="margin:.1rem 0 .1rem 1.1rem;padding:0">'
+      + v.quandoAlt.map(a => '<li>' + a.testo + ' — <span style="color:var(--text3)">' + a.motivo + '</span></li>').join('')
+      + '</ul></div>';
+  }
+  if (v.sinergie && v.sinergie.length) {
+    h += '<div><strong>Si abbina bene con:</strong> ' + v.sinergie.map(nome).join(', ') + '</div>';
+  }
+  if (v.evitareCon) {
+    h += '<div style="margin-top:.3rem;padding:.3rem .45rem;border-left:3px solid var(--red);background:#fdf3f2">'
+      + '<strong>Attenzione:</strong> ' + v.evitareCon + '</div>';
+  }
+  if (v.razionale) {
+    h += '<div style="margin-top:.35rem;color:var(--text2)">' + v.razionale + '</div>';
+  }
+  return h;
+}
+
+// Apre/chiude il pannello informativo sotto la griglia. Un pannello che resta
+// aperto finché non lo chiudi, non un avviso a scomparsa: qui ci sono quattro
+// o cinque righe da leggere, e su iPhone un messaggio che sparisce da solo è
+// inutilizzabile.
+let _intInfoAperto = null;
+function mostraInfoIntegratore(chiave) {
+  const box = document.getElementById('int-info-box');
+  if (!box) return;
+  if (_intInfoAperto === chiave) { box.style.display = 'none'; _intInfoAperto = null; return; }
+  const v = integratorePerChiave(chiave);
+  if (!v) return;
+  box.innerHTML = _infoIntegratoreHtml(v)
+    + '<div style="text-align:right;margin-top:.3rem"><button type="button" class="btn btn-g btn-sm" onclick="mostraInfoIntegratore(\'' + chiave + '\')">Chiudi</button></div>';
+  box.style.display = 'block';
+  _intInfoAperto = chiave;
+}
+
+function renderCaselleIntegratori(p) {
+  const box = document.getElementById('int-dual-group');
+  if (!box) return;
+  // le voci ritirate compaiono solo se questo paziente ce le ha già
+  const gia = _chiaviSpuntate((p && p.integratori) || []);
+  const vuole = _chiaviSpuntate((p && p.integraWant) || []);
+  const voci = CATALOGO_INTEGRATORI.filter(v =>
+    v.attivo !== false || gia.has(v.chiave) || vuole.has(v.chiave));
+
+  box.innerHTML = voci.map(v => {
+    const ritirata = v.attivo === false;
+    const doseSel = v.chiave === 'vitd'
+      ? '<select id="int-vitd-dose" title="Dosaggio Vitamina D" style="margin-left:4px;font-size:.72rem;border:1px solid var(--border);border-radius:4px;background:var(--bg2,#fff);color:inherit;padding:1px 3px">'
+        + '<option value="">--</option><option value="2000">2000 UI</option><option value="4000">4000 UI</option></select>'
+      : '';
+    return '<div class="chip-pill" style="gap:6px;cursor:default' + (ritirata ? ';opacity:.7' : '') + '"'
+      + (ritirata ? ' title="Voce ritirata dal catalogo: resta perché è già in scheda su questo paziente"' : '') + '>'
+      + '<span style="display:flex;gap:3px">'
+        + '<input type="checkbox" id="int-' + v.chiave + '" title="Prende già" style="accent-color:var(--teal)">'
+        + '<input type="checkbox" id="inw-' + v.chiave + '" title="Vorrebbe prendere" style="accent-color:var(--blue)">'
+      + '</span>'
+      + v.nome + (ritirata ? ' <span style="font-size:.68rem;color:var(--text3)">(ritirato)</span>' : '')
+      + doseSel
+      + ' <button type="button" title="Dose, quando assumerlo, abbinamenti e avvertenze"'
+      + ' onclick="mostraInfoIntegratore(\'' + v.chiave + '\')"'
+      + ' style="border:none;background:none;cursor:pointer;color:var(--blue);font-size:.85rem;padding:0 2px;line-height:1">&#9432;</button>'
+      + '</div>';
+  }).join('');
 }
 // ── Crisi di fame — fasce orarie (semi-strutturato) ─────────────────────────
 // Le fasce sono caselle e non testo libero perche' questo dato deve diventare un

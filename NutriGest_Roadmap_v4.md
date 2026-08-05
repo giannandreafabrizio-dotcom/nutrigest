@@ -848,9 +848,17 @@ verificare che il suggerimento specifico NON compaia** quando non c'è un piano 
 > elenchi (refuso "bisgliccinato" compreso) e `chiaveIntegratore()` usata da
 > `setIntegratori`/`setIntegraWant`. 30 test nuovi, suite a 581 verdi.
 >
-> Restano le tappe 3 (Clinica: colori, caselle dal catalogo, tooltip ⓘ, uscita del Blu di
-> metilene dal markup) e 4 (Routine: pasto automatico giorno per giorno, dose BCAA sul
-> peso, collegamento dalla Clinica).
+> ✅ **TAPPA 3 FATTA (5 ago 2026).** Le caselle della scheda Clinica non sono più markup
+> scritto a mano: le genera `renderCaselleIntegratori(p)` dal catalogo (25 voci a schermo).
+> Colori cambiati come chiesto: `var(--teal)` e `var(--blue)`, via il `#BA7517` che non era
+> nemmeno una variabile CSS — con un test che vieta gli accent-color del semaforo su questa
+> griglia. Pannello ⓘ per voce (dose, quando, alternative col motivo, sinergie coi nomi,
+> avvertenze in evidenza, razionale), che resta aperto invece di essere un avviso a
+> scomparsa. Blu di metilene: casella visibile solo sui pazienti che ce l'hanno, marcata
+> "(ritirato)". 23 test nuovi, suite a 604 verdi.
+>
+> Resta la **tappa 4** (Routine: pasto automatico giorno per giorno col motore della tappa 1,
+> dose BCAA sul peso dell'InBody più recente, collegamento cliccabile dalla Clinica).
 
 **5. Il collegamento Clinica→Routine resta un suggerimento, non un automatismo** (invariato
 dalla bozza precedente): "prende già"/"vorrebbe" è un fatto di anamnesi, la voce in
@@ -894,9 +902,10 @@ tabella Supabase, restano nel blob paziente).
 **SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026** — meccanismo chiuso (assegnazione
 giorno per giorno, due regole 🔥grassi e 🍞carboidrati, nessuna soglia; dose per peso e
 `quando` con alternative aggiunti allo schema). Catalogo **approvato da Fabrizio** il 5 ago
-2026 → codice sbloccato. **Tappe 1 e 2 di 4 ✅ CHIUSE** (motore `pastoMaxPerMacro` +
-catalogo unico `CATALOGO_INTEGRATORI` con mappa alias; 47 test nuovi, suite 581 verdi).
-**Prossima: tappa 3, scheda Clinica — colori, caselle dal catalogo, tooltip ⓘ** · Priorità: Media
+2026 → codice sbloccato. **Tappe 1, 2 e 3 di 4 ✅ CHIUSE** (motore `pastoMaxPerMacro`,
+catalogo unico `CATALOGO_INTEGRATORI` con mappa alias, scheda Clinica generata dal catalogo
+con colori nuovi e pannello ⓘ; 70 test nuovi, suite 604 verdi).
+**Prossima: tappa 4, scheda Routine — pasto automatico e collegamento** · Priorità: Media
 · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un motore di calcolo nuovo) ·
 Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
 

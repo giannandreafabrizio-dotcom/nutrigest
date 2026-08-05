@@ -10,6 +10,51 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 8) — P148 TAPPA 3: LA SCHEDA CLINICA SI GENERA DA SOLA.
+Baseline b65b136. Prima tappa che si vede a schermo.
+
+LE CASELLE NON SONO PIÙ NEL MARKUP. Erano 19 blocchi di HTML scritti a mano
+nella scheda paziente: aggiungere un integratore voleva dire toccare il
+catalogo E il markup, ed è esattamente così che i due elenchi erano andati
+alla deriva (12 voci in Routine contro 19 in Clinica). Ora
+`renderCaselleIntegratori(p)` genera la griglia da CATALOGO_INTEGRATORI: la
+scheda mostra 25 voci e per aggiungerne una basta scriverla nel catalogo.
+
+L'ORDINE CONTA, E IL SINTOMO SAREBBE STATO INVISIBILE. Il render va chiamato
+PRIMA di setIntegratori: invertendoli, setIntegratori non troverebbe nessun
+elemento nel DOM e le spunte del paziente non comparirebbero — senza errori a
+video, esattamente come la famiglia F6/F7. C'è un commento sul punto di
+chiamata e un test che fissa l'ordine.
+
+I COLORI (richiesta di Fabrizio). "prende già" e "vorrebbe prendere" si
+leggevano come verde e arancione, gli stessi registri del semaforo alimenti.
+Il rischio non è estetico: una casella di ANAMNESI (il paziente lo prende) si
+poteva leggere come un GIUDIZIO clinico (glielo consiglio). Ora `var(--teal)`
+e `var(--blue)`, due toni freddi lontani dalla rampa calda del semaforo. Il
+vecchio `#BA7517` non era nemmeno una variabile CSS: era un colore scritto a
+mano in venti punti del markup. Un test verifica che nessun accent-color di
+questa griglia usi --green/--orange/--red, così il vincolo non si perde.
+
+IL PANNELLO ⓘ. Ogni voce ha un pulsante che apre, sotto la griglia, dose,
+quando, alternative di orario col loro motivo, sinergie scritte col NOME
+dell'integratore (non con la chiave interna), avvertenze in evidenza con un
+bordo rosso, e il razionale. È un pannello che resta aperto finché non lo
+chiudi, NON un avviso a scomparsa: qui ci sono quattro o cinque righe da
+leggere e su iPhone un messaggio che sparisce da solo è inutilizzabile.
+
+BLU DI METILENE, USCITA DI SCENA SENZA PERDITE. La sua casella compare solo se
+il paziente ce l'ha già fra i "prende già" o i "vorrebbe", ed è marcata
+"(ritirato)". Un paziente nuovo non la vede; chi ce l'ha può toglierla con un
+click e da quel momento sparisce. Toglierla per tutti avrebbe cancellato il
+dato al primo salvataggio: un test copre proprio il giro apertura → spunta →
+rilettura, che è il momento in cui il dato o sopravvive o si perde per sempre.
+
+23 test nuovi, suite a 604 verdi.
+
+PROSSIMA TAPPA: 4) scheda Routine — pasto automatico giorno per giorno usando
+il motore della tappa 1, dose BCAA calcolata sul peso dell'InBody più recente,
+e il suggerimento cliccabile dalla Clinica alla Routine.
+
 5 AGOSTO 2026 (seguito 7) — P148 TAPPA 2: IL CATALOGO UNICO, E UN GUASTO
 SILENZIOSO DISINNESCATO PRIMA CHE NASCESSE. Baseline 108a8bb.
 
