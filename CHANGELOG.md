@@ -10,6 +10,45 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (10/10) — P128 TAPPA 5: QUELLO CHE NESSUNO HA ANCORA GUARDATO.
+Suite da 724 a 732 verdi (8 test nuovi). **Con questa P128 arriva al punto per cui
+era stata aperta.**
+
+IL DIFETTO, scritto nella scheda fin dal 26 luglio: la casella bianca significa due
+cose — "valutato e va bene" e "non l'ho mai guardato" — e a schermo sono identiche.
+Con 278 alimenti curati a mano passa; con prodotti che entrano da soli col codice a
+barre **un alimento mai valutato SEMBRA approvato**, ed e' il rischio principale
+dell'app.
+
+COSA FA. `applicaRegoloSemaforo` tiene ora traccia della COPERTURA: per ogni
+alimento, quali condizioni hanno ricevuto un verdetto — da una regola per nome,
+dall'etichetta, o da un colore manuale. Cio' che resta scoperto finisce in
+`p.nonValutati` (chiave alimento -> elenco delle condizioni scoperte), e la lista
+alimenti mostra un badge **"? N"** col dettaglio nel tooltip, piu' una riga di
+riepilogo in testa: *"? N alimenti non ancora valutati per almeno una condizione di
+questo paziente — bianco non vuol dire approvato"*.
+
+LA RIGA DI CONFINE, ed e' la decisione che tiene in vita il segnale: **il "da
+valutare" vale SOLO per gli alimenti che NON vengono dalle tabelle CREA-INRAN.**
+Sui CREA le liste di nomi sono state costruite da Fabrizio guardando proprio quel
+catalogo: l'assenza di un alimento dalla lista del nichel e' una DECISIONE, non un
+buco. Su un prodotto scansionato non lo e'. Senza questa riga sarebbero dieci
+condizioni x 278 alimenti tutte "da valutare", e il segnale sarebbe morto il giorno
+stesso — regola 19 applicata ai dati invece che agli avvisi.
+
+E UN COLORE MESSO A MANO CHIUDE LA QUESTIONE: e' il nutrizionista che ha guardato,
+ed e' la sua firma. Il punto interrogativo sparisce.
+
+I buchi si **ricalcolano da capo** a ogni passata, non si accumulano: se il paziente
+perde una condizione, il buco relativo sparisce. Uno stato stantio qui direbbe "da
+valutare" per una patologia che il paziente non ha piu'.
+
+TRE DEGLI OTTO TEST NUOVI VERIFICANO IL SILENZIO: i CREA non producono mai buchi,
+un paziente senza condizioni non ne produce, un alimento archiviato nemmeno.
+
+RESTA SOLO LA TAPPA 6 (il marchio nel piano AI, che tocca il documento consegnato
+al paziente) e P128b (rivalutare le soglie). Entrambe non urgenti.
+
 5 AGOSTO 2026 (9/9) — P128 TAPPA 4: IL SEMAFORO LEGGE ANCHE L'ETICHETTA.
 Suite da 710 a 724 verdi (14 test nuovi, `s2-semaforo-etichetta`).
 

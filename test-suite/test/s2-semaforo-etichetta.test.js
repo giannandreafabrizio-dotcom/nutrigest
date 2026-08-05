@@ -157,3 +157,82 @@ test('P128 — due condizioni attive: il grigio vince sul celeste', () => {
   assert.strictEqual(p.motivazioniSemaforo['Latte & Derivati__Formaggio delattosato stagionato'].conflitto, true,
     'e il conflitto resta registrato, così il tooltip può spiegarlo');
 });
+
+// ═══ 4. P128 tappa 5 — quello che nessuno ha ancora guardato ════════════
+// Il difetto che tutta P128 esiste per chiudere: la casella bianca significa
+// "valutato e va bene" E "non l ho mai guardato", e a schermo sono identiche.
+// Con prodotti che entrano da soli col codice a barre, un alimento mai valutato
+// SEMBRA approvato.
+const nv = p => p.nonValutati || {};
+
+test('P128 — un prodotto scansionato è "da valutare" sulle condizioni non deducibili', () => {
+  const p = pazConCatalogo(['all-lattosio', 'all-nichel', 'pat-uricemia'], [rec('Latte Marca X', LATTE)]);
+  win.applicaRegoloSemaforo(p);
+  const k = 'Latte & Derivati__Latte Marca X';
+  assert.strictEqual(p.alimenti[k], 'grigioScuro', 'il lattosio lo sa dall etichetta');
+  assert.deepStrictEqual(puro(nv(p)[k]), ['Nichel', 'Gotta/Iperuricemia'],
+    'ma di nichel e purine non sa niente, e deve dirlo invece di lasciarlo bianco');
+});
+
+test('P128 — la condizione già coperta NON compare fra i da valutare', () => {
+  const p = pazConCatalogo(['all-lattosio'], [rec('Latte Marca X', LATTE)]);
+  win.applicaRegoloSemaforo(p);
+  assert.strictEqual(nv(p)['Latte & Derivati__Latte Marca X'], undefined,
+    'l unica condizione attiva ha un verdetto: non resta nessun buco');
+});
+
+test('P128 — anche un CELESTE conta come valutato', () => {
+  // Il senza-lattosio riceve un verdetto positivo: è comunque una risposta.
+  const p = pazConCatalogo(['all-lattosio'], [rec('Latte senza lattosio', LATTE_SL)]);
+  win.applicaRegoloSemaforo(p);
+  assert.strictEqual(p.alimenti['Latte & Derivati__Latte senza lattosio'], 'celeste');
+  assert.strictEqual(nv(p)['Latte & Derivati__Latte senza lattosio'], undefined);
+});
+
+test('P128 — SILENZIO: i CREA-INRAN non sono mai "da valutare"', () => {
+  // LA RIGA DI CONFINE. Le liste di nomi sono state costruite guardando proprio
+  // il catalogo CREA: l assenza di un alimento dalla lista del nichel è una
+  // DECISIONE, non un buco. Senza questa riga, dieci condizioni per 278 alimenti
+  // sarebbero tutte da valutare e il segnale morirebbe il giorno stesso.
+  const crea = rec('Petto di pollo', null); crea.fonte = 'crea';
+  const p = pazConCatalogo(['all-nichel', 'all-fodmap', 'pat-uricemia'], [crea]);
+  win.applicaRegoloSemaforo(p);
+  assert.deepStrictEqual(puro(Object.keys(nv(p))), [],
+    'sul catalogo curato a mano il bianco è una risposta, non un buco');
+});
+
+test('P128 — un colore messo a mano toglie il punto interrogativo', () => {
+  const p = pazConCatalogo(['all-nichel', 'pat-uricemia'], [rec('Latte Marca X', LATTE)]);
+  const k = 'Latte & Derivati__Latte Marca X';
+  p.alimenti[k] = 'si';
+  win.applicaRegoloSemaforo(p);
+  assert.strictEqual(nv(p)[k], undefined,
+    'il nutrizionista ha guardato e ha firmato: non c è più niente da valutare');
+});
+
+test('P128 — SILENZIO: nessuna condizione attiva, nessun "da valutare"', () => {
+  const p = pazConCatalogo([], [rec('Latte Marca X', LATTE)]);
+  win.applicaRegoloSemaforo(p);
+  assert.deepStrictEqual(puro(Object.keys(nv(p))), [],
+    'senza condizioni non c è niente da valutare: il paziente non ha patologie');
+});
+
+test('P128 — SILENZIO: l alimento archiviato non produce buchi', () => {
+  const r = rec('Latte Marca X', LATTE); r.attivo = false;
+  const p = pazConCatalogo(['all-nichel'], [r]);
+  win.applicaRegoloSemaforo(p);
+  assert.deepStrictEqual(puro(Object.keys(nv(p))), []);
+});
+
+test('P128 — i buchi si ricalcolano da capo, non si accumulano', () => {
+  // Se il paziente perde una condizione, il buco relativo deve sparire: uno
+  // stato stantio qui direbbe "da valutare" per una patologia che non ha più.
+  const r = rec('Latte Marca X', LATTE);
+  const p = pazConCatalogo(['all-nichel', 'pat-uricemia'], [r]);
+  win.applicaRegoloSemaforo(p);
+  assert.strictEqual(nv(p)['Latte & Derivati__Latte Marca X'].length, 2);
+  p.checkSemaforo = { 'all-nichel': true };
+  win.applicaRegoloSemaforo(p);
+  assert.deepStrictEqual(puro(nv(p)['Latte & Derivati__Latte Marca X']), ['Nichel'],
+    'tolta la gotta, il suo buco sparisce');
+});

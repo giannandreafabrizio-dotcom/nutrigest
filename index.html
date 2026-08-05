@@ -5818,7 +5818,7 @@ function openNuovoPaz(){
   document.getElementById('p-visita').value=today();
   ['p-visita-ora','p-controllo-ora'].forEach(function(id){const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('p-inizio').value=today();
-  window._alStato={};window._alGroupStato={};renderAlEditor();aggDateCal();
+  window._alStato={};window._alNonValutati={};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -5894,7 +5894,7 @@ function editPaz(){
   ss('p-colazione',p.colazione);ss('p-spunt-m',p.spuntM);ss('p-pranzo',p.pranzo);
   ss('p-spunt-p',p.spuntP);ss('p-cena',p.cena);ss('p-risc',p.risc);ss('p-giorni',p.giorni);
   ss('p-var',p.var);ss('p-cheto',p.cheto);
-  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};window._alGroupStato={};renderAlEditor();aggDateCal();
+  window._alStato=p.alimenti||{};window._alMotivazioni=p.motivazioniSemaforo||{};window._alNonValutati=p.nonValutati||{};window._alGroupStato={};renderAlEditor();aggDateCal();
   document.querySelectorAll('.mtab')[0].click();
   document.getElementById('mo-paz').classList.add('open');
 }
@@ -6476,6 +6476,47 @@ function _semEtichettaValuta(rec, idCond){
 
 // Scorre il catalogo e riversa i verdetti d'etichetta negli stessi contatori
 // usati dalle regole per nome.
+// ══════════════════════════════════════════════════════════════════════════
+// P128 TAPPA 5 — QUELLO CHE NESSUNO HA ANCORA GUARDATO (5 ago 2026)
+//
+// Il difetto che tutta P128 esiste per chiudere: la casella bianca significa due
+// cose — "valutato e va bene" e "non l'ho mai guardato" — e a schermo sono
+// identiche. Con 278 alimenti curati a mano passa; con prodotti che entrano da
+// soli col codice a barre diventa il rischio principale dell'app, perché un
+// alimento mai valutato SEMBRA approvato.
+//
+// LA RIGA DI CONFINE, ed è la decisione che tiene il rumore sotto controllo:
+// il "da valutare" vale SOLO per gli alimenti che NON vengono dalle tabelle
+// CREA-INRAN. Sui CREA le liste di nomi sono state costruite da Fabrizio
+// guardando proprio quel catalogo: l'assenza di un alimento dalla lista del
+// nichel è una DECISIONE, non un buco. Su un prodotto scansionato o aggiunto a
+// mano non lo è: nessuno l'ha mai messo in relazione con quella condizione.
+// Senza questa riga, dieci condizioni × 278 alimenti sarebbero tutte "da
+// valutare" e il segnale morirebbe il giorno stesso (regola 19).
+//
+// E un colore messo A MANO chiude la questione: è il nutrizionista che ha
+// guardato, ed è la sua firma.
+// ══════════════════════════════════════════════════════════════════════════
+const _SEM_MANUALI=['si','arancione','rosso'];
+
+function _semNonValutati(p, cs, copertura, al){
+  const out={};
+  const cat=(typeof CATALOGO_ALIMENTI!=='undefined'&&CATALOGO_ALIMENTI)?CATALOGO_ALIMENTI:new Map();
+  const NOMI=NOMI_CONDIZIONE_SEMAFORO;
+  const attive=Object.keys(cs||{}).filter(function(id){ return cs[id] && NOMI[id]; });
+  if(!attive.length) return out;
+  cat.forEach(function(rec){
+    if(!rec||rec.fonte==='crea'||rec.attivo===false) return;
+    const key=trovaChiaveAlimento(rec.nome);
+    if(!key) return;
+    if(_SEM_MANUALI.indexOf(al[key])>=0) return;   // deciso a mano: è già una risposta
+    const cop=copertura[key]||{};
+    const mancanti=attive.filter(function(id){ return !cop[id]; }).map(function(id){ return NOMI[id]; });
+    if(mancanti.length) out[key]=mancanti;
+  });
+  return out;
+}
+
 // Un alimento appena scansionato deve colorarsi SUBITO sul paziente aperto.
 // Senza questo resterebbe bianco fino al prossimo salvataggio del paziente —
 // cioè indistinguibile da uno valutato, che è il difetto che P128 chiude.
@@ -6486,10 +6527,11 @@ function _semRicalcolaPazienteAperto(){
   applicaRegoloSemaforo(p);
   window._alStato=p.alimenti||{};
   window._alMotivazioni=p.motivazioniSemaforo||{};
+  window._alNonValutati=p.nonValutati||{};
   if(typeof save==='function') save(p.id);
 }
 
-function _semApplicaEtichette(p, cs, cGrigi, mGrigi, cLuci, mLuci){
+function _semApplicaEtichette(p, cs, cGrigi, mGrigi, cLuci, mLuci, copertura){
   // CATALOGO_ALIMENTI è una Map (id → record): forEach passa (valore, chiave).
   const cat=(typeof CATALOGO_ALIMENTI!=='undefined'&&CATALOGO_ALIMENTI)?CATALOGO_ALIMENTI:new Map();
   const NOMI=NOMI_CONDIZIONE_SEMAFORO;
@@ -6501,6 +6543,7 @@ function _semApplicaEtichette(p, cs, cGrigi, mGrigi, cLuci, mLuci){
       if(!cs[idCond]) return;
       const v=_semEtichettaValuta(rec, idCond);
       if(!v) return;
+      if(copertura){ (copertura[key]=copertura[key]||{})[idCond]=true; }
       const nome=NOMI[idCond]||idCond;
       if(v==='grigio'){
         cGrigi[key]=(cGrigi[key]||0)+1;
@@ -6558,6 +6601,10 @@ function applicaRegoloSemaforo(p){
   window._LABEL_GRIGIO=LABEL_GRIGIO;window._LABEL_CELESTE=LABEL_CELESTE;
   const conteggioGrigi={}, conteggioLuci={};
   const motivazioniGrigi={}, motivazioniLuci={};
+  // P128 tappa 5 — copertura: per ogni alimento, QUALI condizioni hanno ricevuto
+  // un verdetto (da qualunque sorgente). Ciò che resta scoperto è il "da valutare".
+  const copertura={};
+  const copri=function(key,id){ (copertura[key]=copertura[key]||{})[id]=true; };
   Object.entries(REGOLE).forEach(([id,regola])=>{
     if(!cs[id])return;
     const nomeCondizione=NOMI_CONDIZIONE[id]||id;
@@ -6567,6 +6614,7 @@ function applicaRegoloSemaforo(p){
         conteggioGrigi[key]=(conteggioGrigi[key]||0)+1;
         motivazioniGrigi[key]=motivazioniGrigi[key]||[];
         if(!motivazioniGrigi[key].includes(nomeCondizione))motivazioniGrigi[key].push(nomeCondizione);
+        copri(key,id);
       }
     });
     regola.celesti.forEach(nome=>{
@@ -6575,6 +6623,7 @@ function applicaRegoloSemaforo(p){
         conteggioLuci[key]=(conteggioLuci[key]||0)+1;
         motivazioniLuci[key]=motivazioniLuci[key]||[];
         if(!motivazioniLuci[key].includes(nomeCondizione))motivazioniLuci[key].push(nomeCondizione);
+        copri(key,id);
       }
     });
   });
@@ -6583,7 +6632,7 @@ function applicaRegoloSemaforo(p){
   // Confluisce negli stessi contatori, quindi tutto ciò che sta a valle non
   // deve sapere da dove viene il colore.
   if(typeof _semApplicaEtichette==='function'){
-    _semApplicaEtichette(p, cs, conteggioGrigi, motivazioniGrigi, conteggioLuci, motivazioniLuci);
+    _semApplicaEtichette(p, cs, conteggioGrigi, motivazioniGrigi, conteggioLuci, motivazioniLuci, copertura);
   }
 
   // Assegna colori e salva motivazioni per tooltip ⚡
@@ -6606,6 +6655,9 @@ function applicaRegoloSemaforo(p){
       al[key]='celeste';
     }
   });
+
+  // P128 tappa 5 — ciò che nessuno ha ancora guardato
+  p.nonValutati = (typeof _semNonValutati==='function') ? _semNonValutati(p, cs, copertura, al) : {};
 
   p.alimenti=al;
 }
@@ -6797,7 +6849,7 @@ function salvaPaz(){
   _obiettivoPazienteDaForm(pd);   // P122 Tappa 2 — scrive SOLO obiettivoPercorso.paziente (clinico/storico già preservati)
   console.log('=== SALVATAGGIO PAZIENTE ===', pd);
   applicaRegoloSemaforo(pd);
-  window._alMotivazioni=pd.motivazioniSemaforo||{};window._alStato=pd.alimenti||{};
+  window._alMotivazioni=pd.motivazioniSemaforo||{};window._alStato=pd.alimenti||{};window._alNonValutati=pd.nonValutati||{};
   save(pd.id);closeM('mo-paz');renderPaz();notif('✓ Paziente salvato!');if(document.getElementById('pd-macros'))renderPdMacros(pd);
   if(editPazId){currentPazId=editPazId;openPaz(editPazId);}
 }
@@ -27806,6 +27858,17 @@ function renderAlEditor(){
     (m.luci||[]).forEach(function(cn){if(!tutteCondizioni.includes(cn))tutteCondizioni.push(cn);});
   });
   let html=buildSemLegenda(tutteCondizioni);
+  // P128 tappa 5 — un conteggio onesto in testa: se ci sono buchi si dice quanti
+  // sono, invece di lasciarli scoprire uno alla volta.
+  var _nvTot=Object.keys(window._alNonValutati||{}).length;
+  if(_nvTot){
+    html+='<div style="background:#fffaf0;border:1px solid #f0dcb8;border-radius:8px;padding:.5rem .7rem;'
+      +'margin-bottom:.6rem;font-size:.72rem;color:#6b4c12;line-height:1.5">'
+      +'<b>? '+_nvTot+' aliment'+(_nvTot===1?'o'+' non ancora valutato':'i non ancora valutati')+'</b> '
+      +'per almeno una condizione di questo paziente. Sono prodotti entrati da una scansione o aggiunti a mano: '
+      +'nessuna regola e nessuna etichetta dice niente su quelle condizioni. '
+      +'<b>Bianco non vuol dire approvato</b> — dai un colore tu per togliere il punto interrogativo.</div>';
+  }
   Object.entries(ALIMENTI).forEach(([cat,data])=>{
     const items=(data.items||[]);
     const sc=cat.replace(/'/g,"\\'");
@@ -27853,10 +27916,21 @@ function renderAlEditor(){
       if(s==='celeste_1')_cls='celeste';
       if(s==='celeste_2')_cls='celeste-2';
       var _simbolo=_conflitto?'\u26a1 ':(s==='si'?'\u2713 ':s==='arancione'?'\u25d0 ':s==='rosso'?'\u2193 ':(s==='grigioScuro'||s==='grigio_scuro_1'||s==='grigio_scuro_2')?'\u2715 ':(s==='celeste'||s==='celeste_1'||s==='celeste_2')?'\u2605 ':'');
+      // P128 tappa 5 — il buco si vede. Un alimento che nessuno ha messo in
+      // relazione con una condizione attiva del paziente non deve sembrare
+      // approvato solo perché è bianco.
+      var _nv=(window._alNonValutati||{})[key];
+      var _nvBadge='';
+      if(_nv&&_nv.length&&!_SEM_MANUALI.includes(s)){
+        _nvBadge=' <span class="sem-nv" title="Non ancora valutato per: '+_nv.join(', ')
+          +'. Nessuna regola e nessuna etichetta dice niente su queste condizioni per questo alimento."'
+          +' style="font-size:.55rem;font-weight:700;background:#fdf4e6;color:#8a5a10;border:1px solid #f0dcb8;'
+          +'padding:1px 5px;border-radius:3px;vertical-align:middle">? '+_nv.length+'</span>';
+      }
       const _customBadge=item._custom?` <span style="font-size:.55rem;background:#7c3aed;color:#fff;padding:1px 4px;border-radius:3px;vertical-align:middle">✦custom</span>`:'';
       const _editBtn=item._custom?` <span onclick="event.stopPropagation();modificaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;color:#60a5fa;margin-left:4px" title="Modifica valori (kcal/P/C/G, categoria)">✎</span> <span onclick="event.stopPropagation();rinominaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;margin-left:2px" title="Rinomina (aggiorna piani, ricette e profili)">🏷</span>`:'';
       const _delBtn=item._custom?` <span onclick="event.stopPropagation();eliminaAlimentoCustom('${item.n.replace(/'/g,"\\'")}')" style="cursor:pointer;font-size:.65rem;color:#f87171;margin-left:2px" title="Rimuovi (solo se non usato)">✕</span>`:'';
-      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}${_customBadge}${_editBtn}${_delBtn}</span>`;
+      html+=`<span class="al-tog ${_cls}${_conflitto?' conflitto':''}" onclick="togAl(this,'${sk}','${sn}')">${_simbolo}${item.n}${gl}${_badgeHtml}${_nvBadge}${_customBadge}${_editBtn}${_delBtn}</span>`;
     });
     html+='</div></div>';
   });

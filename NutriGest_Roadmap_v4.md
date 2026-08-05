@@ -1611,8 +1611,18 @@ tappa 3. Le altre dieci condizioni restano fuori. **Regola non negoziabile: `nul
 un'etichetta muta non produce mai un celeste. Ricalcolo immediato sul paziente aperto al salvataggio
 di un alimento. 14 test nuovi, suite a 724.
 
-**SCHEDA:** Stato: **In corso** — tappe 1, 2, 3 (provvisoria) e 4 fatte; restano: 5 stato «da valutare» derivato
-(**L0** sul significato) · 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
+**TAPPA 5 ✅ FATTA IL 5 AGOSTO 2026** — il «da valutare» è visibile dove si sceglie. Il semaforo
+tiene traccia della **copertura** (quali condizioni hanno ricevuto un verdetto, da regola per nome,
+da etichetta o da colore manuale); ciò che resta scoperto va in `p.nonValutati` e la lista alimenti
+mostra il badge **«? N»** col dettaglio nel tooltip e una riga di riepilogo in testa.
+> **La riga di confine che tiene in vita il segnale:** il «da valutare» vale **solo per gli alimenti
+> che non vengono dalle tabelle CREA-INRAN**. Sui CREA le liste di nomi sono state costruite
+> guardando proprio quel catalogo: l'assenza dalla lista del nichel è una *decisione*, non un buco.
+> Senza questa riga sarebbero 10 condizioni × 278 alimenti tutte da valutare, e il segnale morirebbe
+> il giorno stesso. Un colore manuale chiude la questione: è la firma del nutrizionista.
+8 test nuovi, suite a 732.
+
+**SCHEDA:** Stato: **In corso** — tappe 1, 2, 3 (provvisoria), 4 e 5 fatte; resta: 6 marchio nel piano AI (**L0**) · Priorità: Alta · Categoria: Semaforo
 clinico / dati alimenti · Dipendenze: **P108 e P110, entrambe chiuse** · Autonomia: **L0** su soglie
 nutrizionali e significato del bianco.
 

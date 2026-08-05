@@ -1497,6 +1497,18 @@ Scanner barcode (dal 13 lug 2026 sera, P110): pulsante "📷 Scansiona
   non producono mai un celeste. I colori manuali non vengono mai sovrascritti.
   Salvando un alimento si richiama `_semRicalcolaPazienteAperto()`, altrimenti il
   prodotto appena scansionato resterebbe bianco fino al salvataggio del paziente.
+  "DA VALUTARE" (P128 tappa 5, 5 ago 2026): `applicaRegoloSemaforo` costruisce
+  una mappa di COPERTURA (alimento -> quali condizioni hanno un verdetto, da
+  regola per nome, da etichetta o da colore manuale) e `_semNonValutati` scrive
+  in `p.nonValutati` (chiave -> elenco condizioni scoperte) cio' che resta.
+  La lista alimenti (`renderAlEditor`, via `window._alNonValutati`) mostra il
+  badge "? N" col dettaglio nel title, piu' una riga di riepilogo in testa.
+  RIGA DI CONFINE: vale SOLO per i record con `fonte!=='crea'`. Sui CREA-INRAN
+  le liste di nomi sono state costruite guardando quel catalogo, quindi il
+  bianco e' una decisione e non un buco; senza questa riga sarebbero 10
+  condizioni x 278 alimenti e il segnale morirebbe subito. Un colore manuale
+  (si/arancione/rosso) toglie il punto interrogativo: e' la firma del
+  nutrizionista. I buchi si ricalcolano da capo a ogni passata.
   Regole non negoziabili gia' costate un difetto: (a) la dichiarazione "senza"
   viene PRIMA dell'allergene, altrimenti un delattosato risulta vietato
   all'intollerante al lattosio e un pane senza glutine certificato al celiaco;
