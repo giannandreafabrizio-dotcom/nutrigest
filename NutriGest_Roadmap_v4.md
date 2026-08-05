@@ -831,6 +831,14 @@ su cui calcolare: il campo resta sul testo generico del catalogo ("durante i pas
 principali"). Nota di collaudo, famiglia della regola 19: **una metà dei test deve
 verificare che il suggerimento specifico NON compaia** quando non c'è un piano da leggere.
 
+> ✅ **TAPPA 1 FATTA (5 ago 2026).** `pastoMaxPerMacro(piano, indiceGiorno, macro)` e
+> `pastoMaxPerMacroTuttiIGiorni(piano, macro)` sono in codice, con 17 test (metà sul
+> silenzio) e la suite a 551 verdi. La ponderata 35/25/15/10/8/7 è stata estratta da
+> `calcolaMacrosPiano` in `_macrosCella` invece di essere duplicata (regola 15), con i
+> valori di prima dell'estrazione pinnati in un test di regressione — `calcolaMacrosPiano`
+> non ne aveva nessuno. Restano le tappe 2 (catalogo + migrazione), 3 (Clinica: colori e
+> tooltip) e 4 (Routine: pasto automatico e collegamento).
+
 **5. Il collegamento Clinica→Routine resta un suggerimento, non un automatismo** (invariato
 dalla bozza precedente): "prende già"/"vorrebbe" è un fatto di anamnesi, la voce in
 Routine è la prescrizione per il PDF — restano due scritture distinte, collegate da un
@@ -849,7 +857,9 @@ modo in cui i valori FODMAP sbagliati sarebbero passati (regola 14).
 ---
 
 **DOMANDE APERTE — stato al 5 ago 2026:**
-1. ⏳ **APERTA A METÀ — è quella che blocca il codice.** Fabrizio ha rivisto 9 voci su 25
+1. ✅ **RISPOSTA (5 ago 2026): "le altre voci vanno bene".** Fabrizio ha rivisto il catalogo
+   correggendone 6 voci e approvando le restanti. Il codice è sbloccato. *Storia della
+   domanda, conservata perché il presupposto conta (regola 17):* Fabrizio ha rivisto 9 voci su 25
    (le 3 dettate all'inizio + 6 corrette il 5 ago: magnesio+potassio, magnesio, multi-
    vitaminico, creatina, BCAA, probiotico). **Restano 16 voci mie non ancora controllate**,
    fra cui le 3 con un'incompatibilità farmacologica in grassetto (**K2 + anticoagulanti,
@@ -870,10 +880,11 @@ paziente (`p.integratori`/`p.integraWant`/`p.routineGiornaliera` — nessuna mig
 tabella Supabase, restano nel blob paziente).
 **SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026** — meccanismo chiuso (assegnazione
 giorno per giorno, due regole 🔥grassi e 🍞carboidrati, nessuna soglia; dose per peso e
-`quando` con alternative aggiunti allo schema). **Blocca il codice solo la revisione
-clinica delle 16 voci di catalogo non ancora controllate da Fabrizio** (9 su 25 già
-riviste) · Priorità: Media · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un
-motore di calcolo nuovo) · Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
+`quando` con alternative aggiunti allo schema). Catalogo **approvato da Fabrizio** il 5 ago
+2026 → codice sbloccato. **Tappa 1 di 4 ✅ CHIUSA** (motore `pastoMaxPerMacro`, 17 test,
+suite 551 verdi). **Prossima: tappa 2, catalogo unico + migrazione dati** · Priorità: Media
+· C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un motore di calcolo nuovo) ·
+Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
 
 ### P74 — Estrazione entità dal blob + fine dei meta-record
 **L'APPROCCIO ORIGINARIO:** (1) meta-record → tabella collections; (2) entità pesanti → tabelle/colonne tipizzate; (3) query mirate al posto del pull totale. Rischio alto, backup CSV.

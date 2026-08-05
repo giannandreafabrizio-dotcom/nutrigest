@@ -2583,6 +2583,43 @@ function getMacrosRicettaComposta(chiave, valoreVariabile) {
   return r.macrosPerOpzione[valoreVariabile] || r.macrosPerOpzione[r.variabile.default] || null;
 }
 
+// ── P148 — macros di UNA cella, con la ponderata 35/25/15/10/8/7 ──
+// Estratta da calcolaMacrosPiano il 5 ago 2026 per regola 15 ("ripara il
+// rubinetto"): serviva lo stesso calcolo anche a pastoMaxPerMacro, e scrivere
+// una seconda funzione accanto avrebbe creato due modi di sommare i macros di
+// una cella — esattamente il difetto di P141, dove convivevano tre funzioni
+// per la stessa cosa e correggerne una lasciava rotte le altre.
+// Il comportamento è IDENTICO a prima dell'estrazione: cella con un solo
+// alimento → peso 1; da 2 a 6 alternative → pesi 35/25/15/10/8/7; ricette
+// composte con macrosOverride usate così come sono (B7). `nonTrovati` è un
+// Set opzionale: se passato, ci finiscono i nomi che getValoriCREA non
+// riconosce, come faceva il codice originale.
+function _macrosCella(cella, nonTrovati) {
+  var out = { kcal: 0, p: 0, c: 0, g: 0 };
+  if (!cella || !cella.alimenti || !cella.alimenti.length) return out;
+  var pesi = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
+  var alArr = cella.alimenti.slice(0, 6);
+  alArr.forEach(function (al, ai) {
+    if (!al) return;
+    var peso = alArr.length === 1 ? 1 : (pesi[ai] || 0);
+
+    // B7: ricetta composta con macrosOverride precalcolati
+    if (al.macrosOverride && al.ricettaComposta) {
+      var mo = al.macrosOverride;
+      out.kcal += mo.kcal * peso; out.p += mo.p * peso; out.c += mo.c * peso; out.g += mo.g * peso;
+      return;
+    }
+
+    var cat = al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
+    var vals = getValoriCREA(al.n, cat);
+    if (!vals) { if (nonTrovati) nonTrovati.add(al.n); return; }
+    var grammi = parseFloat(al.g) || 0;
+    var f = grammi / 100 * peso;
+    out.kcal += vals.kcal * f; out.p += vals.p * f; out.c += vals.c * f; out.g += vals.g * f;
+  });
+  return out;
+}
+
 function calcolaMacrosPiano(piano) {
   if (!Array.isArray(piano)) return null;
   const giornalieri = [];
@@ -2607,27 +2644,9 @@ function calcolaMacrosPiano(piano) {
       const celle = pasto.celle || [];
       celle.forEach(cella => {
         if (!cella.alimenti || !cella.alimenti.length) return;
-        // — PONDERATA 35/25/15/10/8/7 (P12b: da 3 a 6 alimenti) —
-        var pesi = [0.35, 0.25, 0.15, 0.10, 0.08, 0.07];
-        var alArr = cella.alimenti.slice(0, 6);
-        alArr.forEach(function(al, ai) {
-          if (!al) return;
-          var peso = alArr.length === 1 ? 1 : (pesi[ai] || 0);
-
-          // B7: ricetta composta con macrosOverride precalcolati
-          if (al.macrosOverride && al.ricettaComposta) {
-            var mo = al.macrosOverride;
-            dKcal += mo.kcal * peso; dP += mo.p * peso; dC += mo.c * peso; dG += mo.g * peso;
-            return;
-          }
-
-          var cat = al.categoria || (typeof getCategoriaFunzionale === 'function' ? getCategoriaFunzionale(al.n) : null);
-          var vals = getValoriCREA(al.n, cat);
-          if (!vals) { nonTrovati.add(al.n); return; }
-          var grammi = parseFloat(al.g) || 0;
-          var f = grammi / 100 * peso;
-          dKcal += vals.kcal * f; dP += vals.p * f; dC += vals.c * f; dG += vals.g * f;
-        });
+        // — PONDERATA 35/25/15/10/8/7 (P12b: da 3 a 6 alimenti) — ora in _macrosCella (P148) —
+        var _mc = _macrosCella(cella, nonTrovati);
+        dKcal += _mc.kcal; dP += _mc.p; dC += _mc.c; dG += _mc.g;
         // — PRIMA SCELTA (solo al[0]) —
         var al0 = cella.alimenti[0];
         if (al0) {
@@ -2682,6 +2701,69 @@ function calcolaMacrosPiano(piano) {
     giorniCompilati: _giorniCompilati,
     pianoParziale: _giorniCompilati < n,
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// P148 — IN QUALE PASTO DEL GIORNO VA L'INTEGRATORE
+// ══════════════════════════════════════════════════════════════════════════
+// Nasce da una richiesta di Fabrizio (5 ago 2026): "se un paziente assume vit
+// d tutti i giorni nutrigest lo deve consigliare nel pasto della giornata con
+// più grassi… che può essere variabile durante la settimana in base al piano
+// alimentare". Vale per i liposolubili (Omega-3, Vitamina D3, K2, CoQ10) e —
+// con la macro dei carboidrati invece che dei grassi — per la creatina, che
+// va "dopo il pasto con più carboidrati della giornata".
+//
+// PERCHÉ UN CALCOLO E NON L'AI: il piano è già generato, con alimenti e
+// grammi per cella; la risposta è una somma e un massimo. Stesso principio di
+// P63b, dove la coerenza dell'InBody si trova con una sottrazione invece che
+// con una chiamata AI — costo zero, risultato deterministico, testabile.
+//
+// GIORNO PER GIORNO, non una scelta unica per l'intero piano: lunedì può
+// vincere il pranzo (mozzarella) e martedì la cena. Per questo NON esiste
+// nessuna soglia di "costanza" — una prima versione del disegno ne prevedeva
+// una, ma serviva a risolvere un'ambiguità che con l'assegnazione per giorno
+// non esiste.
+//
+// PAREGGI: a parità esatta di macro vince il pasto che compare per primo nel
+// giorno (ordine naturale colazione→pre_nanna). È deterministico e, dovendo
+// scegliere, anticipare l'assunzione è preferibile a spostarla a sera.
+// In ogni caso il valore è sempre modificabile a mano dal nutrizionista.
+
+// Restituisce {slot, valore, giorno} del pasto con più `macro` in UN giorno,
+// oppure null se il giorno non esiste o non c'è nessun pasto con alimenti.
+// `macro`: 'g'/'grassi' oppure 'c'/'carboidrati'.
+function pastoMaxPerMacro(piano, indiceGiorno, macro) {
+  if (!Array.isArray(piano)) return null;
+  var chiave = (macro === 'c' || macro === 'carboidrati') ? 'c'
+             : (macro === 'g' || macro === 'grassi')      ? 'g' : null;
+  if (!chiave) return null;
+  var gio = piano[indiceGiorno];
+  if (!gio || !gio.pasti) return null;
+
+  var migliore = null;
+  Object.keys(gio.pasti).forEach(function (slot) {
+    var pasto = gio.pasti[slot] || {};
+    var celle = pasto.celle || [];
+    var tot = 0;
+    celle.forEach(function (cella) { tot += _macrosCella(cella)[chiave]; });
+    if (tot <= 0) return;                       // pasto vuoto o non calcolabile: non concorre
+    if (!migliore || tot > migliore.valore) migliore = { slot: slot, valore: tot };
+  });
+  if (!migliore) return null;
+  return {
+    slot: migliore.slot,
+    valore: Math.round(migliore.valore * 10) / 10,
+    giorno: gio.giorno || gio.g || null
+  };
+}
+
+// Stessa cosa su TUTTI i giorni del piano: array lungo quanto il piano, con
+// null nei giorni non calcolabili (giorno vuoto, o nessun alimento riconosciuto).
+// È questo il risultato che finisce nella scheda Routine e nel PDF: un pasto
+// per ogni giorno, non un pasto per tutta la settimana.
+function pastoMaxPerMacroTuttiIGiorni(piano, macro) {
+  if (!Array.isArray(piano)) return [];
+  return piano.map(function (_, i) { return pastoMaxPerMacro(piano, i, macro); });
 }
 
 // Badge "Macros reali vs Target"

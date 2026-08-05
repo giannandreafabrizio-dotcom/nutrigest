@@ -10,6 +10,60 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 6) — P148 TAPPA 1: IL MOTORE CHE SCEGLIE IL PASTO.
+Baseline 2f0555e. Prima tappa di codice di P148, sbloccata da Fabrizio con
+"le altre voci vanno bene" sul catalogo. Zero interfaccia, zero dati salvati:
+solo calcolo puro, così è collaudabile da sola.
+
+COSA FA. `pastoMaxPerMacro(piano, indiceGiorno, macro)` restituisce lo slot
+pasto con più grassi (o più carboidrati) di UN giorno del piano, e
+`pastoMaxPerMacroTuttiIGiorni` lo fa su tutta la settimana. Sull'esempio
+stesso di Fabrizio il risultato è quello atteso: lunedì vince il pranzo per
+la mozzarella, martedì la cena per il salmone. Nessuna chiamata AI: il piano è
+già generato con alimenti e grammi, la risposta è una somma e un massimo —
+stesso principio di P63b.
+
+L'ESTRAZIONE DI `_macrosCella`, E PERCHÉ NON HO SCRITTO UNA FUNZIONE NUOVA
+ACCANTO. Serviva la ponderata 35/25/15/10/8/7 anche qui, e viveva dentro il
+corpo di `calcolaMacrosPiano`. Scriverne una copia sarebbe stato più veloce e
+più sicuro nell'immediato, ed è esattamente il difetto trovato in P141: tre
+funzioni per la stessa cosa, scritte da chi aveva sbattuto contro il problema
+nel proprio angolo, con la conseguenza che correggerne una lasciava rotte le
+altre. Regola 15, "ripara il rubinetto". La ponderata è stata quindi estratta
+in `_macrosCella(cella, nonTrovati)` e `calcolaMacrosPiano` ora la chiama.
+PROTEZIONE: prima di toccare qualsiasi cosa ho misurato l'output di
+`calcolaMacrosPiano` su un fixture (2 giorni, con dentro anche due alimenti
+volutamente non riconosciuti) e ho confrontato numero per numero dopo
+l'estrazione — identico. Quei valori sono ora pinnati in un test di
+regressione: `calcolaMacrosPiano` non aveva NESSUN test prima di oggi.
+
+I TEST (17 nuovi, suite a 551 verdi). Metà verifica il SILENZIO, regola 19:
+piano assente, giorno fuori dal piano, macro non riconosciuta, pasti vuoti,
+solo alimenti non riconosciuti — in tutti questi casi la funzione deve
+restituire null, mai un pasto scelto per ripiego. Un consiglio inventato su un
+piano che non esiste finirebbe nel PDF di un paziente senza un errore a video,
+famiglia F6/F7 e regola 11. C'è anche un test che verifica che il pasto
+vincente CAMBI da un giorno all'altro: è la prova in codice che il requisito è
+l'assegnazione per giorno e non una scelta unica per la settimana — se qualcuno
+reintroducesse la seconda, quel test diventerebbe rosso.
+
+DUE TRAPPOLE DI AMBIENTE INCONTRATE (annotate nei test per chi verrà dopo).
+(1) In JSDOM gli oggetti creati dentro la finestra hanno un Object.prototype
+diverso da quello di Node: `deepStrictEqual` fallisce con "same structure but
+not reference-equal" pur essendo i valori identici — si confrontano copie
+normalizzate con JSON. È la sorella del quirk trovato ieri sui const/let
+top-level che non diventano proprietà di window.
+(2) `rigenera-index.js` riallinea i numeri di riga ma NON aggiunge le funzioni
+nuove: la suite era verde e l'indice "allineato" pur non contenendo nessuna
+delle tre funzioni appena scritte, perché `s1-doc-allineata` verifica che le
+voci elencate siano giuste, non che siano complete. Aggiunte a mano e annotato
+in testa a INDEX.md. Stessa famiglia della regola 20: un controllo verde non è
+una verifica di ciò che quel controllo non guarda.
+
+PROSSIME TAPPE: 2) catalogo unico `CATALOGO_INTEGRATORI` e migrazione dati;
+3) scheda Clinica, colori e tooltip ⓘ; 4) scheda Routine, pasto automatico
+giorno per giorno e collegamento dalla Clinica.
+
 5 AGOSTO 2026 (seguito 5) — P148: SEI VOCI CORRETTE DA FABRIZIO, E LA SOGLIA
 ANNULLATA PERCHÉ LA DOMANDA ERA SBAGLIATA. Baseline 2e5c1b9. Zero codice.
 
