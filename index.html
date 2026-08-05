@@ -13342,7 +13342,7 @@ function _pcasModello(p){
 var _pcasStato = null;
 function _pcasStatoGet(p,mod){
   if(!_pcasStato || _pcasStato.pazId!==p.id){
-    _pcasStato = {pazId:p.id, casa:true, media:true, studio:false, a:0, b:mod.n, listaTutta:false};
+    _pcasStato = {pazId:p.id, aperto:false, casa:true, media:true, studio:false, a:0, b:mod.n, listaTutta:false};
   } else {
     // pesata aggiunta in coda: se stavo guardando fino alla fine, ci resto
     if(_pcasStato.b>=_pcasStato.nPrec) _pcasStato.b=mod.n;
@@ -13567,6 +13567,16 @@ function _pcasInterruttore(k){
   _pcasRidisegna();
 }
 
+// Il grafico non si apre da solo: la scheda InBody resta com'era e il grafico si
+// chiede. Lo stato dura finché resti su questo paziente; cambiando paziente
+// riparte chiuso, come la finestra riparte da "Tutto".
+function _pcasApri(){
+  if(!_pcasStato) return;
+  _pcasStato.aperto=!_pcasStato.aperto;
+  const p=(db.pazienti||[]).find(function(x){return x.id===_pcasStato.pazId;});
+  if(p) renderPdInbody(p);
+}
+
 function _pcasListaTutta(){
   if(!_pcasStato) return;
   _pcasStato.listaTutta=!_pcasStato.listaTutta;
@@ -13667,9 +13677,23 @@ function _renderPesiIntermediSection(p){
 
   // Grafico + barra + numeri. Compare solo quando c'è qualcosa da disegnare.
   const mod=_pcasModello(p);
+  // Il grafico ha senso da 2 pesate a casa in su: con una sola non c'è nessun
+  // andamento da guardare, e il bottone non deve nemmeno comparire.
+  const disegnabile = !!(mod && mod.casa.length>=2);
+  // _pcasStatoGet SCRIVE lo stato globale: va chiamata solo quando il grafico
+  // esiste davvero, altrimenti un paziente senza grafico azzera quello di chi
+  // è a schermo (trovato aprendo due schede nello stesso documento, 5 ago).
+  const st = disegnabile ? _pcasStatoGet(p,mod) : null;
+  let bottoneHtml='';
+  if(disegnabile){
+    bottoneHtml='<button onclick="_pcasApri()" style="border:1.5px solid var(--border);'
+      +'background:'+(st.aperto?'#eef4fa':'#fff')+';border-radius:8px;padding:.26rem .7rem;'
+      +'font-size:.74rem;color:'+(st.aperto?'#1b4f87':'var(--text3)')+';cursor:pointer;'
+      +'font-family:inherit;font-weight:600;white-space:nowrap">'
+      +(st.aperto?'Chiudi il grafico':'📈 Apri il grafico')+'</button>';
+  }
   let graficoHtml='';
-  if(mod && (mod.casa.length>=2 || (mod.casa.length && mod.studio.length))){
-    const st=_pcasStatoGet(p,mod);
+  if(disegnabile && st.aperto){
     const sw=function(k,testo,col){
       const on=st[k];
       return '<button id="pcas-sw-'+k+'" onclick="_pcasInterruttore(\''+k+'\')" aria-pressed="'+on+'"'
@@ -13710,7 +13734,10 @@ function _renderPesiIntermediSection(p){
   }
 
   return '<div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:.8rem 1rem;margin-bottom:.9rem">'
-    +'<div style="font-weight:700;font-size:.85rem;color:var(--teal2);margin-bottom:.6rem">⚖️ Peso casalingo</div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.6rem">'
+      +'<div style="font-weight:700;font-size:.85rem;color:var(--teal2)">⚖️ Peso casalingo</div>'
+      +bottoneHtml
+    +'</div>'
     +'<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">'
       +'<input type="date" id="pi-data" value="'+oggi+'" style="border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">'
       +'<input type="number" id="pi-peso" step="0.1" min="30" max="300" placeholder="kg" style="width:80px;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.8rem;background:var(--bg);color:var(--text)">'

@@ -114,7 +114,11 @@ test('P35 — l etichetta della variazione dichiara i giorni MISURATI, non la fi
   const s = statDi(FITTA, 0, 56);
   assert.ok(s.ggMisurati < s.gg,
     'i giorni misurati devono essere meno della finestra (' + s.ggMisurati + ' vs ' + s.gg + ')');
-  const html = win._renderPesiIntermediSection(paz(FITTA));
+  const p = paz(FITTA);
+  win._renderPesiIntermediSection(p);         // crea lo stato
+  win.eval('_pcasStato.aperto = true');       // le tessere esistono solo a grafico aperto
+  const html = win._renderPesiIntermediSection(p);
+  win.eval('_pcasStato.aperto = false');
   assert.ok(html.indexOf('misurata su ' + s.ggMisurati + ' giorni') >= 0,
     'la tessera deve dichiarare i giorni misurati');
 });
@@ -283,17 +287,33 @@ test('P35 — la sezione si disegna anche senza nessuna pesata', () => {
   assert.ok(html.indexOf('<svg') < 0, 'niente grafico quando non c è niente da disegnare');
 });
 
-test('P35 — con una sola pesata non si disegna un grafico', () => {
-  const html = win._renderPesiIntermediSection(paz([[0, 80]]));
+test('P35 — con una sola pesata non c è grafico e nemmeno il bottone', () => {
+  // Caso visto su un paziente vero il 5 ago: una pesata a casa e un InBody
+  // facevano comparire un grafico con un punto solo, cioè niente da guardare.
+  const html = win._renderPesiIntermediSection(paz([[0, 80]], [[0, 79.2]]));
   assert.ok(html.indexOf('<svg') < 0, 'un punto solo non è un andamento');
+  assert.ok(html.indexOf('Apri il grafico') < 0, 'e non si offre di aprirlo');
 });
 
-test('P35 — con due pesate il grafico compare e contiene le due serie', () => {
+test('P35 — il grafico parte CHIUSO: si vede solo il bottone', () => {
   const html = win._renderPesiIntermediSection(paz(FITTA, [[0, 79.2], [56, 75.2]]));
+  assert.ok(html.indexOf('Apri il grafico') >= 0, 'il bottone deve esserci');
+  assert.ok(html.indexOf('<svg') < 0, 'ma il grafico non deve essere già aperto');
+  assert.ok(html.indexOf('pcas-barra') < 0, 'né la barra di scorrimento');
+  assert.ok(html.indexOf('72,8 kg') >= 0 || html.indexOf('kg') >= 0, 'la lista resta al suo posto');
+});
+
+test('P35 — aperto, il grafico compare con le due serie e la barra', () => {
+  const p = paz(FITTA, [[0, 79.2], [56, 75.2]]);
+  win._renderPesiIntermediSection(p);   // crea lo stato per questo paziente
+  win.eval('_pcasStato.aperto = true');
+  const html = win._renderPesiIntermediSection(p);
   assert.ok(html.indexOf('<svg') >= 0, 'il grafico deve esserci');
   assert.ok(html.indexOf('pcas-barra') >= 0, 'la barra di scorrimento deve esserci');
   assert.ok(html.indexOf('Pesate a casa') >= 0 && html.indexOf('Bilancia studio') >= 0,
     'gli interruttori delle due serie devono esserci');
+  assert.ok(html.indexOf('Chiudi il grafico') >= 0, 'e il bottone deve poterlo richiudere');
+  win.eval('_pcasStato.aperto = false');
 });
 
 test('P35 — tutte le pesate nello stesso giorno: nessun crash, nessun numero', () => {
@@ -304,6 +324,12 @@ test('P35 — tutte le pesate nello stesso giorno: nessun crash, nessun numero',
 });
 
 // ═══ 9. Tetto della lista e indice di eliminazione ════════════════════════
+test('P35 — la lista si vede anche a grafico chiuso', () => {
+  const html = win._renderPesiIntermediSection(paz(FITTA));
+  assert.ok(html.indexOf('eliminaPesoIntermedio') >= 0,
+    'chiudere il grafico non deve nascondere le pesate');
+});
+
 test('P35 — la lista si ferma a 10 righe e offre di aprirsi', () => {
   const html = win._renderPesiIntermediSection(paz(FITTA)); // 57 pesate
   const righe = (html.match(/eliminaPesoIntermedio/g) || []).length;

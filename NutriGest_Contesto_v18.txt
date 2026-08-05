@@ -1199,7 +1199,10 @@ p.pesiIntermedi[] = { data, peso }
   // e "✕ Elimina" per riga (eliminaPesoIntermedio). Ogni operazione fa save(p.id)
   // e ridisegna la scheda.
   //
-  // P35 TAPPE 1-2, 5 ago 2026 — la card ha ora un GRAFICO (prefisso _pcas*):
+  // P35 TAPPE 1-2, 5 ago 2026 — la card ha ora un GRAFICO (prefisso _pcas*), che
+  // NON si apre da solo: bottone "📈 Apri il grafico" a destra nell'intestazione
+  // (_pcasApri). Sotto le 2 pesate a casa il bottone non compare affatto.
+  // Il grafico, quando aperto:
   //   - due serie SEPARATE sullo stesso asse dei tempi, mai fuse: pesate di casa
   //     (pallini blu #2a78d6) e bilancia dello studio (rombi terracotta #DD5A33 con
   //     tratteggio). Interruttori: "Pesate a casa" / "Andamento (media 7 gg)" /

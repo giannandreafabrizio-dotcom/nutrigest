@@ -673,7 +673,9 @@ del 5 ago 2026 (5/5).
   partiva dal primo peso InBody.
 - **Tappa 2 fatta:** grafico `_pcas*` a due serie separate, media mobile su finestra di date con
   interruzione sui buchi, barra di scorrimento, tre numeri sulla finestra scelta, lista limitata
-  a 10 righe.
+  a 10 righe. **Il grafico non si apre da solo** (bottone «📈 Apri il grafico» nell'intestazione,
+  scelta di Fabrizio la sera del 5 ago: «lascio la schermata di InBody così come è»), e sotto le
+  2 pesate a casa il bottone non compare — un punto solo non è un andamento.
 - **Tre difetti emersi in collaudo** e corretti: virgola italiana letta da `parseFloat` come
   mezzo chilo in meno; etichetta che dichiarava più giorni di quelli misurati (stessa famiglia
   del vecchio «Ultima settimana»); gruppi di estremo fissi che rendevano muti i numeri per chi

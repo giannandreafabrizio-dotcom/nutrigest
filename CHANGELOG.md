@@ -90,6 +90,21 @@ ingestibile (ora si ferma a 10 con "Mostra tutte"). I calcoli sono stati verific
 contro un'implementazione indipendente in Python prima di scrivere il codice: zero
 discordanze su 125 giorni.
 
+AGGIUNTA DELLA SERA, dopo la prima prova sul campo. Fabrizio ha aperto un paziente
+senza pesate casalinghe, ne ha aggiunta una a caso, e il grafico e' comparso: con UN
+punto solo, cioe' senza niente da guardare. Due correzioni:
+  - il grafico non si apre piu' da solo. Nell'intestazione della card c'e' un bottone
+    "📈 Apri il grafico" a destra, e la scheda InBody resta com'era finche' non lo si
+    chiede. Lo stato dura finche' si resta su quel paziente; cambiando paziente
+    riparte chiuso, come la finestra riparte da "Tutto".
+  - sotto le 2 pesate a casa non compare nemmeno il bottone: un punto solo non e' un
+    andamento, e offrire di aprirlo e' una promessa che il grafico non mantiene.
+  E un difetto trovato aprendo DUE card nello stesso documento: `_pcasStatoGet` SCRIVE
+lo stato globale, e veniva chiamata anche per un paziente il cui grafico non era
+disegnabile — azzerando quello del paziente a schermo. Ora si chiama solo quando il
+grafico esiste davvero. Nell'app si vede una card alla volta e non sarebbe emerso: e'
+uscito perche' il collaudo mette due pazienti nella stessa pagina.
+
 RESTA APERTO: la striscia di aderenza, se un domani servisse per i pazienti lontani.
 E la domanda di P132 sulla lentezza resta decisa nel modo prudente (non si colora),
 coerente con l'esistente.
