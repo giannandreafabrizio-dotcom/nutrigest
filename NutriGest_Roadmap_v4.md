@@ -743,7 +743,7 @@ non invenzioni — ma vanno lette con occhio clinico da chi prescrive davvero.
 | Pappa reale | 500mg-1g | Mattino a digiuno, a cicli | — | **Asma/allergia ai prodotti dell'alveare — rischio reazione allergica** |
 | Beta-alanina | 3-5 g/die, anche frazionata | In qualsiasi momento, con costanza | — | (parestesia innocua alle dosi alte — va spiegata al paziente) |
 | Acido folico | 400 mcg | In qualsiasi momento | Vitamina B12 | — |
-| **Blu di metilene** | **⚠️ nessuna dose di default** | — | — | **Farmaci serotoninergici/SSRI — interazione seria nota. Uso specialistico, dose sempre decisa caso per caso da Fabrizio** |
+| ~~Blu di metilene~~ | **TOLTO DAL CATALOGO** (decisione di Fabrizio, 5 ago 2026) — resta gestibile come nota libera sul paziente, dose e contesto decisi caso per caso. Motivo: unica voce con interazione seria nota (SSRI/serotoninergici) e uso specialistico; una casella spuntabile in un catalogo rapido è l'interfaccia sbagliata per un farmaco che va ragionato ogni volta. | | | |
 | Fosfatidilcolina | 1-2 g | Ai pasti | — | — |
 | Lecitina di soia | 5-10 g | Ai pasti | — | Allergia dichiarata alla soia (verificabile dal campo allergie) |
 | Berberina | 500 mg | 30min prima dei pasti, fino a 2-3×/die | — | **Farmaci ipoglicemizzanti — rischio ipoglicemia, segnalare se paziente diabetico in terapia** |
@@ -754,8 +754,9 @@ non invenzioni — ma vanno lette con occhio clinico da chi prescrive davvero.
 | Collagene idrolizzato | 10 g | Mattino a stomaco vuoto | Vitamina C (cofattore di sintesi) | — |
 | Melatonina | 0,5-1 mg | 30min prima di dormire | Magnesio | (dosi basse spesso più efficaci delle alte — non aumentare "a caso" se non funziona subito) |
 
-**Le 4 righe con 🔥 e le 4 con "Evitare con" in grassetto sono quelle che meritano la tua
-occhiata per prima** — le altre sono dosaggi standard a basso rischio.
+**Le 4 righe con 🔥 e le 3 rimaste con "Evitare con" in grassetto sono quelle che meritano
+la tua occhiata per prima** (la quarta, Blu di metilene, è stata tolta) — le altre sono
+dosaggi standard a basso rischio. Voci attive nel catalogo dopo la rimozione: **25**.
 
 **3. Migrazione dati pazienti esistenti** invariata rispetto alla bozza precedente:
 mappa etichetta-vecchia → chiave-nuova, eseguita in lettura, nessuna voce persa (se
@@ -774,14 +775,21 @@ testabile, che spezzi lo stesso calcolo per slot (`colazione`/`pranzo`/`cena`/..
 che per giorno, sullo STESSO piano già generato — zero chiamate AI aggiuntive, zero costo,
 risultato deterministico e riproducibile.
 
-**Il caso "cambia di giorno in giorno" (l'esempio di Fabrizio) va dichiarato, non
-nascosto.** Se il pasto più grasso è lo stesso in praticamente tutti i giorni del piano,
-il sistema lo consiglia con sicurezza. Se cambia (es. pranzo vince 4 giorni su 7, cena gli
-altri 3), non sceglie in silenzio: lo dice — "il pasto più grasso non è costante: pranzo
-in 4 giorni su 7" — e lascia decidere a Fabrizio se accettare la maggioranza o mettere
-"durante i pasti" generico. Stessa disciplina già adottata per il 190-200 del colesterolo
-e per l'ambiguità del TDEE osservato: **quando il dato è ambiguo, si mostra l'ambiguità,
-non si finge una certezza che non c'è.**
+**LA SOGLIA — decisa da Fabrizio il 5 ago 2026: maggioranza, non l'80%.** La proposta
+iniziale era "stesso pasto in almeno l'80% dei giorni"; Fabrizio ha scelto la maggioranza
+semplice, per avere meno interruzioni. **Precisazione necessaria in fase di scrittura,
+perché "maggioranza semplice" ha due letture e una fa danno:** si implementa come
+maggioranza VERA, cioè più del 50% dei giorni (almeno 4 su 6, 4 su 7 per i chetogenici) —
+NON come maggioranza relativa. Su un piano frammentato (pranzo 2 giorni, cena 2, colazione
+2) esisterebbe un "vincitore" con un terzo dei casi: consigliarlo in silenzio sarebbe
+fingere una certezza inesistente.
+
+**Cosa succede sotto soglia.** Non un avviso: il campo resta sul **testo generico del
+catalogo** ("durante i pasti principali"). È la scelta coerente con la richiesta di
+Fabrizio di non essere interrotto e insieme con la regola che un dato ambiguo non si
+traveste da certo — semplicemente il sistema non afferma ciò che non può sostenere. Nota
+di collaudo, famiglia della regola 19: **la metà più importante dei test qui è che il
+suggerimento specifico NON compaia** su un piano vario.
 
 Si applica alle 4 voci liposolubili del catalogo (Omega-3, Vitamina D3, Vitamina K2,
 Coenzima Q10 — marcate 🔥 sopra). Il suggerimento compare quando si apre/aggiorna la
@@ -795,23 +803,28 @@ suggerimento cliccabile, mai una scrittura automatica silenziosa.
 
 ---
 
-**DOMANDE APERTE PER FABRIZIO, RESTANTI (rispondi qui o a voce, poi si scrive il codice):**
-1. Le voci non dettate da te nel catalogo — vanno bene così o correggi/scarti qualcosa?
-   (In particolare le 4 con un'incompatibilità in grassetto: K2/CoQ10 + anticoagulanti,
-   Berberina + ipoglicemizzanti, Pappa reale + allergie, Blu di metilene + SSRI.)
-2. Blu di metilene: lo teniamo nel catalogo rapido di Clinica senza dose di default (testo
-   libero obbligatorio), o lo togliamo e resta gestibile solo come nota libera?
-3. Soglia di "costante" per il pasto più grasso (proposta: stesso pasto vince in almeno
-   l'80% dei giorni del piano) — ti sembra ragionevole o la vuoi diversa?
+**DOMANDE APERTE — stato al 5 ago 2026:**
+1. ⏳ **ANCORA APERTA, è quella che blocca il codice.** Le voci non dettate da Fabrizio nel
+   catalogo — vanno bene così o va corretto/scartato qualcosa? In particolare le 3 rimaste
+   con un'incompatibilità in grassetto: **K2 + anticoagulanti, CoQ10 + anticoagulanti,
+   Berberina + ipoglicemizzanti**, più **Pappa reale + allergie all'alveare**. È contenuto
+   clinico che finisce davanti a un paziente: non si scrive in codice finché Fabrizio non
+   l'ha letto riga per riga. Le altre 21 voci sono dosaggi standard a basso rischio.
+2. ✅ **RISPOSTA: Blu di metilene TOLTO dal catalogo** (vedi tabella sopra). Resta
+   gestibile come nota libera sul paziente.
+3. ✅ **RISPOSTA: maggioranza, non 80%** — implementata come maggioranza vera (>50% dei
+   giorni), con ricaduta sul testo generico sotto soglia invece che su un avviso (vedi
+   punto 4).
 
 **FOCUS COMPONENTI COINVOLTI:** Frontend (scheda Clinica + scheda Routine, tooltip ⓘ),
 un nuovo motore puro (grassi per slot pasto, stesso stile di `calcolaMacrosPiano`), dati
 paziente (`p.integratori`/`p.integraWant`/`p.routineGiornaliera` — nessuna migrazione a
 tabella Supabase, restano nel blob paziente).
-**SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026 — in attesa di revisione di Fabrizio
-sulle 3 domande sopra prima del codice** · Priorità: Media · C: 4 | I: 4 | R: 2 · Modello:
-Opus (contenuto clinico + un motore di calcolo nuovo) · Autonomia: L0 sul catalogo
-(contenuto clinico), L1 sul resto.
+**SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026 — 2 domande su 3 risolte (Blu di
+metilene tolto, soglia a maggioranza vera). Resta APERTA la domanda 1: la revisione clinica
+delle voci di catalogo non dettate da Fabrizio. È l'unica cosa che blocca l'inizio del
+codice** · Priorità: Media · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un
+motore di calcolo nuovo) · Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
 
 ### P74 — Estrazione entità dal blob + fine dei meta-record
 **L'APPROCCIO ORIGINARIO:** (1) meta-record → tabella collections; (2) entità pesanti → tabelle/colonne tipizzate; (3) query mirate al posto del pull totale. Rischio alto, backup CSV.

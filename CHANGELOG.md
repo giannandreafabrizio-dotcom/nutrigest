@@ -10,6 +10,38 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 4) — P148: DUE DELLE TRE DOMANDE CHIUSE.
+Baseline 87d6e47. Sempre zero codice: solo la scheda di roadmap.
+
+BLU DI METILENE TOLTO DAL CATALOGO. Fabrizio ha scelto di rimuoverlo invece di
+tenerlo senza dose. Motivo che vale la pena ricordare: era l'unica voce del
+catalogo con un'interazione seria nota (SSRI/serotoninergici) e un uso
+specialistico — una casella spuntabile in un catalogo rapido è l'interfaccia
+sbagliata per qualcosa che va ragionato ogni volta da capo. Resta gestibile
+come nota libera sul paziente. Catalogo attivo: 25 voci.
+
+SOGLIA DEL "PASTO PIÙ GRASSO": MAGGIORANZA, NON 80%. Fabrizio ha scelto la
+maggioranza semplice per avere meno interruzioni. In fase di scrittura è
+emersa un'ambiguità che andava sciolta prima, non dopo: "maggioranza semplice"
+può voler dire maggioranza RELATIVA (il pasto che vince più spesso) o VERA
+(più del 50% dei giorni). Con la prima lettura, su un piano frammentato
+— pranzo 2 giorni, cena 2, colazione 2 — esisterebbe un "vincitore" con un
+terzo dei casi, e il sistema lo consiglierebbe in silenzio: una certezza
+inventata. Implementata quindi come maggioranza VERA (≥4 giorni su 6, ≥4 su 7
+per i chetogenici). Sotto soglia NON compare un avviso — compare il testo
+generico del catalogo ("durante i pasti principali"): rispetta la richiesta di
+non essere interrotto e insieme la regola che un dato ambiguo non si traveste
+da certo. Il sistema semplicemente non afferma ciò che non può sostenere.
+Nota di collaudo (famiglia della regola 19): la metà più importante dei test
+qui è che il suggerimento specifico NON compaia su un piano vario.
+
+RESTA APERTA LA DOMANDA 1 — la revisione clinica delle voci di catalogo non
+dettate da Fabrizio, in particolare le 3 con interazione farmacologica
+(K2 e CoQ10 con anticoagulanti, Berberina con ipoglicemizzanti) e la Pappa
+reale con le allergie all'alveare. È l'unica cosa che blocca l'inizio del
+codice: è contenuto clinico destinato a un paziente, non si scrive finché non
+è stato letto riga per riga.
+
 5 AGOSTO 2026 (seguito 3) — P148: COLORI, SCHEMA RICCO E TIMING SUL PASTO PIÙ
 GRASSO. Baseline 4004ef4. Ancora nessuna riga di codice toccata: solo la scheda
 di roadmap, ampliata su richiesta di Fabrizio con tre aggiunte precise.
