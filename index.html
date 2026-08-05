@@ -8159,20 +8159,285 @@ function renderPdPercorso(p){
 // ROUTINE GIORNALIERA TERAPEUTICA
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════════
+// P148 — CATALOGO UNICO DEGLI INTEGRATORI (tappa 2, 5 ago 2026)
+// ══════════════════════════════════════════════════════════════════════════════
+// PERCHÉ ESISTE. Fino a oggi lo stesso integratore viveva in due posti che non
+// si parlavano: le caselle della scheda Clinica (19 voci, solo etichette, finivano
+// unicamente nel contesto per FX) e la libreria della scheda Routine (12 voci con
+// dose/quando/razionale, alimentata solo da un click manuale). Solo 5 voci su 19
+// avevano un corrispondente, e nemmeno con lo stesso nome. Fabrizio spuntava
+// "Omega-3" in Clinica e nella Routine non compariva nulla.
+//
+// QUESTO È L'UNICO POSTO in cui un integratore è definito: INTEGR_KEYS,
+// INTEGR_LABELS e il blocco "integratore" di LIBRERIA_ROUTINE sono ora DERIVATI
+// da qui, non più elenchi paralleli da tenere allineati a mano (F4/regola 12:
+// si elimina la seconda fonte, non si aggiunge un avviso).
+//
+// SCHEMA di ogni voce:
+//   chiave        id stabile, non cambia mai — è la chiave usata nei dati
+//   nome          etichetta a schermo: PUÒ cambiare, per questo esiste INTEGR_ALIAS
+//   dose          testo della dose consigliata
+//   dosePerPeso   {gPer10kg} se la dose dipende dal peso del paziente (BCAA)
+//   quanteVolte   volte al giorno
+//   quando        momento consigliato (testo principale)
+//   quandoAlt     [{testo, motivo}] alternative legittime, quando ce n'è più di una
+//   regolaOrario  'fisso' | 'pasto_piu_grasso' | 'pasto_piu_carbo'  (vedi tappa 1)
+//   sinergie      chiavi di altri integratori con cui si abbina bene
+//   evitareCon    testo delle incompatibilità (farmaci, alimenti, condizioni)
+//   razionale     spiegazione breve, è quella che si apre dalla ⓘ
+//   attivo        false = non più proponibile, ma ancora letto (vedi 'blumet')
+//
+// CONTENUTO CLINICO: le voci sono state riviste e approvate da Fabrizio il
+// 5 ago 2026; sei le ha corrette lui direttamente (magnesio+potassio, magnesio,
+// multivitaminico, probiotico, creatina, BCAA). Non si tocca un dosaggio o
+// un'incompatibilità qui dentro senza passare da lui: finisce nel PDF di un
+// paziente. Sempre modificabile a mano dal nutrizionista, ma il default conta —
+// un default sbagliato che nessuno corregge arriva al paziente lo stesso
+// (regola 14).
+const CATALOGO_INTEGRATORI = [
+  { chiave:'omega3', nome:'Omega-3 (EPA/DHA)', dose:'1 g', quanteVolte:1,
+    quando:'Nel pasto più grasso della giornata', regolaOrario:'pasto_piu_grasso',
+    sinergie:['vitd'], evitareCon:'',
+    razionale:"Azione antinfiammatoria, supporto cardiovascolare e trigliceridi. Essendo liposolubile si assorbe molto meglio se assunto insieme ai grassi del pasto.", attivo:true },
+
+  { chiave:'vitd', nome:'Vitamina D3', dose:'2000 UI mantenimento / 4000 UI dose maggiore', quanteVolte:1,
+    quando:'Nel pasto più grasso della giornata', regolaOrario:'pasto_piu_grasso',
+    sinergie:['omega3','k2'], evitareCon:'',
+    razionale:"Supporta immunità, tono muscolare e metabolismo del calcio. Liposolubile: va assunta con i grassi. La dose si sceglie fra mantenimento e dose maggiore nella scheda Clinica.", attivo:true },
+
+  { chiave:'k2', nome:'Vitamina K2 (MK-7)', dose:'100 mcg', quanteVolte:1,
+    quando:'Nel pasto più grasso della giornata', regolaOrario:'pasto_piu_grasso',
+    sinergie:['vitd'], evitareCon:'Anticoagulanti (warfarin) — interferenza nota, segnalare sempre al medico curante',
+    razionale:"Indirizza il calcio verso l'osso invece che verso le pareti arteriose; per questo si abbina alla vitamina D3. Liposolubile.", attivo:true },
+
+  { chiave:'coq10', nome:'Coenzima Q10', dose:'100 mg', quanteVolte:1,
+    quando:'Nel pasto più grasso della giornata', regolaOrario:'pasto_piu_grasso',
+    sinergie:[], evitareCon:'Anticoagulanti (warfarin) — può ridurne l\'efficacia, segnalare al medico curante',
+    razionale:"Energia mitocondriale, antiossidante, cardioprotettivo. Liposolubile: assorbimento nettamente migliore con i grassi del pasto.", attivo:true },
+
+  { chiave:'creat', nome:'Creatina (monoidrato)', dose:'5 g', quanteVolte:1,
+    quando:'Dopo il pasto più ricco di carboidrati della giornata', regolaOrario:'pasto_piu_carbo',
+    sinergie:[], evitareCon:'',
+    razionale:"Forza e potenza muscolare. Conta la costanza quotidiana più dell'orario preciso; l'insulina rilasciata dal pasto più ricco di carboidrati ne favorisce l'ingresso nel muscolo.", attivo:true },
+
+  { chiave:'ferro', nome:'Ferro (bisglicinato)', dose:'25 mg', quanteVolte:1,
+    quando:'Lontano dai pasti, oppure insieme alla vitamina C', regolaOrario:'fisso',
+    sinergie:['vitc'], evitareCon:'Latticini, tè e caffè: calcio e tannini riducono l\'assorbimento — distanziare di 1-2 ore',
+    razionale:"Anemia sideropenica, stanchezza, capacità aerobica. La forma bisglicinata è la meglio tollerata a livello gastrointestinale. La vitamina C ne aumenta l'assorbimento.", attivo:true },
+
+  { chiave:'magpot', nome:'Magnesio + Potassio', dose:'300 mg + 200 mg (indicativo, varia per formulazione)', quanteVolte:1,
+    quando:'La sera', regolaOrario:'fisso',
+    quandoAlt:[
+      { testo:'Dopo l\'allenamento', motivo:'reintegro dei minerali persi con lo sforzo' },
+      { testo:'Dopo una sudorazione importante', motivo:'reintegro dopo perdita idro-salina' },
+      { testo:'Nei momenti di stanchezza', motivo:'supporto quando compare affaticamento' }
+    ],
+    sinergie:[], evitareCon:'Funzione renale ridotta: SEMPRE da concordare col medico prima',
+    razionale:"Reintegro idro-salino ed equilibrio elettrolitico. Non è solo un prodotto serale: è utile anche dopo lo sforzo, dopo una sudorazione importante o nei momenti di stanchezza.", attivo:true },
+
+  { chiave:'mag', nome:'Solo Magnesio (glicinato)', dose:'300 mg', quanteVolte:1,
+    quando:'La sera prima di dormire', regolaOrario:'fisso',
+    quandoAlt:[
+      { testo:'La mattina', motivo:'effetto energizzante' },
+      { testo:'La sera prima di dormire', motivo:'miglioramento della qualità del sonno' }
+    ],
+    sinergie:['melat'], evitareCon:'',
+    razionale:"Ha due usi distinti a seconda dell'orario: al mattino per un effetto energizzante, alla sera per rilassamento muscolare e qualità del sonno. Si sceglie in base all'obiettivo del paziente.", attivo:true },
+
+  { chiave:'multi', nome:'Multivitaminico', dose:'1 compressa', quanteVolte:1,
+    quando:'A colazione, pranzo o cena — mai a stomaco vuoto', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Stomaco vuoto: può dare nausea, e le vitamine liposolubili non si assorbono senza cibo',
+    razionale:"Copertura di base di vitamine e minerali. Va sempre preso durante un pasto: a stomaco vuoto è mal tollerato e la quota liposolubile si assorbe poco.", attivo:true },
+
+  { chiave:'prob', nome:'Probiotico (multistrain)', dose:'10 miliardi UFC', quanteVolte:1,
+    quando:'Durante i pasti, a pranzo o a cena — mai a stomaco vuoto', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Bevande e cibi molto caldi nello stesso momento: il calore riduce la vitalità dei ceppi',
+    razionale:"Riequilibrio della flora intestinale, riduzione del gonfiore, supporto immunitario. Assunto durante il pasto i ceppi superano meglio la barriera gastrica.", attivo:true },
+
+  { chiave:'berber', nome:'Berberina', dose:'500 mg', quanteVolte:2,
+    quando:'30 minuti prima dei pasti principali', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Farmaci ipoglicemizzanti — rischio di ipoglicemia: segnalare sempre se il paziente è diabetico in terapia',
+    razionale:"Migliora la sensibilità insulinica e la glicemia dopo il pasto. Va presa prima del pasto perché agisce proprio sulla risposta glicemica di quel pasto.", attivo:true },
+
+  { chiave:'vitc', nome:'Vitamina C', dose:'500 mg', quanteVolte:2,
+    quando:'Ai pasti', regolaOrario:'fisso',
+    sinergie:['ferro'], evitareCon:'',
+    razionale:"Antiossidante e supporto immunitario. Aumenta in modo marcato l'assorbimento del ferro non-eme: per questo si abbina al ferro.", attivo:true },
+
+  { chiave:'zinco', nome:'Zinco', dose:'15 mg', quanteVolte:1,
+    quando:'Con il pasto serale', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Rame e ferro ad alte dosi nello stesso momento: competono per lo stesso trasportatore',
+    razionale:"Funzione immunitaria, riparazione dei tessuti, metabolismo proteico. Va distanziato da ferro e rame ad alte dosi perché competono per l'assorbimento.", attivo:true },
+
+  { chiave:'b12', nome:'Vitamina B12 (metilcobalamina)', dose:'1000 mcg', quanteVolte:1,
+    quando:'Al mattino a stomaco vuoto', regolaOrario:'fisso',
+    sinergie:['acfol'], evitareCon:'',
+    razionale:"Essenziale per vegetariani e vegani. Energia, sistema nervoso, controllo dell'omocisteina insieme all'acido folico.", attivo:true },
+
+  { chiave:'acfol', nome:'Acido folico', dose:'400 mcg', quanteVolte:1,
+    quando:'In qualsiasi momento della giornata', regolaOrario:'fisso',
+    sinergie:['b12'], evitareCon:'',
+    razionale:"Sintesi del DNA e formazione dei globuli rossi. Lavora in coppia con la B12 sul metabolismo dell'omocisteina.", attivo:true },
+
+  { chiave:'prot', nome:'Proteine in polvere', dose:'25-30 g', quanteVolte:1,
+    quando:'Dopo l\'allenamento oppure come spuntino', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'',
+    razionale:"Serve a raggiungere la quota proteica giornaliera quando il cibo da solo non basta. Non è un prodotto \"anabolico\": è un alimento concentrato.", attivo:true },
+
+  { chiave:'bcaa', nome:'BCAA (ramificati)', dose:'1 g ogni 10 kg di peso corporeo', dosePerPeso:{ gPer10kg:1 }, quanteVolte:2,
+    quando:'Metà prima dell\'allenamento, metà dopo', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'',
+    razionale:"Aminoacidi ramificati a supporto dell'allenamento. La dose non è fissa: si calcola sul peso del paziente, 1 g ogni 10 kg, e si divide a metà fra prima e dopo la seduta.", attivo:true },
+
+  { chiave:'eaa', nome:'EAA (essenziali)', dose:'10 g', quanteVolte:1,
+    quando:'Prima o durante l\'allenamento', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'',
+    razionale:"Aminoacidi essenziali completi: rispetto ai soli ramificati coprono tutto lo spettro necessario alla sintesi proteica.", attivo:true },
+
+  { chiave:'leuc', nome:'Leucina', dose:'2-3 g', quanteVolte:1,
+    quando:'Ai pasti principali', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'',
+    razionale:"È l'aminoacido che innesca la sintesi proteica muscolare. Utile quando il pasto è povero di proteine ad alto valore biologico.", attivo:true },
+
+  { chiave:'betaala', nome:'Beta-alanina', dose:'3-5 g al giorno, anche frazionata', quanteVolte:2,
+    quando:'In qualsiasi momento, purché con costanza', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'',
+    razionale:"Tampona l'acidità muscolare negli sforzi intensi e prolungati. Alle dosi più alte può dare formicolio cutaneo transitorio e innocuo: va spiegato prima al paziente, altrimenti spaventa.", attivo:true },
+
+  { chiave:'collag', nome:'Collagene idrolizzato', dose:'10 g', quanteVolte:1,
+    quando:'Al mattino a stomaco vuoto', regolaOrario:'fisso',
+    sinergie:['vitc'], evitareCon:'',
+    razionale:"Articolazioni, pelle, tendini, recupero. La vitamina C è cofattore della sintesi del collagene: assunti insieme lavorano meglio.", attivo:true },
+
+  { chiave:'melat', nome:'Melatonina', dose:'0,5-1 mg', quanteVolte:1,
+    quando:'30 minuti prima di dormire', regolaOrario:'fisso',
+    sinergie:['mag'], evitareCon:'',
+    razionale:"Regola il ritmo sonno-veglia. Le dosi basse sono spesso più efficaci di quelle alte: se non funziona subito non va aumentata a caso.", attivo:true },
+
+  { chiave:'pappar', nome:'Pappa reale', dose:'500 mg - 1 g', quanteVolte:1,
+    quando:'Al mattino a digiuno, a cicli', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Asma e allergia ai prodotti dell\'alveare — rischio di reazione allergica anche seria',
+    razionale:"Tonico generale nei periodi di stanchezza. Si usa a cicli, non in continuo. Da escludere in caso di allergia ai prodotti dell'alveare.", attivo:true },
+
+  { chiave:'fosfco', nome:'Fosfatidilcolina', dose:'1-2 g', quanteVolte:1,
+    quando:'Ai pasti', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'',
+    razionale:"Componente delle membrane cellulari, supporto epatico e al metabolismo dei grassi.", attivo:true },
+
+  { chiave:'lecsoia', nome:'Lecitina di soia', dose:'5-10 g', quanteVolte:1,
+    quando:'Ai pasti', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Allergia dichiarata alla soia (verificabile dal campo allergie del paziente)',
+    razionale:"Emulsionante dei grassi, supporto al metabolismo lipidico e alla funzione epatica.", attivo:true },
+
+  // ── NON PIÙ PROPONIBILE, MA ANCORA LETTO ────────────────────────────────
+  // Fabrizio ha deciso il 5 ago 2026 di togliere il Blu di metilene dal catalogo
+  // rapido: unica voce con un'interazione seria nota (SSRI/serotoninergici) e uso
+  // specialistico, la casella spuntabile è l'interfaccia sbagliata per qualcosa
+  // che va ragionato caso per caso. NON si può però cancellare la riga: i
+  // pazienti che ce l'hanno già selezionato perderebbero il dato al primo
+  // salvataggio, in silenzio — è la famiglia F6/F7 (campo tolto, lettura
+  // rimasta, dato azzerato senza un errore a video). Resta quindi qui con
+  // attivo:false — letto e conservato, mai proposto fra le scelte nuove.
+  { chiave:'blumet', nome:'Blu di metilene', dose:'', quanteVolte:1,
+    quando:'Da concordare caso per caso', regolaOrario:'fisso',
+    sinergie:[], evitareCon:'Farmaci serotoninergici/SSRI — interazione seria nota. Uso specialistico: dose e contesto vanno decisi caso per caso',
+    razionale:"Voce non più proponibile fra le scelte nuove: uso specialistico e interazione seria con gli SSRI. Resta visibile solo sui pazienti che ce l'hanno già in scheda.", attivo:false },
+];
+
+// Solo le voci proponibili (esclude il Blu di metilene e ogni futura voce ritirata).
+function catalogoIntegratoriAttivi() {
+  return CATALOGO_INTEGRATORI.filter(function (v) { return v.attivo !== false; });
+}
+
+function integratorePerChiave(chiave) {
+  return CATALOGO_INTEGRATORI.find(function (v) { return v.chiave === chiave; }) || null;
+}
+
+// ── ALIAS: le etichette STORICHE con cui i dati sono già stati salvati ──────
+// REGOLA 21: rinominare una voce di catalogo è una migrazione di dati, non un
+// ritocco di testo. Le etichette qui sotto sono quelle realmente scritte nei
+// pazienti in archivio, da DUE elenchi diversi (la scheda Clinica e la libreria
+// della Routine) che usavano nomi differenti per la stessa cosa — inclusi un
+// refuso reale, "Ferro (bisgliccinato)" con due c, e "Probiotici" al plurale.
+// Senza questa mappa il primo salvataggio di un paziente storico troverebbe la
+// casella non spuntata e cancellerebbe il dato SENZA un errore a video.
+// Ogni etichetta di questa tabella è coperta da un test: se una salta, deve
+// diventare rosso subito, perché il sintomo in produzione è invisibile.
+const INTEGR_ALIAS = {
+  // etichette della scheda Clinica (INTEGR_LABELS storico)
+  'omega-3':'omega3', 'magnesio + potassio':'magpot', 'solo magnesio':'mag',
+  'multivitaminico':'multi', 'probiotici':'prob', 'creatina':'creat',
+  'ferro':'ferro', 'vitamina d':'vitd', 'vitamina k2':'k2',
+  'proteine in polvere':'prot', 'bcaa (ramificati)':'bcaa', 'eaa (essenziali)':'eaa',
+  'leucina':'leuc', 'pappa reale':'pappar', 'beta-alanina':'betaala',
+  'acido folico':'acfol', 'blu di metilene':'blumet',
+  'fosfatidilcolina':'fosfco', 'lecitina di soia':'lecsoia',
+  // etichette della libreria Routine (LIBRERIA_ROUTINE storica)
+  'berberina':'berber', 'vitamina d3':'vitd', 'omega-3 (epa/dha)':'omega3',
+  'magnesio glicinato':'mag', 'probiotico (multistrain)':'prob',
+  'vitamina c':'vitc', 'zinco':'zinco', 'coenzima q10':'coq10',
+  'vitamina b12 (metilcobalamina)':'b12',
+  'ferro (bisgliccinato)':'ferro',   // refuso storico: due c, presente nei dati reali
+  'ferro (bisglicinato)':'ferro',
+  'collagene idrolizzato':'collag', 'melatonina':'melat',
+  // nomi nuovi del catalogo unico, così restano risolvibili anche dopo il rinomino
+  'vitamina k2 (mk-7)':'k2', 'creatina (monoidrato)':'creat',
+  'solo magnesio (glicinato)':'mag', 'coenzima q10 (ubichinone)':'coq10',
+};
+
+function _normEtichettaIntegr(s) {
+  return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+// Da un'etichetta (vecchia o nuova) alla chiave stabile. null se sconosciuta —
+// e "sconosciuta" NON significa "da buttare": chi chiama deve conservarla come
+// testo libero, mai scartarla in silenzio (regola 11: un dato mancante è meglio
+// di un dato inventato, ma un dato CANCELLATO è peggio di entrambi).
+function chiaveIntegratore(etichetta) {
+  const norm = _normEtichettaIntegr(etichetta);
+  if (!norm) return null;
+  if (INTEGR_ALIAS[norm]) return INTEGR_ALIAS[norm];
+  // "Vitamina D (2000 UI)" → riprova senza la parentesi finale col dosaggio
+  const senzaParentesi = norm.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (senzaParentesi && senzaParentesi !== norm && INTEGR_ALIAS[senzaParentesi]) {
+    return INTEGR_ALIAS[senzaParentesi];
+  }
+  // ultimo tentativo: corrispondenza esatta col nome attuale di una voce
+  const perNome = CATALOGO_INTEGRATORI.find(function (v) {
+    return _normEtichettaIntegr(v.nome) === norm || _normEtichettaIntegr(v.nome) === senzaParentesi;
+  });
+  return perNome ? perNome.chiave : null;
+}
+
+// Migra una lista di etichette salvate in {chiavi, liberi}: `liberi` contiene le
+// voci che nessuna regola sa tradurre e che vanno conservate come testo libero.
+function migraEtichetteIntegratori(lista) {
+  const chiavi = [], liberi = [];
+  (Array.isArray(lista) ? lista : []).forEach(function (etichetta) {
+    const k = chiaveIntegratore(etichetta);
+    if (k) { if (chiavi.indexOf(k) === -1) chiavi.push(k); }
+    else if (etichetta) { liberi.push(etichetta); }
+  });
+  return { chiavi: chiavi, liberi: liberi };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROUTINE — la libreria. Il blocco "integratore" è DERIVATO dal catalogo unico
+// (P148 tappa 2): prima erano 12 voci scritte a mano qui, disallineate dalle 19
+// della scheda Clinica. Spezie e superfood restano elenchi propri: non sono
+// integratori e non hanno né dose per peso né regole di orario sui macros.
 const LIBRERIA_ROUTINE = [
-  // ── INTEGRATORI ──────────────────────────────────────────────────────────
-  { nome:'Berberina', dose:'500 mg', quante_volte:2, quando:'30 min prima dei pasti principali', razionale:'Migliora sensibilità insulinica e glicemia post-prandiale', tipo:'integratore' },
-  { nome:'Vitamina D3', dose:'2000 UI', quante_volte:1, quando:'Con il pasto principale (meglio con grassi)', razionale:'Supporta immunità, tono muscolare, metabolismo del calcio', tipo:'integratore' },
-  { nome:'Omega-3 (EPA/DHA)', dose:'1 g', quante_volte:2, quando:'Durante i pasti', razionale:'Azione antinfiammatoria, supporto cardiovascolare e trigliceridi', tipo:'integratore' },
-  { nome:'Magnesio glicinato', dose:'300 mg', quante_volte:1, quando:'La sera prima di dormire', razionale:'Rilassamento muscolare, qualità del sonno, riduzione crampi', tipo:'integratore' },
-  { nome:'Probiotico (multistrain)', dose:'10 miliardi UFC', quante_volte:1, quando:'A stomaco vuoto al mattino', razionale:'Ripristino flora intestinale, riduzione gonfiore, immunità', tipo:'integratore' },
-  { nome:'Vitamina C', dose:'500 mg', quante_volte:2, quando:'Con i pasti', razionale:'Antiossidante, potenzia assorbimento del ferro, supporto immunitario', tipo:'integratore' },
-  { nome:'Zinco', dose:'15 mg', quante_volte:1, quando:'Con il pasto serale', razionale:'Funzione immunitaria, guarigione tessuti, metabolismo proteico', tipo:'integratore' },
-  { nome:'Coenzima Q10', dose:'100 mg', quante_volte:1, quando:'Con il pasto principale (con grassi)', razionale:'Energia mitocondriale, antiossidante, cardioprotettivo', tipo:'integratore' },
-  { nome:'Vitamina B12 (metilcobalamina)', dose:'1000 mcg', quante_volte:1, quando:'Al mattino a stomaco vuoto', razionale:'Essenziale per vegetariani/vegani, energia neuronale, omocisteina', tipo:'integratore' },
-  { nome:'Ferro (bisgliccinato)', dose:'25 mg', quante_volte:1, quando:'A stomaco vuoto con vitamina C', razionale:'Anemia sideropenica, fatica, capacità aerobica', tipo:'integratore' },
-  { nome:'Collagene idrolizzato', dose:'10 g', quante_volte:1, quando:'Al mattino a stomaco vuoto', razionale:'Articolazioni, pelle, tendini, recupero post-allenamento', tipo:'integratore' },
-  { nome:'Melatonina', dose:'0.5-1 mg', quante_volte:1, quando:'30 min prima di dormire', razionale:'Disturbi del sonno, regolazione ritmo circadiano', tipo:'integratore' },
+  // ── INTEGRATORI (derivati da CATALOGO_INTEGRATORI) ───────────────────────
+  ...catalogoIntegratoriAttivi().map(function (v) {
+    return {
+      nome: v.nome, dose: v.dose, quante_volte: v.quanteVolte,
+      quando: v.quando, razionale: v.razionale, tipo: 'integratore',
+      chiave: v.chiave, regolaOrario: v.regolaOrario,
+      sinergie: v.sinergie, evitareCon: v.evitareCon,
+      quandoAlt: v.quandoAlt || null, dosePerPeso: v.dosePerPeso || null
+    };
+  }),
   // ── SPEZIE TERAPEUTICHE ───────────────────────────────────────────────────
   { nome:'Curcuma + pepe nero', dose:'1 cucchiaino', quante_volte:1, quando:'Con il pasto principale', razionale:'Potente antinfiammatorio (curcumina), il pepe ne aumenta biodisponibilità del 2000%', tipo:'spezia' },
   { nome:'Cannella Ceylon', dose:'½ cucchiaino', quante_volte:1, quando:'Con colazione o nel caffè', razionale:'Regola glicemia post-prandiale, insulinosensibilità', tipo:'spezia' },
@@ -28774,16 +29039,14 @@ async function loadInbodyPDF(e) {
 // ═══════════════════════════════════════
 // INTEGRATORI — save/load
 // ═══════════════════════════════════════
-const INTEGR_KEYS = ['omega3','magpot','mag','multi','prob','creat','ferro','vitd','k2','prot','bcaa','eaa','leuc','pappar','betaala','acfol','blumet','fosfco','lecsoia'];
-const INTEGR_LABELS = {
-  'omega3':'Omega-3','magpot':'Magnesio + Potassio','mag':'Solo Magnesio',
-  'multi':'Multivitaminico','prob':'Probiotici','creat':'Creatina',
-  'ferro':'Ferro','vitd':'Vitamina D','k2':'Vitamina K2','prot':'Proteine in polvere',
-  'bcaa':'BCAA (ramificati)','eaa':'EAA (essenziali)',
-  'leuc':'Leucina','pappar':'Pappa reale','betaala':'Beta-alanina',
-  'acfol':'Acido folico','blumet':'Blu di metilene','fosfco':'Fosfatidilcolina','lecsoia':'Lecitina di soia'
-};
-// Etichetta Vitamina D con dosaggio incluso, se selezionato (es. "Vitamina D (2000 UI)")
+// P148 tappa 2 — DERIVATI dal catalogo unico, non più elenchi paralleli.
+// 'blumet' è incluso in INTEGR_KEYS pur non essendo più proponibile: la sua
+// casella esiste ancora nel markup e i pazienti che ce l'hanno devono
+// continuare a vederla e a conservarla. Sparirà dal markup nella tappa 3,
+// dopo aver spostato il valore fra le note libere.
+const INTEGR_KEYS = CATALOGO_INTEGRATORI.map(v => v.chiave);
+const INTEGR_LABELS = CATALOGO_INTEGRATORI.reduce((acc, v) => { acc[v.chiave] = v.nome; return acc; }, {});
+// Etichetta Vitamina D con dosaggio incluso, se selezionato (es. "Vitamina D3 (2000 UI)")
 function _vitdLabel() {
   const dose = document.getElementById('int-vitd-dose')?.value || '';
   return dose ? `${INTEGR_LABELS.vitd} (${dose} UI)` : INTEGR_LABELS.vitd;
@@ -28796,27 +29059,45 @@ function getIntegraWant() {
   return INTEGR_KEYS.filter(k=>document.getElementById('inw-'+k)?.checked)
     .map(k=> k==='vitd' ? _vitdLabel() : INTEGR_LABELS[k]);
 }
+// P148 tappa 2 — le spunte si ripristinano risolvendo la CHIAVE, non
+// confrontando l'etichetta carattere per carattere.
+// PERCHÉ (regola 21, il guasto che questo evita): i nomi del catalogo sono
+// cambiati — "Probiotici" è diventato "Probiotico (multistrain)", "Ferro" è
+// diventato "Ferro (bisglicinato)". Col vecchio confronto esatto, aprendo un
+// paziente salvato prima del rinomino la casella sarebbe risultata NON
+// spuntata; al primo salvataggio successivo getIntegratori() avrebbe riscritto
+// p.integratori senza quella voce e il dato sarebbe sparito, senza un solo
+// errore a video. Le etichette storiche vivono in INTEGR_ALIAS.
+function _chiaviSpuntate(lista) {
+  const set = new Set();
+  (Array.isArray(lista) ? lista : []).forEach(v => {
+    const k = chiaveIntegratore(v);
+    if (k) set.add(k);
+  });
+  return set;
+}
 function setIntegratori(lista) {
+  const spuntate = _chiaviSpuntate(lista);
   INTEGR_KEYS.forEach(k=>{
     const el=document.getElementById('int-'+k);
     if(!el) return;
+    el.checked = spuntate.has(k);
     if(k==='vitd'){
-      const match = lista?.find(v=>v && v.startsWith(INTEGR_LABELS.vitd))||null;
-      el.checked = !!match;
+      // la dose viaggia dentro l'etichetta, es. "Vitamina D (2000 UI)"
+      const match = (Array.isArray(lista)?lista:[]).find(v=>chiaveIntegratore(v)==='vitd') || null;
       const doseSel = document.getElementById('int-vitd-dose');
       if(doseSel){
-        const m = match && match.match(/\((\d+)\s*UI\)/);
+        const m = match && String(match).match(/\((\d+)\s*UI\)/);
         doseSel.value = m ? m[1] : '';
       }
-      return;
     }
-    el.checked=lista?.includes(INTEGR_LABELS[k])||false;
   });
 }
 function setIntegraWant(lista) {
+  const spuntate = _chiaviSpuntate(lista);
   INTEGR_KEYS.forEach(k=>{
     const el=document.getElementById('inw-'+k);
-    if(el)el.checked=lista?.includes(INTEGR_LABELS[k])||false;
+    if(el) el.checked = spuntate.has(k);
   });
 }
 // ── Crisi di fame — fasce orarie (semi-strutturato) ─────────────────────────

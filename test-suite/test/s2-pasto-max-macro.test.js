@@ -28,18 +28,12 @@
 'use strict';
 const assert = require('assert');
 const { test } = require('node:test');
-const { loadApp } = require('./_loadApp');
+const { loadApp, puro } = require('./_loadApp');
 
 const win = loadApp();
 
-// NOTA TECNICA (realm JSDOM). Gli oggetti e gli array creati DENTRO la finestra
-// JSDOM hanno un Object.prototype/Array.prototype diversi da quelli di Node:
-// `assert.deepStrictEqual` confronta anche il prototipo e fallisce con "same
-// structure but not reference-equal" pur essendo i valori identici. Si
-// confrontano quindi copie normalizzate con JSON. Stessa famiglia del quirk
-// già incontrato il 5 ago 2026 sui `const`/`let` top-level, che in JSDOM non
-// diventano proprietà di `window` (a differenza delle `function`).
-const pulito = (x) => JSON.parse(JSON.stringify(x));
+// Realm JSDOM: i valori che arrivano da dentro la finestra vanno normalizzati
+// prima di deepStrictEqual — motivo e storia in _loadApp.js, funzione `puro`.
 
 // Il piano dell'esempio di Fabrizio: lunedì pranzo con la mozzarella è più
 // grasso di lunedì cena col pollo; martedì è la cena col salmone a vincere.
@@ -109,7 +103,7 @@ test('SILENZIO — piano assente o non array: nessun consiglio, nessuna eccezion
   assert.strictEqual(win.pastoMaxPerMacro(null, 0, 'g'), null);
   assert.strictEqual(win.pastoMaxPerMacro(undefined, 0, 'g'), null);
   assert.strictEqual(win.pastoMaxPerMacro('non un piano', 0, 'g'), null);
-  assert.deepStrictEqual(pulito(win.pastoMaxPerMacroTuttiIGiorni(null, 'g')), []);
+  assert.deepStrictEqual(puro(win.pastoMaxPerMacroTuttiIGiorni(null, 'g')), []);
 });
 
 test('SILENZIO — giorno fuori dal piano: null, non il primo giorno per ripiego', () => {
@@ -168,9 +162,9 @@ test('_macrosCella — più alternative: la ponderata riduce il contributo di ci
 });
 
 test('_macrosCella — cella vuota o malformata: zeri, nessuna eccezione', () => {
-  assert.deepStrictEqual(pulito(win._macrosCella(null)), { kcal: 0, p: 0, c: 0, g: 0 });
-  assert.deepStrictEqual(pulito(win._macrosCella({})), { kcal: 0, p: 0, c: 0, g: 0 });
-  assert.deepStrictEqual(pulito(win._macrosCella({ alimenti: [] })), { kcal: 0, p: 0, c: 0, g: 0 });
+  assert.deepStrictEqual(puro(win._macrosCella(null)), { kcal: 0, p: 0, c: 0, g: 0 });
+  assert.deepStrictEqual(puro(win._macrosCella({})), { kcal: 0, p: 0, c: 0, g: 0 });
+  assert.deepStrictEqual(puro(win._macrosCella({ alimenti: [] })), { kcal: 0, p: 0, c: 0, g: 0 });
 });
 
 test('_macrosCella — registra gli alimenti non riconosciuti nel Set passato', () => {
@@ -209,9 +203,9 @@ test('REGRESSIONE — calcolaMacrosPiano dà gli stessi numeri di prima dell\'es
   const r = win.calcolaMacrosPiano(piano);
 
   // Valori misurati il 5 ago 2026 PRIMA di estrarre _macrosCella.
-  assert.deepStrictEqual(pulito(r.settimanale), { kcal: 1767, p: 112.5, c: 235.8, g: 48.2 });
-  assert.deepStrictEqual(pulito(r.medio),       { kcal: 884,  p: 56.3,  c: 117.9, g: 24.1 });
-  assert.deepStrictEqual(pulito(r.psMedio),     { kcal: 925,  p: 58.4,  c: 121.1, g: 26.4 });
+  assert.deepStrictEqual(puro(r.settimanale), { kcal: 1767, p: 112.5, c: 235.8, g: 48.2 });
+  assert.deepStrictEqual(puro(r.medio),       { kcal: 884,  p: 56.3,  c: 117.9, g: 24.1 });
+  assert.deepStrictEqual(puro(r.psMedio),     { kcal: 925,  p: 58.4,  c: 121.1, g: 26.4 });
   assert.strictEqual(r.giornalieri[0].kcal, 1059);
   assert.strictEqual(r.giornalieri[0].g, 29.5);
   assert.strictEqual(r.giornalieri[1].kcal, 708);

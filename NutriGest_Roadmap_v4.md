@@ -836,8 +836,21 @@ verificare che il suggerimento specifico NON compaia** quando non c'è un piano 
 > silenzio) e la suite a 551 verdi. La ponderata 35/25/15/10/8/7 è stata estratta da
 > `calcolaMacrosPiano` in `_macrosCella` invece di essere duplicata (regola 15), con i
 > valori di prima dell'estrazione pinnati in un test di regressione — `calcolaMacrosPiano`
-> non ne aveva nessuno. Restano le tappe 2 (catalogo + migrazione), 3 (Clinica: colori e
-> tooltip) e 4 (Routine: pasto automatico e collegamento).
+> non ne aveva nessuno.
+>
+> ✅ **TAPPA 2 FATTA (5 ago 2026).** `CATALOGO_INTEGRATORI` (25 voci attive + Blu di
+> metilene ritirato ma conservato) è l'unica fonte: `INTEGR_KEYS`, `INTEGR_LABELS` e il
+> blocco integratori di `LIBRERIA_ROUTINE` sono derivati da lì, e la libreria della Routine
+> passa da 12 a 25 voci. **Guasto da regola 21 intercettato prima di scriverlo:** gli
+> integratori sono salvati per etichetta, il rinomino del catalogo avrebbe fatto risultare
+> non spuntate le caselle dei pazienti storici e il primo salvataggio avrebbe cancellato il
+> dato in silenzio. Rimedio: mappa `INTEGR_ALIAS` con tutte le etichette storiche dei due
+> elenchi (refuso "bisgliccinato" compreso) e `chiaveIntegratore()` usata da
+> `setIntegratori`/`setIntegraWant`. 30 test nuovi, suite a 581 verdi.
+>
+> Restano le tappe 3 (Clinica: colori, caselle dal catalogo, tooltip ⓘ, uscita del Blu di
+> metilene dal markup) e 4 (Routine: pasto automatico giorno per giorno, dose BCAA sul
+> peso, collegamento dalla Clinica).
 
 **5. Il collegamento Clinica→Routine resta un suggerimento, non un automatismo** (invariato
 dalla bozza precedente): "prende già"/"vorrebbe" è un fatto di anamnesi, la voce in
@@ -881,8 +894,9 @@ tabella Supabase, restano nel blob paziente).
 **SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026** — meccanismo chiuso (assegnazione
 giorno per giorno, due regole 🔥grassi e 🍞carboidrati, nessuna soglia; dose per peso e
 `quando` con alternative aggiunti allo schema). Catalogo **approvato da Fabrizio** il 5 ago
-2026 → codice sbloccato. **Tappa 1 di 4 ✅ CHIUSA** (motore `pastoMaxPerMacro`, 17 test,
-suite 551 verdi). **Prossima: tappa 2, catalogo unico + migrazione dati** · Priorità: Media
+2026 → codice sbloccato. **Tappe 1 e 2 di 4 ✅ CHIUSE** (motore `pastoMaxPerMacro` +
+catalogo unico `CATALOGO_INTEGRATORI` con mappa alias; 47 test nuovi, suite 581 verdi).
+**Prossima: tappa 3, scheda Clinica — colori, caselle dal catalogo, tooltip ⓘ** · Priorità: Media
 · C: 4 | I: 4 | R: 2 · Modello: Opus (contenuto clinico + un motore di calcolo nuovo) ·
 Autonomia: L0 sul catalogo (contenuto clinico), L1 sul resto.
 

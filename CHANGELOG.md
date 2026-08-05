@@ -10,6 +10,68 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 7) — P148 TAPPA 2: IL CATALOGO UNICO, E UN GUASTO
+SILENZIOSO DISINNESCATO PRIMA CHE NASCESSE. Baseline 108a8bb.
+
+COSA CAMBIA. `CATALOGO_INTEGRATORI` è ora l'unico posto in cui un integratore
+è definito: 25 voci attive con nome, dose, quando, regolaOrario, sinergie,
+incompatibilità e razionale. `INTEGR_KEYS`, `INTEGR_LABELS` e il blocco
+"integratore" di `LIBRERIA_ROUTINE` sono DERIVATI da lì, non più tre elenchi
+paralleli da tenere allineati a mano (F4/regola 12: si elimina la seconda
+fonte, non si aggiunge un avviso). Effetto immediato: la libreria della scheda
+Routine passa da 12 a 25 integratori, e sono gli stessi della scheda Clinica.
+
+IL GUASTO CHE STAVA PER NASCERE — REGOLA 21 IN DIRETTA. Gli integratori sono
+salvati sui pazienti per ETICHETTA, non per chiave: p.integratori contiene
+["Probiotici", "Ferro"]. Il catalogo unico rinomina diverse voci ("Probiotico
+(multistrain)", "Ferro (bisglicinato)"), e `setIntegratori` confrontava
+l'etichetta salvata con quella del catalogo carattere per carattere. Aprendo un
+paziente salvato prima del rinomino la casella sarebbe risultata NON spuntata,
+e al primo salvataggio successivo `getIntegratori()` avrebbe riscritto
+p.integratori senza quella voce: dato perso, nessun errore a video. È
+esattamente il guasto di P147 sulle attività, e la regola 21 lo prevedeva —
+questa volta è stato intercettato PRIMA di scrivere la modifica, non dopo.
+Rimedio: mappa `INTEGR_ALIAS` di tutte le etichette storiche (dai DUE elenchi,
+che usavano nomi diversi per la stessa cosa) + `chiaveIntegratore()` che
+risolve per chiave, e `setIntegratori`/`setIntegraWant` ora passano da lì.
+Nella mappa è finito anche un refuso reale trovato nei dati: la libreria
+scriveva "Ferro (bisgliccinato)" con due c.
+
+BLU DI METILENE: RITIRATO, NON CANCELLATO. Fabrizio lo ha tolto dal catalogo,
+ma cancellarne la riga avrebbe fatto sparire il dato dai pazienti che ce
+l'hanno già in scheda — famiglia F6/F7 (campo tolto, lettura rimasta, dato
+azzerato in silenzio). Resta quindi nel catalogo con `attivo:false`: non è
+proponibile fra le scelte nuove né compare nella libreria Routine, ma la sua
+etichetta continua a risolvere e il dato si conserva. La sua casella sparirà
+dal markup nella tappa 3, dopo aver spostato il valore fra le note libere.
+
+LE ETICHETTE SCONOSCIUTE SI CONSERVANO. `migraEtichetteIntegratori` restituisce
+{chiavi, liberi}: quello che nessuna regola sa tradurre finisce in `liberi` e
+va tenuto come testo libero. Una voce che non sappiamo interpretare non si
+scarta in silenzio — un dato cancellato è peggio sia di uno mancante sia di uno
+inventato (regola 11 portata alle sue conseguenze).
+
+I TEST (30 nuovi, suite a 581 verdi). Il più importante elenca TUTTE e 31 le
+etichette storiche dei due elenchi, copiate dal commit 108a8bb refusi
+compresi, e verifica che ognuna risolva: se una sola salta deve diventare rosso
+subito, perché in produzione il sintomo è invisibile. Ci sono poi i controlli
+di integrità del catalogo (chiavi uniche, campi obbligatori, regolaOrario
+valida, ogni sinergia punta a una chiave esistente, le incompatibilità decise
+con Fabrizio ancora presenti) e il giro completo lettura→scrittura su etichette
+vecchie, che è la riproduzione esatta del guasto evitato.
+
+TERZA VOLTA DELLA STESSA TRAPPOLA JSDOM, quindi spostata nell'harness. Il
+confronto `deepStrictEqual` su valori nati dentro la finestra JSDOM fallisce
+per via del prototipo diverso, con un messaggio che sembra un bug applicativo.
+Stava per nascere una copia dell'helper di normalizzazione in ogni file di
+test: è stato messo in `_loadApp.js` come `puro()`, documentato, e i due file
+lo importano da lì. Regola 15 applicata all'attrezzatura di collaudo.
+
+PROSSIME TAPPE: 3) scheda Clinica — colori (`var(--blue)` al posto di
+`#BA7517`), caselle generate dal catalogo, tooltip ⓘ, e uscita di scena del
+Blu di metilene dal markup; 4) scheda Routine — pasto automatico giorno per
+giorno, dose BCAA calcolata sul peso, collegamento dalla Clinica.
+
 5 AGOSTO 2026 (seguito 6) — P148 TAPPA 1: IL MOTORE CHE SCEGLIE IL PASTO.
 Baseline 2f0555e. Prima tappa di codice di P148, sbloccata da Fabrizio con
 "le altre voci vanno bene" sul catalogo. Zero interfaccia, zero dati salvati:

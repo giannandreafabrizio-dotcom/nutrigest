@@ -39,4 +39,28 @@ function loadApp() {
   return dom.window;
 }
 
-module.exports = { loadApp };
+/**
+ * Normalizza un valore che arriva DA DENTRO la finestra JSDOM, per poterlo
+ * confrontare con `assert.deepStrictEqual`.
+ *
+ * PERCHÉ SERVE (scoperto tre volte nella stessa sessione, 5 ago 2026). Oggetti
+ * e array creati dentro JSDOM hanno un `Object.prototype`/`Array.prototype`
+ * diversi da quelli di Node. `deepStrictEqual` confronta anche il prototipo e
+ * fallisce con "Values have same structure but are not reference-equal" pur
+ * essendo i valori identici — un messaggio che sembra un bug del codice
+ * applicativo e invece è un limite dell'harness. Il tranello è che alcune
+ * righe passano lo stesso (`Array.from(...)` ricrea l'array nel realm di Node)
+ * e altre no, quindi il difetto sembra intermittente.
+ *
+ * REGOLA 15, "ripara il rubinetto": stava per nascere una copia di questo
+ * helper in ogni file di test che ne aveva bisogno. Vive qui, in un posto solo.
+ *
+ * Parente del quirk già noto sui `const`/`let` top-level dello script, che in
+ * JSDOM NON diventano proprietà di `window` (le `function` sì): quelli si
+ * leggono con `win.eval('NOME')`.
+ */
+function puro(x) {
+  return x === undefined ? undefined : JSON.parse(JSON.stringify(x));
+}
+
+module.exports = { loadApp, puro };
