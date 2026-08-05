@@ -673,6 +673,146 @@ Safari iPhone.
 **SCHEDA:** Stato: Da valutare · Priorità: Bassa, nessuna urgenza · C: 1 | I: 1 | R: 1 ·
 Modello: Sonnet (Bassa) · Autonomia: L1 (rimozione, se confermata, è un taglio secco senza migrazione dati).
 
+### P148 — Catalogo unico integratori, colori non-semaforo, timing intelligente sul pasto più grasso
+
+**DA DOVE NASCE.** Fabrizio spunta "Omega-3" nella scheda Clinica di un paziente (checkbox
+"prende già"), poi va sulla scheda Routine per dirgli quando assumerlo nel piano — e la
+trova vuota. Le due sezioni non si parlano. Sua domanda: *"non sarebbe più logico che si
+collegasse non solo a FX ma anche in Routine, che è la sezione dove poi io vado
+concretamente a indirizzare il paziente su quando assumere quell'integratore?"*
+
+**LO STATO ATTUALE, VERIFICATO NEL CODICE.** Sono due sistemi indipendenti:
+- **Clinica** (`INTEGR_KEYS`/`INTEGR_LABELS`, 19 voci) → `p.integratori` (prende già) e
+  `p.integraWant` (vorrebbe prendere). Letti SOLO nel contesto che va a FX. Mai nella Routine.
+- **Routine** (`LIBRERIA_ROUTINE`, sottoinsieme "integratore", 12 voci con dose+quando+
+  razionale) → `p.routineGiornaliera`, alimentata SOLO da un click manuale.
+
+Solo 5 delle 19 voci Clinica hanno un corrispondente in Routine, e nemmeno con lo stesso
+nome. Decisione di Fabrizio (5 ago 2026): **unificare le due liste in una sola.**
+
+---
+
+**1. IL COLORE DELLE DUE CASELLE — CAMBIATO.** Fabrizio ha notato che "prende già"/
+"vorrebbe prendere" usano verde e arancione, gli stessi registri del semaforo alimenti —
+rischio di leggerli come un giudizio clinico invece che come un fatto di anamnesi.
+Verificato nel codice: tecnicamente sono già colori diversi da quelli del semaforo
+(`var(--teal)` per "prende già", `#BA7517` per "vorrebbe") — ma **visivamente** il teal
+legge come un verde e il `#BA7517` come un arancione/oro, quindi il problema percettivo
+che Fabrizio segnala è reale anche se i codici colore non coincidono alla lettera.
+**Scelta: due colori diversi, non nessun colore** — con 19 righe × 2 checkbox su schermo,
+un'unica tinta uniforme renderebbe difficile distinguere a colpo d'occhio quale casella è
+spuntata senza leggere il tooltip ogni volta. Nuova coppia, presa dalla stessa palette CSS
+già in uso nell'app (nessun nuovo colore inventato): **`var(--teal)` resta per "prende
+già"** (è già il colore generico di "attivo/selezionato" altrove nell'app, non è mai stato
+un colore semaforo) e **`var(--blue)` sostituisce `#BA7517` per "vorrebbe prendere"**
+(oggi usato solo per tag generici tipo "Cena", nessun significato clinico da confondere).
+Teal e blu sono entrambi toni freddi, chiaramente estranei alla rampa calda verde→
+arancione→rosso del semaforo. Cambia solo `accent-color` nei 19 checkbox `inw-*` e lo
+swatch della legenda — nessun impatto sui dati salvati.
+
+**2. UN CATALOGO UNICO, CON UNO SCHEMA PIÙ RICCO** (`CATALOGO_INTEGRATORI`, sostituisce
+`INTEGR_KEYS`/`INTEGR_LABELS` e il blocco "integratore" di `LIBRERIA_ROUTINE`). Ogni voce:
+`{chiave, nome, dose, quantiVolte, quando, regolaOrario, sinergie[], evitareCon[],
+razionale}`. `regolaOrario` è `'fisso'` (usa il testo di `quando`) oppure
+`'pasto_piu_grasso'` (vedi punto 4) per i liposolubili. `sinergie`/`evitareCon` alimentano
+sia il testo del razionale sia il tooltip "ⓘ" proposto da Fabrizio accanto a ogni voce di
+Clinica e di Routine (un click apre una spiegazione breve: dose, quando, con cosa
+abbinarlo, cosa evitare).
+
+**IL CATALOGO COMPLETO — bozza mia su richiesta esplicita di Fabrizio ("completali tu
+tutti"), da rivedere riga per riga prima che vada in produzione: è contenuto clinico,
+stessa cautela avuta per il colesterolo e la chia.** I tre integratori dettati da
+Fabrizio sono segnati **[F]**; le sinergie/incompatibilità sono standard di letteratura,
+non invenzioni — ma vanno lette con occhio clinico da chi prescrive davvero.
+
+| Voce | Dose | Quando | Sinergie | Evitare con |
+|---|---|---|---|---|
+| **[F] Omega-3 (EPA/DHA)** | 1 g | 🔥 pasto più grasso | Vitamina D3 | — |
+| **[F] Vitamina D3** | 2000 UI mantenimento / 4000 UI dose maggiore *(selettore già presente in Clinica, nessuna modifica UI)* | 🔥 pasto più grasso | Omega-3, Vitamina K2 | — |
+| **[F] Ferro (bisglicinato)** | 25 mg | Lontano dai pasti, o con vit.C | Vitamina C | Latticini, tè, caffè (tannini/calcio riducono l'assorbimento — distanziare 1-2h) |
+| Magnesio + Potassio | 300mg + 200mg (indicativo, varia per formulazione) | La sera | — | Funzione renale ridotta → SEMPRE concordare col medico prima |
+| Solo Magnesio (glicinato) | 300 mg | La sera prima di dormire | — | — |
+| Multivitaminico | 1 compressa | Mattino con colazione | — | — |
+| Probiotico (multistrain) | 10 mld UFC | Mattino a stomaco vuoto | — | Bevande/cibi molto caldi nello stesso momento |
+| Creatina (monoidrato) | 5 g | In qualsiasi momento, con costanza | — | — |
+| Vitamina K2 (MK-7) | 100 mcg | 🔥 pasto più grasso | Vitamina D3 | **Anticoagulanti (warfarin) — interferenza nota, segnalare sempre** |
+| Proteine in polvere | 25-30 g | Post-allenamento o spuntino | — | — |
+| BCAA (ramificati) | 5 g | Prima/durante l'allenamento | — | — |
+| EAA (essenziali) | 10 g | Prima/durante l'allenamento | — | — |
+| Leucina | 2-3 g | Ai pasti principali | — | — |
+| Pappa reale | 500mg-1g | Mattino a digiuno, a cicli | — | **Asma/allergia ai prodotti dell'alveare — rischio reazione allergica** |
+| Beta-alanina | 3-5 g/die, anche frazionata | In qualsiasi momento, con costanza | — | (parestesia innocua alle dosi alte — va spiegata al paziente) |
+| Acido folico | 400 mcg | In qualsiasi momento | Vitamina B12 | — |
+| **Blu di metilene** | **⚠️ nessuna dose di default** | — | — | **Farmaci serotoninergici/SSRI — interazione seria nota. Uso specialistico, dose sempre decisa caso per caso da Fabrizio** |
+| Fosfatidilcolina | 1-2 g | Ai pasti | — | — |
+| Lecitina di soia | 5-10 g | Ai pasti | — | Allergia dichiarata alla soia (verificabile dal campo allergie) |
+| Berberina | 500 mg | 30min prima dei pasti, fino a 2-3×/die | — | **Farmaci ipoglicemizzanti — rischio ipoglicemia, segnalare se paziente diabetico in terapia** |
+| Vitamina C | 500 mg | Ai pasti | Ferro | — |
+| Zinco | 15 mg | Pasto serale | — | Rame/ferro ad alte dosi nello stesso momento (competono per l'assorbimento) |
+| Coenzima Q10 | 100 mg | 🔥 pasto più grasso | — | **Anticoagulanti (warfarin) — può ridurne l'efficacia, segnalare** |
+| Vitamina B12 (metilcobalamina) | 1000 mcg | Mattino a stomaco vuoto | Acido folico | — |
+| Collagene idrolizzato | 10 g | Mattino a stomaco vuoto | Vitamina C (cofattore di sintesi) | — |
+| Melatonina | 0,5-1 mg | 30min prima di dormire | Magnesio | (dosi basse spesso più efficaci delle alte — non aumentare "a caso" se non funziona subito) |
+
+**Le 4 righe con 🔥 e le 4 con "Evitare con" in grassetto sono quelle che meritano la tua
+occhiata per prima** — le altre sono dosaggi standard a basso rischio.
+
+**3. Migrazione dati pazienti esistenti** invariata rispetto alla bozza precedente:
+mappa etichetta-vecchia → chiave-nuova, eseguita in lettura, nessuna voce persa (se
+un'etichetta non trova posto nel nuovo catalogo resta come testo libero).
+
+**4. IL TIMING INTELLIGENTE SUL "PASTO PIÙ GRASSO" — la parte nuova più interessante.**
+Fabrizio ha chiesto se il generatore AI può assegnare da solo Omega-3/Vitamina D al
+pasto più grasso della giornata, analizzando la struttura reale del piano (es. lunedì
+pranzo con mozzarella è più grasso di lunedì cena con pollo → Omega-3 va a pranzo quel
+giorno). **Risposta: sì, ma non deve farlo l'AI — deve farlo un calcolo, per lo stesso
+motivo per cui P63b calcola la coerenza InBody con una sottrazione invece che con una
+chiamata AI:** il generatore produce già un piano con grammi e alimenti per cella;
+`calcolaMacrosPiano` dimostra che il motore per sommare i grassi di un pasto esiste già,
+solo aggregato per giorno invece che per slot pasto. Basta una funzione nuova, pura e
+testabile, che spezzi lo stesso calcolo per slot (`colazione`/`pranzo`/`cena`/...) invece
+che per giorno, sullo STESSO piano già generato — zero chiamate AI aggiuntive, zero costo,
+risultato deterministico e riproducibile.
+
+**Il caso "cambia di giorno in giorno" (l'esempio di Fabrizio) va dichiarato, non
+nascosto.** Se il pasto più grasso è lo stesso in praticamente tutti i giorni del piano,
+il sistema lo consiglia con sicurezza. Se cambia (es. pranzo vince 4 giorni su 7, cena gli
+altri 3), non sceglie in silenzio: lo dice — "il pasto più grasso non è costante: pranzo
+in 4 giorni su 7" — e lascia decidere a Fabrizio se accettare la maggioranza o mettere
+"durante i pasti" generico. Stessa disciplina già adottata per il 190-200 del colesterolo
+e per l'ambiguità del TDEE osservato: **quando il dato è ambiguo, si mostra l'ambiguità,
+non si finge una certezza che non c'è.**
+
+Si applica alle 4 voci liposolubili del catalogo (Omega-3, Vitamina D3, Vitamina K2,
+Coenzima Q10 — marcate 🔥 sopra). Il suggerimento compare quando si apre/aggiorna la
+scheda Routine di un paziente con un piano già generato; se il paziente non ha ancora un
+piano, il campo resta sul testo generico del catalogo ("durante i pasti principali").
+
+**5. Il collegamento Clinica→Routine resta un suggerimento, non un automatismo** (invariato
+dalla bozza precedente): "prende già"/"vorrebbe" è un fatto di anamnesi, la voce in
+Routine è la prescrizione per il PDF — restano due scritture distinte, collegate da un
+suggerimento cliccabile, mai una scrittura automatica silenziosa.
+
+---
+
+**DOMANDE APERTE PER FABRIZIO, RESTANTI (rispondi qui o a voce, poi si scrive il codice):**
+1. Le voci non dettate da te nel catalogo — vanno bene così o correggi/scarti qualcosa?
+   (In particolare le 4 con un'incompatibilità in grassetto: K2/CoQ10 + anticoagulanti,
+   Berberina + ipoglicemizzanti, Pappa reale + allergie, Blu di metilene + SSRI.)
+2. Blu di metilene: lo teniamo nel catalogo rapido di Clinica senza dose di default (testo
+   libero obbligatorio), o lo togliamo e resta gestibile solo come nota libera?
+3. Soglia di "costante" per il pasto più grasso (proposta: stesso pasto vince in almeno
+   l'80% dei giorni del piano) — ti sembra ragionevole o la vuoi diversa?
+
+**FOCUS COMPONENTI COINVOLTI:** Frontend (scheda Clinica + scheda Routine, tooltip ⓘ),
+un nuovo motore puro (grassi per slot pasto, stesso stile di `calcolaMacrosPiano`), dati
+paziente (`p.integratori`/`p.integraWant`/`p.routineGiornaliera` — nessuna migrazione a
+tabella Supabase, restano nel blob paziente).
+**SCHEDA:** Stato: ⚠️ **DISEGNO COMPLETATO 5 ago 2026 — in attesa di revisione di Fabrizio
+sulle 3 domande sopra prima del codice** · Priorità: Media · C: 4 | I: 4 | R: 2 · Modello:
+Opus (contenuto clinico + un motore di calcolo nuovo) · Autonomia: L0 sul catalogo
+(contenuto clinico), L1 sul resto.
+
 ### P74 — Estrazione entità dal blob + fine dei meta-record
 **L'APPROCCIO ORIGINARIO:** (1) meta-record → tabella collections; (2) entità pesanti → tabelle/colonne tipizzate; (3) query mirate al posto del pull totale. Rischio alto, backup CSV.
 **LA CRITICA DEL CTO:** piano giusto ma manca il gradino a costo zero (F5) e la disciplina di transizione: senza finestra di dual-write e senza P68/P69 fatti prima, la migrazione multi-dispositivo è roulette.

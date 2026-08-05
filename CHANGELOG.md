@@ -10,6 +10,85 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+5 AGOSTO 2026 (seguito 3) — P148: COLORI, SCHEMA RICCO E TIMING SUL PASTO PIÙ
+GRASSO. Baseline 4004ef4. Ancora nessuna riga di codice toccata: solo la scheda
+di roadmap, ampliata su richiesta di Fabrizio con tre aggiunte precise.
+
+1) COLORI. Fabrizio nota che "prende già"/"vorrebbe prendere" si leggono come
+verde/arancione, gli stessi registri del semaforo alimenti, anche se i codici
+CSS non coincidono alla lettera (`var(--teal)` e `#BA7517`) — chiede di non
+usare quei due colori e domanda consiglio. Deciso: due colori diversi, non
+nessun colore (19 righe × 2 checkbox restano illeggibili in tinta unica).
+`var(--teal)` resta per "prende già" (già il colore generico di "attivo"
+altrove nell'app); `var(--blue)` sostituisce `#BA7517` per "vorrebbe" — preso
+dalla stessa palette CSS già in uso, nessun colore nuovo inventato, entrambi
+toni freddi lontani dalla rampa calda verde→arancione→rosso del semaforo.
+
+2) SCHEMA CATALOGO ARRICCHITO. Fabrizio chiede, per ogni integratore: nome,
+dose, momento consigliato, sinergie, incompatibilità, e una spiegazione che si
+apre da una "ⓘ" cliccabile nella casella. Nuovo schema `CATALOGO_INTEGRATORI`:
+`{chiave, nome, dose, quantiVolte, quando, regolaOrario, sinergie[],
+evitareCon[], razionale}`. Fabrizio ha dettato 3 voci come esempio (Omega-3,
+Vitamina D3, Ferro) poi ha chiesto esplicitamente "completali tu tutti": in
+Roadmap ora c'è la bozza completa delle 26 voci, marcate [F] quelle dettate da
+Fabrizio, con 4 righe segnalate in grassetto per interazione nota con farmaci
+(Vitamina K2 e Coenzima Q10 con anticoagulanti, Berberina con
+ipoglicemizzanti, Pappa reale con allergie) e il Blu di metilene lasciato
+apposta SENZA dose di default (interazione nota con SSRI, va deciso caso per
+caso). Bozza esplicitamente segnata come contenuto clinico da rivedere riga
+per riga prima del codice — stessa cautela già avuta per colesterolo e chia.
+
+3) TIMING SUL "PASTO PIÙ GRASSO". Fabrizio chiede se il generatore AI può
+assegnare da solo Omega-3/Vitamina D al pasto più grasso della giornata,
+analizzando la struttura reale del piano generato. Deciso: sì, ma con un
+calcolo deterministico, non una chiamata AI — stesso principio di P63b
+(coerenza InBody con una sottrazione, non con l'AI). `calcolaMacrosPiano`
+dimostra che il motore per sommare i grassi di un pasto esiste già, solo
+aggregato per giorno; serve una funzione nuova, pura, che spezzi lo stesso
+calcolo per slot pasto sul piano già generato — zero chiamate AI aggiuntive.
+Il caso in cui il pasto più grasso cambia di giorno in giorno (l'esempio
+stesso di Fabrizio) non va risolto in silenzio: se non è costante in almeno
+l'80% dei giorni (soglia proposta, da confermare), il sistema lo dichiara
+invece di scegliere da solo — stessa disciplina già adottata per il 190-200
+del colesterolo e per il TDEE osservato ambiguo. Si applica alle 4 voci
+liposolubili del catalogo (Omega-3, Vitamina D3, Vitamina K2, Coenzima Q10).
+
+Il collegamento Clinica→Routine resta un suggerimento cliccabile, non un
+automatismo (invariato dalla bozza precedente). Tre domande esplicite lasciate
+aperte per Fabrizio prima che si scriva una riga di codice: revisione delle
+voci non dettate (specie le 4 con interazione farmacologica), se tenere il Blu
+di metilene nel catalogo rapido o solo come nota libera, e se l'80% di "pasto
+costante" è una soglia ragionevole.
+
+5 AGOSTO 2026 (seguito 2) — P148: DISEGNATO IL CATALOGO UNICO INTEGRATORI.
+Baseline 4004ef4. Nessuna riga di codice toccata: solo la scheda di roadmap, come P35.
+
+DA DOVE NASCE. Rispondendo alla spiegazione del difetto di suggerisciPastoEQuando,
+Fabrizio nota che le caselle Integratori della scheda Clinica ("prende già" /
+"vorrebbe prendere") non fanno comparire nulla nella scheda Routine — dove poi va
+concretamente a dire al paziente quando prendere l'integratore per il PDF. Chiede se
+non sarebbe più logico che si collegassero.
+
+VERIFICATO NEL CODICE: sono due sistemi indipendenti. Clinica (19 voci) scrive
+p.integratori/p.integraWant, letti SOLO nel contesto che va a FX. Routine (12 voci
+integratore nella libreria, con dose/quando/razionale) scrive p.routineGiornaliera,
+alimentata solo da un click manuale. Zero funzioni le collegano. Il problema vero non
+è "manca un collegamento": le due liste usano vocabolari diversi, costruiti in momenti
+diversi — solo 5 delle 19 voci Clinica hanno un corrispondente in Routine, e nemmeno
+con lo stesso nome. 13 voci esistono solo in Clinica senza dose/timing da nessuna
+parte; 7 esistono solo in Routine.
+
+DECISIONE DI FABRIZIO: unificare le due liste in un catalogo unico, disegno ora e
+codice dopo (stesso schema di P35). Scheda P148 in Roadmap con: il catalogo proposto,
+bozze di dose/quando/razionale per le 13 voci mancanti (Blu di metilene lasciato
+apposta SENZA bozza — non è un nutraceutico da banco, rischio noto di interazione con
+SSRI, dose va decisa caso per caso da Fabrizio), il meccanismo di collegamento
+proposto (suggerimento cliccabile quando si apre Routine, non aggiunta automatica —
+"prende già" è un fatto di anamnesi, "è in Routine" è una prescrizione: fatti diversi,
+non vanno confusi in un'unica scrittura automatica), e il piano di migrazione dei
+dati dei pazienti già in archivio. Tre domande esplicite lasciate aperte per la
+revisione di Fabrizio prima che si scriva una riga di codice.
+
 5 AGOSTO 2026 (seguito) — LE ALTRE 4 DECISIONI SULL'AUDIT AL CONTRARIO.
 Baseline 10e1632.
 
