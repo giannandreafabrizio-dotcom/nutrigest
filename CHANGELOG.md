@@ -71,6 +71,34 @@ il pallino ◉ delle righe di tabella: il marcatore ora e' la tacca evidenziata
 Il test sulla nota di ricomposizione cerca «non la bilancia» invece di «il peso dice
 poco»: cambia la formulazione, non l'intento.
 
+**NELLA STESSA SESSIONE — PRIMO USO DEL CONNETTORE SUPABASE.** Collegato il
+connettore Supabase (gia' attivo) e usato in sola lettura: schema, avvisi di
+sicurezza e query aggregate, nessun dato personale letto. **Gli avvisi confermano la
+roadmap**: unico rilievo aperto `auth_leaked_password_protection`, cioe' P107, che la
+roadmap gia' da' per bloccata dal piano Supabase. RLS attivo su tutte e 8 le tabelle.
+Il connettore ha pero' mostrato due cose che dal codice non si vedono, ed e' il motivo
+per cui vale la pena averlo → P151 e P152.
+
+**Correzione a una mia lettura affrettata.** Alla prima occhiata avevo segnalato come
+grave la doppia natura di `updated_at` (testo su `ricette`/`piani`/`entrate`/`eventi`,
+`timestamptz` sulle altre quattro). Verificato con i dati veri: le quattro colonne di
+testo sono **popolate al 100%, tutte in ISO, tutte lunghe esattamente 24 caratteri, un
+solo formato**. Il confronto lessicografico su ISO a lunghezza fissa ordina
+correttamente nel tempo: **oggi non c'e' nessun bug attivo**, solo una fragilita'
+latente (una colonna di testo accetta qualunque cosa). Vale la regola 16 al contrario:
+prima di dichiarare grave un difetto trovato per struttura, si guardano i dati.
+
+**GITHUB.** Nella prima ricerca avevo concluso che il connettore GitHub non esistesse:
+sbagliato, la ricerca guardava il registro pubblico. Fabrizio l'ha collegato. Non e'
+arrivato in questa sessione — i connettori si agganciano all'avvio, quindi serve
+un'attivita' nuova. **Deciso: Claude potra' pubblicare solo dopo approvazione esplicita
+di Fabrizio in chat, di volta in volta, mai con un via libera permanente.** Il
+protocollo vero si scrive nella prossima sessione, dopo aver fatto l'inventario degli
+strumenti che quel connettore espone davvero — scriverlo adesso su cio' che immagino
+sarebbe esattamente la trappola della regola 23. Da correggere allora anche due
+affermazioni stantie in CLAUDE.md: `index.html` e' dato a «~20.900+ righe» e ne ha
+**32.308**, e la consegna e' descritta con il vecchio nome dello strumento.
+
 **Cosa NON e' stato fatto** (deciso con Fabrizio, resta aperto): la forma «costruire
 muscolo» del passo 2 — oggi per un percorso in surplus `_stradeVerso` esce con
 «nessun grasso da togliere» e il blocco delle strade non compare affatto, verificato
