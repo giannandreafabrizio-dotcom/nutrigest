@@ -98,18 +98,25 @@ test('P149 — la strada in vigore si legge dal regime e si riallinea a ogni cam
   render(PAZ);
   const pct = d.getElementById('mac-off-pct');
   const etichetta = () => d.getElementById('mac-regime-strada').textContent;
-  const marcate = () => [...d.querySelectorAll('[data-strada-pct]')]
-    .filter(tr => tr.querySelector('.strada-dot').textContent === '◉')
+  // P150 — la tabella e' diventata uno slider: la strada in vigore non e' piu'
+  // marcata da un pallino ◉ ma dalla tacca evidenziata (classe .near). Il
+  // contratto verificato resta lo stesso: chi comanda e' il regime, non il clic.
+  const marcate = () => [...d.querySelectorAll('[data-strada-pct].near')]
     .map(tr => tr.getAttribute('data-strada-pct'));
+  const pollice = () => d.querySelector('#rit-box .rit-in').value;
 
   pct.value = '-20'; win.eval('_stradeEvidenzia()');
   assert.deepStrictEqual(marcate(), ['20'], 'a −20% deve essere marcata la strada Decisa');
   assert.ok(/strada −20%/.test(etichetta()), 'il regime deve dichiarare quale strada sta usando');
 
   // valore fuori dalla griglia: nessuna riga in vigore, e va DETTO
+  assert.strictEqual(pollice(), '20', 'il pollice dello slider si porta sulla strada in vigore');
+
+  // valore fuori dalla griglia: nessuna tacca in vigore, e va DETTO
   pct.value = '-13'; win.eval('_stradeEvidenzia()');
   assert.deepStrictEqual(marcate(), [], 'a −13% nessuna strada è quella attiva');
   assert.ok(/a mano/.test(etichetta()), 'fuori dalle strade l\'etichetta deve dirlo, non restare muta');
+  assert.strictEqual(pollice(), '13', 'ma il pollice ci va lo stesso: lo slider copre anche i valori liberi');
 
   // il preset passa dallo stesso imbuto (_aggiornaRegimeSlider): la riga segue
   win.eval('_presetRegime(-15)');

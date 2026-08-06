@@ -48,7 +48,9 @@ test('RICOMPOSIZIONE — i due numeri che contano: grasso da togliere e magra da
   const r = win.calcolaTraguardoComposizione(inWin(paz()), 9, {modo:'ricomposizione', guadagnoMagra:6});
   assert.strictEqual(r.magraDaMettere, 6);
   assert.ok(Math.abs(r.grassoDaPerdere - 5.5) < 0.11, '13 kg di grasso → 7.5: ne perde 5.5 (era ' + r.grassoDaPerdere + ')');
-  assert.ok(r.avvisi.some(a => /il peso dice poco/i.test(a.txt)), 'lo dice esplicitamente: guarda la coppia, non la bilancia');
+  // P150 — la nota e' stata accorciata (la coppia di numeri e' gia' nel riquadro
+  // sopra): quello che deve restare e' l'indicazione di NON guardare la bilancia.
+  assert.ok(r.avvisi.some(a => /non la bilancia/i.test(a.txt)), 'lo dice esplicitamente: guarda la coppia, non la bilancia');
 });
 
 test('RICOMPOSIZIONE — in dimagrimento la magra CALA, in ricomposizione SALE: segni opposti', () => {

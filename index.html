@@ -524,6 +524,24 @@ main{flex:1;overflow-y:auto;}
 .pmg-totale-row{display:flex;justify-content:space-between;font-size:.76rem;color:var(--text2);margin-bottom:.15rem;}
 .pmg-totale-row span:last-child{font-weight:600;color:var(--text1);}
 @media(max-width:1130px){#panel-macros-giorno{display:none!important;}}
+
+/* P150 — lo slider del ritmo. Le tacche portano l'esito (settimane), cosi' la
+   scala e' gia' il confronto fra le strade: prima serviva una tabella a cinque
+   colonne per la stessa informazione. */
+.rit{position:relative;padding:3.2rem 0 2.6rem;margin-top:.2rem}
+.rit-track{position:relative;height:6px;border-radius:3px;background:var(--s3)}
+.rit-fill{position:absolute;left:0;top:0;height:100%;border-radius:3px;background:var(--teal);transition:width .08s linear}
+.rit-tick{position:absolute;top:0;width:2px;height:6px;background:var(--s1);opacity:.85}
+.rit-lab{position:absolute;top:0;transform:translateX(-50%);text-align:center;white-space:nowrap;cursor:pointer}
+.rit-lab .p{display:block;font-family:'DM Serif Display',serif;font-size:.88rem;color:var(--text2);line-height:1.15}
+.rit-lab .w{display:block;font-size:.62rem;color:var(--text3);margin-top:.05rem}
+.rit-lab.near .p,.rit-lab.near .w{color:var(--teal2)}
+.rit-lab.first{transform:translateX(0);text-align:left}
+.rit-thumb{position:absolute;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.22),0 0 0 .5px rgba(0,0,0,.08);transition:left .08s linear;pointer-events:none}
+.rit-in{position:absolute;left:0;top:50%;width:100%;height:26px;margin:-13px 0 0;opacity:0;cursor:pointer;z-index:3}
+.rit-chip{position:absolute;bottom:.5rem;transform:translateX(-50%);white-space:nowrap;font-size:.74rem;color:var(--text2);transition:left .08s linear}
+.rit-chip b{color:var(--text);font-weight:600}
 </style>
 <script src="vendor/jspdf.umd.min.js"></script>
 <!-- pdf.js (P124b, 26 lug 2026): serve a RENDERE le pagine dei referti scansionati
@@ -15530,20 +15548,19 @@ function renderPdMacros(p){
   const ffm=lastIb?(parseFloat(lastIb.m)|| (lastIb.peso&&lastIb.pg?+(lastIb.peso*(1-lastIb.pg/100)).toFixed(1):null)):null;
 
   let html=`<div class="card"><div class="card-hd"><h3>Calcola Macronutrienti</h3></div><div class="card-bd">
-  <div class="sec-title">1 · Da dove parte — attività fisica</div>
+  <div class="sec-title">1 · Quanto consuma</div>
 
-  <div style="font-size:.7rem;color:var(--text3);margin:-.35rem 0 .7rem;line-height:1.4">Due voci diverse del calcolo: il <b>movimento quotidiano</b> (i passi) fa il NEAT, l'<b>allenamento</b> fa l'EAT. Il primo blocco vale per tutti, anche per chi non si allena.</div>
 
   <div class="fr3">
-    <div class="fg"><label>Passi medi/giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0" oninput="_aggiornaPannelloTdeeLive()"></div>
-    <div class="fg"><label>Fonte passi</label>
+    <div class="fg"><label>Passi al giorno</label><input type="number" id="p-passi" placeholder="es. 6000-10000" min="0" oninput="_aggiornaPannelloTdeeLive()"></div>
+    <div class="fg"><label>Fonte</label>
       <select id="p-fonte-passi" onchange="_aggiornaPannelloTdeeLive()">
         <option value="">— Non specificata —</option>
         <option value="misurati">Misurati (smartwatch/telefono)</option>
         <option value="stimati">Stimati a occhio</option>
       </select>
     </div>
-    <div class="fg"><label>Tipo di lavoro</label>
+    <div class="fg"><label>Lavoro</label>
       <select id="p-lavoro" onchange="_aggiornaPannelloTdeeLive()">
         <option value="">— Non specificato —</option>
         <option value="sedentario">Sedentario (scrivania)</option>
@@ -15552,7 +15569,7 @@ function renderPdMacros(p){
       </select>
     </div>
   </div>
-  <div style="font-size:.66rem;color:var(--text3);margin:-.35rem 0 .85rem;line-height:1.3">Il lavoro alza il NEAT solo se i passi <b>non</b> sono misurati (con lo smartwatch è già contato).</div>
+  <div style="font-size:.66rem;color:var(--text3);margin:-.35rem 0 .85rem;line-height:1.3">Il lavoro conta solo se i passi <b>non</b> sono misurati: con lo smartwatch è già dentro.</div>
 
   <div class="fg" style="border:1px solid var(--border);border-radius:8px;padding:.75rem .85rem;background:var(--bg)">
     <label style="margin-bottom:.45rem">Allenamento</label>
@@ -15590,7 +15607,7 @@ function renderPdMacros(p){
     </div>
 
     <div id="all-pane-precisa" style="display:none;margin-top:.65rem">
-      <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem;line-height:1.4">Una riga per attività — chi fa pesi <i>e</i> CrossFit <i>e</i> corsa le tiene separate, ognuna col suo MET. I minuti sono quelli di <b>lavoro effettivo</b>, senza i recuperi lunghi.</div>
+      <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem;line-height:1.4">Una riga per attività, ognuna col suo MET. Minuti di <b>lavoro effettivo</b>, senza i recuperi.</div>
       <div id="att-righe"></div>
       <button type="button" class="btn" style="font-size:.76rem;padding:.35rem .8rem;margin-top:.15rem" onclick="_attRigaAdd()">+ Aggiungi attività</button>
       <div id="att-righe-tot" style="font-size:.72rem;color:var(--teal2);font-weight:600;margin-top:.5rem"></div>
@@ -15602,20 +15619,20 @@ function renderPdMacros(p){
     html+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:.8rem">⚠️ Nessuna misurazione InBody presente. Inserisci i dati InBody per il calcolo automatico del metabolismo basale.</div>`;
   } else {
     html+=`<div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.75rem 1rem;margin-bottom:.9rem;font-size:.8rem">
-      <strong>MB da InBody:</strong> ${mb} kcal · <strong>Peso:</strong> ${peso} kg ${ffm?`· <strong>FFM:</strong> ${ffm} kg`:''}
+      Dal referto: metabolismo basale <strong>${mb} kcal</strong> · peso <strong>${peso} kg</strong> ${ffm?`· massa magra <strong>${ffm} kg</strong>`:''}
     </div>`;
   }
 
   const _ct0=calcolaTDEE(p);
   html+=`<div class="fr" style="margin-bottom:.8rem;align-items:flex-end">
     <div class="fg" style="flex:2">
-      <label>Fattore attività (LAF)</label>
+      <label>Consumo giornaliero</label>
       <div id="laf-display" style="padding:.45rem .7rem;background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;font-size:.82rem;color:var(--teal2);font-weight:600">${_tdeePannelloHtml(_ct0, p)}
       </div>
     </div>
   </div>
 
-  <div class="sec-title">2 · Dove vuole arrivare</div>
+  <div class="sec-title">2 · Dove deve arrivare, e in quanto</div>
   <div id="mac-peso-rif-box"></div>
   <details id="mac-altri-modi" style="margin:-.3rem 0 .9rem">
     <summary style="cursor:pointer;font-size:.72rem;color:#185FA5;font-weight:600;outline:none">Altri modi di fissare il peso — a mano, Peso Ideale InBody, BMI, Devine, Robinson</summary>
@@ -15626,7 +15643,6 @@ function renderPdMacros(p){
     </div>
   </details>
 
-  <div class="sec-title">3 · Quanto in fretta</div>
   <div class="fr" style="margin-bottom:.7rem">
     <div class="fg"><label>Approccio dieta</label>
       <div id="mac-mode-switch" style="display:flex;gap:3px;background:var(--bg2);border-radius:8px;padding:3px">
@@ -15685,7 +15701,7 @@ function renderPdMacros(p){
     <div id="mac-regime-warn" style="font-size:.72rem;margin-top:.5rem"></div>
   </div>
 
-  <div class="sec-title">4 · Come si compone il piatto</div>
+  <div class="sec-title">3 · Come si compone il piatto</div>
   <div class="fr" style="margin-bottom:.8rem">
     <div class="fg"><label id="mac-prot-lbl">Proteine (g/kg)</label><input type="number" id="mac-prot" placeholder="es. 1.8" step="0.1" value="1.8"></div>
     <div class="fg"><label id="mac-grassi-lbl">Grassi (g/kg)</label><input type="number" id="mac-grassi" placeholder="es. 0.9" step="0.1" value="0.9"></div>
@@ -15712,8 +15728,8 @@ function renderPdMacros(p){
     <div id="mac-ref-auto-info" style="margin-top:.35rem;font-size:.68rem;color:var(--teal2);font-style:italic;">&#9679; Selezione automatica: <span id="mac-ref-auto-label">BMI&#8805;25 &#8594; FFM &nbsp;|&nbsp; BMI&lt;25 &#8594; Peso corporeo</span></div>
   </div>
 
-  <div class="sec-title">5 · Come si distribuisce nella settimana</div>
-  <div style="font-size:.68rem;color:var(--text3);margin:-.35rem 0 .6rem;line-height:1.35">Nessuno di questi campi cambia il totale delle calorie: decidono <b>come si distribuiscono</b> nella settimana e nella giornata. Per questo stanno dopo il calcolo, non prima.</div>
+  <div class="sec-title">4 · Come si distribuisce nella settimana</div>
+  <div style="font-size:.68rem;color:var(--text3);margin:-.35rem 0 .6rem;line-height:1.35">Non cambiano il totale delle calorie: solo come si distribuisce.</div>
   <div class="fg"><label>Giorni di carico (ON)</label>
     <div style="font-size:.68rem;color:var(--text3);margin-bottom:.3rem">Per chi si allena, coincidono con i giorni di allenamento. Con la ciclizzazione attiva sono i giorni "carico".</div>
     <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem">
@@ -15749,7 +15765,7 @@ function renderPdMacros(p){
         <option value="Serale">Serale</option>
       </select>
     </div>
-    <div class="fg"><label>Orario pasto principale</label>
+    <div class="fg"><label>Pasto principale</label>
       <select id="p-orario-pasto">
         <option value="">— Non specificato —</option>
         <option value="Pranzo abbondante">Pranzo abbondante</option>
@@ -16288,7 +16304,7 @@ function calcolaTraguardoComposizione(p, pctTarget, opzioni){
       avvisi.push({liv:"nota", txt:"Con questi valori resta il solo scenario a massa magra conservata."});
   }
   if(modo==="ricomposizione" && realeApplicabile){
-    avvisi.push({liv:"nota", txt:"In ricomposizione il peso dice poco: il traguardo vero è la coppia grasso "+mis.g+" → "+rif.g+" kg e magra "+mis.m+" → "+rif.m+" kg. Al paziente mostra quelli, non la bilancia."});
+    avvisi.push({liv:"nota", txt:"In ricomposizione al paziente mostra il grasso e la massa magra, non la bilancia."});   // P150: la coppia di numeri e' gia' nel riquadro sopra, ripeterla qui la rendeva invisibile
   }
   if(mis.incoerenza){
     const pb=mis.incoerenza.problemi.map(function(x){ return x.cosa+" (letto "+x.letto+x.unita+", coerente sarebbe "+x.atteso+x.unita+")"; }).join(" · ");
@@ -16890,29 +16906,27 @@ function _stradeHtml(p, r){
     +'<div style="font-size:.78rem;font-weight:700;color:#8a6508;margin-bottom:.15rem">🛣 Come ci arrivi</div>'
     +'<div style="font-size:.72rem;color:var(--text2);margin-bottom:.45rem">Da togliere <strong style="font-size:.9rem">'+g.kg+' kg di grasso</strong> '
     +'<span style="color:var(--text3)">(oggi ne ha '+g.grassoOggi+' kg'+(g.min!==g.max?' · tra '+g.min+' e '+g.max+' kg a seconda del muscolo che mette — due etti di differenza, per questo il tempo non dipende da quella previsione':'')+')</span></div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:.73rem">'
-    +'<thead><tr style="color:var(--text3);text-align:left"><th style="padding:.2rem .35rem">Strada</th><th>Calorie</th><th>Grasso perso</th><th>Ci arriva in</th><th>Quando</th></tr></thead><tbody>';
+    +'<div class="rit" id="rit-box" data-ritmo=\''+JSON.stringify({tdee:s.tdee,kg:Math.abs(g.kg),max:40})+'\'>'
+      +'<div class="rit-labs">__TACCHE__</div>'
+      +'<div class="rit-track"><div class="rit-fill"></div><div class="rit-ticks">__TICK__</div><div class="rit-thumb"></div>'
+        +'<input type="range" class="rit-in" min="0" max="40" step="1" value="0"'
+        +' oninput="_ritmoAnteprima(this.value)" onchange="_stradaUsa(+this.value)"></div>'
+      +'<div class="rit-chip"></div>'
+    +'</div>';
 
-  // P149 — una riga = una scelta. Il pulsante «Usa» spariva nel rumore e non
-  // diceva mai QUALE strada fosse quella attiva: ora la riga si clicca e quella
-  // in vigore è marcata (◉) da _stradeEvidenzia, che rilegge il regime vero.
+  // Le tacche: 0 = mantenimento, poi le strade di _STRADE_DEFAULT. Portano le
+  // SETTIMANE perche' e' l'unica cosa che cambia davvero fra una strada e
+  // l'altra; le kcal si leggono sotto il pollice, una per volta.
+  var _tacche='<div class="rit-lab first" data-strada-pct="0" style="left:0%" onclick="_stradaUsa(0)">'
+    +'<span class="p">0%</span><span class="w">mantenimento</span></div>';
+  var _tick='';
   s.strade.forEach(function(st){
-    const rosso=st.avvisi.length>0;
-    h+='<tr data-strada-pct="'+st.pct+'" onclick="_stradaUsa('+st.pct+')" style="border-top:1px solid var(--border);cursor:pointer">'
-      +'<td style="padding:.28rem .35rem;white-space:nowrap"><span class="strada-dot" style="color:var(--text3)">○</span> <strong>'+st.nome+'</strong> <span style="color:var(--text3)">−'+st.pct+'%</span></td>'
-      +'<td style="white-space:nowrap"><strong>'+st.kcalTarget+'</strong> <span style="color:var(--text3);font-size:.65rem">(−'+st.deficitKcal+')</span></td>'
-      +'<td style="white-space:nowrap'+(rosso?';color:#c2410c':'')+'">'+st.kgSett.toFixed(2).replace('.',',')+' kg/sett.</td>'
-      +'<td style="white-space:nowrap">'+st.settimane.toString().replace('.',',')+' settimane</td>'
-      +'<td style="white-space:nowrap;color:var(--text3)">'+_percorsoDataBreve(st.arrivo)+'</td>'
-      +'</tr>';
-    if(rosso){
-      h+='<tr><td></td><td colspan="4" style="padding:0 .35rem .25rem;font-size:.64rem;color:#c2410c">⚠️ '+st.avvisi.join(' · ')+'</td></tr>';
-    }
+    var x=(st.pct/40*100);
+    _tacche+='<div class="rit-lab" data-strada-pct="'+st.pct+'" style="left:'+x+'%" onclick="_stradaUsa('+st.pct+')">'
+      +'<span class="p">\u2212'+st.pct+'%</span><span class="w">'+Math.round(st.settimane)+' sett.</span></div>';
+    _tick+='<div class="rit-tick" style="left:calc('+x+'% - 1px)"></div>';
   });
-  h+='</tbody></table>'
-    +'<div style="margin-top:.35rem;font-size:.68rem;color:var(--text3)">Altra percentuale: '
-      +'<input type="number" id="trg-pct-extra" min="1" max="40" step="1" value="'+(_stradePctExtra||"")+'" placeholder="es. 25" style="width:62px;font-size:.7rem" onclick="event.stopPropagation()" onchange="_stradaPctExtra(this.value)"> %'
-      +' — clicca una riga per sceglierla: imposta il regime energetico qui sotto e, se c\'è un percorso, ti propone di riscrivere le fasi con quel deficit.</div>';
+  h=h.replace('__TACCHE__',_tacche).replace('__TICK__',_tick);
 
   // la data che conta per il paziente
   if(scadenza){
@@ -16957,22 +16971,45 @@ function _aggiornaStradaBox(p, r){
 // Marca la strada davvero in vigore leggendo il regime, non ricordandosi cosa
 // è stato cliccato: se le calorie vengono cambiate a mano (o da «Ritara»), la
 // riga si spegne e l'etichetta accanto al regime lo dice.
+// Disegna lo stato dello slider per un valore qualsiasi. NON tocca il regime:
+// serve durante il trascinamento, dove chiamare _stradaUsa a ogni pixel farebbe
+// partire una notifica (e la conferma sulle fasi) decine di volte.
+function _ritmoAnteprima(v){
+  const box=document.getElementById("rit-box");
+  if(!box) return null;
+  let cfg={}; try{ cfg=JSON.parse(box.getAttribute("data-ritmo")||"{}"); }catch(e){}
+  const max=cfg.max||40;
+  const pct=Math.max(0,Math.min(max,Math.round(+v||0)));
+  const x=pct/max*100;
+  const inp=box.querySelector(".rit-in"); if(inp && +inp.value!==pct) inp.value=pct;
+  box.querySelector(".rit-fill").style.width=x+"%";
+  box.querySelector(".rit-thumb").style.left=x+"%";
+  const sett=(pct>0 && cfg.tdee) ? cfg.kg/((cfg.tdee*pct/100)*7/7700) : null;
+  const kcal=cfg.tdee?Math.round(cfg.tdee*(1-pct/100)):null;
+  const chip=box.querySelector(".rit-chip");
+  chip.style.left=x+"%";
+  chip.innerHTML="<b>"+(pct?("\u2212"+pct+"%"):"0%")+"</b>"
+    +(kcal!=null?(" · "+kcal+" kcal"):"")
+    +((sett&&isFinite(sett))?(" · "+Math.round(sett)+" settimane"):(pct?"":" · mantenimento"));
+  box.querySelectorAll(".rit-lab").forEach(function(d){
+    d.classList.toggle("near", +d.getAttribute("data-strada-pct")===pct);
+  });
+  return pct;
+}
+
+// Rilegge il regime VERO e ci allinea lo slider: se le calorie vengono cambiate
+// a mano (o da «Ritara»), il pollice si sposta e l'etichetta lo dice.
 function _stradeEvidenzia(){
   const pctEl=document.getElementById("mac-off-pct");
   const att=(pctEl && pctEl.value!=="") ? Math.round(parseFloat(pctEl.value)) : NaN;
-  const righe=document.querySelectorAll("[data-strada-pct]");
-  let attiva=null;
-  righe.forEach(function(tr){
-    const pct=+tr.getAttribute("data-strada-pct");
-    const on=!isNaN(att) && att===-pct;
-    if(on) attiva=pct;
-    tr.style.background=on?"rgba(29,158,117,.10)":"";
-    tr.style.boxShadow=on?"inset 3px 0 0 var(--teal)":"";
-    const dot=tr.querySelector(".strada-dot");
-    if(dot){ dot.textContent=on?"◉":"○"; dot.style.color=on?"var(--teal2)":"var(--text3)"; }
-  });
+  const box=document.getElementById("rit-box");
   const lbl=document.getElementById("mac-regime-strada");
-  if(lbl) lbl.textContent = righe.length ? (attiva!=null ? "· strada −"+attiva+"%" : "· impostato a mano") : "";
+  if(!box){ if(lbl) lbl.textContent=""; return; }
+  const v=(!isNaN(att) && att<0) ? Math.abs(att) : 0;
+  _ritmoAnteprima(v);
+  const suTacca=!!box.querySelector(".rit-lab.near");
+  if(lbl) lbl.textContent = (!isNaN(att) && att>0) ? ("· surplus +"+att+"%")
+    : (v>0 ? (suTacca ? ("· strada \u2212"+v+"%") : ("· \u2212"+v+"% a mano")) : "· mantenimento");
 }
 
 // Applica una strada: imposta il regime energetico e, se esiste un percorso,
@@ -16980,8 +17017,10 @@ function _stradeEvidenzia(){
 function _stradaUsa(pct){
   const p=_macrosPaziente;
   if(!p){ notif("⚠ Nessun paziente aperto"); return; }
-  if(typeof _presetRegime==="function") _presetRegime(-Math.abs(pct));
-  notif("🛣 Regime impostato a −"+pct+"% del TDEE");
+  pct=Math.abs(Math.round(+pct||0));
+  if(typeof _presetRegime==="function") _presetRegime(-pct);
+  notif(pct ? ("🛣 Regime impostato a −"+pct+"% del TDEE") : "🛣 Regime a mantenimento");
+  if(!pct) return;   // a mantenimento non c'e' nessuna fase da riscrivere
   if(p.percorso && p.percorso.fasi && p.percorso.fasi.length){
     if(confirm("Riscrivo anche le fasi del percorso con un deficit del "+pct+"%?\n\nLe fasi attuali verranno sostituite (durata e alternanza vengono ricalcolate su questo ritmo).")){
       const g=_percorsoGeneraFasi(p, (p.obiettivoPercorso&&p.obiettivoPercorso.paziente&&p.obiettivoPercorso.paziente.categoria==="dimagrire")?"dimagrimento":"ricomposizione", {pctDeficit:-Math.abs(pct)});
@@ -17018,8 +17057,6 @@ function _traguardoPanelHtml(p){
   // Il modo si presceglie dalla CATEGORIA dichiarata in visita (Tappa 2): se hai
   // scritto "ricomposizione", l'app non ti chiede più quanta magra perde.
   const modoIni = (cl&&cl.modo) ? cl.modo : _traguardoModoDaCategoria(p);
-  const decisoIni = cl&&cl.decisoDa ? cl.decisoDa : "medico";
-  const opt=function(v,l){ return '<option value="'+v+'"'+(decisoIni===v?' selected':'')+'>'+l+'</option>'; };
   const optM=function(v,l){ return '<option value="'+v+'"'+(modoIni===v?' selected':'')+'>'+l+'</option>'; };
   const incoerenzaHtml = mis.incoerenza
     ? '<div style="font-size:.66rem;margin-bottom:.4rem;padding:.3rem .5rem;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;color:#c2410c">⚠️ <strong>I dati di questo referto non tornano fra loro.</strong> '
@@ -17032,22 +17069,33 @@ function _traguardoPanelHtml(p){
      '<div style="font-size:.66rem;color:var(--text3);margin-bottom:.4rem">Oggi: <strong>'+mis.peso+' kg</strong> · massa magra <strong>'+mis.m+' kg</strong> · massa grassa <strong>'+mis.g+' kg</strong> ('+mis.pg+'%)'+(mis.data?' — InBody del '+(typeof fData==="function"?fData(mis.data):mis.data):'')+'</div>'
     +incoerenzaHtml
     +_traguardoVocePazienteHtml(p)
-    +'<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.45rem">'
-      +'<div><div style="font-size:.63rem;color:var(--text3)">% grasso obiettivo</div>'
-        +'<input type="number" id="trg-pct" step="0.5" min="1" max="59" value="'+pctIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem;font-weight:700"></div>'
-      +'<div><div style="font-size:.63rem;color:var(--text3)">il muscolo, nel percorso</div>'
-        +'<select id="trg-modo" onchange="_traguardoAnteprima()" style="font-size:.75rem">'
-          +optM("dimagrimento","cala un po\' (dimagrimento)")+optM("ricomposizione","sale (ricomposizione / massa)")
-        +'</select></div>'
-      +'<div id="trg-box-quota"><div style="font-size:.63rem;color:var(--text3)">quanto del calo è massa magra</div>'
-        +'<input type="number" id="trg-quota" step="5" min="0" max="50" value="'+quotaIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">%</span></div>'
-      +'<div id="trg-box-guad"><div style="font-size:.63rem;color:var(--text3)">massa magra che guadagna</div>'
-        +'<input type="number" id="trg-guad" step="0.5" min="0" max="15" value="'+guadIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">kg</span></div>'
-      +'<div><div style="font-size:.63rem;color:var(--text3)">deciso da</div>'
-        +'<select id="trg-deciso" style="font-size:.75rem">'+opt("medico","io (medico)")+opt("condiviso","condiviso")+opt("paziente","il paziente")+'</select></div>'
+    +'<div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;margin-bottom:.3rem">'
+      +'<span style="font-size:.79rem">Portare il grasso dal <strong>'+mis.pg+'%</strong> al</span>'
+      +'<input type="number" id="trg-pct" step="0.5" min="1" max="59" value="'+pctIni+'" oninput="_traguardoAnteprima()" style="width:74px;font-size:.8rem;font-weight:700">'
+      +'<span style="font-size:.79rem">%</span>'
+      +'<span id="trg-sintesi" style="font-size:.72rem;color:var(--text2);margin-left:.15rem"></span>'
     +'</div>'
-    +'<div id="trg-hint" style="font-size:.62rem;color:var(--text3);margin-bottom:.35rem"></div>'
     +'<div id="trg-out"></div>'
+    // P150 — la previsione sul muscolo non e' piu' un campo da compilare: sposta
+    // il peso finale di qualche chilo ma il grasso da togliere di due etti (P123),
+    // quindi non decide ne' calorie ne' settimane. Sta nella piega, con lo storico.
+    +'<details style="margin-top:.45rem">'
+      +'<summary style="cursor:pointer;font-size:.68rem;color:#8a6508;font-weight:600;outline:none">Altro — come si muove il muscolo nel percorso</summary>'
+      +'<div style="margin-top:.4rem;padding:.5rem .65rem;background:var(--bg);border:1px dashed var(--border);border-radius:8px">'
+        +'<div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:flex-end">'
+          +'<div><div style="font-size:.63rem;color:var(--text3)">il muscolo, nel percorso</div>'
+            +'<select id="trg-modo" onchange="_traguardoAnteprima()" style="font-size:.75rem">'
+              +optM("dimagrimento","cala un po\' (dimagrimento)")+optM("ricomposizione","sale (ricomposizione / massa)")
+            +'</select></div>'
+          +'<div id="trg-box-quota"><div style="font-size:.63rem;color:var(--text3)">quanto del calo è massa magra</div>'
+            +'<input type="number" id="trg-quota" step="5" min="0" max="50" value="'+quotaIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">%</span></div>'
+          +'<div id="trg-box-guad"><div style="font-size:.63rem;color:var(--text3)">massa magra che guadagna</div>'
+            +'<input type="number" id="trg-guad" step="0.5" min="0" max="15" value="'+guadIni+'" oninput="_traguardoAnteprima()" style="width:80px;font-size:.8rem"> <span style="font-size:.65rem;color:var(--text3)">kg</span></div>'
+        +'</div>'
+        +'<div id="trg-hint" style="font-size:.62rem;color:var(--text3);margin-top:.4rem"></div>'
+        +'<div id="trg-alt" style="font-size:.7rem;color:var(--text2);margin-top:.45rem"></div>'
+      +'</div>'
+    +'</details>'
   );
 }
 
@@ -17073,27 +17121,49 @@ function _traguardoAnteprima(){
     return;
   }
   const o=r.ottimista, re=r.realistico;
+  // P150 — la riga di sintesi accanto al campo: i due numeri che contano
+  // (grasso da togliere, peso obiettivo) letti senza scendere con gli occhi.
+  (function(){
+    const sx=document.getElementById("trg-sintesi");
+    if(!sx) return;
+    const _pesoObj=(r.realeApplicabile?re:o).peso;
+    const _dg=r.grassoDaPerdere;
+    sx.innerHTML = (Math.abs(_dg)>0.05
+        ? '→ '+(_dg>0?'togliere':'mettere')+' <strong style="color:var(--text)">'+Math.abs(_dg).toFixed(1)+' kg</strong> di grasso · '
+        : '→ ')
+      +'peso obiettivo <strong style="color:var(--text)">'+_pesoObj+' kg</strong>';
+  })();
   // P123 — le etichette "ottimista/realistico" venivano dal dimagrimento e in
   // ricomposizione erano girate al contrario ("ottimista" era lo scenario in cui
   // NON mette muscolo). Ora dicono semplicemente cosa succede al muscolo.
   const _princ = r.realeApplicabile ? re : o;
   const _alt   = r.realeApplicabile ? o : null;
   const _lblPrinc = r.realeApplicabile ? r.etichettaScenario : "se il muscolo resta com'è";
-  let h='<div style="font-size:.72rem;line-height:1.55">'
-    +'<div style="font-size:.8rem"><strong style="font-size:1rem">'+_princ.peso+' kg</strong> <span style="color:var(--text2)">'+_lblPrinc+'</span> <span style="color:var(--text3)">— muscolo '+_princ.m+' · grasso '+_princ.g+' kg</span></div>';
-  if(_alt){
-    h+='<div style="font-size:.68rem;color:var(--text3)">se invece il muscolo resta com\'è: '+_alt.peso+' kg (muscolo '+_alt.m+' · grasso '+_alt.g+' kg)</div>';
-  }
-  // I due numeri che contano davvero: grasso da togliere e magra da mettere.
-  // Il peso è solo la loro somma — in ricomposizione può perfino non muoversi.
-  const pezzi=[];
-  if(Math.abs(r.grassoDaPerdere)>0.05) pezzi.push('grasso <strong>'+(r.grassoDaPerdere>0?'−':'+')+Math.abs(r.grassoDaPerdere).toFixed(1)+' kg</strong>');
-  if(Math.abs(r.magraDaMettere)>0.05) pezzi.push('massa magra <strong>'+(r.magraDaMettere>0?'+':'−')+Math.abs(r.magraDaMettere).toFixed(1)+' kg</strong>');
-  const dPeso=(r.realeApplicabile?re.delta:o.delta);
-  pezzi.push('peso <strong>'+(dPeso>0?'+':'')+dPeso.toFixed(1)+' kg</strong>'+(Math.abs(dPeso)<0.6?' (praticamente fermo)':''));
-  h+='<div style="margin-top:.25rem;padding:.3rem .5rem;background:#FFF3CD;border-radius:6px;color:#7a5b00">'+pezzi.join(' · ')+'</div></div>';
+  // P150 — il peso non e' piu' il numero grande. In ricomposizione lo dice il
+  // codice stesso ("il peso dice poco") e P123 ha misurato perche': la
+  // previsione sul muscolo sposta il peso di chili e il grasso da togliere di
+  // due etti. In vista restano le due coppie che contano; il peso e' la somma.
+  const _cop=[];
+  _cop.push('grasso <strong>'+r.misura.g+' \u2192 '+_princ.g+' kg</strong>');
+  if(Math.abs(r.magraDaMettere)>0.05)
+    _cop.push('massa magra <strong>'+r.misura.m+' \u2192 '+_princ.m+' kg</strong>');
+  else
+    _cop.push('massa magra <strong>'+r.misura.m+' kg</strong> <span style="color:var(--text3)">conservata</span>');
+  _cop.push('peso <strong>'+r.misura.peso+' \u2192 '+_princ.peso+' kg</strong>');
+  let h='<div style="background:var(--teal-bg);border:1px solid var(--teal-light);border-radius:8px;padding:.5rem .7rem;font-size:.75rem;line-height:1.6;color:var(--text2)">'
+    +_cop.join(' \u00b7 ')+'</div>';
   // P123 — riquadro solo per ciò che richiede una decisione (soglie di sicurezza,
   // referti incoerenti); le note informative in una riga sola, piccola.
+  // lo scenario col muscolo vive nella piega, con il suo pulsante
+  (function(){
+    const alt=document.getElementById("trg-alt");
+    if(!alt) return;
+    alt.innerHTML = r.realeApplicabile
+      ? ('Con questo, il peso obiettivo diventa <strong>'+re.peso+' kg</strong> '
+         +'<span style="color:var(--text3)">(muscolo '+re.m+' \u00b7 grasso '+re.g+' kg)</span> '
+         +'<button type="button" class="btn btn-g btn-sm" style="font-size:.66rem;margin-left:.3rem" onclick="_traguardoUsa(\'realistico\')">usa questo invece</button>')
+      : '<span style="color:var(--text3)">Con questi valori i due scenari coincidono.</span>';
+  })();
   const _note=[];
   (r.avvisi||[]).forEach(function(a){
     if(a.liv==="nota"){ _note.push(a.txt); return; }
@@ -17113,14 +17183,22 @@ function _traguardoAnteprima(){
       h+='<div style="margin-top:.25rem;font-size:.63rem;color:'+(_cmp.liv==='ok'?'#166534':'var(--text3)')+'">🗣️ '+_cmp.txt+'</div>';
     }
   }
+  // P150 — un pulsante solo, e l'ancora e' lo scenario a MASSA MAGRA INVARIATA
+  // (r.ottimista): non contiene nessuna previsione sul muscolo. Lo scenario con
+  // il muscolo resta disponibile nella piega «Altro». Il pulsante e' spento
+  // finche' non cambi niente: cosi' si vede a colpo d'occhio se il traguardo a
+  // video e' quello salvato o una modifica non ancora scritta.
   if(!r.bloccato){
-    h+='<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem">';
-    if(r.realeApplicabile){
-      h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'realistico\')">Usa '+re.peso+' kg</button>';
-      h+='<button type="button" class="btn btn-g btn-sm" style="font-size:.66rem" onclick="_traguardoUsa(\'ottimista\')">oppure '+o.peso+' kg (muscolo fermo)</button>';
-    } else {
-      h+='<button type="button" class="btn btn-p btn-sm" onclick="_traguardoUsa(\'ottimista\')">Usa '+o.peso+' kg</button>';
-    }
+    const _sal=_traguardoGet(p), _cl2=_sal&&_sal.clinico;
+    const _uguale = !!(_cl2 && _cl2.pctGrassoTarget!=null
+      && Math.abs(_cl2.pctGrassoTarget-r.pctTarget)<0.001
+      && _cl2.pesoTarget!=null && Math.abs(_cl2.pesoTarget-o.peso)<0.05);
+    h+='<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.5rem">'
+      +'<button type="button" class="btn '+(_uguale?'btn-g':'btn-p')+' btn-sm"'+(_uguale?' disabled':'')
+        +' onclick="_traguardoUsa(\'ottimista\')">'
+        +(_uguale?'Traguardo impostato':'Imposta il traguardo — '+o.peso+' kg')+'</button>';
+    if(r.realeApplicabile)
+      h+='<span style="font-size:.64rem;color:var(--text3)">con il muscolo che sale sarebbero '+re.peso+' kg — sta in «Altro»</span>';
     h+='</div>';
   }
   // CORREZIONE post-collaudo 26/7 — il campo "Obiettivo peso" si può scrivere a
@@ -17166,7 +17244,7 @@ function _traguardoAllineaManuale(){
   const v=el?parseFloat(el.value):NaN;
   if(isNaN(v)||v<=0){ notif("⚠ Nel campo Obiettivo peso non c\'è un numero valido"); return; }
   _traguardoScrivi(p, {metodo:"manuale", pesoTarget:v, motivo:"valore scritto a mano nel campo Obiettivo peso",
-                       decisoDa:(document.getElementById("trg-deciso")||{}).value||"medico"});
+                       decisoDa:"medico"});
   if(typeof save==="function") save(p.id);
   notif("🎯 Traguardo allineato a "+v+" kg (scelta manuale)");
   _renderRifPesoBox();
@@ -17189,7 +17267,7 @@ function _traguardoUsa(scenario){
     quotaMagraPersa:r.quotaMagraPersa, guadagnoMagra:r.guadagnoMagra,
     pesoTarget:sc.peso, pesoOttimista:r.ottimista.peso, pesoRealistico:r.realistico.peso,
     massaGrassaTargetKg:sc.g, massaMagraTargetKg:sc.m, massaMagraRif:r.misura.m, scenario:scenario,
-    decisoDa:gv("trg-deciso")||"medico"
+    decisoDa:"medico"
   });
   const el=document.getElementById("mac-peso-target");
   if(el){ el.value=p.pesoTarget; el.dispatchEvent(new Event("input")); }

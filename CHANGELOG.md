@@ -10,6 +10,76 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+6 AGOSTO 2026 — P150: LA SCHERMATA TDEE RIORGANIZZATA (PASSI 1-2).
+Baseline 08318b5. Suite 738 verdi. Lavoro di sola DISPOSIZIONE e testi: nessuna
+formula, soglia, avviso o scrittura sul paziente e' stata toccata.
+
+**Il problema, misurato.** La pagina renderizzata a video sul portatile di Fabrizio
+(1090 px di larghezza utile) era alta 2.573 px: 3,7 schermate, 45 campi, 26 pulsanti,
+sei tinte di sfondo diverse. Mescolava a peso visivo identico tre cose: quello che si
+COMPILA (pochi campi), quello che l'app CALCOLA, e quello che si CONSULTA (tabella
+delle 12 categorie, quattro formule di peso ideale, classifica dei protocolli). Il
+risultato era sparso: TDEE a un terzo di pagina, kcal target a due terzi, macro in
+fondo dietro «Calcola».
+
+**Passo 2: da quattro campi a una domanda.** Il riquadro del traguardo chiedeva
+% grasso + modo del muscolo + kg/quota + «deciso da». Ora chiede una frase sola —
+«Portare il grasso dal 28.5% al [15] %» — con la sintesi accanto. Modo, quota e
+guadagno scendono nella piega «Altro» insieme allo storico: P123 aveva gia' misurato
+che la previsione sul muscolo sposta il peso finale di chili ma il grasso da togliere
+di due etti, quindi non decide ne' calorie ne' settimane. «Deciso da» e' stato
+rimosso su richiesta di Fabrizio (le due letture di `trg-deciso` sono sparite, non
+lasciate orfane). Il corpo del risultato non mostra piu' il peso in grande ne' la
+banda gialla: un riquadro verde con le due coppie che contano (grasso, magra) e il
+peso come somma. Un pulsante solo, **ancorato allo scenario a massa magra invariata**
+(`r.ottimista`) perche' non contiene nessuna previsione; spento quando il traguardo a
+video e' gia' quello salvato, cosi' si vede se c'e' una modifica non ancora scritta.
+Lo scenario col muscolo resta nella piega col suo «usa questo invece».
+
+**Passi 2 e 3 fusi, e la tabella delle strade diventa uno slider.** Erano una
+decisione sola spezzata in due. «Come ci arrivi» era una tabella a cinque colonne:
+ora e' uno slider 0-40% le cui TACCHE portano l'esito — `0% · -10% · -15% · -20%` e
+sotto le settimane (53, 36, 27). La scala e' diventata il confronto. Sotto il pollice
+un'etichetta viva dice «-17% · 2117 kcal · 31 settimane»: lo stesso comando fa
+confrontare e regolare, quindi il campo «Altra percentuale» sparisce e la piega
+«Regola a mano» nasce chiusa quando lo slider c'e'.
+
+**Due trappole trovate mentre si scriveva.**
+(a) `_stradaUsa` mostra una notifica e, se il paziente ha un percorso, apre un
+`confirm()` sulle fasi. Agganciarlo a `oninput` avrebbe aperto decine di finestre per
+ogni trascinamento: l'anteprima e' stata separata dall'azione (`_ritmoAnteprima` non
+tocca il regime, `onchange` si). Verificato: 30 movimenti consecutivi, zero dialoghi.
+(b) Chiudendo la piega «Regola a mano» nel markup si creava un difetto vero: su un
+paziente senza sesso o senza InBody il traguardo non e' calcolabile,
+`_traguardoAnteprima` esce prima di chiamare `_aggiornaStradaBox`, lo slider non
+viene disegnato e **l'unico comando delle calorie sarebbe finito nascosto in una
+piega chiusa**. Il test P149 esisteva apposta e l'ha bloccato. La piega nasce aperta
+e la chiude `_aggiornaStradaBox` solo quando le tacche ci sono.
+
+**Testi.** 425 -> 218 parole di prosa, senza perdere niente di necessario. Tre regole:
+una frase resta solo se dice qualcosa che i numeri accanto non dicono gia'; le sigle
+si sciolgono dove si spiega il metodo e non nelle etichette (`MB + NEAT + EAT + TEF`
+-> «basale + passi + allenamento + digestione»); i titoli dicono cosa esce, non da
+dove si parte («Da dove parte — attivita' fisica» -> «Quanto consuma»). La nota «in
+ricomposizione il peso dice poco» e' stata accorciata perche' ripeteva la coppia di
+numeri del riquadro sopra — e ripetere un dato due volte e' il modo piu' rapido per
+renderlo invisibile.
+
+**Due test aggiornati, non indeboliti.** P149 verificava la strada in vigore tramite
+il pallino ◉ delle righe di tabella: il marcatore ora e' la tacca evidenziata
+(`.near`), e sono stati aggiunti due controlli in piu' sulla posizione del pollice.
+Il test sulla nota di ricomposizione cerca «non la bilancia» invece di «il peso dice
+poco»: cambia la formulazione, non l'intento.
+
+**Cosa NON e' stato fatto** (deciso con Fabrizio, resta aperto): la forma «costruire
+muscolo» del passo 2 — oggi per un percorso in surplus `_stradeVerso` esce con
+«nessun grasso da togliere» e il blocco delle strade non compare affatto, verificato
+sul codice. Richiede due campi nuovi in `obiettivoPercorso.clinico` (massa magra
+obiettivo, tetto di grasso), un ramo surplus nelle strade e la migrazione sui
+pazienti salvati. Deciso inoltre che su quel percorso **non si stima il tempo**: il
+ritmo di crescita muscolare non si ricava dalle calorie, e un numero inventato con
+l'aria di essere calcolato e' peggio di un numero assente (regola 11).
+
 5 AGOSTO 2026 (11/11) — P149: LA SECONDA PARTE DEL TDEE, DALL'OBIETTIVO PESO IN GIU'.
 Baseline d7f4512. Suite da 732 a 738 verdi (6 test nuovi in
 `s2-tdee-parte2-ordine.test.js`). Chiude cio' che P147 aveva lasciato aperto: la
