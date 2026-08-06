@@ -10,6 +10,75 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+6 AGOSTO 2026 (2ª sessione) — P153 APERTA: LE ALTRE BIOIMPEDENZIOMETRIE, E DUE
+DIFETTI DI PROCESSO TROVATI DA FABRIZIO. Baseline f356915. **Nessuna riga di codice
+toccata**: sessione di ricerca, progettazione e documentazione. Connesso il connettore
+PubMed (authless).
+
+**La domanda.** Fabrizio: dare la possibilità di usare NutriGest anche a chi non ha
+l'InBody né il plicometro — quali bioimpedenziometrie servono, quali sono le più
+diffuse. Ricerca fatta con la ricerca web (Perplexity non è collegato: cercato nel
+registro dei connettori, non c'è).
+
+**Il risultato che cambia la forma del lavoro.** I dispositivi sul mercato sono decine,
+ma **le forme del dato sono due**: chi consegna l'elettricità grezza (Rz, Xc, angolo di
+fase a 50 kHz — Akern, Bodystat, Maltron, RJL/BIA 310e, BioTekna) e chi consegna i
+compartimenti già calcolati con equazioni proprietarie (InBody, Tanita, seca mBCA,
+Jawon, Charder, Evolt, più le bilance domestiche). Non si implementa una marca alla
+volta: si implementano le due lingue. È lo stesso movimento di P124, che non ha scritto
+un lettore per ogni laboratorio ma un lettore di tabelle di referto. Priorità
+controintuitiva, messa per iscritto nella scheda: Akern è il nome italiano ma è anche
+l'unica famiglia col motore di equazioni da scrivere; la famiglia B si apre quasi gratis
+riusando lo stampo InBody. Scheda completa e cinque tappe → **P153** nella Roadmap v4;
+ragionamento esteso → `claude/NutriGest_P153_Altre_Bioimpedenziometrie_Ragionamento.md`.
+
+**PRIMO DIFETTO — ho scritto una voce di roadmap solo nella fotografia.** Le prime tre
+scritture della sessione sono andate nei documenti del progetto Claude
+(`NutriGest_Roadmap_Semplice.md`, `_STATO_DOCUMENTI.md`, il documento nuovo) perché la
+cartella del repo non era ancora collegata. Risultato: **una voce di roadmap esistente
+solo nella fotografia e assente dalla fonte di verità** — chi legge il repo non la trova,
+chi legge il progetto la trova e la crede autorizzata. Non è la solita fotografia che
+invecchia: è una fotografia che afferma qualcosa che l'originale non dice. Se ne è
+accorto Fabrizio, chiedendo «perché hai aggiornato solo la roadmap semplice e non la
+v4?». **Regola operativa che ne esce: se la cartella del repo non è collegata, la prima
+cosa da fare è chiederla — non scrivere intanto nei documenti del progetto.**
+
+**SECONDO DIFETTO, conseguenza del primo — il numero di voce era già occupato.** La voce
+era stata numerata **P150** leggendo `NutriGest_Roadmap_Semplice.md`, foto del 5 agosto.
+Nel repo P150 esiste già ed è **chiusa** (schermata TDEE, stessa giornata), e sono già
+occupati anche P151 e P152 (nati dalla sessione Supabase). Rinumerata **P153** ovunque,
+compreso il nome del file nel progetto Claude. È esattamente la trappola descritta in
+CLAUDE.md — *i documenti del progetto sono fotografie datate, non lo stato del software* —
+applicata non a una funzione da reimplementare ma alla **numerazione**: un contatore letto
+da una copia vecchia produce collisioni silenziose.
+
+**Terza cosa trovata, e sarebbe stato il terzo errore: P101 esisteva già.** «Referti
+non-InBody», aperta da tempo, aveva già visto il rischio giusto (il «falso amico»: una
+bilancia diversa che riporta «massa grassa» con metodo non confrontabile) e prescritto
+`misurazione.fonte` più la segnalazione del cambio fonte nei grafici. P153 la contiene e
+la generalizza — P101 restava dentro l'impianto InBody, P153 sposta il problema sul
+modello dati — quindi **P101 è marcata assorbita nella tappa 153b**, non aperta due volte.
+La regola che l'ha intercettata è quella scritta il 30 luglio: *prima di implementare
+qualcosa descritto in un documento, cercarlo nel codice e nella roadmap.*
+
+**Due regole fissate ora perché costano poco adesso e care dopo:** (1) **non si converte
+mai** fra strumenti — le equazioni sono proprietarie, un valore convertito sarebbe un
+numero inventato con l'aria di un numero misurato (regola 11); si cambia serie, come le
+due bilance di P35. (2) Ogni valore derivato porta scritto se è **letto** dal referto o
+**calcolato** da noi con quale equazione, e i due non si mescolano nella stessa serie.
+
+**Il dato che manca, dichiarato come mancante:** quanto siano diffusi i singoli
+dispositivi negli studi italiani non è pubblicato da nessuno. Le ricerche di mercato
+danno il giro d'affari globale e i tre nomi in testa; i siti dei professionisti sono un
+campione autoselezionato. La fonte migliore è chiedere a dieci nutrizionisti che
+strumento hanno — annotato nella scheda invece di essere stimato a occhio.
+
+**File toccati:** `NutriGest_Roadmap_v4.md` (scheda P153 nuova, nota di assorbimento in
+P101, nota di precedenza in P139), `CLAUDE.md` (riga del documento nuovo nella tabella di
+stato; corretta la riga di `NutriGest_Roadmap_Semplice.md`, che dal 4 agosto diceva ancora
+«foto al 31 luglio»), `CHANGELOG.md` (questa voce). **`index.html` non toccato**, quindi
+nessun `node --check`, nessuna rigenerazione di INDEX.md, suite non eseguita.
+
 6 AGOSTO 2026 — P150: LA SCHERMATA TDEE RIORGANIZZATA (PASSI 1-2).
 Baseline 08318b5. Suite 738 verdi. Lavoro di sola DISPOSIZIONE e testi: nessuna
 formula, soglia, avviso o scrittura sul paziente e' stata toccata.

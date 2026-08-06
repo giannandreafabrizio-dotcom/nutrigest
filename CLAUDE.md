@@ -82,12 +82,13 @@ la fonte di verità sullo stato; questi file sono la fonte di verità sul *perch
 | `_STATO_DOCUMENTI.md` | Copia di questa tabella, visibile dentro claude.ai. |
 | `NutriGest_P9_Timeline_Ragionamento.md` | ✅ **Modello da imitare**: dichiara in testa cosa è implementato, con i commit. |
 | `NutriGest_Plicometria_Ragionamento.md` | ✅ Dice il vero: P139 è davvero da fare, nessun codice plicometrico esiste. |
+| `NutriGest_P153_Altre_Bioimpedenziometrie_Ragionamento.md` | ✅ **Nato datato il 6 agosto 2026** (Regola 23, punto 1): dichiara in testa che nessun codice esiste e che oggi c'è solo il motore InBody. La colonna «diffusione» del censimento è **dichiarata non verificata**: sono impressioni da ricognizione, non dati di mercato. |
 | `NutriGest_P124_Import_Referti.md` | ✅ Dichiara già «chiusa e collaudata». |
 | `NutriGest_Testi_Cosa_Entra_Nelle_AI.md` | ✅ Descrive lo stato dopo la modifica, con i marcatori di data. |
 | `NutriGest_Chetogenica_Ragionamento.md` | ✅ Marcatori [fatto]/[non fatto] espliciti; i 4 punti aperti sono veri. |
 | `NutriGest_Ricette_Caricamento_Massivo.md` | ✅ Il limite risolto è marcato; la fase 2 è davvero aperta. |
 | `NutriGest_TDEE_Parte1b_Catalogo_e_LAF.md` | ✅ Scritto al passato coi commit. Solo il §4 è superato: il collaudo a video **è** avvenuto e ha prodotto P147d. |
-| `NutriGest_Roadmap_Semplice.md` | ⚠️ Foto al 31 luglio: **non conosce P147/b/c/d**. Va rigenerata, non letta come attuale. |
+| `NutriGest_Roadmap_Semplice.md` | ⚠️ Rigenerata il 5 agosto (dopo P149) e ritoccata il 6 agosto per P153. **Resta una foto**: non conosce P150/P151/P152, chiuse o aperte nel repo il 6 agosto. Si rigenera dalle schede di questo repo, non si legge come stato. |
 | `NutriGest_TDEE_Parte1_Ragionamento.md` | ⚠️ In testa dice «Nessuna modifica al codice è stata fatta»: **falso**, P147 è chiusa (`77649f0`). Il catalogo del §6 propone 78 voci, **oggi sono 117**. |
 | `NutriGest_P87_Comunicazione_Analisi.md` | 🗄️ **È il documento dell'incidente.** P87 è CHIUSA dal 28 luglio in tre tappe: `p.invii[]`, motore di invio e tab Comunicazione **esistono già**. |
 | `NutriGest_P122_Collaudo_e_Correzioni.md` | 🗄️ «Nessuna correzione è ancora stata scritta nel codice» è **falso**: tutte e 5 scritte lo stesso giorno, P122 chiusa e collaudata il 26 luglio. |
