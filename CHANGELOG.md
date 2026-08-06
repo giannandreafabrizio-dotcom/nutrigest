@@ -88,6 +88,27 @@ correttamente nel tempo: **oggi non c'e' nessun bug attivo**, solo una fragilita
 latente (una colonna di testo accetta qualunque cosa). Vale la regola 16 al contrario:
 prima di dichiarare grave un difetto trovato per struttura, si guardano i dati.
 
+**RILASCIO SU PAGES PIANTATO, E `.nojekyll`.** La build `pages-build-deployment` #615
+del push di P150 e' **fallita dopo 30 minuti e 8 secondi**, contro i ~40 secondi di
+tutte le precedenti: la firma di una build appesa, non di un errore di contenuto. Non
+serve rifare il push — ogni build di Pages pubblica lo stato ATTUALE di `main`, quindi
+la successiva porta online anche i commit della fallita. Controllando si e' visto che
+il repository **non ha `.nojekyll`**: Pages fa girare Jekyll su tutta la cartella
+(`test-suite/`, `vendor/`, tutti i `.md`) prima di pubblicare un file HTML che e' gia'
+pronto. Aggiunto un `.nojekyll` vuoto in radice. **Non e' una diagnosi di #615** — la
+causa vera non e' dimostrata e con ogni probabilita' era un intoppo lato GitHub — e'
+una messa in sicurezza che rende le pubblicazioni piu' rapide e meno capricciose.
+Annotato anche un dubbio da verificare: nell'elenco dei workflow non compare una
+esecuzione della **suite di test** per i commit di oggi, mentre c'e' per quello di
+ieri. I 738 test sono stati eseguiti in locale prima della consegna, quindi il codice
+e' coperto; ma se il controllo automatico e' spento sul serio, e' una rete di sicurezza
+che manca **in silenzio** — la famiglia di difetti che questo progetto conosce meglio.
+
+**CLAUDE.md ALLINEATO.** Corretti due fatti stantii: `index.html` era dato a «~20.900+
+righe» e ne ha **32.308** (ora la riga dice anche di ricontrollarlo con `wc -l` invece
+di ricopiarlo), e il nome dello strumento di consegna. Aggiunta la **regola 24** sui
+connettori, che mette per iscritto le due decisioni prese oggi.
+
 **GITHUB.** Nella prima ricerca avevo concluso che il connettore GitHub non esistesse:
 sbagliato, la ricerca guardava il registro pubblico. Fabrizio l'ha collegato. Non e'
 arrivato in questa sessione — i connettori si agganciano all'avvio, quindi serve
