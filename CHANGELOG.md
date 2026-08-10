@@ -10,6 +10,42 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (6ª parte) — P147 COLLAUDATO SUI DATI IN PRODUZIONE, E LA QUARTA
+AFFERMAZIONE MIA NON VERIFICATA DELLA GIORNATA. Baseline `5d1debd`. Nessun file di codice
+toccato: solo letture sull'app pubblicata e due correzioni di testo.
+
+**PRIMA L'ERRORE.** Stamattina avevo scritto, in CLAUDE.md e qui, che il catalogo MET ha
+«**117 voci, tutte e 117 col codice Compendium a 5 cifre — la regola 20 applicata al 100%**».
+**Falso: sono 108.** Il mio stesso comando aveva stampato 108, e ho scritto 117 leggendo il
+numero delle voci al posto di quello dei codici. Corretto in entrambi i file.
+  **Le altre nove non sono un difetto**, ed è il motivo per cui non me n'ero accorto guardando
+il codice: sono le voci di ripiego **«Non in elenco — Forza / Cardio / Misto × bassa / media /
+alta»**, che portano `k:'griglia'` perché **non sono voci del Compendium** — è la griglia per
+l'attività che non sta in catalogo. Dichiararle con un codice finto sarebbe stato il difetto;
+non averlo è la scelta giusta. Ma «108 su 117, e le altre 9 per costruzione non possono
+averlo» non è la stessa frase di «tutte e 117», ed è quella vera.
+
+**IL COLLAUDO VERO DI P147, fatto sull'app in produzione** (Claude in Chrome, sola lettura,
+nessun accesso: il catalogo è un dato statico e si legge senza autenticarsi). Verificato:
+117 voci · 7 categorie · **nessun nome duplicato** · **nessun MET mancante o non numerico** ·
+**117 nomi risolvibili** dal lookup · **18 alias** storici presenti (regola 21: rinominare una
+voce è una migrazione, e la mappa c'è).
+  **Due codici Compendium usati da due etichette ciascuno — controllati uno per uno, ed
+entrambi corretti:** `02040` copre «Circuit training, sforzo vigoroso» e «CrossFit /
+functional training (seduta intera)» (stesso MET 7,5, stessa categoria: è la stessa voce
+Compendium con due nomi d'uso); `15675` copre «Tennis singolo amatoriale» e **«Padel (stima
+su tennis)»** (stesso MET 6,8). Il secondo è **la regola 20 fatta meglio di come l'avevo
+descritta**: il codice permette di ritrovare la fonte *e* l'etichetta dichiara che per il
+padel è una **stima**, non una misura. Un numero derivato che dice di esserlo.
+
+**COSA RESTA DI P147-P150, e perché non l'ho fatto.** I tre punti di collaudo a video —
+l'ordine dei cinque passi, la piega «Regola a mano» che deve aprirsi da sola sul paziente
+senza sesso o senza InBody (regressione già ripresentata una volta), e lo slider del ritmo
+che non deve aprire finestre mentre lo si trascina — **richiedono le schermate del paziente**,
+e il browser non è autenticato (`db` non caricato, nessun paziente in memoria). Non ho
+forzato: costruire uno stato finto in un'app disconnessa avrebbe collaudato la mia
+simulazione, non l'app. Restano da fare con Fabrizio davanti allo schermo.
+
 10 AGOSTO 2026 (5ª parte) — P130: LO STATO DI VERIFICA ACCANTO A OGNI PORZIONE FODMAP.
 Baseline `c31af4c`. **Prima modifica al codice applicativo della giornata** — e non cambia
 un solo numero clinico. Suite **738/738 verde**, INDEX.md rigenerato (507 voci).
@@ -371,8 +407,9 @@ verificata come i documenti — non è esente per il fatto di essere lo strument
 `Obiettivo_Ragionamento` (il §3 è la fonte sul perché il traguardo si deriva dalla % di grasso,
 non dal peso), `TDEE_Parte1`, `Grafici_InBody`, `Pazienti_Storici_Metodo`. Nel riverificare
 `TDEE_Parte1` è emerso un dato che vale la pena avere scritto: il catalogo attività ha **117
-voci e tutte e 117 portano il codice Compendium a 5 cifre** — la regola 20, nata proprio da
-quella tabella, è applicata al 100%.
+voci**. *(Riga corretta il 10 ago 2026, 6ª parte: qui avevo scritto «tutte e 117 portano il
+codice Compendium» — **è falso, sono 108**. Il conteggio giusto e la spiegazione delle altre
+nove stanno nella voce sul collaudo di P147.)*
 
 **APERTA P154 — le policy RLS rivalutano `auth.uid()` a ogni riga.** Numero **letto dal
 repo** (`43a28a1`: il più alto era 153, P154 libero), non da una fotografia. È la prima
