@@ -342,7 +342,16 @@
 **COLLAUDO:** suite 472 → **483**; 4 test di `s2-contesto-attivita` aggiornati al contratto nuovo mantenendone l'intento; `node --check`; smoke JSDOM del pannello. Sul paziente dello screenshot il TDEE passa da 2280 a 2265 kcal.
 **FOCUS COMPONENTI COINVOLTI:** Frontend, `_MET_CATALOGO`, `_MET_ALIAS`, `_attivitaVoce`, `_righeAttivita`, `_modalitaAllenamento`, `_tdeePannelloHtml`, `calcolaTDEE`, `renderPdMacros`, `costruisciContestoPaziente`.
 **LA PARTE 2 È DIVENTATA P149**, chiusa il 5 agosto 2026. Nota nata qui e ancora aperta: le righe attività sanno quante sedute fa il paziente, quindi la coerenza fra sedute dichiarate e giorni ON spuntati a mano diventa verificabile — controllo consapevolmente rinviato (vedi P149).
-**SCHEDA:** Stato: ✅ Chiusa 3 agosto 2026 — da collaudare a video · Priorità: Alta · Categoria: Motore TDEE / interfaccia · Dipendenze: P7 (motore MET), P114 (sedute×minuti, lavoro, affidabilità), P126 (contesto AI) · C: 3 | I: 4 | R: 3 · Modello: Opus High · Autonomia: L0 (dati clinici).
+**COLLAUDO A VIDEO: SUPERATO (10 agosto 2026, da Fabrizio).** Fino a oggi questa voce diceva «da collaudare» senza dichiarare **cosa** guardare — ed è il motivo per cui era ferma da una settimana. Le cinque prove eseguite, conservate qui perché servono a ogni futura modifica di questa sezione:
+1. **Il campo che sparisce da solo** — annotare attività e TDEE, andare su Dati, premere Salva **senza aprire il pannello TDEE**, tornare indietro: tutto invariato. ✅ *(è il bug della famiglia della regola 22, trovato proprio durante P147)*
+2. **Due pazienti aperti** — pannello TDEE di A aperto, si salva l'anagrafica di B: B non eredita l'attività di A. ✅
+3. **Più allenamenti** — due righe attività diverse, il TDEE sale con la seconda. ✅
+4. **Pazienti storici** — tre pazienti di prima di agosto: l'attività salvata c'è ancora e le calorie da allenamento non sono zero (la mappa `_MET_ALIAS` regge). ✅
+5. **I valori aggiornati** — Pilates ≈1.8 e Spinning ≈9.0, non più i MET del 2011. ✅
+**Le prove 1 e 4 sono quelle che contano**: sono le due in cui il difetto non si vede — il paziente si ritrova con qualche centinaio di kcal in meno e nessuno se ne accorge.
+*Verificata separatamente da Claude, lo stesso giorno, la parte dati (sull'app in produzione): 117 voci, 7 categorie, nessun nome duplicato, nessun MET mancante, 117 nomi risolvibili, 18 alias, e i due codici Compendium ripetuti entrambi legittimi.*
+
+**SCHEDA:** Stato: ✅ **CHIUSA E COLLAUDATA** — chiusa 3 agosto 2026, collaudo a video superato il 10 agosto 2026 · Priorità: Alta · Categoria: Motore TDEE / interfaccia · Dipendenze: P7 (motore MET), P114 (sedute×minuti, lavoro, affidabilità), P126 (contesto AI) · C: 3 | I: 4 | R: 3 · Modello: Opus High · Autonomia: L0 (dati clinici).
 
 ### P146 — Testi SVG che si sovrappongono nella Mappa della qualità ✅ CHIUSA 31 luglio 2026
 **IL PROBLEMA:** a mezza colonna (~545px) il titolo dell'asse X e la didascalia «colore più pieno = periodo più recente» finivano uno sopra l'altro. Trovato guardando il rendering durante P145.
@@ -964,7 +973,14 @@ verificare che il suggerimento specifico NON compaia** quando non c'è un piano 
 > Clinica→Routine come suggerimento cliccabile, che riconosce anche le voci salvate prima
 > del catalogo risolvendole dal nome. 25 test nuovi, suite a 629 verdi.
 >
-> **DA COLLAUDARE A VIDEO** (PC e iPhone): apertura scheda Clinica di un paziente storico
+> 📓 **STORICO — NON È LAVORO DA FARE. (verificato 10 ago 2026)** Questa è la checklist scritta
+> *prima* del collaudo, e **il collaudo poi c'è stato**: la SCHEDA in fondo alla voce lo dichiara
+> superato da Fabrizio il 5 agosto 2026, punto per punto, con gli stessi punti elencati qui.
+> Conservata per memoria di cosa era stato chiesto di verificare. **Lo stato attuale della voce è
+> nella SCHEDA in fondo.** *(Trovata il 10 agosto mentre si stava per rifare un collaudo già fatto:
+> è lo stesso difetto di P124 a parti invertite — là la scheda diceva «da collaudare» e il corpo
+> «superato», qui il corpo dice «da collaudare» e la scheda «superato». Vince sempre la scheda.)*
+> ~~**DA COLLAUDARE A VIDEO**~~ → **SUPERATO IL 5/8/2026** *(testo originale, pre-collaudo)*: apertura scheda Clinica di un paziente storico
 > (le spunte devono esserci tutte), colori e pannello ⓘ, aggiunta di Omega-3 o Vitamina D
 > dalla Routine su un paziente con un piano generato (deve mostrare il pasto giorno per
 > giorno), e un PDF con una voce in automatico.

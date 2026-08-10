@@ -10,6 +10,50 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (8ª parte) — P147 COLLAUDATA DA FABRIZIO, E UN COLLAUDO CHE STAVAMO PER
+RIFARE PERCHÉ ERA GIÀ STATO FATTO. Baseline `de19b18`. **Con questa la famiglia «collaudo a
+video» è chiusa: non ne resta nessuno.**
+
+**P147 — collaudo superato, e finalmente DEFINITO.** La voce era ferma da una settimana per
+un motivo preciso: **diceva «da collaudare» senza dichiarare cosa guardare.** Scritte le
+cinque prove nella scheda e passate a Fabrizio in forma di istruzioni passo passo; le ha
+eseguite tutte e cinque: (1) salvare l'anagrafica **senza aprire il pannello TDEE** non
+azzera l'attività — è il bug della famiglia della regola 22, trovato proprio dentro P147;
+(2) col pannello di A aperto, salvare B non gli copia addosso l'attività di A; (3) due righe
+di allenamento si sommano e il TDEE sale; (4) su tre pazienti di prima di agosto l'attività
+storica c'è ancora e **non produce zero kcal** (la mappa `_MET_ALIAS` regge — è la regola 21);
+(5) Pilates ≈1.8 e Spinning ≈9.0, non più i MET del 2011. **Le prove 1 e 4 sono quelle che
+contavano**: sono le due in cui il difetto non si vede, il paziente ha semplicemente qualche
+centinaio di kcal in meno.
+  **Le cinque prove restano scritte nella scheda**, non nel CHANGELOG: servono a chiunque
+tocchi di nuovo quella sezione. *Una voce «da collaudare» che non dice cosa guardare non è un
+arretrato, è un'attesa senza fine — ed è la ragione per cui questa è rimasta lì mentre P149 e
+P150, che la loro checklist ce l'avevano, si sono chiuse in mezz'ora.*
+
+**P148 — STAVAMO PER RIFARE UN COLLAUDO GIÀ SUPERATO.** Su richiesta di Fabrizio («si
+collauda P148») ho letto la voce per intero prima di iniziare, e la **SCHEDA** dichiara:
+*«CHIUSA E COLLAUDATA 5 ago 2026 — collaudo a video superato da Fabrizio: spunte dei pazienti
+storici intatte, colori e pannello ⓘ, suggerimento dalla Clinica, pasto automatico giorno per
+giorno, scavalcamento manuale, PDF»*. Il riquadro «DA COLLAUDARE A VIDEO» sta **centoventi
+righe più in alto**, dentro la Tappa 4: è la checklist scritta *prima*, con gli stessi punti.
+  **È lo stesso difetto di P124, a parti invertite:** là la scheda diceva «da collaudare» e
+il corpo «superato»; qui il corpo dice «da collaudare» e la scheda «superato». In entrambi i
+casi **vince la scheda**, ed è la regola scritta in testa alla roadmap dal 18 luglio. Il
+riquadro è stato marcato storico con la stessa forma usata per P124.
+  **Costo evitato:** un collaudo intero rifatto su dati veri. **Costo reale del difetto:** una
+lettura in più prima di partire. *Leggere la voce per intero prima di lavorarci non è
+prudenza, è l'unica cosa che distingue il lavoro dal rifacimento.*
+
+**CORRETTA ANCHE LA MIA CLASSIFICAZIONE DI STAMATTINA.** Avevo contato P148 fra le quattro
+voci «da collaudare a video»: **erano tre** — P147, P149, P150 — perché P148 era già chiusa.
+Il conteggio nasceva da una ricerca testuale sul riquadro invece che sulla scheda, cioè dal
+guardare il posto sbagliato: la stessa forma dell'errore sulla finestra di righe di P128.
+
+**DOVE SIAMO ORA sulle «da collaudare».** Restano **cinque voci**, tutte della stessa natura
+— **collaudo sul campo, su dati veri di pazienti**: P125, P126, P127, P63b, P94 (26-31
+luglio). Nessuna è verificabile a schermo né da un test: vanno pianificate coi pazienti veri.
+La famiglia «guardare a video», che stamattina sembrava di quattro voci, **non esiste più**.
+
 10 AGOSTO 2026 (7ª parte) — P149 e P150 COLLAUDATE A VIDEO SULL'APP IN PRODUZIONE.
 Baseline `dd061bd`. Fabrizio ha fatto l'accesso nel browser; io ho guidato Chrome in **sola
 lettura**: nessuna scrittura, nessun salvataggio, e in chat nessun nome di paziente — i
