@@ -40,6 +40,21 @@ stato cambiato: si cambia sulla fonte primaria, mai su una deduzione.
 quattro già fatte. Stessa quantità di lavoro, ma adesso si vede dove si è arrivati — che è la
 differenza fra una voce che si riapre e una che resta ferma.
 
+**COLLAUDATO IN PRODUZIONE lo stesso giorno (dopo il push `0aed39b`), col metodo giusto
+per questa modifica.** La suite era verde ma **nessun test esercita `_fodmapCostruisciPDF`
+né legge `FODMAP_PORZIONI`** (verificato con grep sulla test-suite: i tre file che nominano
+«fodmap» lo usano solo come tipo nel registro invii) — e un verde che non copre ciò che hai
+toccato non è un collaudo (la nota di INDEX.md del 5 ago: *un controllo automatico verde non
+è una verifica di ciò che il controllo non guarda*). Quindi, via Claude in Chrome sul sito
+pubblicato: (a) la versione servita è quella nuova — 16 voci su 16 col campo `stato`, i 4
+`verificato` giusti; (b) il PDF è stato **generato davvero** dalla funzione vera su un
+**paziente finto** («Prova Collaudo» — nessun dato reale a schermo): 3 pagine, tutte le
+porzioni stampate identiche (`max 42 g` … `max 120 g`), tutte le note presenti (butternut,
+poco matura, cantalupo, ~15 pezzi); (c) **`stato` NON compare nel documento del paziente**
+— le stringhe `verificato`/`da-verificare`/`stato` sono assenti dal PDF, che era il punto:
+il campo è per noi, non per lui; (d) zero errori dell'app in console (i due presenti sono
+di un'estensione del browser, posizione `:0:0`).
+
 **IL TEST HA FATTO IL SUO MESTIERE, e vale la pena dirlo.** Alla prima esecuzione la suite
 dava 2 rossi su 738: `s1-doc-allineata` con **507 voci disallineate**. Non era un difetto
 della modifica: avendo aggiunto righe a `index.html`, tutti i numeri sotto si erano spostati.
