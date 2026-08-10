@@ -10,6 +10,41 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (4ª parte) — CHIUSA L'ULTIMA CONTRADDIZIONE FRA DUE FONTI DI VERITÀ, E
+CORRETTA UNA MIA AFFERMAZIONE FALSA DELLA VOCE PRECEDENTE. Baseline `19a4468`. Nessuna riga
+di codice applicativo toccata.
+
+**PRIMA L'ERRORE MIO, perché cambia il resto.** Nella voce qui sotto avevo scritto che
+l'intestazione di `INDEX.md` «la scrive `rigenera-index.js`, e correggerla a mano verrebbe
+cancellato alla prima rigenerazione». **È falso, e non l'avevo verificato.** Letto lo script
+(65 righe): riscrive **solo** le voci `- \`N\` — nome` e i range `Righe A-B`, e ogni altra
+riga la ricopia invariata (`out.push(riga)`). Letto anche il test `s1-doc-allineata`:
+verifica **solo** quelle stesse voci, con una regex. Quindi l'intestazione è **prosa a mano**,
+che né il generatore né il test toccano — e correggerla a mano è esattamente la cosa giusta.
+  **Terza volta in una giornata** che affermo qualcosa senza guardare: la finestra di righe
+su P128, il conteggio case-sensitive contro case-insensitive, e questa. Le prime due le ho
+colte prima della consegna; **questa era già stata committata** (`19a4468`). La differenza
+non è la disattenzione: è che nei primi due casi avevo fatto il controllo finale e qui no,
+perché la frase *sembrava* una spiegazione tecnica invece di un'affermazione da verificare.
+**Una spiegazione plausibile è la forma che prende un'affermazione non controllata** — ed è
+la stessa cosa che la regola 20 dice dei commenti che citano una fonte.
+
+**LE DUE CORREZIONI IN `INDEX.md`.**
+1. **823 → 899 voci**, contate una per una. Il file dichiarava 823 e `CLAUDE.md` ~673:
+   **tre numeri diversi per la stessa cosa**, nessuno giusto.
+2. Il punto 4 di «Come usarlo» diceva *«rigenera dopo modifiche strutturali ampie, non dopo
+   ogni piccolo commit»*. Era la politica in vigore **fino al 26 luglio**, cioè **proprio
+   quella che ha prodotto 719 numeri su 730 sbagliati** — il difetto raccontato tre righe più
+   sopra nello stesso file. Da allora `CLAUDE.md` prescrive l'opposto e il test fa fallire la
+   suite. **Il file istruiva a seguire la regola abbandonata perché rompeva il file stesso.**
+   Riallineato al «a ogni sessione che tocca `index.html`».
+
+**Perché non è una svista di poco conto:** `INDEX.md` è l'unico documento *garantito da un
+test*, e per questo è quello di cui ci si fida di più. La garanzia però copre i **numeri di
+riga**, non la **prosa** — e nessuno aveva notato che la parte non garantita diceva il
+contrario della regola. *Un file per metà verificato automaticamente invita a credere anche
+all'altra metà.*
+
 10 AGOSTO 2026 (3ª parte) — README VERO, E IL COSTO D'INGRESSO MISURATO INVECE CHE
 SOMMATO. Baseline `673b9d9`. Nessuna riga di codice toccata.
 
@@ -36,9 +71,9 @@ niente che non sia già visibile. Dice com'è fatto il progetto, elenca i cinque
 
 **DUE NUMERI SBAGLIATI TROVATI VERIFICANDO** (nessuno dei due andava nel README a occhi
 chiusi): `CLAUDE.md` diceva che `INDEX.md` mappa «~673 funzioni» e l'intestazione di
-`INDEX.md` dice 823 — **sono 899**. Corretto CLAUDE.md. Il numero dentro INDEX.md **non è
-stato toccato**: quel file è generato, e la sua intestazione la scrive `rigenera-index.js`;
-correggerlo a mano verrebbe cancellato alla prima rigenerazione. → va corretto nello script.
+`INDEX.md` dice 823 — **sono 899**. Corretto CLAUDE.md. Il numero dentro INDEX.md non è stato
+toccato in quel giro, e la ragione che avevo scritto qui era **sbagliata** — vedi la voce
+successiva del 10 agosto (4ª parte), che la corregge.
 
 **UNA CONTRADDIZIONE FRA DUE FILE DI VERITÀ, non ancora chiusa.** Il paragrafo «Come usarlo»
 di `INDEX.md` dice al punto 4: *«Rigenera questo indice dopo modifiche strutturali ampie…

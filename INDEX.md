@@ -1,6 +1,6 @@
 # NutriGest — INDEX.md
 
-> **Come si riallineano i numeri di riga (26 lug 2026).** Questo file ha 823 voci:
+> **Come si riallineano i numeri di riga (26 lug 2026 · conteggio verificato il 10 ago 2026).** Questo file ha **899 voci** (l'intestazione ne dichiarava 823, e `CLAUDE.md` ne dichiarava ~673: contate una per una il 10 agosto):
 > ogni riga aggiunta a `index.html` sposta tutte quelle sotto, quindi a mano non
 > si mantiene. Il 26 luglio erano **719 su 730 sbagliate**, con uno scarto mediano
 > di oltre 1800 righe — ed erano gia' 657 su 687 prima della sessione: il file era
@@ -40,7 +40,7 @@ Mappa funzioni → righe di `index.html`, organizzata per area funzionale.
 1. Trova l'area funzionale pertinente qui sotto (o cerca il nome funzione nella tabella).
 2. Usa `view` con `view_range` sul range indicato invece di leggere tutto il file.
 3. Se il nome funzione non è chiaro o non è in tabella, `grep -n "nomeFunzione" index.html` prima di editare.
-4. Rigenera questo indice dopo modifiche strutturali ampie (nuove sezioni, spostamento di blocchi di funzioni), non dopo ogni piccolo commit.
+4. **Rigenera questo indice a OGNI sessione che tocca `index.html`** — `cd test-suite && node rigenera-index.js`, dieci secondi. *(Riga corretta il 10 ago 2026: diceva «dopo modifiche strutturali ampie, non dopo ogni piccolo commit». Era la politica in vigore fino al 26 luglio, ed è **esattamente quella che ha prodotto 719 numeri su 730 sbagliati** — il difetto raccontato tre righe più sopra in questo stesso file. Dal 26 luglio `CLAUDE.md` prescrive l'opposto e il test `s1-doc-allineata` fallisce se l'indice è disallineato: questa riga istruiva a seguire la regola abbandonata perché rompeva il file che la contiene.)*
 
 ---
 
