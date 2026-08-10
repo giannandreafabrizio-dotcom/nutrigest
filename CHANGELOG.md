@@ -56,8 +56,40 @@ rifatte per sbaglio è che il rifiuto è motivato **dentro `index.html`** (comme
 vive nel codice, non solo in un documento di progetto. Unica cosa ancora aperta, già
 nella sua scheda: la fase 2 di P121 (gruppi semaforo intercambiabili).
 
-Prossimo e ultimo ⛔: `FODMAP_Verifica_Perplexity` (finta fonte di dati; da assorbire
-insieme alla verifica che P130 sia ancora davvero aperta).
+**Terzo e ultimo ⛔ assorbito: `NutriGest_FODMAP_Verifica_Perplexity.md`, con analisi
+completa dei dati FODMAP in produzione.** Questo non era un documento che invecchia:
+conteneva **numeri clinici sbagliati** su una funzione che consegna un PDF al paziente.
+**Prima il risultato buono, verificato voce per voce su `a81fe0b`: nessuno dei valori
+sbagliati di Perplexity è entrato in `index.html`.** Sedano rimasto fra i grigi senza
+porzione (era l'errore permissivo 4-5×), mirtilli senza il tetto superato di 40 g,
+nessuna soglia inventata di 150 g sulle patate bianche, nessuna «riduzione dei GOS del
+30-40%»; e dove i nomi somigliavano il codice parla di alimenti diversi — banana *poco
+matura* 100 g, mais *in scatola* 75 g. Le tre correzioni solide del 28/7 sono tutte
+applicate (fragole 65 g, sedano fra i da evitare, patate dolci da 280 a 75 g). Anche le
+proposte A e B del documento gemello `FODMAP_Confronto_Fonti` risultano fatte: buchi
+colmati (pistacchi, anacardi, avocado, birra, cous cous, insaccati, mirtilli, grano
+saraceno…), legumi in scatola spostati nei celesti, finocchio celeste, e le due frasi
+pericolose dei concetti («senza restrizioni» sulle proteine, «secchi o in barattolo»)
+hanno ZERO occorrenze.
+
+**Il difetto che invece resta, misurato e portato dentro la scheda P130.**
+`FODMAP_PORZIONI` ha 16 voci e **tutte** portano `fonte:'Monash'`, ma quell'etichetta non
+distingue il verificato dallo stimato: 4 corrispondono a una verifica tracciabile, 3 sono
+elencati come NON VERIFICATI dal verbale stesso, 8 non compaiono in quella verifica, e
+**1 è in contraddizione** — il codice dice `Mandorle {max:20, '~15 pezzi'}` dove il
+verbale dice «10 mandorle = 12 g», cioè ~1,7× più permissivo. Una sola voce su 16 porta
+la data. In più il campo `fonte` **non viene stampato da nessuna parte**: è dato morto, e
+il paziente riceve `max 100 g` senza provenienza. È la regola 20 applicata a questa
+tabella — *il nome della fonte accanto al dato non è l'identificatore che permette di
+ritrovarlo* — e serve uno **stato di verifica per valore**, altrimenti P130 sembrerà
+sempre da rifare da capo invece che completa al 25%. Il modo in cui fallisce è la
+**permissività**: un tetto troppo alto fa sì che il paziente rispetti l'indicazione e
+resti sintomatico. Tutto questo è ora nella scheda P130 (Roadmap), non più in un
+documento di progetto.
+
+**Passata di assorbimento: i tre ⛔ sono chiusi.** Restano i due 🗄️ (`P87_Comunicazione`,
+`P122_Collaudo`) e i sette ⚠️, più quattro documenti nati dopo il 4 agosto mai
+classificati.
 
 **Difetto di processo trovato oggi, da non ripetere.** Per capire perché un commit
 sembrava non partire ho eseguito `git status` dalla sessione sulla cartella collegata:
