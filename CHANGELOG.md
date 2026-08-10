@@ -10,6 +10,46 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 — VERIFICHE SUL DATABASE VERO COI CONNETTORI NUOVI · PRIMO DOCUMENTO
+⛔ ASSORBITO · SEZIONE «CONNETTORI» IN CLAUDE.MD. Baseline `a81fe0b`. **Nessuna riga
+di codice toccata**; nessuna scrittura sul database: solo letture.
+
+**Le verifiche (connettore Supabase, prima sessione in cui il database si legge
+direttamente invece che per screenshot).** Quattro voci confermate sul progetto
+`zrhmspylnlklppvhgplp`: **P151** esatta com'è scritta (PK solo `id` proprio su
+`ricette`, `piani`, `entrate`, `eventi`; `ai_usage` ha `id` bigint generato dal db,
+giusto non contarla); **P152** confermata sulle stesse quattro tabelle
+(`updated_at` text); **P106** chiusa davvero e **P107** unico avviso di sicurezza
+rimasto; **P67 T1** regge (`eu-west-1`). **Trovato di nuovo, mai visto prima:** il
+Performance Advisor segnala `auth_rls_initplan` su TUTTE e 8 le tabelle — ogni policy
+RLS rivaluta `auth.uid()` per riga invece che per query (rimedio noto:
+`(select auth.uid())`), più l'indice `ai_usage_user_created` mai usato. Nessun impatto
+misurabile con 47 pazienti; stessa famiglia di P151, «debito che scade quando vendi».
+**Voce di roadmap da aprire (numero da assegnare leggendo il repo), da fare nella
+stessa passata di P151/P152** — tre aperture delle stesse otto tabelle di produzione
+sono tre volte il rischio. Analisi completa dei connettori e dei plugin (cosa serve,
+cosa no, PubMed non chiude P130, Bio Research fuori bersaglio):
+`claude/NutriGest_Connettori_Analisi.md`.
+
+**PRIMA PASSATA DI ASSORBIMENTO DOCUMENTI (decisione di Fabrizio: i documenti del
+progetto si assorbono nei file di verità, uno per sessione, in ordine di pericolosità
+⛔→🗄️→⚠️).** Assorbito il primo dei tre ⛔: `NutriGest_Grafici_Decisioni_Aperte.md`.
+Verifica prima della chiusura: `grep` su `index.html` a `a81fe0b` — ventaglio,
+`_ibFinestra`, `_ibFasciaRitmo`, `_ibGrForme` esistono; `_ibFiltraPeriodo` ZERO
+occorrenze (i pulsanti di periodo sono davvero stati rimossi, P134a). Ogni contenuto
+del documento è risultato o implementato (P131, P132, P133, P137) o respinto da
+Fabrizio (pulsanti di periodo) o già conservato nelle schede (il «resta vero»
+sull'incrocio delle curve è testuale nella scheda P131). Il file nel progetto Claude è
+ora un cartello di rimando; la riga nella tabella di CLAUDE.md è passata da ⛔ ad
+ASSORBITO. Prossimi: `Grammature_Analisi` (⛔, proposte respinte con rischio clinico),
+`FODMAP_Verifica_Perplexity` (⛔, finta fonte di dati).
+
+**CLAUDE.md — nuova sezione «Connettori collegati»,** tre regole: Supabase in sola
+lettura salvo OK esplicito con SQL mostrato prima (e `project_id` dichiarato: i
+progetti Supabase sono DUE); un numero da PubMed entra in codice solo col PMID/DOI
+accanto al dato e mai dal solo abstract; Google Calendar non si collega al prodotto
+(sarebbe la doppia fonte di verità di F4/regola 12).
+
 6 AGOSTO 2026 (2ª sessione) — P153 APERTA: LE ALTRE BIOIMPEDENZIOMETRIE, E DUE
 DIFETTI DI PROCESSO TROVATI DA FABRIZIO. Baseline f356915. **Nessuna riga di codice
 toccata**: sessione di ricerca, progettazione e documentazione. Connesso il connettore

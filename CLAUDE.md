@@ -40,6 +40,14 @@ GitHub `main` è la fonte di verità per TUTTO (codice + documentazione: `index.
 - Una sola sessione di lavoro Claude alla volta sul repo: mai due chat in parallelo che modificano file.
 - Rollback: ogni commit è recuperabile con `git revert <sha>` — la storia di GitHub è il backup del progetto; non servono copie manuali.
 
+## Connettori collegati (dal 10 agosto 2026) — regole d'uso
+
+Dall'app Claude sono collegati: Supabase, PubMed, Google Drive, Gmail, Google Calendar, Claude in Chrome, più i plugin Design e Bio Research. Analisi completa: `claude/NutriGest_Connettori_Analisi.md` nel progetto. Tre regole NON negoziabili:
+
+1. **Supabase: SOLA LETTURA per impostazione predefinita.** Il connettore può eseguire DDL (`apply_migration`, `execute_sql`) sul database di produzione, dove `git revert` non esiste. Qualsiasi scrittura (anche una riga) solo dopo OK esplicito di Fabrizio nello stesso giro di messaggi, con l'SQL mostrato PRIMA di eseguirlo. E l'organizzazione ha DUE progetti (`Nutrigest` = `zrhmspylnlklppvhgplp`, eu-west-1; `RISVEGLIO` = `zxuexfhuxxmsleiqkoaz`): il `project_id` va dichiarato a voce prima di ogni chiamata — sbagliare progetto significa scrivere sul database sbagliato senza che niente lo impedisca.
+2. **PubMed: un valore numerico dalla letteratura entra in `index.html` solo col PMID/DOI accanto al dato** (estensione della regola 20 — come il codice a 5 cifre del Compendium per i MET), e solo se letto dal testo completo, mai dal solo abstract. **PubMed NON chiude P130**: i valori FODMAP di Monash sono un dataset proprietario dell'app Monash, non una pubblicazione.
+3. **Google Calendar NON si collega al prodotto.** NutriGest ha già la sua agenda (`eventi`, Scadenze C8): una sincronizzazione creerebbe due fonti di verità sulla stessa cosa — famiglia F4/regola 12. Se un giorno servirà, solo esportazione a senso unico.
+
 ## Due lezioni del 30 luglio 2026
 
 **1. I documenti del progetto Claude sono foto PIU' VECCHIE della roadmap.**
@@ -97,7 +105,7 @@ la fonte di verità sullo stato; questi file sono la fonte di verità sul *perch
 | `NutriGest_Grammature_Regole.md` | ⚠️ «Le due regole si contraddicono e va deciso quale vince»: **già deciso e implementato** in P121 — gruppi diversi usano la porzione standard. |
 | `NutriGest_Pazienti_Storici_Metodo.md` | ⚠️ Il flusso descritto **ignora P142** (stato «prenotato») **e P63b** (controlli di coerenza sull'import InBody), entrambe del 31 luglio. |
 | `NutriGest_FODMAP_Confronto_Fonti.md` | ⚠️ Le tre proposte A/B/C del §7 sono **tutte già fatte** il 28 luglio. Resta aperta solo P130. |
-| `NutriGest_Grafici_Decisioni_Aperte.md` | ⛔ **Il più pericoloso.** «Da qui in poi è tutto ancora da implementare» quando è tutto fatto (P131, P132). E i **pulsanti di periodo** furono implementati il 29 luglio e **RIMOSSI lo stesso giorno su richiesta esplicita di Fabrizio** (P134a): reimplementarli non rifà un lavoro, **disfa una sua decisione**. |
+| `NutriGest_Grafici_Decisioni_Aperte.md` | ⚰️ **ASSORBITO il 10 ago 2026** (verificato su `index.html` a `a81fe0b`: ventaglio/`_ibFinestra`/`_ibFasciaRitmo` esistono, `_ibFiltraPeriodo` zero occorrenze). Era «il più pericoloso»: dichiarava tutto da implementare quando tutto era fatto (P131, P132) e proponeva i pulsanti di periodo **rimossi su richiesta esplicita di Fabrizio** (P134a). Nel progetto resta solo il cartello di rimando alle schede P131/P132/P134. |
 | `NutriGest_Grammature_Analisi.md` | ⛔ Contiene **due proposte RESPINTE da Fabrizio**: la banda di plausibilità (§5.3) e l'arrotondamento con guardia al 25% (§5.4). Implementarle rimetterebbe in circolo i troncamenti silenziosi che P121 ha eliminato: **danno clinico**. |
 | `NutriGest_FODMAP_Verifica_Perplexity.md` | ⛔ **Non è una fonte di dati.** Le tabelle vengono da fonti secondarie, non dall'app Monash. **Nessun valore di quel file va in un documento consegnato a un paziente finché P130 non è chiusa** — comprese le voci marcate «✓ Confermati». |
 | `CLAUDE.md` (copia nel progetto) | Era una copia del 25 luglio **divergente** dal repo — negava perfino il login esistente dal 31 luglio. Riallineata al repo il 4 agosto 2026. |
