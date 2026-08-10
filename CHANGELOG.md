@@ -10,6 +10,65 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (2ª parte) — RIALLINEO DELLE CONTRADDIZIONI DENTRO LA FONTE DI VERITÀ.
+Baseline `42c2a38`. Nessuna riga di codice toccata.
+
+**DA DOVE NASCE.** Fabrizio ha ritrovato una chat Cowork del 6 agosto, sullo stesso
+progetto, che aveva prodotto un piano di rifattorizzazione della documentazione in quattro
+tappe più una mappa di misura. Incrociandolo con il lavoro di oggi: le tappe 2 e 3
+(intestazioni di stato, accorpamenti) erano state fatte oggi senza saperlo, la **tappa 1 —
+dichiarata dal piano stesso «il rischio più alto» — no.** Questa voce la chiude. *(La chat
+è stata poi cancellata; quel piano non era nei documenti del progetto, quindi era lavoro
+invisibile a qualunque sessione futura.)*
+
+**IL DIFETTO PRINCIPALE, E IL SUO COROLLARIO NUOVO.** La scheda di **P124** diceva
+«CHIUSA, da collaudare» mentre **quattro righe sopra, nello stesso blocco**, era scritto due
+volte «COLLAUDO P124b: SUPERATO (26/7)». La passata del 4 agosto aveva corretto il corpo
+della voce e **lasciato la scheda** — cioè esattamente il punto a cui la correzione stessa
+rimandava («lo stato attuale della voce è nella SCHEDA in fondo»). Corretti titolo e scheda:
+il collaudo è avvenuto in due giri lo stesso giorno, il primo ha trovato ~25 valori sbagliati
+su 32 in forma nuova (riga invece di colonna) generando P124b, il secondo è superato.
+  **Corollario da ricordare: una correzione parziale è essa stessa una trappola**, perché
+lascia la contraddizione proprio dove il lettore è stato mandato a cercare la verità.
+
+**LE 19 «DA COLLAUDARE»: CONTARLE NON ERA IL LAVORO (regola 16).** L'audit del 6 agosto ne
+segnalava 13 «mai riverificate», oggi erano 19. Classificate: **cinque** stanno nella tabella
+modello/effort, che non è una fonte di stato; le altre appartengono a **dieci voci**, e **una
+sola mentiva** — P124. Le nove restanti sono un arretrato vero, di **due nature che non vanno
+confuse**: *collaudo a video* (P147, P148, P149, P150 — 3-6 agosto, rischio estetico o di
+leggibilità, si smaltiscono in blocco guardando l'app) e *collaudo sul campo su dati veri*
+(P125, P126, P127, P63b, P94 — 26-31 luglio, rischio clinico, nessun test automatico lo
+sostituisce). Il quadro cambia di segno: non «19 schede stantie», ma **una sbagliata e nove
+di lavoro reale già diviso per come si fa**.
+
+**TRE DIFETTI CHE `CLAUDE.md` AVEVA SU SE STESSO, TUTTI CHIUSI.**
+1. **Una riga stantia sulla propria correzione:** elencava il titolo di P122 fra le cose «da
+   correggere quando si tocca quella zona», ma era stato corretto il 4 agosto. Riscritto il
+   paragrafo dichiarando entrambi i casi chiusi e conservando la lezione, che vale ancora.
+2. **La numerazione delle regole saltava da 22 a 24.** La regola 23 esiste ma vive in una
+   sezione a parte: chi la citava e chi scorreva l'elenco non trovavano la stessa cosa.
+   Aggiunta una voce 23 che rimanda alla sezione. **La numerazione NON è stata rifatta**:
+   «regola 23» e «regola 24» sono già citate nel CHANGELOG e rinumerare avrebbe rotto quei
+   riferimenti — la stessa famiglia della regola 21 (*rinominare una voce di un catalogo è
+   una migrazione, non un ritocco di testo*).
+3. **L'intestazione della tabella diceva «stato verificato al 4 agosto»** pur contenendo
+   righe del 5, 6 e 10. Riscritta per dire cosa è davvero: audit del 4 agosto, righe
+   riverificate dopo, ciascuna con la propria data. **La data in testa non è stata spostata
+   in blocco**, perché riverificare qualche riga non è riverificare la tabella (Regola 23,
+   punto 4). *Una data falsa per difetto è lo stesso difetto di una falsa per eccesso.*
+
+**UNA COSA DELL'AUDIT DEL 6 AGOSTO NON REGGE, ED È LA PIÙ GRAVE — verificata oggi nel
+codice.** Sosteneva che `NutriGest_Obiettivo_Ragionamento.md` esistesse in due copie e che
+quella **nel repo** portasse soglie di grasso essenziale **più permissive** di quelle reali
+(uomo 8%/5% invece di 10%/6%). **Nel repo quel file non esiste**: HTTP 404 a `f356915`,
+`a81fe0b` e `43a28a1`. E le soglie vere in `index.html` sono `M:{blocco:6, avviso:10}` ·
+`F:{blocco:14, avviso:20}`, cioè **esattamente** quelle della copia nel progetto Claude, le
+più prudenti. Nessun valore permissivo è mai stato nella fonte di verità.
+  **Perché la differenza:** quell'audit dichiara di sé, in fondo, *«index.html non letto —
+nessuna affermazione è stata verificata contro il codice»*. Non ha sbagliato: si era
+dichiarato non verificato, e la verifica ora è stata fatta. **È il motivo per cui la
+dichiarazione di ciò che non si è letto vale quanto il resto del documento.**
+
 10 AGOSTO 2026 — VERIFICHE SUL DATABASE VERO COI CONNETTORI NUOVI · PRIMO DOCUMENTO
 ⛔ ASSORBITO · SEZIONE «CONNETTORI» IN CLAUDE.MD. Baseline `a81fe0b`. **Nessuna riga
 di codice toccata**; nessuna scrittura sul database: solo letture.

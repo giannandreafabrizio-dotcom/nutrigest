@@ -71,7 +71,15 @@ perche' quelle sezioni mostravano il testo statico dell'HTML.
 smette di funzionare quando l'elemento non c'e'?"**. Un orfano dentro una guardia che fa
 `return` e' un pezzo di programma spento in silenzio.
 
-## I documenti del progetto Claude — stato verificato al 4 agosto 2026
+## I documenti del progetto Claude — audit del 4 agosto 2026, righe riverificate fino al 10 agosto
+
+> **Come si legge la data.** L'audit di partenza è del **4 agosto 2026**. Da allora singole
+> righe sono state riverificate contro il repo il **5, 6 e 10 agosto**, e ciascuna lo
+> dichiara al proprio interno. **La data in testa non è stata spostata in blocco**, perché
+> una riverifica riga per riga non è una riverifica di tutta la tabella (Regola 23, punto 4).
+> *(Prima del 10 agosto 2026 questa intestazione diceva soltanto «stato verificato al 4
+> agosto» pur contenendo righe del 5 e del 6: la data diceva il falso per difetto, che è lo
+> stesso difetto del dire il falso per eccesso.)*
 
 I file `claude/NutriGest_*.md` del progetto Claude sono **fotografie datate di un
 ragionamento**, non lo stato del software. Nessuno li aggiorna quando il codice avanza.
@@ -114,12 +122,30 @@ la fonte di verità sullo stato; questi file sono la fonte di verità sul *perch
 | `NutriGest_FODMAP_Verifica_Perplexity.md` | ⛔⚰️ **ASSORBITO il 10 ago 2026 — e resta un NON-FONTE.** Nessun valore di quel file va in un documento consegnato al paziente finché P130 non è chiusa, **comprese le voci marcate «✓ Confermati»**: sono confermate contro siti divulgativi, non contro l'app Monash. Conservato per il *metodo* (è il documento da cui nasce la regola 14). Verificato lo stesso giorno: **nessuno dei valori sbagliati è entrato in `index.html`**; lo stato di partenza di P130 (4 valori su 16 verificati, 1 contraddizione sulle mandorle, `fonte` mai stampata) è ora nella scheda P130. |
 | `CLAUDE.md` (copia nel progetto) | Era una copia del 25 luglio **divergente** dal repo — negava perfino il login esistente dal 31 luglio. Riallineata al repo il 4 agosto 2026. |
 
-**Trovati nella stessa passata, dentro la fonte di verità** (da correggere quando si tocca
-quella zona): in `NutriGest_Roadmap_v4.md` il titolo della scheda P122 dice ancora «Tappa 1
-chiusa, tappe 2-5 aperte» mentre trentotto righe più sotto lo stesso file scrive «P122
-COMPLETA»; e la riga su P124b dice «COLLAUDO DA FARE» mentre il CHANGELOG lo dà superato dal
-26 luglio. **Un file che si contraddice da solo è peggio di due file che si contraddicono
-fra loro**: chi legge non ha modo di accorgersene.
+**Trovati nella stessa passata, dentro la fonte di verità — ✅ ENTRAMBI CHIUSI.** In
+`NutriGest_Roadmap_v4.md` il titolo della scheda **P122** diceva «Tappa 1 chiusa, tappe 2-5
+aperte» mentre trentotto righe più sotto lo stesso file scriveva «P122 COMPLETA»: **corretto
+il 4 agosto 2026**. E la scheda di **P124** diceva «CHIUSA, da collaudare» mentre quattro
+righe sopra, nello stesso blocco, era scritto due volte «COLLAUDO P124b: SUPERATO (26/7)»:
+**corretto il 10 agosto 2026** — la passata del 4 agosto aveva sistemato il corpo della voce
+e lasciato la scheda, cioè proprio il punto a cui rimandava.
+**La lezione resta, ed è il motivo per cui questo paragrafo non si cancella:** *un file che
+si contraddice da solo è peggio di due file che si contraddicono fra loro*, perché chi legge
+non ha modo di accorgersene. E il secondo caso aggiunge un corollario: **una correzione
+parziale è essa stessa una trappola**, perché lascia la contraddizione esattamente dove il
+lettore è stato mandato a cercare la verità.
+
+**Le altre nove voci «da collaudare» NON sono un difetto** (classificate il 10 ago 2026 —
+contare non è ancora il lavoro, regola 16). Su 19 occorrenze nel file, cinque stanno nella
+tabella modello/effort, che non è una fonte di stato; le restanti appartengono a dieci voci,
+di cui una sola mentiva (P124, ora corretta). Le altre nove sono un arretrato vero, e si
+dividono in **due nature diverse che non vanno confuse**:
+- **collaudo a video, da fare a schermo** — P147, P148, P149, P150 (3-6 agosto): sono
+  recenti, riguardano il riordino delle schermate, e il rischio è estetico o di leggibilità;
+- **collaudo sul campo, su dati veri** — P125, P126, P127, P63b, P94 (26-31 luglio): qui il
+  rischio è clinico, e nessun test automatico può sostituirlo.
+Le prime si smaltiscono in blocco guardando l'app; le seconde no, e vanno pianificate coi
+pazienti veri.
 
 ### Regola 23 — un documento nuovo nasce già datato, e muore con la voce che l'ha generato
 
@@ -253,6 +279,8 @@ La struttura di `db` (pazienti, ricette, piani, eventi, entrate, concetti, dispo
 21. **Rinominare una voce di un catalogo è una migrazione di dati, non un ritocco di testo.** Sempre P147: le attività erano salvate sui pazienti per NOME (`attivitaSpecifica: 'Pilates'`). Cambiare l'etichetta in «Pilates, matwork» avrebbe fatto fallire il lookup, reso il MET `null`, scartato la riga e **azzerato l'EAT senza un solo errore a video** — il paziente avrebbe semplicemente avuto qualche centinaio di kcal in meno. Serve una mappa di alias vecchio→nuovo, e un test che percorra **tutte** le etichette storiche: se una salta, deve diventare rosso subito, perché il sintomo in produzione è invisibile. Vale ogni volta che una stringa è insieme etichetta e chiave.
 
 22. **Una guardia scritta per un campo solo è una guardia che verrà dimenticata al secondo campo.** Nel salvataggio dell'anagrafica `pesoTarget` aveva già la protezione `_stessoPaz` (leggi dal pannello TDEE solo se mostra QUESTO paziente), documentata e corretta. I campi attività, immediatamente sotto, no: col pannello chiuso il salvataggio li **azzerava**, col pannello aperto su un altro paziente glieli **copiava addosso**. Quando si scrive una guardia su un campo, va chiesto subito **quali altri campi hanno la stessa provenienza** e la guardia va applicata al gruppo, non alla riga. (4ª occorrenza della famiglia «dato letto da un form che non gli appartiene».)
+
+23. **Un documento nuovo nasce già datato, e muore con la voce che l'ha generato.** ➜ Il testo completo di questa regola, in cinque punti, vive nella sezione **«Regola 23»** più sopra, insieme alla tabella di stato dei documenti di progetto — è troppo lungo per stare qui. *(Questa riga esiste dal 10 ago 2026 perché la lista saltava da 22 a 24: chi citava «regola 23» e chi scorreva l'elenco non trovavano la stessa cosa. La numerazione NON è stata rifatta — «regola 23» e «regola 24» sono già citate nel CHANGELOG, e rinumerarle avrebbe rotto quei riferimenti.)*
 
 24. **I connettori non sono strumenti come gli altri: uno scrive sul database di produzione, l'altro pubblica online.** (6 ago 2026, decisioni prese con Fabrizio.)
 
