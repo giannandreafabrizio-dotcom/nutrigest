@@ -727,6 +727,19 @@ del 5 ago 2026 (5/5).
   si pesa due volte a settimana.
 · Priorità: **chiusa** · C: 3 | I: 4 | R: 2 · Modello: Opus · Autonomia: L0 sulla tappa 1, L1 sui grafici.
 
+**CODA APERTA, VERIFICATA NEL CODICE IL 10 AGOSTO 2026 (commit `a81fe0b`).** Il documento di
+progetto segnalava un punto «da tenere d'occhio» che nessuno aveva ancora controllato: **è vero e
+resta aperto.** `_percorsoGeneraFasi` e `percorsoChiudiFase` leggono ancora `_serieePesoOss(p)` —
+la serie **fusa** — per il peso di partenza di una fase e per il peso di chiusura. Sono due punti
+della stessa famiglia dei tre che la tappa 1 ha corretto (traguardo, proiezione, Δpeso del TDEE
+osservato) e non erano nominati dalla scheda, quindi non sono stati toccati. **Come si manifesta:**
+su un paziente che si pesa a casa con una bilancia scentrata di 1,2 kg, una fase può nascere o
+chiudersi con quel 1,2 dentro, senza un solo errore a video — il sintomo è «questo piano sembra
+partire da un peso strano». **Cosa fare quando si riapre:** decidere per ciascuno dei due se il
+peso di fase è un dato clinico (allora `_seriePesoClinico`) o un dato osservativo (allora resta
+`_serieePesoOss`, ma con l'uso dichiarato come si è fatto per `_percorsoChartSvg` e
+`_percorsoShiftGiorni`). Non è urgente: nessun caso reale l'ha ancora prodotto.
+
 ### P43 — Piccoli interventi "quando capita"
 **L'APPROCCIO ORIGINARIO:** pulizia prompt | sidebar <1130px | backup settimanale JSON | DB equivalenze.
 **LA CRITICA DEL CTO:** due delle quattro non sono "ritagli": la pulizia prompt tocca la cache 90gg (stesso avvertimento di P77: hash invalidato) e va fatta INSIEME a P77, non a tempo perso; la sidebar mobile è mezzo progetto UI, non un ritaglio.

@@ -118,11 +118,50 @@ ogni salvataggio azzerava `p.obiettivo` in silenzio (famiglia F5). La Tappa 2 ha
 il campo: **F6 è chiuso davvero, non a metà**, ed è oggi sorvegliato da
 `s1-doc-allineata`.
 
-**Bilancio della passata: 5 documenti chiusi su 20** — i tre ⛔ e i due 🗄️, cioè tutti
-quelli classificati come pericolosi. Restano i sette ⚠️ (mentono su cose meno gravi) e
-**quattro documenti nati dopo il 4 agosto che nessuno ha mai classificato** (i tre su
-P128 e `P35_Peso_Casalingo`): è lì che il difetto si ripresenterà, perché la tabella
-dell'audit ha smesso di crescere insieme al progetto.
+**CLASSIFICATI I QUATTRO DOCUMENTI NATI DOPO IL 4 AGOSTO** — quelli che nessuno aveva
+mai guardato, ed erano il punto in cui il difetto si stava già ripresentando.
+
+- `P35_Peso_Casalingo_Ragionamento` → ✅ **secondo modello da imitare** dopo P9: dichiara
+  in testa stato, tappe, test e ciò che non è stato fatto. **E il suo «da tenere d'occhio»
+  è vero:** `_percorsoGeneraFasi` e `percorsoChiudiFase` leggono ancora la serie **fusa**
+  `_serieePesoOss` per il peso di partenza e di chiusura di una fase — due punti della
+  stessa famiglia dei tre corretti dalla tappa 1, non nominati dalla scheda e quindi mai
+  toccati. Su un paziente con la bilancia di casa scentrata di 1,2 kg una fase può nascere
+  o chiudersi con quello scarto dentro, senza errori a video. Coda scritta nella **scheda
+  P35**, non urgente.
+- `P128_Come_Fanno_Gli_Altri` → ✅ è ricerca, non invecchia; e il rimedio sull'incoerenza
+  del prefill barcode risulta **ancora non fatto**, esattamente come Fabrizio aveva deciso.
+- `P128_Alimenti_Etichetta_Ragionamento` → ⚠️ «nessuna riga di codice scritta» è **falso**:
+  le tappe 1-5 sono state chiuse **la sera stessa**. Resta vera solo la tappa 6.
+- `P128_Soglie_Metodo` → ⚠️ **il più sottile dei quattro.** «Nessuna soglia ancora decisa»
+  è falso, e il suo §2 argomenta **contro** ciò che è stato implementato (le UK FSA per
+  100 g). Ma il metodo che propone non è stato scartato: è la **strada 1 di P128b**.
+  Un documento può essere superato come *stato* e vivo come *piano* — è una terza forma,
+  diversa sia da «tutto fatto» sia da «proposta respinta», e va detta per non far
+  «correggere» a una sessione futura una decisione presa con la sua ragione.
+
+**UN ERRORE MIO, RILEVATO PRIMA DELLA CONSEGNA, E LA LEZIONE CHE PORTA.** Avevo concluso
+che la scheda **P128** si fermasse alla tappa 3 mentre il CHANGELOG dava per chiuse anche
+la 4 e la 5, e avevo già scritto le due tappe mancanti nella roadmap. **Era falso: la
+scheda era completa** — tappe 4 e 5 e riga di stato c'erano, un centinaio di righe più in
+basso. L'aggiunta era un duplicato ed è stata tolta prima della consegna; la roadmap resta
+com'era su P128.
+  **La causa, ed è ciò che vale la pena ricordare:** avevo cercato le tappe dentro una
+finestra di righe scelta a occhio (`NR>=1564 && NR<=1662`) invece che dentro i confini veri
+del blocco, che vanno da 1581 a 1790. **Una verifica fatta su una finestra arbitraria non è
+una verifica sul file** — è la stessa forma della regola 16 (contare non è classificare) e
+della regola 20 (un'etichetta non è una prova), applicata allo strumento con cui si guarda.
+Quando si cerca «esiste già X?», i confini della ricerca vanno **calcolati** (dal titolo
+della voce al titolo successivo), mai stimati. Il costo di sbagliarli qui sarebbe stato
+scrivere nella fonte di verità un doppione che dice due volte la stessa cosa con parole
+diverse — cioè fabbricare esattamente il difetto «un file che si contraddice da solo» che
+questa passata esisteva per eliminare.
+
+**Bilancio: la tabella dei documenti copre ora tutti e 24 i file** — 5 assorbiti e chiusi
+(i tre ⛔ e i due 🗄️), 4 classificati per la prima volta, e restano i sette ⚠️ che mentono
+su cose meno gravi. **Trovate lungo la strada e non aperte come voci** (numero da leggere
+dal repo, non inventare): gli 8 avvisi `auth_rls_initplan` su Supabase, lo stato di
+verifica per valore su `FODMAP_PORZIONI`, la coda di P35 sulle fasi, la tappa 6 di P128.
 
 **Difetto di processo trovato oggi, da non ripetere.** Per capire perché un commit
 sembrava non partire ho eseguito `git status` dalla sessione sulla cartella collegata:
