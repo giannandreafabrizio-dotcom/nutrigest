@@ -87,9 +87,42 @@ sempre da rifare da capo invece che completa al 25%. Il modo in cui fallisce è 
 resti sintomatico. Tutto questo è ora nella scheda P130 (Roadmap), non più in un
 documento di progetto.
 
-**Passata di assorbimento: i tre ⛔ sono chiusi.** Restano i due 🗄️ (`P87_Comunicazione`,
-`P122_Collaudo`) e i sette ⚠️, più quattro documenti nati dopo il 4 agosto mai
-classificati.
+**Assorbiti anche i due 🗄️, nella stessa sessione** — deroga consapevole al «uno per
+sessione»: sono lo stesso identico difetto (un documento che dichiara «non ancora fatto»
+su lavoro già chiuso), quindi la verifica è la stessa.
+
+`NutriGest_P87_Comunicazione_Analisi.md` — è **il documento dell'incidente del 30
+luglio**. Verificate le tre tappe su `a81fe0b`: `inviaMateriale` esiste, `p.invii[]` è
+scritto da `_inviiRegistra` per **cinque** tipi (`analisi`, `fodmap`, `messaggio`, `ai`,
+`piano` — quindi anche la Tappa 2 è fatta), la tab Comunicazione è reale
+(`pdTab('comunicazione')` → `renderPdComunicazione`). **I due punti tecnici che il
+documento segnalava come da non sbagliare sono stati rispettati:** il verde del bottone si
+calcola da `p.invii[]` via `_inviiUltimo` e `fodmapInviato` ha ZERO occorrenze (niente
+doppia fonte di verità, F4/regola 12); e l'invariante cronologica sta nel punto di
+scrittura — `_inviiOrdina` ordina e pota a 50 prima del salvataggio, col commento
+«l'invariante cronologica vive QUI (regola 10)». In più, non richiesto: la data usa
+`today()` e non `toISOString()`, con la nota «P141 — un invio fatto all'una di notte
+restava datato IERI, per sempre».
+
+`NutriGest_P122_Collaudo_e_Correzioni.md` — la frase «Nessuna correzione è ancora stata
+scritta nel codice» è stata vera per poche ore. Verificate tutte e cinque: scenario
+**ricomposizione** con `guadagnoMagra` (default 2 kg) · coerenza referti diventata
+**P63b**, con la FFM a fonte unica (`m`; la derivazione da `pg` sopravvive solo come
+ultimo ripiego quando `m` **e** `g` mancano entrambi — legittimo, non è la doppia fonte
+del 26/7) · «direzioni opposte» presente · «quota del calo» sopravvive **solo nei
+commenti**, non come etichetta · disallineamento del traguardo risolto con
+`metodo:"manuale"`. **E la «domanda ancora aperta» del documento ha una risposta
+definitiva nel codice:** il campo «Obiettivo dichiarato» risultava vuoto nel collaudo
+perché `p-obiettivo` **era sparito dal markup** mentre `salvaPaz` continuava a leggerlo —
+ogni salvataggio azzerava `p.obiettivo` in silenzio (famiglia F5). La Tappa 2 ha ricreato
+il campo: **F6 è chiuso davvero, non a metà**, ed è oggi sorvegliato da
+`s1-doc-allineata`.
+
+**Bilancio della passata: 5 documenti chiusi su 20** — i tre ⛔ e i due 🗄️, cioè tutti
+quelli classificati come pericolosi. Restano i sette ⚠️ (mentono su cose meno gravi) e
+**quattro documenti nati dopo il 4 agosto che nessuno ha mai classificato** (i tre su
+P128 e `P35_Peso_Casalingo`): è lì che il difetto si ripresenterà, perché la tabella
+dell'audit ha smesso di crescere insieme al progetto.
 
 **Difetto di processo trovato oggi, da non ripetere.** Per capire perché un commit
 sembrava non partire ho eseguito `git status` dalla sessione sulla cartella collegata:
