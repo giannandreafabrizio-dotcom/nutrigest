@@ -157,9 +157,40 @@ scrivere nella fonte di verità un doppione che dice due volte la stessa cosa co
 diverse — cioè fabbricare esattamente il difetto «un file che si contraddice da solo» che
 questa passata esisteva per eliminare.
 
-**Bilancio: la tabella dei documenti copre ora tutti e 24 i file** — 5 assorbiti e chiusi
-(i tre ⛔ e i due 🗄️), 4 classificati per la prima volta, e restano i sette ⚠️ che mentono
-su cose meno gravi. **Trovate lungo la strada e non aperte come voci** (numero da leggere
+**PASSATA SUI SETTE ⚠️ — e la tabella conteneva essa stessa un errore.**
+
+**La cosa più importante: una riga della tabella in `CLAUDE.md` diceva il falso.** Su
+`NutriGest_Roadmap_Semplice.md` sosteneva «resta una foto: **non conosce P150/P151/P152**».
+Il documento **li conosce**: ha una sezione per ciascuno, ed era stato rigenerato il 6 agosto
+leggendo il repo a `f356915`. La copia della tabella dentro il progetto Claude era **giusta**
+e quella del repo **sbagliata** — cioè l'esatto contrario di quanto prescrive la regola che
+sta in testa a quel file («se le due copie divergono, vince quella del repo»). Riga corretta,
+documento riportato a ✅. *Lezione: la tabella che serve a non fidarsi dei documenti va
+verificata come i documenti — non è esente per il fatto di essere lo strumento del controllo.*
+
+**Due documenti assorbiti** perché erano **specifiche eseguite**, non ragionamenti:
+- `Grammature_Regole` — è la specifica che P121 ha implementato per intero; verificate tutte
+  e sei le regole su `a81fe0b`. Il suo «punto ancora aperto» (i legumi in una cella di
+  carboidrati, 410 g di lenticchie) **è deciso**: gruppi di equivalenza diversi usano la
+  **porzione standard** (`_porzioneStandard`). Da non confondere con `Grammature_Analisi`,
+  che contiene invece le due proposte respinte.
+- `FODMAP_Confronto_Fonti` — le tre proposte A/B/C del §7 sono eseguite tutte: buchi del
+  semaforo colmati, le due frasi pericolose dei concetti a **zero occorrenze**, i messaggi
+  clinici del §6 in codice (microbiota, Biesiekierski, biomarker, «fruttani del grano»), e il
+  PDF **generato dalle liste** invece che statico. Rispettata anche la sua nota su ordine e
+  sicurezza: liste corrette il 28/7, bottone di invio dopo. Resta viva solo P130.
+
+**Quattro riverificati e datati, non assorbiti** — mentono sullo stato ma tengono il *perché*:
+`Obiettivo_Ragionamento` (il §3 è la fonte sul perché il traguardo si deriva dalla % di grasso,
+non dal peso), `TDEE_Parte1`, `Grafici_InBody`, `Pazienti_Storici_Metodo`. Nel riverificare
+`TDEE_Parte1` è emerso un dato che vale la pena avere scritto: il catalogo attività ha **117
+voci e tutte e 117 portano il codice Compendium a 5 cifre** — la regola 20, nata proprio da
+quella tabella, è applicata al 100%.
+
+**Bilancio finale della passata: 7 documenti assorbiti e chiusi su 24** (i tre ⛔, i due 🗄️
+e i due che erano specifiche eseguite), 4 classificati per la prima volta, 4 riverificati e
+datati, 1 riga della tabella corretta perché diceva il falso. **Nessun documento del progetto
+resta non classificato.** **Trovate lungo la strada e non aperte come voci** (numero da leggere
 dal repo, non inventare): gli 8 avvisi `auth_rls_initplan` su Supabase, lo stato di
 verifica per valore su `FODMAP_PORZIONI`, la coda di P35 sulle fasi, la tappa 6 di P128.
 
