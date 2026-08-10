@@ -10,6 +10,44 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (3ª parte) — README VERO, E IL COSTO D'INGRESSO MISURATO INVECE CHE
+SOMMATO. Baseline `673b9d9`. Nessuna riga di codice toccata.
+
+**IL NUMERO CHE CAMBIA IL PROBLEMA.** Il piano del 6 agosto poneva come obiettivo
+«ridurre a meno di 120 KB il materiale che una sessione deve leggere», partendo da 1,3 MB.
+Misurato: quel totale è **falso**, perché somma file che nessuno legge per intero. Una
+sessione legge tutto **un solo file**, `CLAUDE.md` (~50 KB); Roadmap (363 KB), CHANGELOG
+(606 KB), Contesto (274 KB) e INDEX (48 KB) **si interrogano** — e cercare in 606 KB costa
+quanto cercare in 60.
+  **Conseguenza pratica, scritta in CLAUDE.md:** la dimensione dei tre file grandi non è un
+problema; il file su cui la brevità conta è **CLAUDE.md**, l'unico che si paga per intero
+ogni volta. Ed è quello cresciuto oggi, da 44 a ~50 KB, per mia mano. Da qui in avanti,
+prima di aggiungere un paragrafo lì la domanda è se non stia meglio nel CHANGELOG — e la
+risposta è sì tutte le volte in cui è il racconto di un episodio invece di una regola da
+rileggere. **Un obiettivo di riduzione posto sul totale sbagliato fa tagliare la memoria del
+progetto e lascia crescere l'unico file che andrebbe tenuto corto.**
+
+**README.** Era di 11 byte (`# nutrigest`). Scritto un README **tecnico e sobrio** — scelta
+di Fabrizio fra tre tagli possibili, motivata dal fatto che **il repository è pubblico**
+perché GitHub Pages lo richiede (P65 è ancora aperta): niente posizionamento commerciale,
+niente che non sia già visibile. Dice com'è fatto il progetto, elenca i cinque documenti con
+**il mestiere di ciascuno e se si legge o si cerca**, e chiude dichiarando che il codice non
+è riutilizzabile: visibile ≠ open source.
+
+**DUE NUMERI SBAGLIATI TROVATI VERIFICANDO** (nessuno dei due andava nel README a occhi
+chiusi): `CLAUDE.md` diceva che `INDEX.md` mappa «~673 funzioni» e l'intestazione di
+`INDEX.md` dice 823 — **sono 899**. Corretto CLAUDE.md. Il numero dentro INDEX.md **non è
+stato toccato**: quel file è generato, e la sua intestazione la scrive `rigenera-index.js`;
+correggerlo a mano verrebbe cancellato alla prima rigenerazione. → va corretto nello script.
+
+**UNA CONTRADDIZIONE FRA DUE FILE DI VERITÀ, non ancora chiusa.** Il paragrafo «Come usarlo»
+di `INDEX.md` dice al punto 4: *«Rigenera questo indice dopo modifiche strutturali ampie…
+non dopo ogni piccola modifica»*. `CLAUDE.md` dal 26 luglio dice l'opposto — **a OGNI
+sessione che tocca `index.html`** — e spiega perché: la vecchia politica aveva prodotto un
+indice con **719 numeri su 730 sbagliati**. Cioè INDEX.md istruisce a seguire proprio la
+regola che è stata abbandonata perché lo rompeva. Anche questo vive nel generatore, non nel
+file: **da correggere in `test-suite/rigenera-index.js`**, insieme al conteggio.
+
 10 AGOSTO 2026 (2ª parte) — RIALLINEO DELLE CONTRADDIZIONI DENTRO LA FONTE DI VERITÀ.
 Baseline `42c2a38`. Nessuna riga di codice toccata.
 

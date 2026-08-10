@@ -186,9 +186,31 @@ Quando una voce di roadmap si chiude o avanza di fase, aggiornare NELL'ORDINE:
 5. **Roadmap semplice** (progetto Claude) — rigenerata a fine sessione in formato "solo cosa resta".
 6. **Verifica incrociata finale** — cercare il numero della voce (es. "P66c") in tutti e 4 i file del repo: nessuno deve dire una cosa superata. Se un file fuori perimetro risulta stantio, si corregge nella stessa sessione.
 
+## Il costo d'ingresso: cosa si legge per intero e cosa si interroga (misurato il 10 ago 2026)
+
+Una sessione **non** legge 1,3 MB di documentazione. Ne legge per intero **uno solo**:
+
+| File | Peso | Come si usa davvero |
+|---|---:|---|
+| **`CLAUDE.md`** | **~50 KB** | **si legge tutto, ogni sessione** — è l'unico costo d'ingresso vero |
+| `INDEX.md` | 48 KB | si cerca un nome di funzione, mai letto tutto |
+| `NutriGest_Roadmap_v4.md` | 363 KB | si cerca la scheda della voce |
+| `CHANGELOG.md` | 606 KB | si cerca il numero di voce |
+| `NutriGest_Contesto_v18.txt` | 274 KB | si cerca la sezione |
+
+**Cosa se ne ricava, ed è controintuitivo:** la dimensione di CHANGELOG, Roadmap e Contesto
+**non è un problema** — cercare in 606 KB costa quanto cercare in 60. Il file su cui la
+brevità conta davvero è **questo**, perché è l'unico che si paga per intero a ogni sessione.
+Il 10 agosto 2026 è passato da 44 a ~50 KB in una giornata sola: **prima di aggiungere un
+paragrafo qui, la domanda è se non stia meglio nel CHANGELOG** — e la risposta è sì tutte le
+volte in cui è il racconto di un episodio invece di una regola da rileggere.
+*(Corollario per chi misura: sommare i cinque file dà un numero grande e falso. Un obiettivo
+di riduzione posto su quel numero fa tagliare dove non serve — cioè nella memoria del
+progetto — e lascia crescere l'unico file che andrebbe tenuto corto.)*
+
 ## Ottimizzazione token — INDEX.md
 Il file `index.html` è un monolite di grandi dimensioni: leggerlo per intero prima di ogni modifica è costoso in token e va evitato.
-- **`INDEX.md`** (nella cartella del progetto) mappa ~673 funzioni top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
+- **`INDEX.md`** (nella cartella del progetto) mappa **899 funzioni** top-level per area funzionale (Pazienti, Analisi del sangue, Composizione corporea, Motore TDEE, Generatore piani, Compositore manuale, Calendario, Autenticazione, ecc.) con il numero di riga di ciascuna.
 - Prima di ogni modifica: apri `INDEX.md`, trova l'area/funzione pertinente, poi usa `view` con `view_range` mirato su `index.html` invece di leggere tutto il file.
 - Se il nome funzione non è chiaro o non è in tabella, fai prima `grep -n "nomeFunzione" index.html`.
 - Dal 26 lug 2026 le righe di `INDEX.md` sono **garantite dal test** `s1-doc-allineata`: se la suite è verde, l'indice è esatto. Se un `view_range` non corrisponde, la suite non era stata fatta girare — `node rigenera-index.js` e riparti.
