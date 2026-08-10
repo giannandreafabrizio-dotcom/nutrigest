@@ -11007,24 +11007,45 @@ async function inviaMateriale(opt){
 // non e' un file statico: quando le liste si correggono, cambia anche cio' che
 // parte al paziente (lezione del 28 lug: il vecchio PDF del 2025 era disallineato).
 // Porzioni: "i migliori dati che abbiamo oggi" (verifica totale rimandata a P130).
-// Ogni valore porta la sua fonte: quando la fonte cambia, si vede quale e' vecchio.
+//
+// CAMPO `stato` (10 ago 2026) — PERCHE' ESISTE. Fino a oggi ogni voce portava
+// `fonte:'Monash'` e basta. Ma quell'etichetta stava ANCHE accanto a valori che
+// l'unico verbale di verifica esistente (28 lug 2026) elenca come NON verificati:
+// il nome della fonte accanto al dato non e' l'identificatore che permette di
+// ritrovarlo (regola 20), ed e' indistinguibile dal caso in cui la verifica c'e'
+// stata davvero. `stato` separa le due cose:
+//   'verificato'   = riscontrato su fonte tracciabile, con la data accanto.
+//   'da-verificare'= valore orientativo. NON e' sbagliato, e' NON CONTROLLATO.
+// Sono i due estremi di P130: oggi 4 su 16 verificati, e la voce non e' piu'
+// "da rifare tutta" ma una lista di lavoro con dodici righe.
+// COSA NON FA: `stato` NON e' letto da nessuno e NON cambia il PDF del paziente.
+// Mostrarlo a schermo (il badge "42 g · Monash 2024" previsto da P130) e' una
+// decisione di Fabrizio sul documento che consegna, e si fa dentro P130.
+// COME SI CHIUDE: Fabrizio apre l'app Monash, detta il valore e la data del test;
+// si aggiorna `max`, si mette `fonte:'Monash <anno>'` e `stato:'verificato'`.
+// Un valore NON si promuove a 'verificato' senza la fonte primaria sotto gli occhi.
 const FODMAP_PORZIONI={
-  'Ceci (barattolo)':{max:42,fonte:'Monash'},
-  'Fagioli borlotti (barattolo)':{max:40,fonte:'Monash'},
-  'Lenticchie (barattolo)':{max:46,fonte:'Monash'},
-  'Finocchio':{max:75,fonte:'Monash'},
-  'Fagiolini':{max:75,fonte:'Monash'},
-  'Fragole':{max:65,fonte:'Monash 2022'},
-  'Patate dolci':{max:75,fonte:'Monash'},
-  'Zucca':{max:75,nota:'butternut',fonte:'Monash'},
-  'Mais dolce in scatola':{max:75,fonte:'Monash'},
-  'Banana':{max:100,nota:'poco matura',fonte:'Monash'},
-  'Melone':{max:120,nota:'cantalupo',fonte:'Monash'},
-  'Mandorle':{max:20,nota:'~15 pezzi',fonte:'Monash'},
-  'Nocciole':{max:15,fonte:'Monash'},
-  'Feta':{max:40,fonte:'Monash'},
-  'Yogurt greco 2%':{max:100,fonte:'Monash'},
-  'Latte di soia':{max:'—',nota:'solo da proteine isolate',fonte:'Monash'}
+  'Ceci (barattolo)':{max:42,fonte:'Monash',stato:'verificato'},        // 1/4 di tazza sgocciolati, verbale 28/7
+  'Fagioli borlotti (barattolo)':{max:40,fonte:'Monash',stato:'da-verificare'},
+  'Lenticchie (barattolo)':{max:46,fonte:'Monash',stato:'da-verificare'},
+  'Finocchio':{max:75,fonte:'Monash',stato:'verificato'},               // crudo; moderato 145 g, alto 195 g - verbale 28/7
+  'Fagiolini':{max:75,fonte:'Monash',stato:'da-verificare'},
+  'Fragole':{max:65,fonte:'Monash 2022',stato:'verificato'},            // l'UNICO con la data: prima era 140 g
+  'Patate dolci':{max:75,fonte:'Monash',stato:'verificato'},            // 1/2 tazza; il limitante sono i fruttani, non il mannitolo
+  'Zucca':{max:75,nota:'butternut',fonte:'Monash',stato:'da-verificare'},
+  'Mais dolce in scatola':{max:75,fonte:'Monash',stato:'da-verificare'},
+  'Banana':{max:100,nota:'poco matura',fonte:'Monash',stato:'da-verificare'},
+  'Melone':{max:120,nota:'cantalupo',fonte:'Monash',stato:'da-verificare'},
+  // ATTENZIONE, DA GUARDARE PER PRIMA: e' l'unico valore su cui due nostre carte
+  // si contraddicono. Qui 20 g / ~15 pezzi; il verbale del 28/7 scrive "10 mandorle
+  // = 12 g". Se ha ragione il verbale, questo tetto e' ~1,7x PERMISSIVO - e un
+  // tetto troppo alto non si vede: il paziente rispetta l'indicazione e resta
+  // sintomatico. Il numero NON e' stato cambiato: si cambia sulla fonte primaria.
+  'Mandorle':{max:20,nota:'~15 pezzi',fonte:'Monash',stato:'da-verificare'},
+  'Nocciole':{max:15,fonte:'Monash',stato:'da-verificare'},
+  'Feta':{max:40,fonte:'Monash',stato:'da-verificare'},
+  'Yogurt greco 2%':{max:100,fonte:'Monash',stato:'da-verificare'},
+  'Latte di soia':{max:'—',nota:'solo da proteine isolate',fonte:'Monash',stato:'da-verificare'}
 };
 function _fodmapPerCategoria(nomi){
   const out={};

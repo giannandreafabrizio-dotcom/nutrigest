@@ -10,6 +10,46 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (5ª parte) — P130: LO STATO DI VERIFICA ACCANTO A OGNI PORZIONE FODMAP.
+Baseline `c31af4c`. **Prima modifica al codice applicativo della giornata** — e non cambia
+un solo numero clinico. Suite **738/738 verde**, INDEX.md rigenerato (507 voci).
+
+**IL DIFETTO.** Tutte e 16 le voci di `FODMAP_PORZIONI` portavano `fonte:'Monash'`. Ma
+quell'etichetta stava **anche** accanto a valori che l'unico verbale di verifica esistente
+(28 lug 2026) elenca come NON verificati — Yogurt greco 100 g, Zucca 75 g, Melone 120 g — e
+a otto che in quel verbale non compaiono affatto. Chi leggeva `{max:100, fonte:'Monash'}`
+non aveva **nessun modo** di distinguere un valore controllato da uno stimato. È la regola
+20 alla lettera: il nome della fonte accanto al dato non è l'identificatore che permette di
+ritrovarlo. E i valori escono davvero dall'app: `_fodmapCostruisciPDF` → `inviaElencoFodmap`.
+
+**LA CORREZIONE, e cosa NON fa.** Aggiunto il campo `stato` a ogni voce: `'verificato'` (4:
+ceci in barattolo, finocchio, fragole, patate dolci) o `'da-verificare'` (12). Il commento
+sopra la tabella spiega cosa significano — *«da-verificare NON vuol dire sbagliato, vuol dire
+non controllato»* — e **come si promuove** un valore: solo con l'app Monash sotto gli occhi,
+aggiornando `max`, `fonte:'Monash <anno>'` e `stato` insieme.
+  **Nessun valore clinico è stato toccato:** i 16 `max` sono stati confrontati uno per uno
+prima e dopo, identici. `stato` **non è letto da nessuno** e **non cambia il PDF del
+paziente**: mostrarlo (il badge «42 g · Monash 2024» previsto da P130) è una decisione di
+Fabrizio sul documento che consegna, e resta dentro P130.
+  **La riga da guardare per prima è Mandorle**, e il codice ora lo dice accanto al dato:
+è l'unico valore su cui due nostre carte si contraddicono — qui 20 g / ~15 pezzi, il verbale
+del 28/7 scrive «10 mandorle = 12 g», cioè un tetto **~1,7× più permissivo**. Il numero non è
+stato cambiato: si cambia sulla fonte primaria, mai su una deduzione.
+
+**COSA CAMBIA PER P130:** non è più «riverificare tutto», è una lista di **dodici righe** con
+quattro già fatte. Stessa quantità di lavoro, ma adesso si vede dove si è arrivati — che è la
+differenza fra una voce che si riapre e una che resta ferma.
+
+**IL TEST HA FATTO IL SUO MESTIERE, e vale la pena dirlo.** Alla prima esecuzione la suite
+dava 2 rossi su 738: `s1-doc-allineata` con **507 voci disallineate**. Non era un difetto
+della modifica: avendo aggiunto righe a `index.html`, tutti i numeri sotto si erano spostati.
+Rimedio prescritto e applicato — `node rigenera-index.js` — e la suite è tornata verde. È
+esattamente il meccanismo per cui quel test esiste dal 26 luglio: **non è più possibile
+dimenticarsi di riallineare l'indice.** (Il secondo rosso era un file che non avevo scaricato
+nella cartella di lavoro, non un difetto del codice.)
+  Aggiornata anche la riga «Ultimo rigenero automatico» di INDEX.md, che la mia stessa
+passata aveva reso falsa.
+
 10 AGOSTO 2026 (4ª parte) — CHIUSA L'ULTIMA CONTRADDIZIONE FRA DUE FONTI DI VERITÀ, E
 CORRETTA UNA MIA AFFERMAZIONE FALSA DELLA VOCE PRECEDENTE. Baseline `19a4468`. Nessuna riga
 di codice applicativo toccata.
