@@ -187,6 +187,23 @@ non dal peso), `TDEE_Parte1`, `Grafici_InBody`, `Pazienti_Storici_Metodo`. Nel r
 voci e tutte e 117 portano il codice Compendium a 5 cifre** — la regola 20, nata proprio da
 quella tabella, è applicata al 100%.
 
+**APERTA P154 — le policy RLS rivalutano `auth.uid()` a ogni riga.** Numero **letto dal
+repo** (`43a28a1`: il più alto era 153, P154 libero), non da una fotografia. È la prima
+delle quattro cose trovate oggi a diventare una voce: le altre tre avevano già una casa —
+lo stato di partenza FODMAP è nella scheda P130, la coda del peso casalingo nella scheda
+P35, la tappa 6 nella scheda P128.
+  **Rilette le policy vere prima di scrivere, invece di fidarsi di quanto avevo annotato
+poche ore prima**, ed è servito: l'advisor segnala **8 tabelle**, ma le espressioni da
+riscrivere sono **15** — sette policy sono `FOR ALL` e hanno sia `USING` sia `WITH CHECK`,
+solo `ai_usage_select_own` è `FOR SELECT`. Una passata che ne corregge otto lascerebbe il
+difetto per metà **e l'advisor smetterebbe comunque di segnalare**: è la regola 16 (contare
+non è ancora il lavoro) in una forma nuova — *il conteggio dello strumento non è il
+conteggio del lavoro*.
+  Scritto anche il **presupposto** su cui si rimanda (regola 17): l'intero database ha
+**332 righe**, quindi la penalità non è misurabile e non lo sarà per molto. Quando quel
+numero cambia, si sa cosa riaprire. Da fare **nella stessa passata di P151 e P152**: sono le
+stesse otto tabelle, ed è DDL in produzione dove `git revert` non esiste.
+
 **Bilancio finale della passata: 7 documenti assorbiti e chiusi su 24** (i tre ⛔, i due 🗄️
 e i due che erano specifiche eseguite), 4 classificati per la prima volta, 4 riverificati e
 datati, 1 riga della tabella corretta perché diceva il falso. **Nessun documento del progetto
