@@ -10,6 +10,52 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+10 AGOSTO 2026 (7ª parte) — P149 e P150 COLLAUDATE A VIDEO SULL'APP IN PRODUZIONE.
+Baseline `dd061bd`. Fabrizio ha fatto l'accesso nel browser; io ho guidato Chrome in **sola
+lettura**: nessuna scrittura, nessun salvataggio, e in chat nessun nome di paziente — i
+pazienti sono citati per **indice**, mai per identità.
+
+**I TRE PUNTI, TUTTI SUPERATI.**
+
+**1 — I passi si leggono in ordine.** Trovati `1 · Quanto consuma` → `2 · Dove deve
+arrivare, e in quanto` → `3 · Come si compone il piatto` → `4 · Come si distribuisce nella
+settimana`, in posizioni crescenti nel testo, e **nessun passo 5**. **Sono quattro, non
+cinque, ed è corretto:** P150 ha fuso il 2 e il 3 di P149. Chi cercasse i cinque passi
+troverebbe un difetto che non c'è.
+
+**2 — La piega «Regola a mano», che era la regressione già ripresentatasi una volta.**
+Verificata su tre pazienti con dati diversi: paziente **senza referti InBody** → piega
+**APERTA** ✅; paziente **completo** → piega **chiusa** ✅; e un terzo, apparentemente
+completo, che l'aveva **aperta** — sembrava un difetto, e invece guardando quali campi ha
+davvero: **niente altezza e niente età**, quindi le strade non sono calcolabili e la piega si
+apre a ragione. *Il caso che sembrava il difetto era la prova che la condizione è quella
+giusta: non «manca l'InBody» ma «mancano i dati per proporre le strade».* Nessun paziente
+senza sesso esiste in archivio, quindi quella metà resta non provata su dati veri.
+
+**3 — Lo slider del ritmo, verificato SENZA trascinarlo.** Trascinare avrebbe impostato il
+regime a un paziente vero: la proprietà da provare è *dove* è agganciata la scrittura, e
+quella si legge. `oninput="_ritmoAnteprima(this.value)"` · `onchange="_stradaUsa(+this.value)"`
+— cioè **anteprima durante il trascinamento, scrittura solo al rilascio**, che è esattamente
+la prescrizione. Ispezionate anche le due funzioni: `_ritmoAnteprima` **non apre finestre e
+non salva**; `_stradaUsa` fa entrambe le cose, ed è giusto che stia sul rilascio. Nessun
+aggancio a `mouseup`/`pointerup`.
+
+**LA MISURA CHE NON HO POTUTO FARE, dichiarata invece che aggiustata.** «La scheda non è più
+lunga di prima» non è verificabile: P150 misurò **2.573 px a 1090 px di larghezza**, e lo
+schermo di Fabrizio è largo **1366** — il ridimensionamento della finestra non ha cambiato il
+viewport. Un'altezza presa a larghezza diversa non si confronta. Uso allora le misure
+**indipendenti dalla larghezza**: P150 dichiarava **45 campi e 26 pulsanti**, oggi sul
+pannello TDEE ne conto **38 campi e 20-23 pulsanti** (variano col paziente). La riduzione
+c'è; il numero in pixel resta non confrontabile e **non lo dichiaro**.
+
+**Console:** zero errori dell'applicazione (i due presenti sono di un'estensione del browser,
+posizione `:0:0`).
+
+**RESTA APERTO IL COLLAUDO A VIDEO DI P148** — è un'altra schermata (integratori, scheda
+Clinica, ponte Clinica→Routine, PDF con una voce in automatico) e non è stata guardata.
+Marcare P148 sulla base di questa passata sarebbe la stessa forma di errore che questa
+giornata ha corretto sei volte.
+
 10 AGOSTO 2026 (6ª parte) — P147 COLLAUDATO SUI DATI IN PRODUZIONE, E LA QUARTA
 AFFERMAZIONE MIA NON VERIFICATA DELLA GIORNATA. Baseline `5d1debd`. Nessun file di codice
 toccato: solo letture sull'app pubblicata e due correzioni di testo.
