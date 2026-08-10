@@ -41,8 +41,38 @@ del documento è risultato o implementato (P131, P132, P133, P137) o respinto da
 Fabrizio (pulsanti di periodo) o già conservato nelle schede (il «resta vero»
 sull'incrocio delle curve è testuale nella scheda P131). Il file nel progetto Claude è
 ora un cartello di rimando; la riga nella tabella di CLAUDE.md è passata da ⛔ ad
-ASSORBITO. Prossimi: `Grammature_Analisi` (⛔, proposte respinte con rischio clinico),
-`FODMAP_Verifica_Perplexity` (⛔, finta fonte di dati).
+ASSORBITO.
+
+**Secondo ⛔ assorbito nella stessa sessione: `NutriGest_Grammature_Analisi.md`.**
+Verifiche su `a81fe0b`: `ricalcolaAlternative` esiste (riga 3805) ed è chiamato dai
+quattro punti di modifica **e** su tutto l'output AI; `criterioByCat` ha ZERO
+occorrenze (sostituito dai gruppi di equivalenza); la tabella «isocalorica» scritta a
+mano nel prompt non c'è più — l'unica traccia di «Frutta secca mista 20g» è il commento
+che spiega perché era sbagliata; `_etichettaCriterio` (§5.7 del documento) è usata in
+due punti di render. **Le due proposte RESPINTE — banda di plausibilità e guardia al
+25% — restano in testa al cartello**, ma la cosa che davvero le ha protette dal venire
+rifatte per sbaglio è che il rifiuto è motivato **dentro `index.html`** (commenti a riga
+~3708 «NESSUN tetto di plausibilita'» e ~3845 «Nessun tetto»): una decisione respinta
+vive nel codice, non solo in un documento di progetto. Unica cosa ancora aperta, già
+nella sua scheda: la fase 2 di P121 (gruppi semaforo intercambiabili).
+
+Prossimo e ultimo ⛔: `FODMAP_Verifica_Perplexity` (finta fonte di dati; da assorbire
+insieme alla verifica che P130 sia ancora davvero aperta).
+
+**Difetto di processo trovato oggi, da non ripetere.** Per capire perché un commit
+sembrava non partire ho eseguito `git status` dalla sessione sulla cartella collegata:
+da lì git non riesce a rimuovere il proprio `.git/index.lock` (`Operation not
+permitted`) e lo lascia sul disco, bloccando il git di Fabrizio con «another git process
+seems to be running». **Dalla sessione non si eseguono comandi git sulla cartella
+collegata, nemmeno di sola lettura** — restano validi solo `ls-remote` e i file scaricati
+da `raw.githubusercontent.com`, come già prescrive il protocollo. Nella stessa verifica è
+emerso che su questa macchina (`C:\Users\User`, diversa da `C:\Users\giann`) **82 file
+risultano modificati con ZERO differenze reali**: è solo la convenzione di fine riga, il
+repo non ha un `.gitattributes`. Non è un bug e non va committato — ed è la ragione
+concreta per cui la regola «mai `git add -A`, sempre i file espliciti» non è una
+formalità: un `add -A` produrrebbe un commit che tocca ogni riga di ogni file, rendendo
+illeggibile qualunque diff futuro. Sistemazione definitiva (`* text=auto`) da valutare in
+una sessione sua.
 
 **CLAUDE.md — nuova sezione «Connettori collegati»,** tre regole: Supabase in sola
 lettura salvo OK esplicito con SQL mostrato prima (e `project_id` dichiarato: i
