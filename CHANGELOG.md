@@ -10,6 +10,48 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+11 AGOSTO 2026 (2ª parte) — LA DOMANDA DI FABRIZIO CHE HA APERTO DUE VOCI: «QUESTO ERRORE
+SI È RIPETUTO ALTRE VOLTE?». Baseline `42f73aa`. Nasce la regola 25; aperte P155 e P156;
+un solo tocco al codice: un commento morto riscritto (zero comportamento).
+
+**LA VERIFICA, PRIMA DELLA RISPOSTA.** Cercato su tutta la storia invece di rispondere a
+memoria. Risultato in due metà: gli **identificatori** citati nel Contesto sono sani — 115
+citati, 4 assenti e tutti e quattro citati *apposta* come inesistenti («il campo si chiama
+`inizioAlim`, NON `inizioPiano`») — mentre le **frasi in prosa** invecchiano: trovato UN
+caso confermato. P149 scrisse che il blocco strade sta «nel passo *"3 · Quanto in fretta"*»;
+il giorno dopo P150 fuse i passi 2 e 3 e la frase divenne falsa. `#mac-strada-box`, l'id
+citato nella stessa frase, è ancora lì e ancora vero: **la frase non è invecchiata perché
+nessuno l'ha aggiornata — era scritta in modo da poter invecchiare.**
+
+**IL DETTAGLIO PIÙ INSIDIOSO: la conferma incrociata.** Un commento morto in `index.html`
+(riga ~16974) citava lo stesso passo fantasma. Doc e codice si confermavano a vicenda su
+una cosa falsa: la difesa «controllo su una seconda fonte» falliva esattamente quando
+serviva, perché frase e commento erano figli dello stesso commit e invecchiavano insieme.
+
+**MISURATO ANCHE IL RIMEDIO SBAGLIATO, prima di scartarlo.** Il test automatico
+sulle etichette «N · Testo»: 15 falsi allarmi su 16 (il `·` separa anche MET, commit e
+colori) — e l'unica stringa che dava per «presente» era il difetto vero, vivo solo nel
+commento morto. **Un test che sarebbe stato verde esattamente sul caso rotto.** Scartato
+coi numeri e scritto nella scheda di P155, perché nessuno lo riapra a intuito.
+
+**COSA È STATO FATTO.** (1) **Regola 25** nel CLAUDE.md: nel Contesto si scrive lo stato,
+la posizione si dichiara con l'identificatore, mai con l'etichetta a schermo né come
+transizione; chi rinomina o fonde ha nel giro di consegna il grep del vecchio nome su
+tutto il repo, commenti compresi. Coi suoi tre limiti dichiarati dentro. (2) Il paragrafo
+del Contesto riscritto **nella forma nuova** — è l'esempio di riferimento, e porta scritto
+di essere stato la prima vittima. (3) Il commento morto riscritto come stato. (4) Aperte
+**P155** (guardia meccanica sugli identificatori, col rimedio scritto nel test: si aggiorna
+la frase, MAI cancellare la citazione) e **P156** (bonifica incrementale: 13 righe
+«prima/dopo» e 3 note datate su 3.792 — poco, ed è il momento giusto proprio perché è
+poco; mai in una passata sola, mai mescolata al codice). INDEX.md rigenerato, suite verde.
+
+*Il filo con la voce di ieri: P151/P152/P154 erano debiti che scadono quando vendi, col
+costo che cresce col numero di righe. Questo è lo stesso debito con un'altra variabile —
+il costo cresce col numero di lettori. E il Contesto è l'unico file a cui una sessione
+crede senza difendersi: le fotografie hanno il cartello, la storia si dichiara storia,
+il presente va tenuto vero.*
+
+
 11 AGOSTO 2026 — CHIUSI I TRE DEBITI CHE SCADONO QUANDO VENDI: P151, P152 E P154 IN
 UN'UNICA MIGRAZIONE SUL DATABASE DI PRODUZIONE. Baseline `4fbbbe4`. **Prima scrittura di sempre
 sul database vero da parte di una sessione** — fatta con la sequenza che la scheda di P154

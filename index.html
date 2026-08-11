@@ -16971,10 +16971,9 @@ function _stradeHtml(p, r){
 
 function _stradaPctExtra(v){ _stradePctExtra=v; _traguardoAnteprima(); }
 
-// P149 — il riquadro del passo «3 · Quanto in fretta»: verifica al controllo
-// (cos'è successo) + strade (dove si va). Prima stavano dentro #trg-out, cioè
-// dentro il riquadro del traguardo, lontani dal regime energetico che
-// impostano. Il calcolo non cambia: cambia dove finisce l'HTML.
+// P149 — verifica al controllo (cos'è successo) + strade (dove si va):
+// scrive l'HTML dentro #mac-strada-box, il riquadro della scheda TDEE che
+// sta subito sopra la piega del regime (#mac-regime-manuale).
 function _aggiornaStradaBox(p, r){
   const box=document.getElementById("mac-strada-box");
   if(!box) return;

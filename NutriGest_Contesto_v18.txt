@@ -2878,14 +2878,18 @@ LE STRADE PER ARRIVARE AL TRAGUARDO (P123, 26 lug 2026):
   percorso, PROPONE (confirm) di riscrivere le fasi su quel ritmo —
   _percorsoGeneraFasi accetta ora un terzo parametro {pctDeficit} che sostituisce
   il default -18%. E' l'aggancio tra traguardo, calorie e programmazione lunga.
-  P149 (5 ago 2026): il blocco strade e la verifica al controllo NON stanno piu'
-  in coda a `#trg-out` (dentro il riquadro 🎯) ma in `#mac-strada-box`, nel passo
-  "3 · Quanto in fretta", subito sopra il regime energetico che impostano — li
-  scrive `_aggiornaStradaBox(p, r)`. Le righe della tabella sono cliccabili
-  (`_stradaUsa`) e quella in vigore e' marcata da `_stradeEvidenzia()`, che la
-  RILEGGE dal campo % del regime invece di ricordare l'ultimo clic ed e'
+  Il blocco strade e la verifica al controllo stanno in `#mac-strada-box`,
+  scritto da `_aggiornaStradaBox(p, r)`: nella scheda TDEE e' il riquadro del
+  passo «2 · Dove deve arrivare, e in quanto», subito sopra la piega del regime
+  (`#mac-regime-manuale`) che le strade impostano. Le righe della tabella sono
+  cliccabili (`_stradaUsa`) e quella in vigore e' marcata da `_stradeEvidenzia()`,
+  che la RILEGGE dal campo % del regime invece di ricordare l'ultimo clic ed e'
   agganciata alla fine di `_aggiornaRegimeSlider` (unico imbuto di slider, campi,
-  preset, "Usa" e "Ritara").
+  preset, "Usa" e "Ritara"). [Cosi' dal P149+P150, 5-6 ago 2026. Il nome del
+  passo e' testo di interfaccia e puo' cambiare a ogni passata sui testi: fa
+  fede l'id. Questa frase fu la prima vittima documentata della regola 25 —
+  scritta come transizione e con l'etichetta del passo, fu falsificata il
+  giorno dopo da P150 che fuse i passi 2 e 3.]
   CHETOGENICA: il blocco non compare, al suo posto una riga di rinvio. I
   protocolli keto sono in kcal ASSOLUTE con bande proprie (PROTOCOLLI_KETO) e la
   domanda li' non e' "quanto ci mette" ma "quanto puo' durare". Rinviato.
