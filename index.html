@@ -20053,6 +20053,20 @@ function renderPianoConPillTabs(pianoAI, pianoEl) {
     var _listaPrevEl=document.getElementById('gara-albero-lista');
     var _scrollPrev=_listaPrevEl?_listaPrevEl.scrollTop:0;
     pianoEl.innerHTML='<div style="margin-top:1.5rem;"><div style="display:flex;gap:14px;align-items:flex-start;">'+_alberoGaraHtml+'<div style="flex:1;min-width:0;">'+pillsHtml+dH+'</div></div></div>';
+    // Fase 2 P94 (P94b, 11 ago 2026): il pannello contesto + "Genera con AI" del giorno
+    // speciale mancava in QUESTO percorso (il Generatore a pillole) — montato solo nella
+    // vista legacy e nell'editor manuale. Stessa famiglia del fix dei bottoni del 14 lug
+    // (7aa3eb6): il ramo davvero usato in produzione era rimasto senza. Scoperto al primo
+    // collaudo della fase 2. Stessa forma degli altri due punti: pannello fra le pillole
+    // e la scheda del giorno.
+    if(g && g.speciale && typeof _ngRenderPannelloSpeciale==='function'){
+      var _pannelloSpecGen=_ngRenderPannelloSpeciale(g);
+      if(_pannelloSpecGen){
+        var _colGen=pianoEl.querySelector('div[style*="flex:1"][style*="min-width"]');
+        if(_colGen&&_colGen.children.length>=2) _colGen.insertBefore(_pannelloSpecGen,_colGen.children[1]);
+        else if(_colGen) _colGen.appendChild(_pannelloSpecGen);
+      }
+    }
     setTimeout(function(){
       var _inp=document.getElementById('gara-albero-cerca');
       if(_inp&&_cercaPrev) _inp.value=_cercaPrev;

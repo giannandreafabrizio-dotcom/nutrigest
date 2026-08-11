@@ -10,6 +10,32 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+11 AGOSTO 2026 (3ª parte) — P94b: LA FASE 2 DEL GIORNO SPECIALE ERA IRRAGGIUNGIBILE DAL
+GENERATORE, E L'HA SCOPERTO IL COLLAUDO. Baseline `6b85bc2`. Suite 738/738, INDEX rigenerato.
+
+**IL DIFETTO, trovato alla prova 3 del collaudo di P94** (serata dei cinque collaudi sul
+campo, verbale completo nella voce che seguirà a collaudi finiti): nel percorso a pillole
+del Generatore (`window._renderGiornoGen`) il giorno speciale si crea e si spegne (fase 1,
+fix del 14 lug `7aa3eb6`), ma il pannello della fase 2 — contesto per l'AI + «Genera con
+AI» (`_ngRenderPannelloSpeciale`) — era montato SOLO nella vista legacy
+(`_renderGiornoAttivo`) e nell'editor manuale (`_ngRenderPianoDestra`). Dal Generatore
+davvero usato in produzione il pulsante non compariva: **la fase 2 non era mai stata
+raggiungibile da lì.** È la stessa famiglia del fix di luglio, sopravvissuta sull'altra
+metà della voce — i bottoni furono aggiunti a `_renderGiornoGen`, il pannello no.
+  *La scheda P94 lo diceva onestamente da un mese: «la fase 2 non è ancora stata provata
+su un paziente reale». Il primo collaudo vero l'ha trovata chiusa a chiave.*
+
+**LA CORREZIONE** (~10 righe): il pannello si monta anche in `_renderGiornoGen`, stessa
+forma degli altri due punti — fra la riga delle pillole e la scheda del giorno, dentro la
+colonna `flex:1`. Nessun'altra riga toccata.
+
+**NOTA A MARGINE del collaudo che l'ha trovato:** prima di arrivarci, l'applicazione del
+template al paziente di prova (allergia Lattosio impostata apposta) ha alzato DA SOLA
+l'avviso «Alimenti non graditi nel template» coi 5 latticini elencati — la catena
+allergia → alimenti rossi → avviso funziona a monte della generazione. Non era una prova
+prevista: è stata regalata.
+
+
 11 AGOSTO 2026 (2ª parte) — LA DOMANDA DI FABRIZIO CHE HA APERTO DUE VOCI: «QUESTO ERRORE
 SI È RIPETUTO ALTRE VOLTE?». Baseline `42f73aa`. Nasce la regola 25; aperte P155 e P156;
 un solo tocco al codice: un commento morto riscritto (zero comportamento).
