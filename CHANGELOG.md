@@ -10,6 +10,78 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+11 AGOSTO 2026 — CHIUSI I TRE DEBITI CHE SCADONO QUANDO VENDI: P151, P152 E P154 IN
+UN'UNICA MIGRAZIONE SUL DATABASE DI PRODUZIONE. Baseline `4fbbbe4`. **Prima scrittura di sempre
+sul database vero da parte di una sessione** — fatta con la sequenza che la scheda di P154
+prescriveva, senza saltarne un passo. Suite **738/738 verde**, **nessuna riga di `index.html`
+toccata**.
+
+**PERCHÉ TUTTE E TRE INSIEME, e non era un risparmio di tempo.** Sono DDL sul database dove
+vivono i dati sanitari di 48 pazienti veri e dove `git revert` non esiste. Aprire tre volte le
+stesse otto tabelle è tre volte l'occasione di sbagliare; una migrazione sola è anche una
+transazione sola, quindi o passa tutta o non resta niente a metà. Le tre schede lo dicevano già
+(«da accorpare a P151+P152»): è stata seguita la roadmap, non improvvisata una scaletta.
+
+**LA SEQUENZA, per intero.** (1) Verifiche di sola lettura sui prerequisiti; (2) verifica del
+lato client per sapere cosa si sarebbe rotto; (3) SQL completo mostrato a Fabrizio **prima**, con
+il `project_id` dichiarato (`zrhmspylnlklppvhgplp`, l'organizzazione ne ha due); (4) spiegazione
+in parole sue, su sua richiesta, **prima** dell'OK; (5) controllo pre-volo che nulla fosse già
+stato applicato; (6) esecuzione; (7) riletta degli advisor e dei dati.
+
+**I PREREQUISITI VERIFICATI PRIMA — ed è il motivo per cui non è fallito niente.**
+`user_id` NOT NULL con default `auth.uid()` su tutte e quattro le tabelle e **zero righe con
+valore nullo** (la PK composta non poteva rifiutare nulla); **tutte e 131 le date testo** delle
+quattro tabelle nel formato ISO a 24 caratteri, **zero non convertibili**; **nessuna foreign key**
+puntava alle PK da sostituire. *Tre domande, tre query, cinque minuti: è la differenza fra una
+migrazione e una scommessa.*
+
+**LA SCOPERTA DELLA PASSATA: l'allineamento dell'upsert non serviva.** La scheda di P151 diceva
+«portare la PK a `(id, user_id)` **e allineare il target di conflitto dell'upsert**». Guardando
+`index.html`: i payload verso `ricette`, `piani`, `entrate` ed `eventi` mandano
+`Prefer: resolution=merge-duplicates` **senza `on_conflict` esplicito**, e in quel caso PostgREST
+usa la chiave primaria della tabella — che dal momento della migrazione è quella nuova. Il
+secondo mezzo lavoro non esisteva. *Una riga di codice che non c'è è una riga che non si può
+dimenticare di cambiare* — e vale al contrario come avvertimento: se un giorno qualcuno
+aggiungesse un `on_conflict=id` «per chiarezza», riaprirebbe P151 senza accorgersene.
+
+**IL RISULTATO, verificato dopo e non dichiarato.** PK `(id, user_id)` su tutte e quattro ·
+`updated_at` `timestamptz` su tutte e otto le tabelle del progetto · **zero** espressioni RLS che
+rivalutano `auth.uid()` per riga (erano 15) · advisor performance: **zero `auth_rls_initplan`**,
+resta il solo `unused_index` su `ai_usage_user_created`, che la scheda dava come facoltativo e
+separato e **non è stato toccato** · advisor security: resta la sola `auth_leaked_password_
+protection`, cioè P107, invariata · dati: `ricette` 27, `piani` 36, `entrate` 22 identiche a
+prima, e **zero `id` duplicati** sulle quattro tabelle, cioè niente di ciò che la vecchia chiave
+vietava è entrato durante il cambio.
+
+**L'ERRORE MIO DELLA GIORNATA, e va scritto perché è la terza volta che ha questa forma.** La
+prima query di verifica ha stampato «8 policy non ottimizzate», e per un momento la migrazione
+è sembrata passata a metà. **Era sbagliata la query, non la migrazione:** Postgres normalizza
+`(select auth.uid())` in `( SELECT auth.uid() AS uid)`, e il mio criterio cercava `auth.uid()`
+non preceduto da una parentesi — trovando lo spazio dopo `SELECT`. Lette le otto policy una per
+una, sono tutte nella forma giusta. *È la stessa forma dell'errore sui «117 codici Compendium»
+(10 ago) e del conteggio delle «quattro voci da collaudare» che erano tre: contare col criterio
+sbagliato e credere al numero.* **Regola operativa che ne discende: un controllo che dichiara un
+difetto va verificato come si verifica un difetto** — prima di annunciarlo, e prima di
+«rimediare» a un guasto che non esiste.
+
+**UNA COSA NOTATA E DETTA A FABRIZIO INVECE CHE ARCHIVIATA.** Fra il controllo pre-volo e la
+verifica finale, `eventi` è passato da 46 a 48 righe, con le tre più recenti (`anag-visita-…`)
+marcate **11 ago 17:06**. Non è un effetto della migrazione — un `ALTER TABLE` non crea righe —
+ma è stato segnalato invece che spiegato via: se in quel momento nessuno stava usando l'app,
+è una domanda che merita risposta. *Un numero che cambia mentre lavori si dichiara, non si
+giustifica.*
+
+**LA SUITE È STATA ESEGUITA DAVVERO, e vale la pena dire come.** Nessun file di codice è
+cambiato, quindi il verde era prevedibile — ma prevedibile non è verificato. Le dipendenze non
+sono installate sulla macchina di Fabrizio e quel percorso non ha rete: la suite è girata su un
+clone del repo a `4fbbbe4` nel contenitore. **738/738**, `INDEX.md` non da rigenerare perché
+`index.html` non è stato toccato.
+
+**COSA RESTA APERTO SUL DATABASE.** Un solo avviso di sicurezza (P107, che dipende dal piano a
+pagamento) e un solo avviso di prestazione (l'indice mai usato, deliberatamente lasciato: un
+indice inutilizzato costa poco, rimuoverne uno che serviva costa una scansione completa).
+**La famiglia «debito che scade quando vendi» è chiusa.**
+
 10 AGOSTO 2026 (8ª parte) — P147 COLLAUDATA DA FABRIZIO, E UN COLLAUDO CHE STAVAMO PER
 RIFARE PERCHÉ ERA GIÀ STATO FATTO. Baseline `de19b18`. **Con questa la famiglia «collaudo a
 video» è chiusa: non ne resta nessuno.**
