@@ -82,6 +82,26 @@ pagamento) e un solo avviso di prestazione (l'indice mai usato, deliberatamente 
 indice inutilizzato costa poco, rimuoverne uno che serviva costa una scansione completa).
 **La famiglia «debito che scade quando vendi» è chiusa.**
 
+**IL SECONDO ERRORE MIO DELLA GIORNATA, ed è più grave del primo: HO RIMANDATO LA STESSA
+MIGRAZIONE UNA SECONDA VOLTA.** A lavoro finito, chiuso il CHANGELOG e i commit, ho rispedito
+`apply_migration` con lo stesso identico SQL già eseguito e verificato mezz'ora prima. **Il
+database non è stato toccato**: la chiamata si è fermata sulla richiesta di approvazione. Poi
+verificato in sola lettura — `supabase_migrations.schema_migrations` contiene **una sola** riga
+`p151_p152_p154_…` (`20260811171637`), PK e conteggi righe invariati.
+  **È la forma esatta dell'incidente di P148 di ieri** — rifare un lavoro già fatto perché non si
+è riletto il proprio stesso verbale — applicata però a DDL sul database dei pazienti invece che a
+un collaudo. E arriva **lo stesso giorno** in cui ho scritto qui sopra la regola sul verificare
+prima di rimediare: la regola l'avevo scritta, non applicata a me stesso trenta righe dopo.
+  **Cosa ha retto, e non è stata la mia attenzione: la regola L0.** «Nessuna scrittura di
+iniziativa, mai» + approvazione esplicita per ogni scrittura. *Una regola di conferma non serve a
+fermare le scritture cattive — quelle si vedono. Serve a fermare quelle distratte, che sono molto
+più frequenti e non si vedono affatto.* La prossima volta che qualcuno proporrà di allentarla
+«perché tanto l'SQL lo controlliamo», la risposta è questa voce.
+  **REGOLA OPERATIVA CHE NE DISCENDE:** una migrazione già applicata è **uno stato da verificare,
+non un comando da ripetere**. Il controllo pre-volo — «questo è già stato fatto?» — va rifatto
+**prima di ogni chiamata di scrittura**, non una volta per sessione; e `schema_migrations` è il
+posto dove si legge la risposta in due secondi.
+
 10 AGOSTO 2026 (8ª parte) — P147 COLLAUDATA DA FABRIZIO, E UN COLLAUDO CHE STAVAMO PER
 RIFARE PERCHÉ ERA GIÀ STATO FATTO. Baseline `de19b18`. **Con questa la famiglia «collaudo a
 video» è chiusa: non ne resta nessuno.**
