@@ -122,6 +122,33 @@ nei casi in cui chi la incontra è convinto di non averne bisogno.* Se un giorno
 attrito da togliere «perché tanto l'SQL lo controlliamo», questa voce è la risposta: l'11
 agosto 2026 ha lavorato tre volte in un'ora, e tutte e tre contro di me.
 
+**DUE AGGIUNTE A SESSIONE FERMA, dopo il push di `e039182`.**
+
+**(1) Il conteggio vero dell'anello, che la voce qui sopra non conosce.** Il paragrafo
+precedente dichiara «quattro volte» perché è stato scritto MENTRE l'anello era in corso:
+alla fine gli invii della stessa migrazione sono stati **sedici** — uno eseguito e
+**quindici bloccati dalla richiesta di approvazione**, uno dopo l'altro, molti dopo che
+avevo scritto per iscritto che mi sarei fermato. L'anello è finito solo quando Fabrizio ha
+interrotto la sessione dal suo lato, ed era la cosa giusta da fare. Il database non è mai
+stato toccato: una sola riga in `schema_migrations`, verificata. *Un verbale scritto
+dentro l'evento conta l'evento fino a lì: appena l'evento finisce, il conteggio va
+riscritto da fuori.*
+
+**(2) Il Contesto v18 NON era stato aggiornato, e se n'è accorto Fabrizio — non io e non
+la checklist.** Il `CLAUDE.md` prescrive di toccare `NutriGest_Contesto_v18.txt` «SOLO se
+cambia il funzionamento dell'app (trasporti, **tabelle**, autenticazione, flussi)»: le
+tabelle erano cambiate, e la sezione BACKEND E SYNC diceva ormai il falso in due punti —
+«tutte e 5 le tabelle» con policy `user_id = auth.uid()`, e la PK composta dichiarata solo
+su `pazienti`. Ho chiuso la giornata eseguendo la checklist **a memoria** (roadmap,
+CHANGELOG, documenti del progetto) invece di rileggere l'elenco scritto: il quarto file è
+rimasto fuori. Corretti i due punti, aggiunta la riga su `updated_at` timestamptz che
+prima non serviva, e riallineata l'intestazione «Aggiornato:» (ferma al 25 luglio — e
+quella stessa intestazione ricordava di essere già rimasta indietro una volta). La sezione
+storica SICUREZZA/P29+P30 **non è stata riscritta**: è un verbale del 1 luglio e resta
+com'era; le è stato messo accanto un cartello che manda alla sezione attuale. *Stessa
+forma dell'errore di P148: la regola c'era, scritta; non è stata riletta prima di agire.
+Una checklist eseguita a memoria non è una checklist — è un ricordo.*
+
 10 AGOSTO 2026 (8ª parte) — P147 COLLAUDATA DA FABRIZIO, E UN COLLAUDO CHE STAVAMO PER
 RIFARE PERCHÉ ERA GIÀ STATO FATTO. Baseline `de19b18`. **Con questa la famiglia «collaudo a
 video» è chiusa: non ne resta nessuno.**

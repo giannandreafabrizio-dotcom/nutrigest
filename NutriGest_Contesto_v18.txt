@@ -1,7 +1,14 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NUTRIGEST — Documento di Contesto
 Dott. Fabrizio Giannandrea · Studio Magic e Centro Curae · Matera
-Aggiornato: 25 luglio 2026 — P119 + P120, entrambe chiuse e collaudate in giornata.
+Aggiornato: 11 agosto 2026 — P151 + P152 + P154 chiuse in un'unica migrazione sul database
+  di produzione (prima scrittura DDL fatta da una sessione, con OK esplicito di Fabrizio).
+  NESSUNA riga di index.html toccata: è cambiato solo il database. Cosa: chiave primaria
+  (id, user_id) anche su ricette/piani/entrate/eventi (prima solo id — P151); updated_at
+  ora timestamptz su tutte e 8 le tabelle (prima text su quelle quattro — P152); le 8
+  policy RLS valutano (select auth.uid()) una volta per query invece che una per riga
+  (P154). Dettaglio nella sezione BACKEND E SYNC qui sotto e nel CHANGELOG dell'11 agosto.
+Aggiornamento precedente: 25 luglio 2026 — P119 + P120, entrambe chiuse e collaudate in giornata.
   P119: l'elenco ispirazione del generatore non è più il taglio "primi 80" (che scartava
   sempre le stesse ricette di coda) ma una pescata bilanciata per pasto attivo con tetto
   120 e mescolata casuale dentro ogni gruppo — dettaglio nella sezione FILTRO STAGIONALE
@@ -477,12 +484,29 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
       Functions → Secrets — NON sotto Project Settings → General/API Keys,
       è una pagina propria del dashboard).
   Auth: email+password, sessione 7 giorni; conferma email ATTIVA (1 lug 2026)
-  ✅ RLS ATTIVO (1 lug 2026 — P29 completato). Tutte e 5 le tabelle con
-     policy row-owner (user_id = auth.uid()). supaHeaders() ora invia
+  ✅ RLS ATTIVO (1 lug 2026 — P29; policy riscritte l'11 ago 2026 — P154).
+     Tutte e 8 le tabelle con policy row-owner. Dall'11 ago l'espressione è
+     (select auth.uid()) — valutata una volta per QUERY, non una per riga —
+     su tutte e 15 le espressioni (7 policy FOR ALL con USING+WITH CHECK,
+     più ai_usage_select_own col solo USING). supaHeaders() invia
      l'access_token utente nel Bearer, con rinnovo automatico ogni 30 min
      + proattivo (buffer 2 min) via assicuraTokenValido(). Costante APP_URL
-     hardcoded per redirect email. Chiave primaria pazienti ora (id, user_id)
-     per consentire meta-record con id fissi a più utenti.
+     hardcoded per redirect email.
+  ✅ CHIAVE PRIMARIA (id, user_id) SU TUTTE LE TABELLE UTENTE (11 ago 2026 — P151).
+     pazienti ce l'aveva dal 1 lug 2026 (P30, per i meta-record); ricette, piani,
+     entrate ed eventi dall'11 ago: con la PK sul solo id lo spazio degli
+     identificativi uid() era condiviso fra tutti gli utenti, e a una collisione
+     l'upsert del secondo utente si perdeva in silenzio (il DO UPDATE filtrato
+     dalla RLS non trovava la riga dell'altro). Nessun cambio a index.html: i
+     payload non dichiarano on_conflict, quindi PostgREST aggancia da solo la PK
+     della tabella. ATTENZIONE: aggiungere un on_conflict=id «per chiarezza»
+     riaprirebbe P151 senza che nessun test se ne accorga.
+  ✅ updated_at È timestamptz SU TUTTE E 8 LE TABELLE (11 ago 2026 — P152). Prima
+     era text su ricette/piani/entrate/eventi: il confronto fra versioni (regola
+     15) reggeva solo finché ogni scrittura usava lo stesso identico formato ISO
+     a 24 caratteri. Il client scrive come prima (toISOString); è cambiato solo
+     il tipo della colonna, verificate prima tutte e 131 le righe (zero non
+     convertibili).
   Tabelle: pazienti | ricette | piani | entrate | eventi
     + collections (P74 — {key,user_id,data jsonb,updated_at}, RLS identica;
       DAL CUTOVER 1d del 24 lug 2026 è la casa UNICA dei 4 meta-record,
@@ -3436,6 +3460,10 @@ DECISIONE ARCHITETTURALE CONCETTI — FONTE UNICA (4 giu 2026, sostituisce quell
   condivisa read-only (Passo C) — non ancora implementati.
 
 SICUREZZA / P29 + P30 — RLS, TOKEN E MULTI-TENANCY (completati 1 lug 2026):
+  [NOTA 11 ago 2026 — questa sezione è il VERBALE di com'era allora: «5 tabelle»
+   e «user_id = auth.uid()» descrivono il 1 luglio e restano scritti così.
+   Lo stato ATTUALE (8 tabelle, PK composta ovunque, (select auth.uid())) sta
+   nella sezione BACKEND E SYNC; la modifica è P151+P152+P154, CHANGELOG 11 ago.]
 
   P29 — Problema originale (2 giu 2026): RLS disabilitato + supaHeaders() inviava
   solo la anon key pubblica → dati pazienti accessibili a chiunque con l'URL. Email
