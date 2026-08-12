@@ -19788,11 +19788,34 @@ function renderBadgeValidatore(piano){
   el.innerHTML=h;
 }
 
+// Etichette dei pasti — UNA sola volta (regola 15): le usano sia il pannello
+// del validatore sia la notifica di "Vai al giorno".
+const _VALIDA_SLOT_LBL = {colazione:'Colazione', spuntino_mattina:'Spuntino mattina', pranzo:'Pranzo', spuntino_pomeriggio:'Spuntino pomeriggio', cena:'Cena', pre_nanna:'Pre-nanna'};
+
 // Navigazione "vai alla cella": porta la vista sul giorno della violazione.
-function _validaVaiAlGiorno(gIdx){
+// P159 (12 ago 2026) — PORTAVA DAVVERO AL GIORNO, MA IN SILENZIO. Cambiava
+// `_pianoGiornoCorrente` e ridisegnava il piano senza muovere la pagina; e
+// siccome il pannello si apre dal badge del validatore, che sta SOPRA il
+// piano, alla chiusura si guardano i badge mentre il cambiamento avviene più
+// in basso, fuori schermo. Segnalato da Fabrizio come «non succede niente»,
+// ed è stato dato per rotto: verificato in console che lo stato cambiava
+// (indice 6 → 0) senza un solo errore. **Un comando che si chiama "Vai" e non
+// porta lo sguardo da nessuna parte è indistinguibile da un comando rotto**,
+// e dal lato di chi lo usa è la stessa cosa. Rimedio: si scorre fin lì e si
+// dichiara dove si è finiti — uno scorrimento muto lascerebbe comunque il
+// dubbio di non aver premuto niente.
+function _validaVaiAlGiorno(gIdx, slot){
   window._pianoGiornoCorrente=gIdx;
   var ov=document.getElementById('valida-overlay'); if(ov) ov.remove();
   if(typeof _aggiornaPianoBox==='function') _aggiornaPianoBox();
+  // Lo scorrimento viene DOPO il ridisegno: prima il piano non è ancora quello nuovo.
+  var box=document.getElementById('piano-piano-box')||document.getElementById('ng-piano-destra');
+  if(box && typeof box.scrollIntoView==='function'){
+    try{ box.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){ box.scrollIntoView(); }
+  }
+  var g=(window._pianoCorrente||[])[gIdx];
+  var nome=(g&&(g.giorno||g.g))||('Giorno '+((gIdx||0)+1));
+  if(typeof notif==='function') notif('↪ '+nome+(slot?(' · '+(_VALIDA_SLOT_LBL[slot]||slot)):''), 2500);
 }
 
 // ── PANNELLO DETTAGLI (+ override esplicito motivato se chiamato come gate) ──
@@ -19807,7 +19830,7 @@ function apriPannelloValidatore(mode,onOverride){
   var old=document.getElementById('valida-overlay'); if(old) old.remove();
   function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
   var GRAV={blocco:{lbl:'⛔ BLOCCO — allergene',col:'#B91C1C'},avviso:{lbl:'⚠ AVVISO — alimento rosso',col:'#D97706'},nota:{lbl:'ℹ NOTA — escluso/sconsigliato',col:'#A16207'}};
-  var SLOT_LBL={colazione:'Colazione',spuntino_mattina:'Spuntino mattina',pranzo:'Pranzo',spuntino_pomeriggio:'Spuntino pomeriggio',cena:'Cena',pre_nanna:'Pre-nanna'};
+  var SLOT_LBL=_VALIDA_SLOT_LBL; // P159 — definite una volta sola accanto a _validaVaiAlGiorno
   var h='<div class="modal" style="width:560px;max-width:94vw;max-height:82vh;overflow-y:auto">';
   h+='<h3 style="margin:0 0 .4rem">🛡 Validatore clinico del piano</h3>';
   h+='<div style="font-size:.75rem;color:var(--text3);margin-bottom:.6rem">Verificati '+esito.copertura.verificati+'/'+esito.copertura.totale+' elementi'+(esito.copertura.nonVerificabili.length?' — '+esito.copertura.nonVerificabili.length+' non verificabili':'')+'. Il validatore non sostituisce il giudizio clinico: è la rete di sicurezza.</div>';
@@ -19821,7 +19844,7 @@ function apriPannelloValidatore(mode,onOverride){
       vs.forEach(function(v){
         h+='<div style="display:flex;align-items:center;gap:6px;font-size:.76rem;padding:.3rem .4rem;border-bottom:1px solid var(--border)">';
         h+='<span style="flex:1"><strong>'+esc(v.elemento)+'</strong> <span style="color:var(--text3)">('+esc(v.motivo)+')</span><br><span style="color:var(--text3)">'+esc(v.giorno)+' · '+(SLOT_LBL[v.slot]||v.slot)+(v.fonte==='ricetta'?' · riga ricetta':'')+'</span></span>';
-        h+='<button onclick="_validaVaiAlGiorno('+v.giornoIdx+')" style="flex:0 0 auto;font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Vai al giorno →</button>';
+        h+='<button onclick="_validaVaiAlGiorno('+v.giornoIdx+',\''+v.slot+'\')" style="flex:0 0 auto;font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Vai al giorno →</button>';
         h+='</div>';
       });
     });
@@ -19831,7 +19854,7 @@ function apriPannelloValidatore(mode,onOverride){
     esito.copertura.nonVerificabili.forEach(function(nv){
       h+='<div style="display:flex;align-items:center;gap:6px;font-size:.74rem;padding:.3rem .4rem;border-bottom:1px solid var(--border);color:var(--text2)">';
       h+='<span style="flex:1">'+esc(nv.testo)+'<br><span style="color:var(--text3)">'+esc(nv.giorno)+' · '+(SLOT_LBL[nv.slot]||nv.slot)+' — '+esc(nv.motivo)+'</span></span>';
-      h+='<button onclick="_validaVaiAlGiorno('+nv.giornoIdx+')" style="flex:0 0 auto;font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Vai →</button>';
+      h+='<button onclick="_validaVaiAlGiorno('+nv.giornoIdx+',\''+nv.slot+'\')" style="flex:0 0 auto;font-size:.68rem;padding:.2rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer">Vai →</button>';
       h+='</div>';
     });
   }
@@ -32352,7 +32375,7 @@ function apriPannelloRicette(giorno, slotKey) {
   console.log('[P2] apriPannelloRicette chiamata — giorno:', giorno, 'slot:', slotKey);
   console.log('[P2] ricette nel db:', (db.ricette||[]).length);
   console.log('[P2] panel element:', document.getElementById('p2-ric-panel'));
-  var slotLabels = {colazione:'Colazione',spuntino_mattina:'Spuntino mattina',pranzo:'Pranzo',spuntino_pomeriggio:'Spuntino pomeriggio',cena:'Cena',pre_nanna:'Pre-nanna'};
+  var slotLabels = _VALIDA_SLOT_LBL; // P159 — terza copia della stessa mappa, trovata dal test: definita una volta sola (regola 15)
   var catMap = {colazione:'colazione',spuntino_mattina:'spuntino',pranzo:'pranzo',spuntino_pomeriggio:'spuntino',cena:'cena',pre_nanna:'pre_nanna'};
   var cat = catMap[slotKey] || slotKey;
   var panel = document.getElementById('p2-ric-panel');

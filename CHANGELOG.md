@@ -143,6 +143,39 @@ perche' li' un «entrambe» non esiste e sceglierne uno d'ufficio sarebbe invent
 *Se quella fusione fosse esistita l'11 agosto, la scheda di Lilly non avrebbe perso un referto
 nemmeno scegliendo il pulsante sbagliato.*
 
+**COLLAUDO DI P94 FASE 2: SUPERATO — e ha prodotto P159.** Giornata speciale «Giorno gara»
+su un paziente vero, contesto compilato (18:00, 12 km corsa, note sulla ricarica di
+carboidrati): **un solo giorno generato**, etichetta a tema conservata, giorno rimasto in
+coda, **2758 kcal contro un target di 2695 (+2%)**, **validatore clinico «Nessuna violazione
+rilevata»**. Confermata anche la fase 1 dal Generatore a pillole (il fix P94b di ieri). I 45
+«non verificabili» **non sono un difetto**: sono righe-ricetta senza grammature estraibili,
+che il validatore dichiara di non saper controllare invece di far finta — la proprieta' per
+cui e' stato scritto cosi'.
+
+**P159 — «UN COMANDO CHE SEMBRA ROTTO E' ROTTO», anche quando il codice e' giusto.** Fabrizio:
+«se clicco su vai a non succede niente». Primo sospetto: la famiglia gia' pagata tre volte —
+il ramo di rendering vivo lasciato indietro. **Sbagliato, e verificarlo e' stato il lavoro.**
+Riprodotto in JSDOM col Generatore a pillole: funzionava. Allora misurato **sull'app vera in
+console**: `_pianoGiornoCorrente` da **6 a 0**, modalita' manuale spenta, `#piano-select-paz`
+presente, `_renderGiornoGen` definita, **nessuna eccezione**. Il difetto non era nel calcolo
+ma nella **promessa del comando**: cambiava il giorno e ridisegnava *senza muovere la pagina*,
+e siccome il pannello si apre dal badge che sta SOPRA il piano, il cambiamento avveniva fuori
+schermo. `scrollIntoView` compariva **una volta sola in tutto `index.html`**, e non li'.
+Rimedio scelto da Fabrizio fra tre: scorrimento + notifica *«↪ Lunedì · Colazione»* (lo
+scorrimento muto lascerebbe comunque il dubbio di non aver premuto). I due pulsanti passano
+ora anche lo slot. **8 test nuovi, suite 761 → 769.** *Il test ha trovato subito una cosa che
+l'occhio non aveva visto: la mappa delle etichette dei pasti esisteva in **tre copie** —
+unificata (regola 15).* Evidenziazione della riga colpevole **consapevolmente non fatta**,
+con scritto in scheda cosa manca per farla (le voci non verificabili non hanno indice di riga).
+
+**Due errori miei, in senso opposto, nella stessa mezz'ora — e sono la coppia da ricordare.**
+Prima ho quasi dichiarato un bug del codice che non c'era; poi, avuta la prova che il codice
+era corretto, stavo per dichiarare che «funziona» e chiudere. **Erano sbagliate entrambe:**
+la funzione era corretta *e* il difetto era reale. Chi lo usa non ha modo di distinguere
+«non e' successo niente» da «e' successo fuori dal mio campo visivo», e questa seconda e' la
+definizione operativa di rotto. *Il freno, in entrambi i casi, e' stato non scrivere in
+roadmap prima di aver verificato — e chiedere a Fabrizio cosa vedeva invece di dedurlo.*
+
 **TROVATO CHIUDENDO LA DOCUMENTAZIONE, ed e' il pesce piu' grosso della giornata: nel repo la
 Regola 23 si fermava al punto 4.** I punti **5, 6 e 7** — «un documento di progetto non
 assegna numeri di voce», «un documento assorbito si sostituisce con un cartello», «una riga
