@@ -10,10 +10,12 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-12 AGOSTO 2026 — P157 CHIUSA IN CODICE: IL DISPOSITIVO RIMASTO INDIETRO NON RISCRIVE PIU'
-IL SERVER. Baseline `2b8b556`. Suite 738 -> **761 verdi**, INDEX.md rigenerato, `node --check` OK.
-**COLLAUDO SUL CAMPO ANCORA DA FARE** — fino ad allora restano in vigore le regole operative
-di ieri (una sola scheda, un solo dispositivo) e `_pre_ripristino_20260811` non si tocca.
+12 AGOSTO 2026 — P157 CHIUSA **E COLLAUDATA** LO STESSO GIORNO: IL DISPOSITIVO RIMASTO
+INDIETRO NON RISCRIVE PIU' IL SERVER. E DAL COLLAUDO E' NATA P158. Baseline `2b8b556`,
+pubblicata come `095b6ed`. Suite 738 -> **761 verdi**, INDEX.md rigenerato, `node --check` OK.
+**Le regole operative dell'11 agosto (una sola scheda, un solo dispositivo) DECADONO.**
+`_pre_ripristino_20260811` resta sul server ancora qualche giorno — **scelta di Fabrizio**, non
+un residuo dimenticato: la sincronizzazione multi-dispositivo e' in uso vero solo da oggi.
 
 **DOVE ERA IL DIFETTO, e non era dove sembrava.** Il controllo conflitti P69 esisteva ed era
 giusto — ma viveva SOLO in `_flushDirtyIds`, cioe' nel push per-id. Il push COMPLETO
@@ -93,15 +95,73 @@ applicativo non guarda mai, e i test falliscono come se il codice fosse rotto. S
 quello vero con `w.eval('db')` e lo si popola sul posto — quirk gia' documentato in
 `_loadApp.js`, che pero' parlava solo di lettura.
 
-**COLLAUDO SUL CAMPO DA FARE (quattro prove, scritte qui perche' senza il "cosa guardare"
-una voce resta ferma una settimana — lezione di P147):** (1) aprire l'app sul PC e verificare
+**LE QUATTRO PROVE DEL COLLAUDO** (scritte qui perche' senza il "cosa guardare" una voce
+resta ferma una settimana — lezione di P147; **tutte superate lo stesso giorno**, esito qui
+sotto): (1) aprire l'app sul PC e verificare
 in console che l'avvio dica «nessuna modifica locale in attesa: nessun push»; (2) aprire su
 iPhone, modificare una scheda, tornare sul PC e sincronizzare: la scheda deve **riscaricarsi**
 senza chiedere niente; (3) modificare lo STESSO paziente su entrambi i dispositivi senza
 sincronizzare, poi sincronizzare: deve comparire il dialogo a tre vie; (4) premere «Riscarica
-tutto dal cloud» e verificare che i conteggi referti restino corretti. Solo dopo si elimina
-`_pre_ripristino_20260811`.
+tutto dal cloud» e verificare che i conteggi referti restino corretti.
 
+
+**COLLAUDO SUL CAMPO — 4 PROVE SU 4 SUPERATE** (Fabrizio, sull'app in produzione): avvio
+senza push a vuoto e i 24 referti al loro posto · modifica dall'iPhone che sul PC **si
+riscarica da sola**, senza dialogo — cioe' l'incidente dell'11 agosto nella sua forma innocua
+· conflitto vero che apre il dialogo a tre vie · «Riscarica tutto dal cloud» due volte di
+fila coi conteggi invariati.
+
+**LA PROVA IN PIU', ED E' QUELLA CHE HA INSEGNATO QUALCOSA.** Fabrizio ha cancellato un
+referto e — **senza premere Sincronizza** — ha ripremuto «Riscarica tutto dal cloud»: sono
+rimasti 23, e ha chiesto se fosse giusto. Lo era. Ma **c'erano due strade per arrivare a 23 e
+solo una era quella buona**: (a) la cancellazione era gia' sul server — `delInbody` chiama
+`save(p.id)`, che spinge da solo dopo il debounce di 2s — e il pulsante ha scaricato il valore
+vero; oppure (b) la scheda era ancora sporca e il pulsante l'ha **saltata**, mostrando 23
+senza aver scaricato niente. **A schermo le due sono indistinguibili.** Deciso con una query
+aggregata di sola lettura sul database (`jsonb_array_length(data->'inbody')`, nessun nome
+letto): una sola scheda a 23, **nessuna a 24** -> caso (a). Il segnale che le distingue
+esisteva gia' ed e' nella finestra di conferma («N schede con modifiche non ancora salvate NON
+verranno toccate»): se quella riga non compare, le schede saltate sono zero.
+*Lezione, e vale oltre questa voce: **un esito giusto per il motivo sbagliato passa il
+collaudo lo stesso.** Quando due meccanismi diversi producono lo stesso numero a video, il
+collaudo non e' finito finche' non si e' stabilito QUALE ha agito — regola 16 (classificare,
+non contare) applicata al collaudo invece che al codice. E la domanda che ha fatto la
+differenza non e' venuta da un test: e' venuta da Fabrizio che ha chiesto «giusto?» invece di
+dare per buono un numero plausibile.*
+
+**IL COLLAUDO HA APERTO UNA VOCE NUOVA -> P158.** Guardando il dialogo a tre vie della prova 3,
+Fabrizio ha chiesto se avesse senso una scelta che tiene entrambe le versioni. Mettendo le tre
+in fila e' emerso un difetto che nessuno aveva scritto: «Ricarica dal cloud» butta la versione
+locale, «Sovrascrivi» butta quella remota, «Esporta» salva **solo la propria** — e per di piu'
+in un formato che `importa()` rifiuta. **Nessuna delle tre conserva la versione dell'altro
+dispositivo.** Stessa famiglia dell'incidente, un piano piu' in alto: li' si perdeva senza
+saperlo, qui premendo un pulsante. P158 in due tappe: (1) salvataggio automatico di ENTRAMBE
+le versioni prima di ogni scelta; (2) la quarta scelta «unisci quello che si puo' unire» —
+**unione degli elenchi che possono solo crescere** (referti, invii, analisi, appuntamenti),
+dove «entrambe» ha un significato esatto, e caselle singole divergenti mostrate affiancate,
+perche' li' un «entrambe» non esiste e sceglierne uno d'ufficio sarebbe inventare.
+*Se quella fusione fosse esistita l'11 agosto, la scheda di Lilly non avrebbe perso un referto
+nemmeno scegliendo il pulsante sbagliato.*
+
+**TROVATO CHIUDENDO LA DOCUMENTAZIONE, ed e' il pesce piu' grosso della giornata: nel repo la
+Regola 23 si fermava al punto 4.** I punti **5, 6 e 7** — «un documento di progetto non
+assegna numeri di voce», «un documento assorbito si sostituisce con un cartello», «una riga
+della tabella vale in due posti» — esistevano **soltanto** nella copia `_STATO_DOCUMENTI.md`
+dentro claude.ai, cioe' fuori dalla fonte di verita'. Chi leggeva `CLAUDE.md` nel repo aveva
+una regola che si fermava al 4 **e non aveva modo di sapere di essere incompleta**. *E' il
+difetto che il punto 7 descrive, applicato al punto 7 stesso.* Portati nel repo, insieme al
+nuovo **punto 8** (una riga che dichiara «in vigore» un vincolo temporaneo si e' data una
+scadenza, e va riletta il giorno in cui il vincolo cade — la riga di `Incidente_Sync` scritta
+stamattina era falsa stasera). **Trovato solo perche' qualcuno e' andato a scrivere proprio
+li':** una regola incompleta non fa rumore, e nessuno rilegge una lista numerata per contarne
+le voci.
+
+**Nota di metodo sul sandbox (costata un intoppo reale):** il `git status` di sola lettura che
+ho eseguito a inizio sessione sulla cartella collegata ha lasciato un `.git/index.lock` vuoto
+— dal bridge dispositivo si possono **creare** file ma non cancellarli — e al momento del
+commit git ha rifiutato di partire credendo a un'altra sessione aperta. Rimosso spostandolo in
+`_to_delete/`. **Da qui in avanti: nessun comando git sulla cartella di Fabrizio, nemmeno di
+lettura** — lo SHA si legge da `git ls-remote` su GitHub, che non tocca niente in locale.
 
 11-12 AGOSTO 2026 (notte) — INCIDENTE DATI: SEI PAZIENTI SOVRASCRITTI DA COPIE VECCHIE,
 RECUPERATI DAL BACKUP DEL 9 AGOSTO. E LA CAUSA, VISTA IN DIRETTA: LA SINCRONIZZAZIONE
