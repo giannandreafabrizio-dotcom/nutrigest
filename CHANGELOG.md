@@ -189,6 +189,48 @@ stamattina era falsa stasera). **Trovato solo perche' qualcuno e' andato a scriv
 li':** una regola incompleta non fa rumore, e nessuno rilegge una lista numerata per contarne
 le voci.
 
+**CLAUDE.md COMPATTATO: 61,1 → 48,3 KB (−21%), su richiesta di Fabrizio.** Nasce da una sua
+domanda a fine giornata — «come mai le tue risposte impiegano sempre piu' tempo? non abbiamo
+un sistema intelligente su come cercare le cose giuste senza surplus?». Risposta onesta: la
+causa principale **non** era il ricontrollo dei documenti ma la lunghezza della chat (ogni
+turno rilegge tutta la conversazione) e sei esecuzioni della suite intera da 80 secondi dove
+ne bastava una. Ma la domanda ha fatto emergere un costo vero: `CLAUDE.md` e' **l'unico file
+che ogni sessione legge per intero**, ed era passato da 44 a 61 KB in tre giorni.
+
+**Metodo: misurare prima, classificare, poi tagliare** (regola 16). Due sezioni facevano il
+63% del file. Trovate ripetizioni **dimostrate**, non presunte: la **regola 24** riscriveva per
+intero la sezione «Connettori» (2,7 + 2,5 KB); la lezione «i documenti di progetto sono foto
+vecchie» era scritta in **tre punti diversi**; il paragrafo «le altre nove voci da collaudare»
+era diventato **falso** (quelle nove sono state collaudate fra il 10 e il 12); le righe della
+tabella raccontavano la storia di ogni documento — fino a 750 byte l'una — quando il loro
+mestiere e' dire una cosa sola, *posso fidarmi di questo file*.
+
+**Cosa NON e' stato tagliato, ed e' il punto:** nessuna regola persa, **nessun numero
+cambiato** (rinumerare romperebbe le citazioni nel CHANGELOG), ogni documento ancora in tabella
+col suo verdetto. Verificato meccanicamente prima/dopo: 28 regole → 28, numerazione contigua,
+**tutti e 28 gli enunciati in grassetto identici byte per byte**, 32 righe di tabella → 32. Il
+racconto degli episodi e' stato spostato dove gia' viveva: qui.
+
+**Una riga e' CRESCIUTA** (`P124_Import_Referti`, 83 → 169 byte): nel repo diceva meno della
+copia dentro claude.ai, che sapeva del riuso nella tappa 153b. *Compattare non vuol dire
+tagliare ovunque* — ed e' la terza occorrenza in due giorni della Regola 23 punto 7.
+
+**E durante la compattazione ho creato io una ripetizione nuova**, spostando la nota sul git
+nella sezione Connettori quando era gia' nel Protocollo: trovata e rimossa nello stesso giro.
+*Chi asciuga un documento e' esposto allo stesso difetto che sta togliendo.*
+
+**GUARDIA MECCANICA: `s1-claude-md-integro.test.js`** (6 test, suite 769 → **775**). Controlla
+che la numerazione non abbia buchi ne' doppioni, che sia in ordine, che nessuna regola resti un
+titolo senza frase, che la tabella non si svuoti e che le sezioni a cui le regole 23 e 24
+**rimandano** esistano ancora — una regola che rimanda al vuoto e' un vicolo cieco silenzioso.
+Nato perche' il difetto e' gia' capitato due volte (il buco fra 22 e 24 il 10 agosto; i punti
+5-7 della Regola 23 esistenti solo nella copia). **Il test si e' fatto tarare due volte prima
+di essere creduto** (P146: uno strumento di misura va tarato prima di credergli): la prima
+versione dichiarava «svuotate» le regole 4-7, sane — il loro grassetto e' un'etichetta breve —
+e la seconda inciampava sulla regola 2, lunga 59 caratteri. Soglia fissata a 40 sul file vero.
+**Dichiara il proprio buco:** non giudica il *contenuto*: una regola svuotata del suo perche',
+o riscritta al contrario, passa lo stesso.
+
 **Nota di metodo sul sandbox (costata un intoppo reale):** il `git status` di sola lettura che
 ho eseguito a inizio sessione sulla cartella collegata ha lasciato un `.git/index.lock` vuoto
 — dal bridge dispositivo si possono **creare** file ma non cancellarli — e al momento del
