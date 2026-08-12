@@ -10,6 +10,51 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+11-12 AGOSTO 2026 (notte) — INCIDENTE DATI: SEI PAZIENTI SOVRASCRITTI DA COPIE VECCHIE,
+RECUPERATI DAL BACKUP DEL 9 AGOSTO. E LA CAUSA, VISTA IN DIRETTA: LA SINCRONIZZAZIONE
+SPINGE TUTTI I 41 PAZIENTI PRIMA DI IDRATARE. Nessuna riga di codice toccata stanotte.
+
+**LA SEGNALAZIONE DI FABRIZIO:** «i ~24 referti InBody di Lilly Casertano non ci sono piu».
+Verificato: vero, e non era sola — SEI righe riportate a copie di ~meta luglio (Lilly -24
+referti, Morcinelli -7, Ambrosecchia -10KB, Mangini -1 referto, Cassulino -4KB, Chimenti
+-1 referto), mentre le altre ~33 erano cresciute normalmente. Nessuna cancellazione:
+sovrascritture. Tombstone pulito, nessuna riga nascosta sul server. **Mirianna Di Cuia
+scagionata:** i suoi 7 referti erano gia suoi nel backup, nessuno spostamento fra pazienti.
+
+**IL RECUPERO:** la cartella `backup_nutrigest_09ago` sul Desktop conteneva tutte e sei le
+righe integre. Ripristino via UPDATE mirati (OK esplicito di Fabrizio; fotografia di
+sicurezza in `_pre_ripristino_20260811` PRIMA di scrivere — da eliminare a collaudo di P157
+finito). **Il primo ripristino e stato ri-sovrascritto in 3 minuti** da una scheda del
+browser rimasta aperta con la memoria vecchia; chiuse TUTTE le schede, il secondo ha retto
+(verificato due volte a 90 secondi di distanza). Stato server: 24 · 7 · 2 · 3 · 1 · 1.
+
+**LA CAUSA, PROVATA DAI LOG DELLA CONSOLE (23:09):** `pull lista` -> **`push iniziato —
+pazienti: 41`** -> ... -> `idratati 39 blob`. La sync spinge TUTTI i pazienti coi blob che
+ha in memoria e SOLO DOPO scarica quelli cambiati. Ogni scheda con memoria vecchia riscrive
+il server a ogni sync: cosi i sei sono stati persi la prima volta (un dispositivo rimasto a
+meta luglio — Fabrizio aveva caricato i referti da un ALTRO PC ~11 giorni fa e da QUESTO non
+li vedeva da 4-5 giorni), e cosi il primo ripristino e durato tre minuti. Seconda gamba:
+**la baseline P69 avanza anche senza idratazione del blob** (5 pazienti su 6 non si
+idratavano ne al boot ne su `openPaz`: baseline «fresco», locale di meta luglio).
+-> **Aperta P157, priorita MASSIMA.**
+
+**REGOLE OPERATIVE FINO ALLA CHIUSURA DI P157** (concordate con Fabrizio): una sola scheda
+NutriGest per volta, un solo dispositivo, l'altro PC NON apre l'app; alla prima apertura
+attendere ~30 secondi e verificare che Lilly mostri i 24 referti prima di lavorare. I PDF
+originali dei referti esistono ancora. **Il backup del 9 agosto NON si cancella.**
+
+*Famiglia F4/regola 15 nella sua forma piu cara. La regola L0 sul database ha retto:
+fotografia prima di scrivere, OK esplicito, verifica dopo — due volte.*
+
+━━━ CODA APERTA PER LA PROSSIMA SESSIONE ━━━
+1. **P157** (sopra) prima di qualunque lavoro multi-dispositivo.
+2. **P94 fase 2 NON collaudata**: il fix P94b (commit `20b019d`, pannello «Genera con AI»
+   nel Generatore a pillole) e **committato ma NON pushato** — va pushato e poi collaudato.
+3. Collaudi sul campo della serata: **P125 5/5 OK · P63b 5/5 OK · P126 e P127 verificati
+   sui dati veri** (dettaglio nelle rispettive schede, da marcare); **P94 a meta**.
+4. `_pre_ripristino_20260811` da eliminare solo dopo il collaudo di P157.
+
+
 11 AGOSTO 2026 (3ª parte) — P94b: LA FASE 2 DEL GIORNO SPECIALE ERA IRRAGGIUNGIBILE DAL
 GENERATORE, E L'HA SCOPERTO IL COLLAUDO. Baseline `6b85bc2`. Suite 738/738, INDEX rigenerato.
 
