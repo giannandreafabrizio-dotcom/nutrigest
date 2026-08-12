@@ -1211,6 +1211,10 @@ main{flex:1;overflow-y:auto;}
         <button class="btn btn-g btn-sm" onclick="testConnSupabase()">🔌 Testa connessione</button>
         <span id="cfg-res" style="font-size:.75rem;color:var(--text3);margin-left:.3rem"></span>
       </div>
+      <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">
+        <button class="btn btn-g btn-sm" onclick="riallineaTuttoDalCloud()">☁️ Riscarica tutto dal cloud</button>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:.3rem">Da usare se una scheda sembra ferma a una versione vecchia: riscarica dal server la scheda completa di tutti i pazienti, ignorando la memoria di questo dispositivo. Le schede con modifiche non ancora salvate non vengono toccate.</div>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -4239,6 +4243,7 @@ async function _pazFetchBlob(id){
     const i = db.pazienti.findIndex(x=>x&&x.id===id);
     if(i>=0) db.pazienti[i]=row.data; else db.pazienti.push(row.data);
     _p69SetBaseline(id, row.updated_at); // versione server ora vista da questo dispositivo
+    _p157SetImpronta(id, row.data);      // P157 — impronta di ciò che il server ha davvero: da qui in poi "cambiato" si misura, non si deduce
     const idx=_pazIndexRow(id); if(idx){ idx.updated_at=row.updated_at; _pazIndexStore(); }
     saveLocal();
     return row.data;
@@ -4282,7 +4287,7 @@ function _pazApplicaIndice(rows){
   db.pazienti=(db.pazienti||[]).filter(p=>{
     if(!p||!p.id) return false;
     if(dirty.has(p.id)||inUso.has(p.id)) return true; // mai perdere lavoro in corso
-    if(!remoti.has(p.id)){ _p69DropBaseline(p.id); return false; } // rimosso da remoto → via
+    if(!remoti.has(p.id)){ _p69DropBaseline(p.id); _p157DropImpronta(p.id); return false; } // rimosso da remoto → via
     return true; // presente da remoto: si tiene (fresco o superato); l'idratazione aggiorna
   });
 }
@@ -4295,7 +4300,33 @@ function _pazApplicaIndice(rows){
 // I dirty non si toccano (il conflitto è competenza di P69 al push). Gira in
 // sottofondo per non bloccare la lista, che è già a schermo dall'indice; a
 // download finito ridisegna lista e menu generatore così tutto è completo.
-async function _pazIdrataCambiati(){
+// P157 — l'idratazione diventa ATTENDIBILE. Fino all'11 agosto 2026
+// girava "in sottofondo" e nessuno la aspettava: `syncNow` faceva
+// partire il push un istante dopo, coi blob vecchi ancora in memoria.
+// La promessa dell'ultima passata resta esposta in
+// `window._idratazionePromise`: chi vuole solo vedere la lista non la
+// guarda, chi deve SCRIVERE sul server (pushToSheets) la aspetta.
+// Le chiamate si mettono in fila invece di sovrapporsi: due pull vicini
+// non devono lanciare due idratazioni concorrenti sugli stessi blob.
+window._idratazionePromise = null;
+function _pazIdrataCambiati(){
+  const prec = window._idratazionePromise || Promise.resolve();
+  const pr = prec.then(function(){ return _pazIdrataCambiatiOra(); })
+                 .catch(function(e){ console.error('[P74] idratazione errore:', e); })
+                 .then(function(){ if(window._idratazionePromise===pr) window._idratazionePromise=null; });
+  window._idratazionePromise = pr;
+  return pr;
+}
+// Attende l'idratazione in corso, se c'è. Fail-open: un'idratazione
+// fallita non blocca un salvataggio (i suoi errori sono già catturati
+// sopra), ma il push non parte prima che sia FINITA.
+async function _idratazioneAttendi(){
+  if(!window._idratazionePromise) return;
+  console.log('[P157] push in attesa — idratazione blob in corso');
+  try{ await window._idratazionePromise; }catch(e){}
+}
+
+async function _pazIdrataCambiatiOra(){
   const dirty=window._dirtyIds||new Set();
   const presenti={}; (db.pazienti||[]).forEach(p=>{ if(p&&p.id) presenti[p.id]=true; });
   const base=_p69LoadBaseline();
@@ -4309,6 +4340,166 @@ async function _pazIdrataCambiati(){
     console.log('[P74] B2 — idratati', daScaricare.length, 'blob paziente (nuovi o cambiati)');
     try{ renderPaz(); if(typeof renderPianoPage==='function'&&document.getElementById('piano-select-paz'))renderPianoPage(); }catch(e){}
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// P157 — Il push non sovrascrive mai una versione che non ha visto
+// (nato dall'incidente dell'11 agosto 2026: sei pazienti riscritti con
+// copie di metà luglio da un PC rimasto indietro — 24 referti InBody
+// spariti e recuperati dal backup del 9 agosto.)
+//
+// Il difetto NON era in `_flushDirtyIds`, che il controllo conflitti
+// P69 ce l'aveva già: era nel push COMPLETO (`pushToSheets`), l'unica
+// strada che scriveva tutti e 41 i pazienti senza passare da nessun
+// controllo. Tre difese, in ordine di importanza:
+//
+//  1. ORDINE — si idrata PRIMA di spingere. L'attesa sta DENTRO
+//     `pushToSheets`, non nei suoi chiamanti: una guardia scritta in un
+//     punto solo non si dimentica al quarto chiamante (regola 22).
+//  2. GUARDIA PER RIGA — se il server ha una versione più nuova della
+//     baseline di questo dispositivo, la riga non si scrive. E la
+//     reazione dipende da COSA c'è da perdere: se qui non ci sono
+//     modifiche locali non è un conflitto, è solo una copia vecchia →
+//     si riscarica in silenzio; se ci sono, è il conflitto P69 e si
+//     MOSTRA (dialogo a tre vie), non si vince.
+//  3. IMPRONTA DEL CONTENUTO — di ogni paziente si tiene l'impronta di
+//     ciò che è arrivato dal server o che gli è stato mandato. Chi ha
+//     l'impronta identica non si ripusha. Serve a due cose: taglia 41
+//     scritture per sync (ognuna faceva avanzare `updated_at`,
+//     costringendo ogni altro dispositivo a riscaricare 41 blob) ed è
+//     la SECONDA difesa quando la pre-verifica di rete non risponde —
+//     lì P69 è fail-open, l'impronta no.
+//
+// L'impronta non sostituisce il set sporco P68: lo copre, perché
+// restano call-site che chiamano `save()` senza id.
+// ═══════════════════════════════════════════════════════════════════
+const _P157_IMPRONTE_KEY = 'p157Impronte';
+
+function _p157LoadImpronte(){
+  try{ return JSON.parse(localStorage.getItem(_P157_IMPRONTE_KEY)||'{}')||{}; }catch(e){ return {}; }
+}
+function _p157StoreImpronte(map){
+  try{ localStorage.setItem(_P157_IMPRONTE_KEY, JSON.stringify(map||{})); }catch(e){ console.error('[P157] impronte store errore', e); }
+}
+// FNV-1a a 32 bit sul JSON, con la lunghezza in coda. Risponde a UNA
+// domanda — «è cambiato?» — e non pretende di essere altro: non è una
+// firma, non difende da nessuno. La lunghezza accanto all'hash rende
+// una collisione fra due versioni dello stesso paziente irrilevante
+// nella pratica.
+function _p157Impronta(obj){
+  let s;
+  try{ s=JSON.stringify(obj); }catch(e){ return null; }
+  if(typeof s!=='string') return null;
+  let h=0x811c9dc5;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=(h+((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24)))>>>0; }
+  return h.toString(16)+'-'+s.length;
+}
+function _p157SetImpronta(id, obj){
+  if(!id) return;
+  const f=_p157Impronta(obj);
+  const m=_p157LoadImpronte();
+  if(f) m[id]=f; else delete m[id];
+  _p157StoreImpronte(m);
+}
+function _p157DropImpronta(id){
+  const m=_p157LoadImpronte();
+  if(m[id]!==undefined){ delete m[id]; _p157StoreImpronte(m); }
+}
+
+// Decide, per UN paziente, cosa fare al momento del push completo.
+// FUNZIONE PURA: niente rete, niente DOM, niente localStorage. È il
+// cuore di P157, ed è pura apposta — così il test del "dispositivo
+// rimasto indietro" esercita la decisione vera senza dover simulare un
+// server (test/s2-sync-dispositivo-indietro.test.js).
+// Esiti: 'push' · 'salta-uguale' · 'salta-allineato' · 'ricarica' ·
+//        'conflitto' · 'eliminato-altrove' · 'salta-senza-riga'
+function _p157Decidi(st){
+  st = st || {};
+  if(!st.esisteInLocale) return 'salta-senza-riga';
+  if(st.forzaSovrascrittura) return 'push';        // "sovrascrivi consapevole" già scelto da Fabrizio nel dialogo P69
+  const noto = st.remotoNoto !== false;            // false = pre-verifica di rete fallita
+  const vuoto = function(v){ return v===undefined || v===null || v===''; };
+  const base = vuoto(st.baseline) ? null : st.baseline;
+  if(noto){
+    const rem = vuoto(st.remotoUpdatedAt) ? null : st.remotoUpdatedAt;
+    // Assente sul server: mai visto di qui = record nuovo da mandare;
+    // già visto = eliminato altrove, e non si resuscita (P64).
+    if(rem===null) return base===null ? 'push' : 'eliminato-altrove';
+    if(base!==null && new Date(rem) > new Date(base)){
+      const hoModifiche = !!st.sporco
+        || !!(st.improntaInviata && st.improntaLocale && st.improntaLocale!==st.improntaInviata);
+      return hoModifiche ? 'conflitto' : 'ricarica';
+    }
+  }
+  if(st.sporco) return 'push';
+  if(st.improntaInviata) return st.improntaLocale===st.improntaInviata ? 'salta-uguale' : 'push';
+  // Prima esecuzione dopo P157: nessuna impronta registrata. Se questo
+  // dispositivo è allineato al server (baseline = updated_at remoto) la
+  // sua copia È quella del server: si registra l'impronta e non si
+  // scrive niente. Senza questa riga il primo sync dopo l'aggiornamento
+  // riscriverebbe tutti e 41 i pazienti — cioè proprio il gesto che
+  // P157 esiste per evitare.
+  if(noto && base!==null && base===st.remotoUpdatedAt) return 'salta-allineato';
+  return 'push';
+}
+
+// Chiede al server l'`updated_at` degli id indicati, a lotti (l'URL di
+// PostgREST non è elastico). Fail-open come P69: se la rete non
+// risponde si dichiara `ok:false` e la decisione ricade sull'impronta.
+async function _p157RemotiUpdatedAt(ids){
+  const puliti=(ids||[]).filter(Boolean);
+  if(!puliti.length) return {ok:true, map:{}};
+  const map={};
+  const LOTTO=100;
+  try{
+    for(let i=0;i<puliti.length;i+=LOTTO){
+      const fetta=puliti.slice(i,i+LOTTO);
+      const r=await fetch(SUPA_URL+'/rest/v1/pazienti?select=id,updated_at&id=in.('+_p69InList(fetta)+')',{method:'GET',headers:supaHeaders()});
+      if(!r.ok) throw new Error('status '+r.status);
+      const rows=await r.json();
+      (rows||[]).forEach(function(row){ if(row && row.id) map[row.id]=row.updated_at; });
+    }
+    return {ok:true, map:map};
+  }catch(e){
+    console.warn('[P157] pre-verifica updated_at fallita (fail-open, decide l\'impronta):', e);
+    return {ok:false, map:{}};
+  }
+}
+
+// P157 — RIALLINEAMENTO FORZATO ("Riscarica tutto dal cloud").
+// La freschezza di un blob si decide da `updated_at`, e una scrittura
+// fatta DIRETTAMENTE sul database può lasciare quel campo invariato: è
+// successo l'11 agosto 2026 col ripristino da backup, e il risultato è
+// che 5 pazienti su 6 non si riscaricavano più — la baseline li
+// dichiarava freschi mentre il locale era di metà luglio, e nessun pull
+// poteva accorgersene. Questo comando ignora baseline e impronta e
+// riscarica il blob di ogni paziente. NON tocca i pazienti con
+// modifiche locali in attesa: quelli sono competenza di P69.
+async function riallineaTuttoDalCloud(){
+  const dirty = window._dirtyIds || new Set();
+  const visti = {};
+  (window._pazIndex||[]).forEach(function(r){ if(r&&r.id) visti[r.id]=true; });
+  (db.pazienti||[]).forEach(function(p){ if(p&&p.id) visti[p.id]=true; });
+  const ids = Object.keys(visti).filter(function(id){ return !dirty.has(id); });
+  const saltati = Object.keys(visti).length - ids.length;
+  if(!ids.length){ notif('Nessuna scheda da riscaricare',3000); return false; }
+  const msg = 'Riscarica dal cloud la scheda COMPLETA di '+ids.length+' pazienti, ignorando la memoria di questo dispositivo.\n\n'
+    + 'Le copie locali vengono sostituite da quelle del server.'
+    + (saltati ? ('\n\n'+saltati+' scheda/e con modifiche non ancora salvate sul cloud NON verranno toccate.') : '')
+    + '\n\nProcedere?';
+  if(!confirm(msg)) return false;
+  notif('☁ Riscarico '+ids.length+' schede dal cloud…',3000);
+  let ok=0;
+  for(const id of ids){
+    _p69DropBaseline(id);
+    _p157DropImpronta(id);
+    if(await _pazFetchBlob(id)) ok++;
+  }
+  saveLocal();
+  try{ renderPaz(); }catch(e){}
+  console.log('[P157] riallineamento forzato — riscaricate', ok, 'schede su', ids.length);
+  notif(ok===ids.length ? ('✅ Riscaricate '+ok+' schede dal cloud') : ('⚠ Riscaricate '+ok+' schede su '+ids.length+' — riprova'), 4500);
+  return ok===ids.length;
 }
 
 // Meta record (disponibilità + tombstone + eventuali migrazioni legacy):
@@ -4602,6 +4793,7 @@ async function delPazienteSupabase(id){
     const resp = await fetch(SUPA_URL+'/rest/v1/pazienti?id=eq.'+id, {method:'DELETE', headers: supaHeaders()});
     if(!resp.ok){ console.error('[PAZIENTI] delete ERRORE — status:', resp.status); return false; }
     if(typeof _p69DropBaseline==='function') _p69DropBaseline(id); // P69 — niente baseline stale per record eliminato
+    if(typeof _p157DropImpronta==='function') _p157DropImpronta(id); // P157 — e niente impronta stale (la coppia baseline+impronta si tiene allineata)
     // P74 f2 — via anche la riga ombra delle analisi (best-effort: niente orfani nel diff)
     try{ fetch(SUPA_URL+'/rest/v1/analisi_sangue?paz_id=eq.'+encodeURIComponent(id), {method:'DELETE', headers: supaHeaders()}); }catch(e){}
     console.log('[PAZIENTI] delete OK — id:', id);
@@ -4613,11 +4805,50 @@ async function delPazienteSupabase(id){
 }
 
 async function pushToSheets(){
+  // P157 (1) — ORDINE: non si scrive prima di aver finito di scaricare i
+  // blob che questo dispositivo non ha ancora. È l'inversione che l'11
+  // agosto 2026 ha sovrascritto sei pazienti. L'attesa sta qui e non nei
+  // chiamanti apposta: `syncNow`, `sincronizzaTutto` e `save()` senza id
+  // sono coperti tutti e tre da questa riga sola.
+  await _idratazioneAttendi();
   window._syncInFlight = true; // P-SYNC-GUARD: push in corso
-  console.log('[Supabase] push iniziato — pazienti:', db.pazienti.length);
+  const _tutti=(db.pazienti||[]).filter(function(p){ return p && p.id; });
+  console.log('[Supabase] push iniziato — pazienti in locale:', _tutti.length);
+  const _conflitti=[], _eliminati=[], _daRicaricare=[], _daPushare=[];
+  let _saltati=0;
   try{
-    for(const p of db.pazienti){
-      if(!p||!p.id){console.warn('[Supabase] paziente senza id ignorato:',p);continue;}
+    // P157 (2) — GUARDIA PER RIGA: la stessa pre-verifica del push
+    // per-id (P69), che il push completo non ha mai avuto.
+    const _rem = await _p157RemotiUpdatedAt(_tutti.map(function(p){ return p.id; }));
+    const _base=_p69LoadBaseline();
+    const _impr=_p157LoadImpronte();
+    const _sporchi=window._dirtyIds||new Set();
+    for(const p of _tutti){
+      const dec=_p157Decidi({
+        esisteInLocale:true,
+        forzaSovrascrittura: !!(window._p69ForceOverwrite && window._p69ForceOverwrite.has(p.id)),
+        remotoNoto: _rem.ok,
+        remotoUpdatedAt: _rem.ok ? _rem.map[p.id] : null,
+        baseline: _base[p.id],
+        sporco: _sporchi.has(p.id),
+        improntaLocale: _p157Impronta(p),
+        improntaInviata: _impr[p.id]
+      });
+      if(dec==='push') _daPushare.push(p);
+      else if(dec==='conflitto') _conflitti.push({id:p.id, nome:_p69NomePaz(p.id), remoteTs:_rem.map[p.id], baseTs:_base[p.id]});
+      else if(dec==='eliminato-altrove') _eliminati.push({id:p.id, nome:_p69NomePaz(p.id)});
+      else if(dec==='ricarica') _daRicaricare.push(p.id);
+      else { _saltati++; if(dec==='salta-allineato') _p157SetImpronta(p.id, p); }
+    }
+    console.log('[Supabase] push — da scrivere:', _daPushare.length,
+      '· invariati:', _saltati, '· copie vecchie da riscaricare:', _daRicaricare.length,
+      '· conflitti:', _conflitti.length, '· eliminati altrove:', _eliminati.length);
+    // Copia vecchia SENZA modifiche locali: non è un conflitto, è solo
+    // un dispositivo indietro. Si riscarica in silenzio invece di
+    // spingergli sopra la versione di metà luglio.
+    for(const id of _daRicaricare){ await _pazFetchBlob(id); }
+    if(_daRicaricare.length){ try{ renderPaz(); }catch(e){} }
+    for(const p of _daPushare){
       const _tsFull=new Date().toISOString();
       const r=await fetch(SUPA_URL+'/rest/v1/pazienti',{method:'POST',headers:supaHeaders(),body:JSON.stringify({id:p.id,data:p,updated_at:_tsFull})});
       const bodyText = await r.text();
@@ -4626,6 +4857,9 @@ async function pushToSheets(){
         throw new Error('err paz '+p.id+' status '+r.status);
       }
       _p69SetBaseline(p.id, _tsFull); // P69 — allinea baseline dopo push completo (evita falsi conflitti al prossimo edit)
+      _p157SetImpronta(p.id, p);      // P157 — impronta di ciò che il server ha ora
+      window._dirtyIds.delete(p.id);  // P157 — il set sporco si svuota per id CONFERMATO, mai in blocco
+      if(window._p69ForceOverwrite) window._p69ForceOverwrite.delete(p.id);
       _analisiSangueUpsert(p.id, p.analisiSangue); // P74 f2 — scrittura ombra, best-effort
     }
     // Meta contiene disponibilita + registro tombstone P64 (il resto ha tabelle dedicate)
@@ -4644,11 +4878,30 @@ async function pushToSheets(){
     await pushEntrateSupabase();
     await pushEventiSupabase();
     await pushConcetiSupabase();
-    localStorage.setItem('lastSync',Date.now());setSyncStatus(true);
-    window._dirtyIds.clear(); // P68 — il push completo ha coperto ogni riga: set sporco svuotato
+    localStorage.setItem('lastSync',Date.now());
+    // P157 — NIENTE `_dirtyIds.clear()`. Prima si svuotava il set in
+    // blocco «perché il push completo ha coperto ogni riga»: da oggi non
+    // è più vero, le righe in conflitto NON sono state scritte e devono
+    // restare sporche. Ogni id davvero scritto è già uscito dal set alla
+    // sua conferma 2xx.
+    const _pushOk = _conflitti.length===0;
+    setSyncStatus(_pushOk);
     window._syncInFlight = false;
-    console.log('[Supabase] push COMPLETATO OK');
-    return true;
+    if(_eliminati.length){
+      _eliminati.forEach(function(d){ window._dirtyIds.delete(d.id); });
+      notif('ℹ '+_eliminati.length+' paziente/i eliminato/i su un altro dispositivo ('+_eliminati.map(function(d){return d.nome;}).join(', ')+') — non ripristinato/i',4500);
+    }
+    if(_daRicaricare.length){
+      notif('☁ '+_daRicaricare.length+' scheda/e era/no più recente/i sul cloud — riscaricata/e',3500);
+    }
+    if(_conflitti.length){
+      // Il conflitto si MOSTRA, non si vince in silenzio (roadmap P157).
+      if(!window._p69Pending) window._p69Pending=new Set();
+      _conflitti.forEach(function(c){ window._p69Pending.add(c.id); window._dirtyIds.add(c.id); });
+      setTimeout(function(){ _p69DialogoConflitti(_conflitti); }, 30);
+    }
+    console.log('[Supabase] push COMPLETATO —', _daPushare.length, 'scritti,', _saltati, 'invariati,', _conflitti.length, 'in conflitto');
+    return _pushOk;
   }catch(e){
     window._syncInFlight = false;
     console.error('[Supabase] push ERRORE FATALE:',e);setSyncStatus(false);
@@ -4735,7 +4988,14 @@ async function pullFromSheets(){
   }
 }
 
-async function syncNow(){
+// `syncNow({avvio:true})` = la sincronizzazione automatica all'apertura
+// dell'app. P157 — all'avvio NON si spinge a vuoto: 800 ms dopo
+// l'apertura non c'è nulla di nuovo da mandare, ed è esattamente quella
+// spinta che l'11 agosto 2026 ha riscritto sei pazienti con copie di
+// metà luglio. Se invece era rimasto qualcosa da salvare dalla sessione
+// precedente (`_dirtyIds` non vuoto), il push parte come sempre.
+async function syncNow(opt){
+  const _avvio = !!(opt && opt.avvio);
   if(!await _garantiscoSessionePerSync()) return; // no scrittura anonima a RLS accesa (→ 42501)
   const d=document.getElementById('sync-dot');if(d)d.className='sync-dot loading';
   const bar=document.getElementById('sync-bar');
@@ -4743,7 +5003,12 @@ async function syncNow(){
   var barPct=0;var barIv=setInterval(function(){barPct+=8;if(bar&&barPct<90)bar.style.width=barPct+'%';},100);
   const p=await pullFromSheets();
   if(p){renderPaz();renderRic();renderCal();renderEntrate();}
-  await pushToSheets();
+  if(_avvio && !(window._dirtyIds && window._dirtyIds.size)){
+    await _idratazioneAttendi(); // la lista deve comunque arrivare completa
+    console.log('[P157] avvio — nessuna modifica locale in attesa: nessun push');
+  } else {
+    await pushToSheets();
+  }
   clearInterval(barIv);
   if(bar){bar.style.width='100%';bar.style.background=_syncOk?'#4ade80':'#f87171';}
 }
@@ -4850,7 +5115,12 @@ async function sincronizzaTutto(){
 
   // Tappa 5 — Push
   if(pullOk){
-    stpSet('stp-push','active',4);stpMsg('Upload dati…');
+    stpSet('stp-push','active',4);
+    // P157 — l'attesa è dentro pushToSheets; qui si dice solo a schermo
+    // perché la barra sembra ferma: si sta finendo di SCARICARE, e non
+    // si scrive niente prima che sia finito.
+    if(window._idratazionePromise){ stpMsg('Attendo il download delle schede…'); await _idratazioneAttendi(); }
+    stpMsg('Upload dati…');
     try{pushOk=await pushToSheets();stpSet('stp-push',pushOk?'done':'err',4);stpMsg(pushOk?'Completato ✓':'Push parziale',pushOk?'ok':'err');}
     catch(e){stpSet('stp-push','err',4);stpMsg('Push fallito','err');}
   }
@@ -4965,6 +5235,7 @@ async function _pushRigaPerId(id){
       return false;
     }
     _p69SetBaseline(id, _tsPush); // P69 — la mia scrittura è ora la verità nota per questo record
+    _p157SetImpronta(id, p);      // P157 — e la sua impronta, così il push completo sa che questa riga è già arrivata
     window._p69ForceOverwrite && window._p69ForceOverwrite.delete(id); // consumato l'eventuale "sovrascrivi consapevole"
     _analisiSangueUpsert(p.id, p.analisiSangue); // P74 f2 — scrittura ombra, best-effort
     return true;
@@ -5173,6 +5444,9 @@ async function _p69RisolviRicarica(ids){
         const idx = (db.pazienti||[]).findIndex(function(p){ return p && p.id===id; });
         if(idx>=0) db.pazienti[idx]=remote.data; else db.pazienti.push(remote.data);
         if(remote.updated_at) _p69SetBaseline(id, remote.updated_at);
+        _p157SetImpronta(id, remote.data); // P157 — la copia locale è ora quella del server: l'impronta lo dice
+      }else{
+        _p157DropImpronta(id); // assente da remoto: nessuna impronta da vantare
       }
       // se assente remoto (eliminato): non lo ricreiamo, lo lasciamo com'è in locale
       window._dirtyIds.delete(id);
@@ -31996,7 +32270,7 @@ if(_ritornoAuth==='recovery'){
   mostraNuovaPassword();
 }else{
   verificaSessioneEAvvia().then(function(_sessAvviata){
-    if(_sessAvviata){avviaRinnovoTokenPeriodico();setTimeout(async()=>{await syncNow();try{await migraConcetti();renderConcettiPage();}catch(e){console.error('[CONCETTI] migrazione init error:',e);}},800);}
+    if(_sessAvviata){avviaRinnovoTokenPeriodico();setTimeout(async()=>{await syncNow({avvio:true});try{await migraConcetti();renderConcettiPage();}catch(e){console.error('[CONCETTI] migrazione init error:',e);}},800);}
   });
 }
 

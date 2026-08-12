@@ -535,12 +535,36 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
       (solo scrittura ombra; delPazienteSupabase elimina anche la riga ombra)
   Semantica sync — fotografia del comportamento attuale (aggiornata 9 luglio 2026, P68):
     save(pazId?) è ora retro-compatibile con due modalità.
-    save() SENZA argomento = comportamento storico invariato: saveLocal() +
-    pushToSheets(). pushToSheets() invia TUTTI i pazienti, un POST per paziente,
-    payload {id, data:<intero oggetto paziente>, updated_at} con Prefer:
-    resolution=merge-duplicates (upsert: l'ultimo push vince sull'intero blob).
+    save() SENZA argomento = saveLocal() + pushToSheets().
+    pushToSheets() — DAL 12 AGO 2026 (P157) NON invia più tutti i pazienti alla
+    cieca. Prima istruzione: `await _idratazioneAttendi()` — non si scrive nulla
+    finché l'idratazione dei blob (P74 B2) non è finita. Poi una pre-verifica
+    `_p157RemotiUpdatedAt(ids)` chiede al server gli updated_at a lotti di 100, e
+    `_p157Decidi({...})` — funzione PURA — classifica ogni paziente in uno di
+    sette esiti: push · salta-uguale · salta-allineato · ricarica · conflitto ·
+    eliminato-altrove · salta-senza-riga. Si scrive solo chi esce 'push', un POST
+    per paziente, payload {id, data:<intero oggetto paziente>, updated_at} con
+    Prefer: resolution=merge-duplicates. 'ricarica' (server più nuovo, nessuna
+    modifica locale) chiama _pazFetchBlob in silenzio; 'conflitto' (server più
+    nuovo E modifiche locali) apre _p69DialogoConflitti e lascia l'id sporco.
+    _dirtyIds NON si svuota in blocco: ogni id esce alla propria conferma 2xx.
+    Impronta del contenuto: `_p157Impronta(p)` (FNV-1a a 32 bit + lunghezza del
+    JSON) salvata in localStorage `p157Impronte` da _pazFetchBlob, _pushRigaPerId,
+    pushToSheets e _p69RisolviRicarica; impronta identica a quella già arrivata al
+    server = nessuna scrittura. È anche la difesa che regge quando la pre-verifica
+    di rete fallisce (lì P69 è fail-open, l'impronta no).
     Resta il comportamento di importa() e dell'eliminazione definitiva paziente
     (deve propagare rimozione + tombstone in un colpo, push completo corretto).
+    syncNow({avvio:true}) = la sincronizzazione automatica dell'apertura (800 ms
+    dopo il login, scritta in coda a index.html): fa SOLO il pull se _dirtyIds è
+    vuoto. syncNow() senza argomento (pulsante "↺ Sincronizza ora") spinge sempre.
+    riallineaTuttoDalCloud() = riallineamento forzato, pulsante "☁️ Riscarica tutto
+    dal cloud" in Impostazioni → Supabase: ignora baseline e impronta e riscarica
+    il blob di ogni paziente non sporco, con confirm() prima di partire. Esiste
+    perché una scrittura fatta direttamente sul database può lasciare updated_at
+    invariato, e in quel caso nessun confronto di date può accorgersi di niente
+    (successo l'11 ago 2026 col ripristino da backup: 5 pazienti su 6 restavano
+    fermi a una copia vecchia mentre la baseline li dichiarava freschi).
     save(pazId) = push incrementale: saveLocal() immediato, poi l'id finisce in
     window._dirtyIds (Set), _syncPendingFail si arma subito (guardia beforeunload
     attiva finché il cloud non conferma), un debounce di 2s coalesce raffiche di
@@ -566,7 +590,11 @@ Supabase: https://zrhmspylnlklppvhgplp.supabase.co
     prima (un paziente assente da remoto esce dalla cache locale, salvo dirty/in
     uso); le copie SUPERATE NON vengono espulse — restano e le aggiorna
     l'idratazione (niente flicker nel generatore). Le baseline P69 NON si allineano
-    più dal pull: solo da _pazFetchBlob o dal push. Il meta record arriva con un
+    più dal pull: solo da _pazFetchBlob o dal push. Dal 12 ago 2026 (P157)
+    _pazIdrataCambiati è un guscio che mette in fila le chiamate ed espone la
+    promessa dell'ultima passata in window._idratazionePromise (il corpo è
+    _pazIdrataCambiatiOra): chi vuole solo la lista non la guarda, chi deve
+    SCRIVERE sul server la aspetta con _idratazioneAttendi(). Il meta record arriva con un
     fetch dedicato (_pazFetchMeta). Guardia invariata: se il server restituisce 0
     righe i dati locali NON vengono toccati (ora esplicita anche nel pull inline di
     sincronizzaTutto). Il client non invia

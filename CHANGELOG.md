@@ -10,6 +10,99 @@
 STORICO SESSIONI E COMMIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+12 AGOSTO 2026 — P157 CHIUSA IN CODICE: IL DISPOSITIVO RIMASTO INDIETRO NON RISCRIVE PIU'
+IL SERVER. Baseline `2b8b556`. Suite 738 -> **761 verdi**, INDEX.md rigenerato, `node --check` OK.
+**COLLAUDO SUL CAMPO ANCORA DA FARE** — fino ad allora restano in vigore le regole operative
+di ieri (una sola scheda, un solo dispositivo) e `_pre_ripristino_20260811` non si tocca.
+
+**DOVE ERA IL DIFETTO, e non era dove sembrava.** Il controllo conflitti P69 esisteva ed era
+giusto — ma viveva SOLO in `_flushDirtyIds`, cioe' nel push per-id. Il push COMPLETO
+(`pushToSheets`) era l'unica strada che scriveva tutte e 41 le righe **senza passare da
+nessun controllo**, ed e' la strada che percorrono la sincronizzazione d'avvio, il pulsante
+«Sincronizza» e ogni `save()` senza id. *Una guardia che copre una strada su due e' una
+guardia che qualcuno prima o poi aggirera' senza saperlo — regola 22 applicata ai percorsi
+invece che ai campi.*
+
+**TRE DIFESE, in ordine di importanza.**
+**(1) ORDINE — si idrata PRIMA di spingere.** `_pazIdrataCambiati` girava "in sottofondo" e
+nessuno la aspettava; ora espone la sua promessa in `window._idratazionePromise` e
+`pushToSheets` la attende come prima istruzione. **L'attesa sta DENTRO `pushToSheets`, non
+nei suoi tre chiamanti**: e' la stessa lezione della regola 15 ("ripara il rubinetto") —
+scriverla nei chiamanti significa dimenticarla al quarto.
+**(2) GUARDIA PER RIGA, e la reazione dipende da COSA c'e' da perdere.** Se il server ha una
+versione piu' nuova della baseline locale, la riga non si scrive. Ma **non e' sempre un
+conflitto**: se qui non ci sono modifiche da difendere e' solo una copia vecchia, e si
+riscarica in silenzio (`_pazFetchBlob`) invece di aprire un dialogo che l'utente non saprebbe
+come chiudere. Il conflitto vero — modificato qui E altrove — apre il dialogo a tre vie di
+P69. *La distinzione e' il cuore della voce: nell'incidente dell'11 agosto i sei pazienti
+erano tutti nel primo caso, e la risposta giusta era scaricare, non chiedere.*
+**(3) IMPRONTA DEL CONTENUTO — si spinge solo chi e' cambiato davvero.** Di ogni paziente si
+tiene l'impronta (FNV-1a + lunghezza) di cio' che e' arrivato dal server o gli e' stato
+mandato; impronta identica = niente scrittura. Taglia 41 POST per sync — ognuna faceva
+avanzare `updated_at`, **obbligando ogni altro dispositivo a riscaricare 41 blob**: la sync
+si dava da sola il lavoro da fare. Ed e' la **seconda difesa** dove P69 e' fail-open: se la
+pre-verifica di rete non risponde, il confronto delle date non c'e' ma l'impronta si'.
+**L'impronta da sola avrebbe fermato l'incidente**, perche' su quel PC i sei blob erano
+identici a quelli ricevuti a luglio.
+
+**IL SET SPORCO NON SI SVUOTA PIU' IN BLOCCO.** `pushToSheets` finiva con
+`_dirtyIds.clear()` «perche' il push completo ha coperto ogni riga»: da oggi non e' piu'
+vero — le righe in conflitto NON vengono scritte, e svuotare il set avrebbe buttato via le
+loro modifiche senza un errore. Ogni id esce dal set alla propria conferma 2xx.
+
+**PRIMA ESECUZIONE: il caso che si sarebbe rotto in silenzio.** Al primo avvio dopo
+l'aggiornamento nessuna impronta esiste, quindi la regola "spingi solo chi e' cambiato" non
+avrebbe avuto niente da confrontare e avrebbe riscritto tutti e 41 i pazienti — cioe'
+esattamente il gesto che questa voce esiste per evitare. Rimedio: se `baseline` coincide con
+l'`updated_at` remoto, il dispositivo e' allineato per costruzione, l'impronta si registra e
+non si scrive niente (esito `salta-allineato`).
+
+**AVVIO: niente piu' spinta a vuoto.** La sincronizzazione automatica e' marcata
+`syncNow({avvio:true})` e a 800 ms dall'apertura fa **solo il download**, a meno che non sia
+rimasto qualcosa di sporco dalla sessione precedente. E' letteralmente la spinta che l'11
+agosto ha sovrascritto sei pazienti.
+
+**LA SECONDA GAMBA, e il limite che non si puo' chiudere col codice.** La freschezza di un
+blob si decide da `updated_at`: **una scrittura fatta direttamente sul database puo'
+lasciarlo invariato** — e' successo col ripristino da backup, ed e' il motivo per cui 5
+pazienti su 6 non si riscaricavano piu' ne' al boot ne' su `openPaz`. Nessun confronto di
+date puo' accorgersene, per costruzione. Rimedio onesto invece che finto: il comando
+**`riallineaTuttoDalCloud()`** («☁️ Riscarica tutto dal cloud», in Impostazioni -> Supabase)
+ignora baseline e impronta e riscarica il blob di ogni paziente, lasciando stare quelli con
+modifiche in attesa. *Quando un difetto non e' rilevabile, si da' all'utente il comando per
+ripararlo e lo si dichiara — non si scrive un controllo che finge di vederlo.*
+
+**IL CUORE E' UNA FUNZIONE PURA.** `_p157Decidi({...})` -> `push` · `salta-uguale` ·
+`salta-allineato` · `ricarica` · `conflitto` · `eliminato-altrove` · `salta-senza-riga`:
+niente rete, niente DOM, niente localStorage. Cosi' il test esercita la decisione VERA senza
+simulare un server, e resta leggibile fra un anno.
+
+**23 TEST NUOVI** (`s2-sync-dispositivo-indietro.test.js`): 15 sul classificatore e
+sull'impronta, 4 su `pushToSheets` con un server finto — **fra cui l'incidente riprodotto**
+(PC con 0 referti contro server con 24: zero scritture, e i 24 referti tornano in locale) —
+e 4 guardie strutturali che impediscono di togliere il rimedio per distrazione: l'attesa
+dell'idratazione deve precedere la prima POST nel sorgente, `_dirtyIds.clear()` non deve
+ricomparire, l'avvio deve restare marcato, il comando di soccorso deve avere un pulsante.
+*Il file dichiara in testa cosa NON vede* (RLS, rete vera, e proprio il caso `updated_at`
+invariato): un verde li' significa «il dispositivo indietro non sovrascrive», non «la
+sincronizzazione e' sicura».
+
+**TRANELLO DELL'HARNESS, terza volta:** `db` e' dichiarato con `let` e in JSDOM **non**
+diventa una proprieta' di `window`. Riassegnare `w.db` crea un secondo oggetto che il codice
+applicativo non guarda mai, e i test falliscono come se il codice fosse rotto. Si prende
+quello vero con `w.eval('db')` e lo si popola sul posto — quirk gia' documentato in
+`_loadApp.js`, che pero' parlava solo di lettura.
+
+**COLLAUDO SUL CAMPO DA FARE (quattro prove, scritte qui perche' senza il "cosa guardare"
+una voce resta ferma una settimana — lezione di P147):** (1) aprire l'app sul PC e verificare
+in console che l'avvio dica «nessuna modifica locale in attesa: nessun push»; (2) aprire su
+iPhone, modificare una scheda, tornare sul PC e sincronizzare: la scheda deve **riscaricarsi**
+senza chiedere niente; (3) modificare lo STESSO paziente su entrambi i dispositivi senza
+sincronizzare, poi sincronizzare: deve comparire il dialogo a tre vie; (4) premere «Riscarica
+tutto dal cloud» e verificare che i conteggi referti restino corretti. Solo dopo si elimina
+`_pre_ripristino_20260811`.
+
+
 11-12 AGOSTO 2026 (notte) — INCIDENTE DATI: SEI PAZIENTI SOVRASCRITTI DA COPIE VECCHIE,
 RECUPERATI DAL BACKUP DEL 9 AGOSTO. E LA CAUSA, VISTA IN DIRETTA: LA SINCRONIZZAZIONE
 SPINGE TUTTI I 41 PAZIENTI PRIMA DI IDRATARE. Nessuna riga di codice toccata stanotte.
@@ -47,6 +140,10 @@ originali dei referti esistono ancora. **Il backup del 9 agosto NON si cancella.
 fotografia prima di scrivere, OK esplicito, verifica dopo — due volte.*
 
 ━━━ CODA APERTA PER LA PROSSIMA SESSIONE ━━━
+*(Stato al 12 ago 2026, aggiunto qui perche' una lista di cose da fare che resta scritta al
+presente diventa falsa il giorno dopo: **1 fatto in codice** — collaudo sul campo ancora da
+fare; **2 fatto** — `20b019d` e `2b8b556` sono su `origin/main`, resta il collaudo di P94
+fase 2; **3 e 4 invariati**.)*
 1. **P157** (sopra) prima di qualunque lavoro multi-dispositivo.
 2. **P94 fase 2 NON collaudata**: il fix P94b (commit `20b019d`, pannello «Genera con AI»
    nel Generatore a pillole) e **committato ma NON pushato** — va pushato e poi collaudato.
